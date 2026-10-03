@@ -1,113 +1,78 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#050706">
-<meta name="description" content="KINU — The Dog That Followed. 1B supply. No roadmap. Just fun for the culture.">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#02050a">
+<meta name="description" content="KINU — The Dog That Followed. Two dogs. One NEAR. No roadmap. Just fun for the culture.">
+<meta property="og:title" content="KINU — The Dog That Followed">
+<meta property="og:description" content="NINU found the path. KINU followed the scent. Two dogs. One NEAR.">
+<meta property="og:image" content="kinu-banner.png">
 <title>KINU — The Dog That Followed</title>
 <style>
-:root{--bg:#050706;--bg2:#07100d;--panel:#0b1411;--line:#19362f;--teal:#39f5d0;--teal2:#8ffff0;--white:#effffb;--muted:#8fa8a1;--orange:#ffb45a}
-*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(900px 500px at 72% -5%,#10423855,transparent 60%),radial-gradient(700px 500px at 15% 30%,#0a302955,transparent 60%),var(--bg);color:var(--white);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow-x:hidden}
-body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.08;background-image:linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px);background-size:60px 60px;mask-image:linear-gradient(to bottom,#000,transparent 75%)}
-a{text-decoration:none;color:inherit}.container{width:min(1160px,calc(100% - 40px));margin:auto}
-nav{height:82px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #143028;position:relative;z-index:3}
-.logo-type{font-size:22px;font-weight:950;letter-spacing:.18em}.logo-type span{color:var(--teal)}
-.navlinks{display:flex;gap:28px;color:var(--muted);font-size:14px;font-weight:700}.navlinks a:hover{color:var(--teal)}
-.navbtn{border:1px solid #2d6358;padding:11px 16px;border-radius:9px;color:var(--teal);font-weight:800}
-.hero{min-height:760px;display:grid;grid-template-columns:1.05fr .95fr;align-items:center;gap:50px;position:relative}
-.kicker{display:inline-flex;align-items:center;gap:9px;border:1px solid #245248;background:#0b1916;padding:8px 12px;border-radius:999px;color:#bdeee6;font-size:12px;font-weight:900;letter-spacing:.14em;text-transform:uppercase}
-.dot{width:7px;height:7px;border-radius:50%;background:var(--teal);box-shadow:0 0 16px var(--teal)}
-h1{font-size:clamp(82px,13vw,164px);line-height:.76;letter-spacing:-.085em;margin:30px 0 28px;font-weight:950}
-.gradient{background:linear-gradient(100deg,#fff 0%,#c7fff5 45%,var(--teal) 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
-.hero p{font-size:21px;line-height:1.55;color:#b8ccc7;max-width:590px}.hero p strong{color:var(--white)}
-.cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:30px}.btn{padding:14px 20px;border-radius:10px;border:1px solid #2a5149;background:#0a1512;font-weight:900}.btn.primary{background:var(--teal);color:#04100d;border-color:var(--teal);box-shadow:0 0 28px #39f5d033}.btn:hover{transform:translateY(-2px)}
-.hero-art{position:relative;display:grid;place-items:center}.orb{width:min(480px,90vw);aspect-ratio:1;border:1px solid #2d7568;border-radius:50%;background:radial-gradient(circle,#113f35 0,#071510 52%,#050908 70%);box-shadow:0 0 100px #25d9bd22,inset 0 0 80px #1ad2b21c;display:grid;place-items:center;overflow:hidden}.orb:before{content:"";position:absolute;width:72%;aspect-ratio:1;border:1px dashed #2b675d;border-radius:50%;animation:spin 22s linear infinite}.orb:after{content:"";position:absolute;width:115%;height:1px;background:#39f5d044;transform:rotate(-28deg)}
-.mascot{width:72%;height:72%;object-fit:contain;position:relative;z-index:2;filter:drop-shadow(0 18px 35px #000)}
-.fallback{font-size:150px;position:relative;z-index:2}@keyframes spin{to{transform:rotate(360deg)}}section{padding:110px 0;border-top:1px solid #112a24}
-.section-head{display:flex;justify-content:space-between;gap:30px;align-items:end;margin-bottom:38px}.eyebrow{color:var(--teal);font-size:11px;font-weight:950;letter-spacing:.2em;text-transform:uppercase}.section-head h2{font-size:clamp(38px,5vw,64px);letter-spacing:-.05em;margin:10px 0 0}.section-head p{max-width:470px;color:var(--muted);line-height:1.7}
-.lore{display:grid;grid-template-columns:1.1fr .9fr;gap:22px}.lorebox,.glass{border:1px solid var(--line);background:linear-gradient(145deg,#0b1814cc,#07100eaa);border-radius:20px;padding:32px}.lorebox p{font-size:22px;line-height:1.75;color:#c7d7d3;margin:0}.lorebox p+p{margin-top:18px}.bigquote{font-size:34px;font-weight:950;line-height:1.15}.bigquote span{color:var(--teal)}
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.stat{border:1px solid var(--line);background:#08110f;border-radius:15px;padding:24px}.stat small{display:block;color:#6f8882;text-transform:uppercase;letter-spacing:.16em;font-size:10px;font-weight:900;margin-bottom:10px}.stat strong{font-size:25px}.supply{font-variant-numeric:tabular-nums}
-.allocation{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:18px}.alloc-card{border:1px solid var(--line);background:#08110f;border-radius:15px;padding:24px}.alloc-top{display:flex;justify-content:space-between;gap:12px;font-size:12px;font-weight:900;letter-spacing:.1em}.alloc-top b{color:var(--teal);font-size:20px;letter-spacing:0}.bar{height:7px;border-radius:99px;background:#12251f;margin:18px 0 10px;overflow:hidden}.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--teal),var(--teal2));border-radius:99px}.alloc-card p{margin:0;color:var(--muted);font-size:13px}.allocation-note{color:var(--muted);line-height:1.7;margin-top:18px}.no-roadmap{display:grid;grid-template-columns:1fr 1fr;gap:18px}.feature{padding:34px;border:1px solid var(--line);border-radius:20px;background:#08120f}.feature h3{font-size:27px;margin:0 0 12px}.feature p{color:var(--muted);line-height:1.7;margin:0}.culture{font-size:clamp(42px,7vw,86px);line-height:.95;letter-spacing:-.06em;font-weight:950}.culture em{color:var(--teal);font-style:normal}
-.community{text-align:center;padding-bottom:130px}.community h2{font-size:clamp(52px,8vw,100px);letter-spacing:-.07em;margin:15px 0}.community p{color:var(--muted);font-size:18px}
-footer{border-top:1px solid #112a24;padding:35px 0;color:#647d76;font-size:13px}.footerline{display:flex;justify-content:space-between;gap:20px}
-
-.allocation{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:18px}.alloc-card{border:1px solid var(--line);background:#08110f;border-radius:15px;padding:24px;position:relative;overflow:hidden}.alloc-card:before{content:"";position:absolute;left:0;top:0;height:3px;width:var(--bar,20%);background:var(--teal);box-shadow:0 0 18px #39f5d066}.alloc-card.holders:before{--bar:60%}.alloc-top{display:flex;justify-content:space-between;gap:15px;color:#91aaa5;font-size:11px;font-weight:900;letter-spacing:.13em}.alloc-top strong{color:var(--teal);font-size:22px;letter-spacing:0}.alloc-amount{font-size:30px;font-weight:950;margin-top:18px}.alloc-card p{color:var(--muted);line-height:1.6;margin-bottom:0}
-@media(max-width:820px){.hero,.lore,.no-roadmap,.allocation{grid-template-columns:1fr}.hero{padding:80px 0}.hero-art{order:-1}.stats{grid-template-columns:1fr 1fr}.navlinks{display:none}.section-head{display:block}.section-head p{margin-top:18px}.footerline{display:block}.footerline div+div{margin-top:10px}}
+:root{--bg:#02060a;--panel:#071019;--panel2:#0a151e;--line:#17333e;--teal:#31f1d1;--cyan:#86fff1;--white:#f4fffd;--muted:#91a7b0;--pink:#ff79bd;--gold:#ffc76b}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(900px 600px at 80% -10%,#06465b55,transparent 65%),radial-gradient(700px 600px at 0 40%,#1b0d3b33,transparent 65%),var(--bg);color:var(--white);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow-x:hidden}body:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.045;background-image:linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px);background-size:64px 64px;mask-image:linear-gradient(to bottom,#000,transparent 78%)}a{text-decoration:none;color:inherit}.container{width:min(1200px,calc(100% - 36px));margin:auto}
+nav{height:78px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #132c35;position:relative;z-index:20;backdrop-filter:blur(16px);background:#02060acc}.logo{display:flex;align-items:center;gap:10px;font-size:22px;font-weight:950;letter-spacing:.18em}.logo-mark{width:32px;height:32px;border-radius:50%;overflow:hidden;border:1px solid #2d8e84;box-shadow:0 0 25px #35f2d033}.logo-mark img{width:100%;height:100%;object-fit:cover}.logo span{color:var(--teal)}.navlinks{display:flex;gap:28px;color:var(--muted);font-size:14px;font-weight:800}.navlinks a:hover{color:var(--teal)}.navbtn{border:1px solid #2b685c;padding:11px 16px;border-radius:10px;color:var(--teal);font-weight:900;background:#071310aa}.navbtn:hover{background:#0d2520}
+.hero{padding:28px 0 74px}.hero-card{position:relative;min-height:620px;border:1px solid #1d4752;border-radius:28px;overflow:hidden;background:#02060a;box-shadow:0 30px 100px #0008}.hero-bg{position:absolute;inset:0;background-image:linear-gradient(90deg,#02060a 0%,#02060a33 42%,#02060a05 70%),linear-gradient(0deg,#02060acc 0%,transparent 45%),url('kinu-banner.png');background-size:cover;background-position:center}.hero-content{position:relative;z-index:2;min-height:620px;display:flex;align-items:flex-end;padding:42px}.hero-copy{max-width:610px}.kicker{display:inline-flex;align-items:center;gap:9px;border:1px solid #24584d;background:#06110eee;padding:8px 12px;border-radius:999px;color:#c4eee7;font-size:11px;font-weight:950;letter-spacing:.16em;text-transform:uppercase}.dot{width:7px;height:7px;border-radius:50%;background:var(--teal);box-shadow:0 0 16px var(--teal)}.hero h1{font-size:clamp(58px,8vw,105px);line-height:.84;letter-spacing:-.08em;margin:20px 0 12px}.gradient{background:linear-gradient(105deg,#fff,#d7fff8 40%,var(--teal));-webkit-background-clip:text;background-clip:text;color:transparent}.hero-tag{font-size:clamp(25px,3vw,43px);font-weight:950;line-height:.98;letter-spacing:-.05em}.hero-tag span{color:var(--teal)}.hero p{font-size:17px;line-height:1.65;color:#c0d0d5;max-width:580px;margin:20px 0}.hero p strong{color:var(--white)}.cta{display:flex;gap:11px;flex-wrap:wrap;margin-top:20px}.btn{padding:13px 18px;border-radius:11px;border:1px solid #31515a;background:#071219e8;font-weight:950;transition:.2s}.btn:hover{transform:translateY(-2px);border-color:var(--teal)}.btn.primary{background:var(--teal);color:#04100d;border-color:var(--teal);box-shadow:0 0 35px #35f2d033}.socials{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}.social{border:1px solid #24414a;background:#071019dd;padding:8px 11px;border-radius:9px;color:#b4c6cb;font-size:11px;font-weight:850}.social:hover{color:var(--teal);border-color:#3b8275}.hero-strip{position:absolute;right:24px;bottom:24px;z-index:3;display:flex;gap:8px}.hero-chip{padding:8px 11px;border:1px solid #ffffff22;background:#02060acc;border-radius:999px;font-size:10px;font-weight:900;letter-spacing:.1em;color:#d7e8e5}
+section{padding:96px 0;border-top:1px solid #102b35}.section-head{display:flex;justify-content:space-between;gap:30px;align-items:end;margin-bottom:30px}.eyebrow{color:var(--teal);font-size:10px;font-weight:950;letter-spacing:.22em;text-transform:uppercase}.section-head h2{font-size:clamp(38px,5vw,65px);letter-spacing:-.06em;margin:10px 0 0}.section-head p{max-width:470px;color:var(--muted);line-height:1.7;margin:0}
+.token-wrap{border:1px solid var(--line);border-radius:24px;background:linear-gradient(145deg,#09131be8,#050d13dd);padding:28px}.token-top{display:grid;grid-template-columns:.85fr 2fr;gap:20px;align-items:center}.supply-label{color:#78939c;text-transform:uppercase;letter-spacing:.15em;font-size:11px;font-weight:900}.supply{font-size:clamp(58px,9vw,105px);line-height:.9;font-weight:1000;letter-spacing:-.08em;background:linear-gradient(100deg,#fff,var(--teal));-webkit-background-clip:text;background-clip:text;color:transparent}.supply-unit{font-size:20px;font-weight:950;color:#dffdf7;margin-left:7px}.allocations{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.alloc-card{border:1px solid var(--line);background:#071119;border-radius:17px;padding:24px;position:relative;overflow:hidden}.alloc-card:before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:var(--teal);box-shadow:0 0 18px #39f5d066}.alloc-card:nth-child(2):before{background:var(--gold)}.alloc-card:nth-child(3):before{background:#9d8cff}.alloc-card small{display:block;color:#78929c;font-size:10px;font-weight:950;letter-spacing:.14em}.alloc-card strong{display:block;font-size:38px;margin-top:8px}.alloc-card p{color:var(--muted);font-size:13px;line-height:1.55;margin-bottom:0}.token-note{color:var(--muted);font-size:13px;line-height:1.7;margin:18px 0 0}
+.lore{display:grid;grid-template-columns:1.08fr .92fr;gap:18px}.panel{border:1px solid var(--line);background:linear-gradient(145deg,#09151ddd,#050e14dd);border-radius:22px;padding:32px}.story p{font-size:19px;line-height:1.7;color:#c6d7dc;margin:0}.story p+p{margin-top:15px}.quote{font-size:clamp(42px,5vw,70px);font-weight:1000;line-height:.92;letter-spacing:-.06em}.quote span{color:var(--teal)}.quote-sub{color:var(--muted);line-height:1.7;margin-top:22px}.lore-art{margin-top:18px;border:1px solid var(--line);border-radius:22px;overflow:hidden;height:310px;background:#02060a}.lore-art img{width:100%;height:100%;object-fit:cover;object-position:center}
+.culture-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.feature{padding:34px;border:1px solid var(--line);border-radius:22px;background:#071119}.feature h3{font-size:28px;margin:0 0 12px}.feature p{color:var(--muted);line-height:1.75;margin:0}.culture-banner{margin-top:18px;border:1px solid var(--line);border-radius:22px;padding:38px;background:radial-gradient(circle at 70% 50%,#0b4c4055,transparent 38%),linear-gradient(120deg,#07121a,#0a1d24);overflow:hidden;position:relative}.culture-banner:after{content:"🐾";position:absolute;right:7%;bottom:-45px;font-size:210px;opacity:.08}.culture-big{font-size:clamp(45px,7vw,92px);line-height:.9;letter-spacing:-.07em;font-weight:1000}.culture-big em{color:var(--teal);font-style:normal}
+.community{text-align:center;padding-bottom:120px}.community h2{font-size:clamp(50px,8vw,102px);letter-spacing:-.075em;margin:14px 0}.community p{color:var(--muted);font-size:18px}.community-box{border:1px solid var(--line);border-radius:24px;padding:48px 24px;background:radial-gradient(circle at center,#0c3c3350,transparent 60%),#061019}.links{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:20px}.link{padding:12px 16px;border:1px solid #31515a;border-radius:10px;color:#d7e8e5;font-weight:900;font-size:13px}.link:hover{border-color:var(--teal);color:var(--teal)}
+footer{border-top:1px solid #102b35;padding:35px 0;color:#667f86;font-size:12px}.footerline{display:flex;justify-content:space-between;gap:20px}.footerline strong{color:var(--white)}
+@media(max-width:860px){.navlinks{display:none}.hero-card,.hero-content{min-height:650px}.hero-bg{background-position:58% center}.hero-content{padding:28px;align-items:flex-end;background:linear-gradient(0deg,#02060aee 0%,#02060a66 55%,transparent)}.hero-strip{display:none}.section-head{display:block}.section-head p{margin-top:18px}.token-top,.lore,.culture-grid,.allocations{grid-template-columns:1fr}.lore-art{height:240px}.footerline{display:block}.footerline div+div{margin-top:10px}}
+@media(max-width:520px){.container{width:min(100% - 24px,1200px)}nav{height:70px}.navbtn{padding:9px 12px;font-size:12px}.hero{padding-top:12px}.hero-card{border-radius:20px;min-height:680px}.hero-content{min-height:680px;padding:22px}.hero-bg{background-position:60% center}.hero h1{font-size:64px}.hero p{font-size:15px}.social{font-size:10px}.token-wrap,.panel,.feature,.culture-banner{padding:22px}.community-box{padding:38px 18px}}
 </style>
 </head>
 <body>
 <div class="container">
 <nav>
-  <div class="logo-type">K<span>I</span>NU</div>
+  <a class="logo" href="#top"><div class="logo-mark"><img src="kinu-mascot.png" alt="KINU"></div><div>K<span>I</span>NU</div></a>
   <div class="navlinks"><a href="#lore">Lore</a><a href="#token">Token</a><a href="#culture">Culture</a><a href="#community">Community</a></div>
-  <a class="navbtn" href="#community">JOIN THE PACK</a>
+  <a class="navbtn" href="#community">JOIN THE PACK →</a>
 </nav>
 
-<header class="hero">
-  <div>
-    <div class="kicker"><i class="dot"></i> NEAR DOG PACK</div>
-    <h1><span class="gradient">KINU</span></h1>
-    <div class="bigquote">THE DOG<br><span>THAT FOLLOWED.</span></div>
-    <p>NINU found the path. KINU followed the scent. <strong>Two dogs. One NEAR.</strong> No roadmap. No promises. Just a meme, a pack, and fun for the culture.</p>
-    <div class="cta"><a class="btn primary" href="#token">EXPLORE $KINU</a><a class="btn" href="#lore">READ THE LORE ↓</a></div>
-  </div>
-  <div class="hero-art">
-    <div class="orb">
-      <div class="fallback">🐕</div>
+<header class="hero" id="top">
+  <div class="hero-card">
+    <div class="hero-bg"></div>
+    <div class="hero-content">
+      <div class="hero-copy">
+        <div class="kicker"><i class="dot"></i> NEAR DOG PACK</div>
+        <h1><span class="gradient">KINU</span></h1>
+        <div class="hero-tag">THE DOG<br><span>THAT FOLLOWED.</span></div>
+        <p>NINU found the path. KINU followed the scent. <strong>Two dogs. One NEAR.</strong> No roadmap. No promises. Just a meme, a pack, and fun for the culture.</p>
+        <div class="cta"><a class="btn primary" href="#token">EXPLORE $KINU →</a><a class="btn" href="#lore">READ THE LORE ↓</a></div>
+        <div class="socials"><span class="social">𝕏 X / TWITTER</span><span class="social">✈ TELEGRAM</span><span class="social">Ⓝ NEAR</span><span class="social">▣ CONTRACT</span><span class="social">▥ CHART</span></div>
+      </div>
     </div>
+    <div class="hero-strip"><span class="hero-chip">NO ROADMAP</span><span class="hero-chip">JUST FUN</span><span class="hero-chip">FOR THE CULTURE</span></div>
   </div>
 </header>
 
-<section id="lore">
-  <div class="section-head"><div><div class="eyebrow">THE STORY</div><h2>The path was already there.</h2></div><p>A simple meme story built around the NEAR animal culture.</p></div>
-  <div class="lore">
-    <div class="lorebox">
-      <p>They said there was only one dog.</p>
-      <p>NINU found the path and started walking through the NEAR ecosystem.</p>
-      <p>Then KINU appeared.</p>
-      <p>He didn't come to replace NINU. He came because he had followed the scent.</p>
-      <p>One dog found the way. The other followed.</p>
-      <p>And from that moment, the pack began to form.</p>
-    </div>
-    <div class="glass"><div class="eyebrow">THE LINE</div><p class="culture">NINU found the way.<br><em>KINU followed.</em></p><p style="color:var(--muted);line-height:1.7">The culture is the product. The meme is the roadmap.</p></div>
+<section id="token">
+  <div class="section-head"><div><div class="eyebrow">TOKENOMICS</div><h2>Simple. Clear. KINU.</h2></div><p>No complicated math on the page. Just the supply and the allocation exactly as stated.</p></div>
+  <div class="token-wrap">
+    <div class="token-top"><div><div class="supply-label">TOTAL SUPPLY</div><div><span class="supply">1B</span><span class="supply-unit">$KINU</span></div></div>
+      <div class="allocations"><div class="alloc-card"><small>CREATOR</small><strong>20%</strong><p>Creator allocation.</p></div><div class="alloc-card"><small>BUYBACK &amp; BURN</small><strong>20%</strong><p>Buyback &amp; burn allocation.</p></div><div class="alloc-card"><small>HOLDERS</small><strong>60%</strong><p>Community and holders.</p></div></div>
+    </div><p class="token-note">Network: NEAR · Name: KINU · Symbol: $KINU</p>
   </div>
 </section>
 
-<section id="token">
-  <div class="section-head"><div><div class="eyebrow">TOKEN</div><h2>Simple by design.</h2></div><p>1B total supply. A transparent community allocation built around creator, burn, and holders.</p></div>
-  <div class="stats">
-    <div class="stat"><small>Name</small><strong>KINU</strong></div>
-    <div class="stat"><small>Symbol</small><strong>$KINU</strong></div>
-    <div class="stat"><small>Network</small><strong>NEAR</strong></div>
-    <div class="stat"><small>Total Supply</small><strong class="supply">1B</strong></div>
-  </div>
-  <div class="allocation">
-    <div class="alloc-card creator"><div class="alloc-top"><span>CREATOR</span><strong>20%</strong></div><p>Creator allocation.</p></div>
-    <div class="alloc-card burn"><div class="alloc-top"><span>BUYBACK &amp; BURN</span><strong>20%</strong></div><p>Reserved for the buyback &amp; burn mechanism.</p></div>
-    <div class="alloc-card holders"><div class="alloc-top"><span>HOLDERS</span><strong>60%</strong></div><p>Allocated to the community and holders.</p></div>
-  </div>
+<section id="lore">
+  <div class="section-head"><div><div class="eyebrow">THE LORE</div><h2>One found the way.</h2></div><p>A simple story for a simple meme: NINU discovered the path, and KINU followed the scent.</p></div>
+  <div class="lore"><div class="panel story"><p>They said there was only one dog.</p><p>NINU found the path and started walking through the NEAR ecosystem.</p><p>Then KINU appeared.</p><p>He didn't come to replace NINU. He came because he had followed the scent.</p><p>One dog found the way. The other followed.</p><p>And from that moment, the pack began to form.</p></div><div class="panel"><div class="eyebrow">THE LINE</div><div class="quote">NINU found the way.<br><span>KINU followed.</span></div><div class="quote-sub">Two dogs. One NEAR. Different paths, same sky. The pack is the culture.</div></div></div>
+  <div class="lore-art"><img src="kinu-banner.png" alt="KINU and NINU — The Dog That Followed"></div>
 </section>
 
 <section id="culture">
-  <div class="section-head"><div><div class="eyebrow">NO ROADMAP</div><h2>Just fun for the culture.</h2></div><p>KINU isn't here to sell a future. KINU is here to enjoy the present.</p></div>
-  <div class="no-roadmap">
-    <div class="feature"><h3>🐕 No Roadmap</h3><p>No fake milestones. No corporate promises. No “quarter 4 vision.” We are here to make memes, have fun, and let the community write the story.</p></div>
-    <div class="feature"><h3>⚡ Pure Culture</h3><p>NINU × KINU. NEAR × dogs. Community × memes. That's the meta. Everything else is just noise.</p></div>
-  </div>
+  <div class="section-head"><div><div class="eyebrow">CULTURE</div><h2>No roadmap.</h2></div><p>KINU isn't here to sell a future. KINU is here to enjoy the present.</p></div>
+  <div class="culture-grid"><div class="feature"><h3>🐕 No Roadmap</h3><p>No fake milestones. No corporate promises. No “quarter four vision.” We are here to make memes, have fun, and let the community write the story.</p></div><div class="feature"><h3>⚡ Pure Culture</h3><p>NINU × KINU. NEAR × dogs. Community × memes. That's the meta. Everything else is just noise.</p></div></div>
+  <div class="culture-banner"><div class="eyebrow">THE MOTTO</div><div class="culture-big">JUST FUN<br><em>FOR THE CULTURE.</em></div></div>
 </section>
 
 <section id="community" class="community">
-  <div class="eyebrow">THE PACK</div>
-  <h2>THE PACK IS FORMING.</h2>
-  <p>Official X and Telegram links can be added here when your accounts are ready.</p>
-  <div class="cta" style="justify-content:center">
-    <a class="btn primary" href="#">𝕏 X — COMING SOON</a>
-    <a class="btn" href="#">TELEGRAM — COMING SOON</a>
-  </div>
+  <div class="community-box"><div class="eyebrow">THE NEAR DOG PACK</div><h2>THE PACK IS FORMING.</h2><p>Bring the memes. Bring the energy. Bring your friends.</p><div class="links"><a class="link" href="#">𝕏 X — COMING SOON</a><a class="link" href="#">✈ TELEGRAM — COMING SOON</a><a class="link" href="#">Ⓝ NEAR</a></div></div>
 </section>
 
-<footer><div class="footerline"><div><strong>KINU</strong> — The Dog That Followed.</div><div>1B SUPPLY · 20% CREATOR · 20% BUYBACK & BURN · 60% HOLDERS</div></div></footer>
+<footer><div class="footerline"><div><strong>KINU</strong> — The Dog That Followed.</div><div>1B SUPPLY · 20% CREATOR · 20% BUYBACK &amp; BURN · 60% HOLDERS</div></div></footer>
 </div>
-</body>
-</html>
+</body></html>
