@@ -9,10 +9,14 @@
 <meta property="og:url" content="https://kinuthedog.site/">
 <link rel="canonical" href="https://kinuthedog.site/">
 <title>KINU — The Dog That Followed</title>
-<link rel="icon" href="favicon.ico?v=8" sizes="any">
+<link rel="preload" as="video" href="kinu-background.mp4" type="video/mp4">
+<link rel="preload" as="image" href="kinu-banner.png">
+<link rel="preload" as="image" href="kinu-mascot.png">
+
+<link rel="icon" href="favicon.ico?v=16" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png?v=8">
 <link rel="icon" type="image/png" sizes="16x16" href="icon-16.png?v=8">
-<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=8">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=16">
 <meta name="theme-color" content="#030c0f">
 <style>
 :root{--bg:#02060a;--panel:#071019;--panel2:#0a151e;--line:#17333e;--teal:#31f1d1;--cyan:#86fff1;--white:#f4fffd;--muted:#91a7b0;--pink:#ff79bd;--gold:#ffc76b}
@@ -27,19 +31,195 @@ section{padding:96px 0;border-top:1px solid #102b35}.section-head{display:flex;j
 footer{border-top:1px solid #102b35;padding:35px 0;color:#667f86;font-size:12px}.footerline{display:flex;justify-content:space-between;gap:20px}.footerline strong{color:var(--white)}
 @media(max-width:860px){.navlinks{display:none}.hero-card,.hero-content{min-height:650px}.hero-bg{background-position:58% center}.hero-content{padding:28px;align-items:flex-end;background:linear-gradient(0deg,#02060aee 0%,#02060a66 55%,transparent)}.hero-strip{display:none}.section-head{display:block}.section-head p{margin-top:18px}.token-top,.lore,.culture-grid,.allocations{grid-template-columns:1fr}.lore-art{height:240px}.footerline{display:block}.footerline div+div{margin-top:10px}}
 @media(max-width:520px){.container{width:min(100% - 24px,1200px)}nav{height:70px}.navbtn{padding:9px 12px;font-size:12px}.hero{padding-top:12px}.hero-card{border-radius:20px;min-height:680px}.hero-content{min-height:680px;padding:22px}.hero-bg{background-position:60% center}.hero h1{font-size:64px}.hero p{font-size:15px}.social{font-size:10px}.token-wrap,.panel,.feature,.culture-banner{padding:22px}.community-box{padding:38px 18px}}
+
+/* ===== V13: VIDEO + CINEMATIC IMAGE BACKGROUNDS ===== */
+.hero-card{isolation:isolate}
+.hero-bg{
+  overflow:hidden;
+  background:#020605;
+}
+.hero-video,.hero-image-fallback,.hero-bg-shade{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+}
+.hero-video{
+  object-fit:cover;
+  object-position:center;
+  z-index:0;
+  transform:scale(1.035);
+  filter:saturate(.92) contrast(1.04);
+  transition:transform 1.8s cubic-bezier(.16,1,.3,1),filter 1s ease;
+}
+.hero-image-fallback{
+  z-index:1;
+  background:url('kinu-guardian.png') center/cover no-repeat;
+}
+.hero-bg-shade{
+  z-index:2;
+  background:
+    linear-gradient(90deg,#020605f2 0%,#020605aa 34%,#02060522 70%,#02060545 100%),
+    linear-gradient(0deg,#020605d8 0%,transparent 46%,#0206052a 100%);
+}
+.hero-content{z-index:3}
+.hero-card:hover .hero-video{transform:scale(1.055)}
+.cinematic-gallery{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:18px;
+  margin-top:28px;
+}
+.cinematic-gallery figure{
+  position:relative;
+  margin:0;
+  height:min(42vw,520px);
+  min-height:300px;
+  overflow:hidden;
+  border:1px solid var(--line);
+  border-radius:22px;
+  background:#020605;
+  box-shadow:0 30px 90px #0008;
+}
+.cinematic-gallery img{
+  width:100%;height:100%;object-fit:cover;
+  display:block;
+  filter:saturate(.9) contrast(1.05);
+  transform:scale(1.025);
+  transition:transform 1.4s cubic-bezier(.16,1,.3,1),filter 1s ease;
+}
+.cinematic-gallery figure:hover img{
+  transform:scale(1.07);
+  filter:saturate(1.02) contrast(1.06);
+}
+.cinematic-gallery figure:after{
+  content:"";
+  position:absolute;inset:0;
+  background:linear-gradient(0deg,#020605d0,transparent 45%);
+  pointer-events:none;
+}
+.cinematic-gallery figcaption{
+  position:absolute;
+  z-index:2;
+  left:20px;bottom:18px;
+  color:#dffff8;
+  font-size:10px;
+  font-weight:950;
+  letter-spacing:.22em;
+}
+@media(max-width:860px){
+  .cinematic-gallery{grid-template-columns:1fr}
+  .cinematic-gallery figure{height:420px}
+  .hero-video{object-position:58% center}
+}
+@media(max-width:520px){
+  .cinematic-gallery figure{height:320px;min-height:260px}
+}
+
+
+/* ===== V15 VIDEO FIX ===== */
+.hero-bg{
+  position:absolute;
+  inset:0;
+  overflow:hidden;
+  z-index:0;
+  background:#020605;
+}
+.hero-video{
+  position:absolute !important;
+  inset:0;
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  object-position:center;
+  z-index:2 !important;
+  opacity:1;
+  visibility:visible;
+  pointer-events:none;
+  background:#020605;
+  transform:scale(1.035);
+  filter:saturate(.92) contrast(1.04);
+}
+.hero-image-fallback{
+  position:absolute;
+  inset:0;
+  z-index:1 !important;
+  background:url('kinu-guardian.png') center/cover no-repeat;
+  opacity:1;
+}
+.hero-bg-shade{
+  position:absolute;
+  inset:0;
+  z-index:3 !important;
+  pointer-events:none;
+  background:
+    linear-gradient(90deg,#020605f2 0%,#020605aa 34%,#02060522 70%,#02060545 100%),
+    linear-gradient(0deg,#020605d8 0%,transparent 46%,#0206052a 100%);
+}
+.hero-content{
+  position:relative;
+  z-index:4 !important;
+}
+.hero-card:hover .hero-video{
+  transform:scale(1.055);
+}
+.hero-video.video-fallback{
+  opacity:0;
+}
+
+
+/* ===== V16 ASSET RESTORE / ROBUST LOGO ===== */
+.logo-mark{
+  overflow:hidden;
+  display:grid;
+  place-items:center;
+}
+.logo-mark img{
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+.logo-mark.logo-fallback{
+  background:radial-gradient(circle at 35% 30%,#22e8ae,#073d2d 58%,#020605);
+  box-shadow:0 0 18px #00e89a35 inset;
+}
+.logo-mark.logo-fallback:after{
+  content:"K";
+  color:#f2fff9;
+  font-weight:950;
+  font-size:18px;
+  line-height:1;
+}
+.lore-art img{
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+
 </style>
 </head>
 <body>
 <div class="container">
 <nav>
-  <a class="logo" href="#top"><div class="logo-mark"><img src="kinu-mascot.png" alt="KINU"></div><div>K<span>I</span>NU</div></a>
+  <a class="logo" href="#top"><div class="logo-mark">
+  <img src="kinu-mascot.png" alt="KINU" onerror="this.style.display='none';this.parentElement.classList.add('logo-fallback')">
+</div><div>K<span>I</span>NU</div></a>
   <div class="navlinks"><a href="#lore">Lore</a><a href="#token">Token</a><a href="#culture">Culture</a><a href="#community">Community</a></div>
-  <a class="navbtn" href="https://x.com/KINUtheDog" target="_blank" rel="noopener">JOIN THE PACK ↗</a>
+  <a class="navbtn" href="https://x.com/KINUonNEAR" target="_blank" rel="noopener">JOIN THE PACK ↗</a>
 </nav>
 
 <header class="hero" id="top">
   <div class="hero-card">
-    <div class="hero-bg"></div>
+    <div class="hero-bg" aria-hidden="true">
+  <video class="hero-video" autoplay muted loop playsinline preload="metadata">
+    <source src="kinu-background.mp4" type="video/mp4">
+  </video>
+  <div class="hero-image-fallback"></div>
+  <div class="hero-bg-shade"></div>
+</div>
     <div class="hero-content">
       <div class="hero-copy">
         <div class="kicker"><i class="dot"></i> NEAR DOG PACK</div>
@@ -47,7 +227,7 @@ footer{border-top:1px solid #102b35;padding:35px 0;color:#667f86;font-size:12px}
         <div class="hero-tag">THE DOG<br><span>THAT FOLLOWED.</span></div>
         <p>NINU found the path. KINU followed the scent. <strong>Two dogs. One NEAR.</strong> No roadmap. No promises. Just a meme, a pack, and fun for the culture.</p>
         <div class="cta"><a class="btn primary" href="https://nearly.trade/kinu.nearlytrade.near" target="_blank" rel="noopener">BUY $KINU ↗</a><a class="btn" href="#lore">READ THE LORE ↓</a></div>
-        <div class="socials"><a class="social" href="https://x.com/KINUtheDog" target="_blank" rel="noopener">𝕏 X / TWITTER</a><a class="social" href="https://nearly.trade/kinu.nearlytrade.near" target="_blank" rel="noopener">Ⓝ NEARLY</a><a class="social" href="https://nearly.trade/kinu.nearlytrade.near" target="_blank" rel="noopener">▣ CONTRACT</a><span class="social">✈ TELEGRAM — SOON</span><span class="social">▥ CHART — SOON</span></div>
+        <div class="socials"><a class="social" href="https://x.com/KINUonNEAR" target="_blank" rel="noopener">𝕏 X / @KINUonNEAR</a><a class="social" href="https://nearly.trade/kinu.nearlytrade.near" target="_blank" rel="noopener">Ⓝ NEARLY</a><a class="social" href="https://nearly.trade/kinu.nearlytrade.near" target="_blank" rel="noopener">▣ CONTRACT</a><span class="social">✈ TELEGRAM — SOON</span><a class="social" href="https://dexscreener.com/near/refv2-kinu.nearlytrade.near:ninu-4.nearlytrade.near:10000" target="_blank" rel="noopener">▥ CHART ↗</a></div>
       </div>
     </div>
     <div class="hero-strip"><span class="hero-chip">NO ROADMAP</span><span class="hero-chip">JUST FUN</span><span class="hero-chip">FOR THE CULTURE</span></div>
@@ -66,7 +246,10 @@ footer{border-top:1px solid #102b35;padding:35px 0;color:#667f86;font-size:12px}
 <section id="lore">
   <div class="section-head"><div><div class="eyebrow">THE LORE</div><h2>One found the way.</h2></div><p>A simple story for a simple meme: NINU discovered the path, and KINU followed the scent.</p></div>
   <div class="lore"><div class="panel story"><p>They said there was only one dog.</p><p>NINU found the path and started walking through the NEAR ecosystem.</p><p>Then KINU appeared.</p><p>He didn't come to replace NINU. He came because he had followed the scent.</p><p>One dog found the way. The other followed.</p><p>And from that moment, the pack began to form.</p></div><div class="panel"><div class="eyebrow">THE LINE</div><div class="quote">NINU found the way.<br><span>KINU followed.</span></div><div class="quote-sub">Two dogs. One NEAR. Different paths, same sky. The pack is the culture.</div></div></div>
-  <div class="lore-art"><img src="kinu-banner.png" alt="KINU and NINU — The Dog That Followed"></div>
+  <div class="lore-art"><img src="kinu-banner.png" alt="KINU and NINU — The Dog That Followed"></div><div class="cinematic-gallery" data-reveal>
+  <figure><img src="kinu-guardian.png" alt="KINU guardian under the neon moon"><figcaption>THE GUARDIAN</figcaption></figure>
+  <figure><img src="kinu-valley.png" alt="KINU in the NEAR valley"><figcaption>THE VALLEY</figcaption></figure>
+</div>
 </section>
 
 <section id="culture">
@@ -76,9 +259,68 @@ footer{border-top:1px solid #102b35;padding:35px 0;color:#667f86;font-size:12px}
 </section>
 
 <section id="community" class="community">
-  <div class="community-box"><div class="eyebrow">THE NEAR DOG PACK</div><h2>THE PACK IS FORMING.</h2><p>Bring the memes. Bring the energy. Bring your friends.</p><div class="links"><a class="link" href="https://x.com/KINUtheDog" target="_blank" rel="noopener">𝕏 X — @KINUtheDog ↗</a><a class="link" href="https://nearly.trade/kinu.nearlytrade.near" target="_blank" rel="noopener">Ⓝ VIEW $KINU ON NEARLY ↗</a><span class="link">✈ TELEGRAM — SOON</span></div></div>
+  <div class="community-box"><div class="eyebrow">THE NEAR DOG PACK</div><h2>THE PACK IS FORMING.</h2><p>Bring the memes. Bring the energy. Bring your friends.</p><div class="links"><a class="link" href="https://x.com/KINUonNEAR" target="_blank" rel="noopener">𝕏 X — @KINUonNEAR ↗</a><a class="link" href="https://nearly.trade/kinu.nearlytrade.near" target="_blank" rel="noopener">Ⓝ VIEW $KINU ON NEARLY ↗</a><a class="link" href="https://dexscreener.com/near/refv2-kinu.nearlytrade.near:ninu-4.nearlytrade.near:10000" target="_blank" rel="noopener">◫ VIEW CHART ↗</a><span class="link">✈ TELEGRAM — SOON</span></div></div>
 </section>
 
 <footer><div class="footerline"><div><strong>KINU</strong> — The Dog That Followed.</div><div>1B SUPPLY · 20% CREATOR · 20% BUYBACK &amp; BURN · 60% HOLDERS</div></div></footer>
 </div>
+
+<script>
+(() => {
+  const video = document.querySelector('.hero-video');
+  const fallback = document.querySelector('.hero-image-fallback');
+  if (!video) return;
+
+  video.muted = true;
+  video.defaultMuted = true;
+  video.setAttribute('muted', '');
+  video.setAttribute('playsinline', '');
+  video.setAttribute('webkit-playsinline', '');
+  video.setAttribute('autoplay', '');
+  video.setAttribute('loop', '');
+
+  const showVideo = () => {
+    video.classList.remove('video-fallback');
+    if (fallback) fallback.style.opacity = '0';
+  };
+
+  const showFallback = () => {
+    video.classList.add('video-fallback');
+    if (fallback) fallback.style.opacity = '1';
+  };
+
+  video.addEventListener('canplay', showVideo, {once:true});
+  video.addEventListener('playing', showVideo);
+  video.addEventListener('error', showFallback);
+  video.addEventListener('stalled', () => {
+    // Keep the fallback only if playback has not started.
+    if (video.readyState < 2) showFallback();
+  });
+
+  const startVideo = async () => {
+    try {
+      await video.play();
+      showVideo();
+    } catch (err) {
+      // Browser autoplay policy can temporarily block playback.
+      // A muted video should normally be allowed; retry after first interaction.
+      showFallback();
+    }
+  };
+
+  if (video.readyState >= 2) startVideo();
+  else video.addEventListener('loadeddata', startVideo, {once:true});
+
+  const retry = () => {
+    if (video.paused) startVideo();
+    window.removeEventListener('pointerdown', retry);
+    window.removeEventListener('touchstart', retry);
+    window.removeEventListener('keydown', retry);
+  };
+  window.addEventListener('pointerdown', retry, {once:true, passive:true});
+  window.addEventListener('touchstart', retry, {once:true, passive:true});
+  window.addEventListener('keydown', retry, {once:true});
+})();
+</script>
+
 </body></html>
