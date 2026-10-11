@@ -5525,3 +5525,14 @@ a.dt-row:hover {
   font-size: 20px;
   font-weight: 750;
 }
+
+/* Swap chart: drawing toolbar beside the canvas */
+.chart-card .pro-chart__body {
+  margin: 0 -2px;
+  border-top: 1px solid var(--border);
+}
+
+.pro-chart__body > .chart-card__canvas {
+  flex: 1;
+  min-width: 0;
+}

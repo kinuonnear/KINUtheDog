@@ -3,6 +3,7 @@ import { createChart, CandlestickSeries, HistogramSeries } from 'lightweight-cha
 import { useAsync, useLocalStorage } from '../hooks.js';
 import { fetchOhlc, fetchTokenInfo, intearTokenId, RESOLUTIONS } from '../lib/intear.js';
 import { formatChartPrice, formatPercent, formatUsd } from '../lib/format.js';
+import { attachDrawings, DrawingToolbar, useDrawingKeys } from './chart/DrawingTools.jsx';
 import { Spinner, TokenIcon } from './ui.jsx';
 
 const UP = '#b8ff3d';
@@ -15,10 +16,26 @@ export default function PriceChart({ tokenIn, tokenOut, side, onSideChange }) {
   const [mode, setMode] = useState('price');
   const [legend, setLegend] = useState(null);
   const containerRef = useRef(null);
+  const canvasRef = useRef(null);
   const chartRef = useRef(null);
+  const paintRef = useRef(null);
+  const pendingRef = useRef(null);
+  const live = useRef({});
 
   const token = side === 'in' ? tokenIn : tokenOut;
   const tokenId = intearTokenId(token);
+
+  // Drawing tools (same as the pool chart), saved per token and Price / MCap mode.
+  const [tool, setTool] = useState('cursor');
+  const [magnet, setMagnet] = useState(true);
+  const [hidden, setHidden] = useState(false);
+  const [selected, setSelected] = useState(null);
+  const [drawings, setDrawings] = useLocalStorage(`kinu.draw.swap.${tokenId}.${mode}`, []);
+  live.current = { drawings, selected, hidden, tool, magnet, setDrawings, setSelected, setTool };
+  useDrawingKeys(live, pendingRef, paintRef);
+  useEffect(() => {
+    paintRef.current?.();
+  }, [drawings, selected, hidden]);
 
   const info = useAsync(() => fetchTokenInfo(tokenId), [tokenId], { enabled: Boolean(tokenId), refreshMs: 30_000 });
   const supply = info.data?.circulatingSupply;
@@ -98,11 +115,18 @@ export default function PriceChart({ tokenIn, tokenOut, side, onSideChange }) {
       setLegend(param?.time ? byTime.get(param.time) || null : null);
     });
 
+    const step = RESOLUTIONS.find((r) => r.key === resolution)?.seconds || 3600;
+    const drawingLayer = attachDrawings({ chart, series, data: scaled, step, container, canvas: canvasRef.current, live, pendingRef });
+    paintRef.current = drawingLayer.paint;
+
     chartRef.current = { chart, series, volume, toVolume, byTime };
     return () => {
+      paintRef.current = null;
+      drawingLayer.dispose();
       chartRef.current = null;
       chart.remove();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scaled]);
 
   // Live updates: merge fresh candles into the existing chart without resetting zoom.
@@ -244,11 +268,31 @@ export default function PriceChart({ tokenIn, tokenOut, side, onSideChange }) {
         )}
       </div>
 
-      <div className="chart-card__canvas">
-        <div ref={containerRef} className="chart-card__container" />
-        {(loading || message) && (
-          <div className="chart-card__overlay">{loading ? <Spinner size={22} /> : <span>{message}</span>}</div>
-        )}
+      <div className="pro-chart__body">
+        <DrawingToolbar
+          tool={tool}
+          onTool={(key) => {
+            pendingRef.current = null;
+            setTool(key);
+          }}
+          magnet={magnet}
+          setMagnet={setMagnet}
+          hidden={hidden}
+          setHidden={setHidden}
+          selected={selected}
+          onDelete={() => {
+            if (selected) setDrawings((list) => list.filter((d) => d.id !== selected));
+            else setDrawings([]);
+            setSelected(null);
+          }}
+        />
+        <div className="chart-card__canvas">
+          <div ref={containerRef} className="chart-card__container" />
+          <canvas ref={canvasRef} className={`draw-canvas ${tool !== 'cursor' ? 'draw-canvas--active' : ''}`} />
+          {(loading || message) && (
+            <div className="chart-card__overlay">{loading ? <Spinner size={22} /> : <span>{message}</span>}</div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -14,6 +14,7 @@ import { bollinger, ema, INDICATORS, sma } from '../lib/indicators.js';
 import { pointToPrice } from '../lib/dclLiquidity.js';
 import { formatChartPrice, formatPercent, formatUsd } from '../lib/format.js';
 import { drawAll, hitTest, TOOLS } from './chart/drawings.js';
+import { DrawingToolbar, ToolIcon, useDrawingKeys } from './chart/DrawingTools.jsx';
 import { Spinner, TokenIcon } from './ui.jsx';
 
 const UP = '#b8ff3d';
@@ -31,29 +32,6 @@ const pct = (price, current) => {
   const p = (price / current - 1) * 100;
   return `${p >= 0 ? '+' : ''}${p.toFixed(2)}%`;
 };
-
-function ToolIcon({ kind }) {
-  const paths = {
-    cursor: <path d="M9 2v14M2 9h14" />,
-    trend: <path d="M3 15 15 3" />,
-    hline: <path d="M1 9h16" />,
-    rect: <rect x="3" y="4" width="12" height="10" rx="1" />,
-    fib: <path d="M2 3h14M2 7h14M2 11h14M2 15h14" />,
-    measure: <path d="M3 15 15 3M3 11v4h4M15 7V3h-4" />,
-    magnet: <path d="M4 3v6a5 5 0 0 0 10 0V3M4 6h3M11 6h3" />,
-    eye: <path d="M1 9s3-5 8-5 8 5 8 5-3 5-8 5-8-5-8-5ZM9 11a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" />,
-    trash: <path d="M3 5h12M7 5V3h4v2M5 5l1 10h6l1-10" />,
-    camera: <path d="M2 6h3l2-2h4l2 2h3v9H2ZM9 13a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />,
-    expand: <path d="M2 7V2h5M11 2h5v5M16 11v5h-5M7 16H2v-5" />,
-    candles: <path d="M5 2v14M3 5h4v7H3ZM13 2v14M11 7h4v5h-4Z" />,
-    line: <path d="M2 14 7 8l4 3 5-7" />
-  };
-  return (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      {paths[kind]}
-    </svg>
-  );
-}
 
 function IndicatorMenu({ active, toggle }) {
   const [open, setOpen] = useState(false);
@@ -142,23 +120,7 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
     paintRef.current?.();
   }, [minPrice, maxPrice, fullRange, drawings, selected, hidden, binPrices]);
 
-  // Delete removes the selected drawing; Esc cancels the active tool.
-  useEffect(() => {
-    const onKey = (e) => {
-      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
-      if ((e.key === 'Delete' || e.key === 'Backspace') && live.current.selected) {
-        live.current.setDrawings((list) => list.filter((d) => d.id !== live.current.selected));
-        live.current.setSelected(null);
-      }
-      if (e.key === 'Escape') {
-        pendingRef.current = null;
-        live.current.setTool('cursor');
-        paintRef.current?.();
-      }
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, []);
+  useDrawingKeys(live, pendingRef, paintRef);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -592,49 +554,23 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
       </div>
 
       <div className="pro-chart__body">
-        <div className="pro-chart__tools" role="toolbar" aria-label="Drawing tools">
-          {TOOLS.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              title={t.label}
-              aria-label={t.label}
-              className={`dtool ${tool === t.key ? 'dtool--active' : ''}`}
-              onClick={() => {
-                pendingRef.current = null;
-                setTool(t.key);
-              }}
-            >
-              <ToolIcon kind={t.key} />
-            </button>
-          ))}
-          <span className="dtool-sep" />
-          <button type="button" title="Magnet: snap to OHLC" aria-label="Magnet" className={`dtool ${magnet ? 'dtool--on' : ''}`} onClick={() => setMagnet(!magnet)}>
-            <ToolIcon kind="magnet" />
-          </button>
-          <button
-            type="button"
-            title={hidden ? 'Show drawings' : 'Hide drawings'}
-            aria-label={hidden ? 'Show drawings' : 'Hide drawings'}
-            className={`dtool ${hidden ? 'dtool--on' : ''}`}
-            onClick={() => setHidden(!hidden)}
-          >
-            <ToolIcon kind="eye" />
-          </button>
-          <button
-            type="button"
-            title={selected ? 'Delete selected drawing' : 'Remove all drawings'}
-            aria-label={selected ? 'Delete selected drawing' : 'Remove all drawings'}
-            className="dtool"
-            onClick={() => {
-              if (selected) setDrawings((list) => list.filter((d) => d.id !== selected));
-              else setDrawings([]);
-              setSelected(null);
-            }}
-          >
-            <ToolIcon kind="trash" />
-          </button>
-        </div>
+        <DrawingToolbar
+          tool={tool}
+          onTool={(key) => {
+            pendingRef.current = null;
+            setTool(key);
+          }}
+          magnet={magnet}
+          setMagnet={setMagnet}
+          hidden={hidden}
+          setHidden={setHidden}
+          selected={selected}
+          onDelete={() => {
+            if (selected) setDrawings((list) => list.filter((d) => d.id !== selected));
+            else setDrawings([]);
+            setSelected(null);
+          }}
+        />
 
         <div className="range-chart__canvas">
           <div ref={containerRef} className="chart-card__container" />
