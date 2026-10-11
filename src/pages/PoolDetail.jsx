@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useApp } from '../state.jsx';
 import { useAsync } from '../hooks.js';
 import { Link, useLocation } from '../router.jsx';
@@ -14,7 +14,7 @@ import { fetchTrades } from '../lib/intear.js';
 const RangeChart = lazy(() => import('../components/RangeChart.jsx'));
 import { formatAmount, formatPercent, formatRawAmount, formatUsd, shortAccount, toBigInt, toNumber } from '../lib/format.js';
 import { CONTRACTS, ENDPOINTS, NATIVE_NEAR } from '../config.js';
-import { CopyButton, EmptyState, ErrorNotice, PairIcons, Skeleton, Stat, TokenIcon } from '../components/ui.jsx';
+import { CopyButton, EmptyState, ErrorNotice, PairIcons, Skeleton, Stat, Tabs, TokenIcon } from '../components/ui.jsx';
 
 /** Pool page on app.rhea.finance, for users who want the original UI. */
 function rheaPoolUrl(pool) {
@@ -247,21 +247,21 @@ function DclPool({ poolId, initialTab }) {
   const usdY = totalY * priceOf(prices, tokenY);
 
   return (
-    <>
-      <PoolHeader
+    <div className="terminal">
+      <PoolBar
         tokens={[x, y]}
         label="CLMM"
         feePercent={fee / 10000}
-        idText="Concentrated"
         rheaUrl={rheaPoolUrl({ kind: 'DCL', id: poolId })}
         swapLink={`/swap?from=${tokenX}&to=${tokenY}`}
+        stats={[
+          { label: 'Current price', value: `${formatAmount(price)} ${y.symbol}`, hint: `per ${x.symbol}` },
+          { label: 'TVL', value: formatUsd(stats.data?.tvl || usdX + usdY) },
+          { label: '24h volume', value: stats.data ? formatUsd(stats.data.volume24h) : '-' },
+          { label: '24h fees', value: stats.data ? formatUsd(stats.data.feeVolume24h) : '-' },
+          { label: 'Fee APR', value: stats.data ? formatPercent(stats.data.apy) : '-', accent: true }
+        ]}
       />
-      <div className="stats-row">
-        <Stat label="TVL" value={formatUsd(stats.data?.tvl || usdX + usdY)} />
-        <Stat label="Volume 24h" value={stats.data ? formatUsd(stats.data.volume24h) : '—'} loading={stats.loading} />
-        <Stat label="Fee APR" value={stats.data ? formatPercent(stats.data.apy) : '—'} loading={stats.loading} />
-        <Stat label="Price" value={`${formatAmount(price)} ${y.symbol}`} hint={`per 1 ${x.symbol}`} />
-      </div>
       <DclWorkspace
         poolId={poolId}
         pool={chain.data}
@@ -275,7 +275,7 @@ function DclPool({ poolId, initialTab }) {
         onAdd={scrollToForm}
         onDone={refresh}
       />
-    </>
+    </div>
   );
 }
 
@@ -297,7 +297,8 @@ function useDockedColumns(gridRef) {
       if (event.target.closest?.('.range-chart__canvas')) return;
       const top = grid.getBoundingClientRect().top;
       const column = event.currentTarget;
-      if (event.deltaY > 0 && top > DOCK_TOP + 1) {
+      const pageCanScroll = document.documentElement.scrollHeight - window.innerHeight - window.scrollY > 1;
+      if (event.deltaY > 0 && pageCanScroll && top > DOCK_TOP + 1) {
         event.preventDefault();
         window.scrollBy({ top: Math.min(event.deltaY, top - DOCK_TOP) });
       } else if (event.deltaY < 0 && column.scrollTop <= 0 && window.scrollY > 0) {
@@ -317,6 +318,7 @@ function DclWorkspace({ poolId, pool, x, y, reserves, positions, onAdd, onDone }
   const onDrag = (side, price) => rangeState.setEdge(side, { price });
   const gridRef = useRef(null);
   useDockedColumns(gridRef);
+  const [panel, setPanel] = useState(accountId ? 'liquidity' : 'composition');
 
   return (
     <div className="pool-grid pool-grid--wide" ref={gridRef}>
@@ -332,37 +334,47 @@ function DclWorkspace({ poolId, pool, x, y, reserves, positions, onAdd, onDone }
             onDrag={onDrag}
           />
         </Suspense>
-        {accountId && (
-          <section className="card">
-            <h3 className="card-title">Your liquidity</h3>
-            {positions.loading && !positions.data ? (
-              <Skeleton height={60} />
-            ) : !positions.data?.length ? (
-              <p className="muted">No concentrated positions in this pool yet — open one with the form.</p>
-            ) : (
-              <DclGroupCard poolId={poolId} positions={positions.data} x={x} y={y} onAdd={onAdd} onDone={onDone} />
-            )}
-          </section>
-        )}
-        <section className="card">
-          <h3 className="card-title">Pool composition</h3>
-          <div className="reserves">
-            {reserves.map(([token, amount, usd]) => (
-              <div className="reserve" key={token.id}>
-                <TokenIcon token={token} size={32} />
-                <div className="reserve__body">
-                  <strong>
-                    {formatAmount(amount)} {token.symbol}
-                  </strong>
-                  <small>
-                    {formatUsd(usd)} · {shortAccount(token.id, 12, 8)} <CopyButton text={token.id} />
-                  </small>
-                </div>
+        <section className="card bottom-panel">
+          <Tabs
+            tabs={[
+              { key: 'liquidity', label: 'Your liquidity', count: accountId ? positions.data?.length ?? 0 : undefined },
+              { key: 'composition', label: 'Pool composition' },
+              { key: 'trades', label: 'Transactions' }
+            ]}
+            value={panel}
+            onChange={setPanel}
+          />
+          <div className="bottom-panel__body">
+            {panel === 'liquidity' &&
+              (!accountId ? (
+                <p className="muted">Connect your wallet to see your positions in this pool.</p>
+              ) : positions.loading && !positions.data ? (
+                <Skeleton height={60} />
+              ) : !positions.data?.length ? (
+                <p className="muted">No concentrated positions in this pool yet. Create one with the form.</p>
+              ) : (
+                <DclGroupCard poolId={poolId} positions={positions.data} x={x} y={y} onAdd={onAdd} onDone={onDone} />
+              ))}
+            {panel === 'composition' && (
+              <div className="reserves">
+                {reserves.map(([token, amount, usd]) => (
+                  <div className="reserve" key={token.id}>
+                    <TokenIcon token={token} size={32} />
+                    <div className="reserve__body">
+                      <strong>
+                        {formatAmount(amount)} {token.symbol}
+                      </strong>
+                      <small>
+                        {formatUsd(usd)} · {shortAccount(token.id, 12, 8)} <CopyButton text={token.id} />
+                      </small>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
+            {panel === 'trades' && <PoolTrades poolId={poolId} x={x} y={y} />}
           </div>
         </section>
-        <PoolTrades poolId={poolId} x={x} y={y} />
       </div>
       <aside className="pool-grid__side">
         <section className="card" id="new-position">
@@ -380,13 +392,10 @@ function PoolTrades({ poolId, x, y }) {
     [poolId, x.id],
     { refreshMs: 30_000 }
   );
-  if (!trades.data?.length) return null;
+  if (trades.loading && !trades.data) return <Skeleton height={60} />;
+  if (!trades.data?.length) return <p className="muted">No recent swaps through this pool.</p>;
   return (
-    <section className="card">
-      <div className="card-head">
-        <h3>Recent transactions</h3>
-        <span className="live-pill">Live</span>
-      </div>
+    <>
       <div className="pool-trades">
         {trades.data.map((t) => {
           const xAmount = toNumber(t.amountRaw, x.decimals);
@@ -406,11 +415,52 @@ function PoolTrades({ poolId, x, y }) {
           );
         })}
       </div>
-    </section>
+    </>
   );
 }
 
 /* ------------------------------------------------------------------ */
+
+/** Compact Meteora-style pool bar: pair, type, fee and live stats in one row. */
+function PoolBar({ tokens, label, feePercent, rheaUrl, swapLink, stats }) {
+  return (
+    <header className="pool-bar card">
+      <Link to="/pools" className="pool-bar__back" aria-label="All pools">
+        {'\u2190'}
+      </Link>
+      <div className="pool-bar__pair">
+        <PairIcons tokens={tokens} size={30} />
+        <div>
+          <strong>{tokens.map((t) => t.symbol).join(' / ')}</strong>
+          <small>
+            <span className={`kind kind--${label.toLowerCase()}`}>{label}</span> {formatPercent(feePercent, feePercent < 0.1 ? 3 : 2)} fee
+          </small>
+        </div>
+      </div>
+      <div className="pool-bar__stats">
+        {stats.map((st) => (
+          <div key={st.label}>
+            <span>{st.label}</span>
+            <strong className={st.accent ? 'up' : ''}>
+              {st.value}
+              {st.hint && <small> {st.hint}</small>}
+            </strong>
+          </div>
+        ))}
+      </div>
+      <div className="pool-bar__actions">
+        {swapLink && (
+          <Link to={swapLink} className="button button--ghost button--sm">
+            Swap
+          </Link>
+        )}
+        <a className="button button--ghost button--sm" href={rheaUrl} target="_blank" rel="noopener noreferrer">
+          Rhea {'\u2197'}
+        </a>
+      </div>
+    </header>
+  );
+}
 
 function PoolHeader({ tokens, label, feePercent, idText, rheaUrl, swapLink }) {
   return (
@@ -474,5 +524,11 @@ export default function PoolDetail({ poolId }) {
       </div>
     );
   }
-  return <div className="page">{isDcl ? <DclPool poolId={poolId} initialTab={initialTab} /> : <ClassicPool poolId={poolId} initialTab={initialTab} />}</div>;
+  return isDcl ? (
+    <DclPool poolId={poolId} initialTab={initialTab} />
+  ) : (
+    <div className="page page--contained">
+      <ClassicPool poolId={poolId} initialTab={initialTab} />
+    </div>
+  );
 }

@@ -3589,3 +3589,349 @@ a.trades__row:hover {
     background: var(--surface-3);
   }
 }
+
+/* ==========================================================================
+   Full-width app layout (Meteora-style) & global search
+   ========================================================================== */
+.topbar {
+  padding: 0 20px;
+}
+
+.main--full {
+  max-width: none;
+  padding: 0 16px;
+}
+
+.page--contained {
+  max-width: var(--page-width);
+  margin: 0 auto;
+}
+
+.main--full .page--swap {
+  padding-top: 20px;
+}
+
+.main--full .swap-layout {
+  grid-template-columns: minmax(0, 1fr) 420px;
+}
+
+.main--full .swap-layout--solo {
+  grid-template-columns: minmax(0, 460px);
+}
+
+/* Global search */
+.gsearch {
+  position: relative;
+  width: min(440px, 34vw);
+  margin-left: auto;
+}
+
+.nav {
+  margin-right: 0;
+}
+
+.gsearch__field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 38px;
+  padding: 0 8px 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--faint);
+  transition: border-color 0.15s;
+}
+
+.gsearch__field:focus-within {
+  border-color: var(--accent);
+}
+
+.gsearch__field input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.gsearch__field kbd {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.gsearch__panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 60;
+  max-height: min(520px, 70vh);
+  overflow-y: auto;
+  padding: 6px;
+  border-radius: 16px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  box-shadow: var(--shadow);
+}
+
+.gsearch__group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 10px 6px;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.gsearch__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  text-align: left;
+}
+
+.gsearch__item.active {
+  background: var(--surface-3);
+}
+
+.gsearch__main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.gsearch__main strong {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 13px;
+}
+
+.gsearch__main small {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.gsearch__side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-variant-numeric: tabular-nums;
+}
+
+.gsearch__side strong {
+  font-size: 12px;
+}
+
+.gsearch__side small {
+  color: var(--accent);
+  font-size: 11px;
+}
+
+.gsearch__empty {
+  padding: 18px;
+  color: var(--muted);
+  text-align: center;
+  font-size: 13px;
+}
+
+/* Pool workspace that fills the viewport */
+.terminal {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 0 12px;
+}
+
+.pool-bar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 10px 14px;
+  border-radius: 16px;
+}
+
+.pool-bar__back {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.pool-bar__back:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.pool-bar__pair {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-right: 18px;
+  border-right: 1px solid var(--border);
+}
+
+.pool-bar__pair > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.pool-bar__pair strong {
+  font-size: 16px;
+  white-space: nowrap;
+}
+
+.pool-bar__pair small {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--faint);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.pool-bar__stats {
+  display: flex;
+  gap: 26px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.pool-bar__stats > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.pool-bar__stats span {
+  color: var(--faint);
+  font-size: 11px;
+}
+
+.pool-bar__stats strong {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pool-bar__stats small {
+  color: var(--faint);
+  font-weight: 400;
+  font-size: 11px;
+}
+
+.pool-bar__actions {
+  display: flex;
+  gap: 6px;
+}
+
+.bottom-panel {
+  padding: 12px 14px;
+}
+
+.bottom-panel__body {
+  padding-top: 14px;
+}
+
+@media (min-width: 1081px) {
+  .shell--app {
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .shell--app .main {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .shell--app .terminal {
+    height: 100%;
+  }
+
+  .terminal .pool-grid--wide {
+    flex: 1;
+    min-height: 0;
+    height: auto;
+    grid-template-columns: minmax(0, 1fr) 420px;
+    gap: 12px;
+  }
+
+  /* Chart fills the visible height of the left column. */
+  .terminal .range-chart__canvas {
+    height: calc(100vh - 290px);
+    min-height: 380px;
+  }
+
+  .terminal .bottom-panel {
+    min-height: 260px;
+  }
+}
+
+@media (max-width: 1080px) {
+  .gsearch {
+    width: auto;
+    flex: 1;
+    order: 4;
+    min-width: 100%;
+  }
+
+  .pool-bar {
+    flex-wrap: wrap;
+  }
+
+  .pool-bar__pair {
+    border-right: 0;
+  }
+
+  .pool-bar__stats {
+    order: 3;
+    flex-basis: 100%;
+  }
+}
+
+/* In the pool terminal the pool bar already shows pair and price. */
+.terminal .range-chart__head > div:first-child strong,
+.terminal .range-chart__head > div:first-child .muted {
+  display: none;
+}
+
+.terminal .range-chart__head {
+  align-items: center;
+}
+
+.terminal .range-chart__tip {
+  margin: 6px 0 8px;
+}

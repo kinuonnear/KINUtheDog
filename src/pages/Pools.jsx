@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAsync, useDebounced } from '../hooks.js';
-import { Link, navigate, poolPath } from '../router.jsx';
+import { Link, navigate, poolPath, useLocation } from '../router.jsx';
 import { POOL_SORTS, POOL_TYPES, searchPools } from '../lib/rhea.js';
 import { getCachedToken, getTokens } from '../lib/tokens.js';
 import { formatPercent, formatUsd } from '../lib/format.js';
@@ -70,7 +70,8 @@ export default function Pools() {
   const [sort, setSort] = useState('tvl');
   const [order, setOrder] = useState('desc');
   const [hideLow, setHideLow] = useState(true);
-  const [query, setQuery] = useState('');
+  const { search } = useLocation();
+  const [query, setQuery] = useState(() => search.get('q') || '');
   const [pages, setPages] = useState(1);
   const q = useDebounced(query.trim().toLowerCase(), 300);
 

@@ -5,6 +5,7 @@ import { Link, matchRoute, useLocation } from './router.jsx';
 import { formatAmount, shortAccount, toNumber } from './lib/format.js';
 import { ENDPOINTS } from './config.js';
 import { EmptyState, Toasts } from './components/ui.jsx';
+import GlobalSearch from './components/GlobalSearch.jsx';
 import Home from './pages/Home.jsx';
 import Swap from './pages/Swap.jsx';
 import Pools from './pages/Pools.jsx';
@@ -16,6 +17,10 @@ const NAV = [
   { to: '/pools', label: 'Pools', match: ['pools', 'pool'] },
   { to: '/portfolio', label: 'Portfolio', match: ['portfolio'] }
 ];
+
+// Trading screens use the full window width (like Meteora / Intear). CLMM pool
+// pages are an app-style workspace that fills the viewport, so they have no footer.
+const FULL_WIDTH_ROUTES = new Set(['pool', 'swap']);
 
 const TITLES = {
   home: 'KINU — DeFi terminal on NEAR',
@@ -79,6 +84,8 @@ export default function App() {
   const { pathname } = useLocation();
   const route = matchRoute(pathname);
 
+  const appView = route.name === 'pool' && route.params[0]?.includes('|');
+
   useEffect(() => {
     document.title = TITLES[route.name] || TITLES.home;
   }, [route.name]);
@@ -117,7 +124,7 @@ export default function App() {
   }
 
   return (
-    <div className="shell">
+    <div className={`shell ${appView ? 'shell--app' : ''}`}>
       <header className="topbar">
         <Link to="/" className="brand" aria-label="KINU home">
           <img src="/kinu-logo.png" alt="KINU" />
@@ -133,11 +140,13 @@ export default function App() {
             </Link>
           ))}
         </nav>
+        <GlobalSearch />
         <AccountMenu />
       </header>
 
-      <main className="main">{page}</main>
+      <main className={FULL_WIDTH_ROUTES.has(route.name) ? 'main main--full' : 'main'}>{page}</main>
 
+      {!appView && (
       <footer className="footer">
         <span>KINU · two dogs, one NEAR</span>
         <span>
@@ -148,6 +157,7 @@ export default function App() {
           · Non-custodial
         </span>
       </footer>
+      )}
 
       <Toasts />
     </div>
