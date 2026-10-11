@@ -36,6 +36,7 @@ export const GAS = {
   ftTransferCall: '180000000000000',
   aggregatorSwap: '600000000000000',
   aggregatorTokenStorage: '30000000000000',
+  aggregatorWithdraw: '300000000000000', // same as app.rhea.finance (withdraw + callbacks)
   registerTokens: '30000000000000',
   addLiquidity: '150000000000000',
   removeLiquidity: '30000000000000',

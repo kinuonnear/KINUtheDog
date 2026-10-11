@@ -170,6 +170,30 @@ export async function getDeposits(accountId) {
   return Object.fromEntries(Object.entries(deposits).filter(([, amount]) => toBigInt(amount) > 0n));
 }
 
+/** Exchange "lost & found": tokens a withdrawal couldn't deliver (e.g. no storage on the token). */
+export async function getLostFound(accountId) {
+  const tokens = (await view(CONTRACTS.exchange, 'list_lostfound_tokens', { account_id: accountId }, { fresh: true })) || {};
+  return Object.fromEntries(Object.entries(tokens).filter(([, amount]) => toBigInt(amount) > 0n));
+}
+
+/**
+ * Balances held for the account by the swap aggregator (aggregatedex.near). A swap normally
+ * pays out in the same transaction; a balance here means that final transfer failed.
+ */
+export async function getAggregatorBalances(accountId) {
+  const out = {};
+  const PAGE = 100;
+  for (let from = 0; from < 1000; from += PAGE) {
+    const [tokens = [], amounts = []] =
+      (await view(CONTRACTS.aggregator, 'query_user_exist_balance', { user: accountId, from_index: from, count: PAGE }, { fresh: true })) || [];
+    tokens.forEach((token, i) => {
+      if (toBigInt(amounts[i] || '0') > 0n) out[token] = String(amounts[i]);
+    });
+    if (tokens.length < PAGE) break;
+  }
+  return out;
+}
+
 export async function getExchangeStorage(accountId) {
   return view(CONTRACTS.exchange, 'get_user_storage_state', { account_id: accountId }, { fresh: true });
 }

@@ -162,6 +162,40 @@ export async function buildWithdrawDepositsTransactions({ tokenIds, accountId })
   return txs.filter(Boolean);
 }
 
+/** Claims tokens from the exchange's lost & found back to the wallet. */
+export async function buildClaimLostFoundTransactions({ tokenIds, accountId }) {
+  const txs = [];
+  for (const tokenId of tokenIds) {
+    txs.push(await ensureStorageTx(tokenId, accountId));
+  }
+  for (let i = 0; i < tokenIds.length; i += 5) {
+    txs.push(
+      transaction(
+        exchange,
+        tokenIds.slice(i, i + 5).map((tokenId) => functionCall('claim_lostfound', { token_id: tokenId }, GAS.withdraw, DEPOSIT.oneYocto))
+      )
+    );
+  }
+  return txs.filter(Boolean);
+}
+
+/**
+ * Withdraws balances held by the swap aggregator (same call as app.rhea.finance).
+ * wNEAR comes back as native NEAR.
+ */
+export async function buildAggregatorWithdrawTransactions({ tokenIds, accountId }) {
+  const txs = [];
+  for (const tokenId of tokenIds) {
+    if (tokenId !== CONTRACTS.wrapNear) txs.push(await ensureStorageTx(tokenId, accountId));
+    txs.push(
+      transaction(CONTRACTS.aggregator, [
+        functionCall('withdraw', { token: tokenId, return_near: tokenId === CONTRACTS.wrapNear }, GAS.aggregatorWithdraw, DEPOSIT.oneYocto)
+      ])
+    );
+  }
+  return txs.filter(Boolean);
+}
+
 /* ------------------------------------------------------------------ */
 /* Stable & ALMM pools (STABLE_SWAP, RATED_SWAP, DEGEN_SWAP)           */
 /* ------------------------------------------------------------------ */

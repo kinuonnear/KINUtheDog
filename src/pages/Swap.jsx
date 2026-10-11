@@ -1,13 +1,15 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../state.jsx';
-import { useClickOutside, useDebounced, useLocalStorage } from '../hooks.js';
+import { useAsync, useClickOutside, useDebounced, useLocalStorage } from '../hooks.js';
 import { navigate, useLocation } from '../router.jsx';
 import TokenPicker from '../components/TokenPicker.jsx';
 import RecentTrades from '../components/RecentTrades.jsx';
 import { defaultChartSide } from '../lib/intear.js';
 import { Spinner, TokenIcon } from '../components/ui.jsx';
-import { getCachedToken, getToken, priceOf } from '../lib/tokens.js';
+import { getCachedToken, getToken, getTokens, priceOf } from '../lib/tokens.js';
 import { buildSwapTransactions, getSwapQuote } from '../lib/swap.js';
+import { getAggregatorBalances } from '../lib/rhea.js';
+import { buildAggregatorWithdrawTransactions } from '../lib/liquidity.js';
 import { functionCall, transaction, ensureStorageTx, wrapNearTx } from '../lib/tx.js';
 import {
   formatAmount,
@@ -25,6 +27,54 @@ const PriceChart = lazy(() => import('../components/PriceChart.jsx'));
 const USDC = '17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1';
 const QUOTE_REFRESH_MS = 20_000;
 const QUOTE_MAX_AGE_MS = 15_000;
+
+/**
+ * Tokens the swap router (aggregatedex.near) is holding for the account: a swap whose final
+ * transfer to the wallet failed. Shown with a one-click withdraw.
+ */
+function StuckSwapFunds({ refreshKey }) {
+  const { accountId, execute, refreshTokenBalances } = useApp();
+  const stuck = useAsync(
+    async () => {
+      const balances = await getAggregatorBalances(accountId);
+      const ids = Object.keys(balances);
+      return { balances, tokens: ids.length ? await getTokens(ids) : {} };
+    },
+    [accountId, refreshKey],
+    { enabled: Boolean(accountId), refreshMs: 60_000 }
+  );
+  const entries = Object.entries(stuck.data?.balances || {});
+  if (!entries.length) return null;
+
+  const withdraw = async () => {
+    const ids = entries.map(([id]) => id);
+    const ok = await execute(() => buildAggregatorWithdrawTransactions({ tokenIds: ids, accountId }), {
+      pending: 'Withdrawing from the swap router',
+      success: 'Withdrawn to wallet'
+    });
+    if (ok) {
+      stuck.reload();
+      refreshTokenBalances(ids);
+    }
+  };
+
+  return (
+    <div className="notice notice--info stuck-funds">
+      <span>
+        {entries
+          .map(([id, raw]) => {
+            const t = stuck.data.tokens[id] || { symbol: id.slice(0, 8), decimals: 0 };
+            return `${formatAmount(toNumber(raw, t.decimals))} ${id === CONTRACTS.wrapNear ? 'NEAR' : t.symbol}`;
+          })
+          .join(' + ')}{' '}
+        is waiting in the swap router: a swap&apos;s final transfer didn&apos;t reach your wallet.
+      </span>
+      <button type="button" className="link-button" onClick={withdraw}>
+        Withdraw
+      </button>
+    </div>
+  );
+}
 
 function isWrapPair(a, b) {
   return (
@@ -140,6 +190,7 @@ export default function Swap() {
   const [quoteError, setQuoteError] = useState('');
   const [quoting, setQuoting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [swapCount, setSwapCount] = useState(0); // re-checks the swap router after each swap
   const [invert, setInvert] = useState(false);
   const [chartSide, setChartSide] = useState(null);
 
@@ -298,6 +349,7 @@ export default function Swap() {
       }
     );
     setSubmitting(false);
+    setSwapCount((n) => n + 1);
     if (result) {
       setAmount('');
       setQuote(null);
@@ -383,6 +435,7 @@ export default function Swap() {
             />
 
             {quoteError && typedRaw && !quoting && <div className="notice notice--error">{quoteError}</div>}
+            <StuckSwapFunds refreshKey={swapCount} />
             {tokenIn.native && accountId && !wrapMode && (
               <p className="hint">0.25 NEAR stays in your wallet for gas when using Max.</p>
             )}
