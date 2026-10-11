@@ -1,82 +1,33 @@
-﻿import { defineConfig } from 'vite';
+import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
 
-const bufferEntry = fileURLToPath(
-  new URL('./node_modules/buffer/index.js', import.meta.url)
-);
+const local = (path) => fileURLToPath(new URL(path, import.meta.url));
 
-const processEntry = fileURLToPath(
-  new URL('./node_modules/process/browser.js', import.meta.url)
-);
-
+// All data sources (NEAR RPC, Rhea API/indexer/SmartRouter, FastNEAR,
+// DexScreener, GeckoTerminal) allow CORS, so no dev proxy is needed and
+// the production build works on any static host.
 export default defineConfig({
   plugins: [react()],
-
   resolve: {
     alias: {
-      buffer: bufferEntry,
-      process: processEntry,
-      depd: fileURLToPath(
-        new URL('./src/shims/depd.js', import.meta.url)
-      )
+      // Node polyfills required by the NEAR wallet-selector packages.
+      buffer: local('./node_modules/buffer/index.js'),
+      process: local('./node_modules/process/browser.js'),
+      depd: local('./src/shims/depd.js')
     }
   },
-
-  optimizeDeps: {
-    include: [
-      'buffer',
-      'process',
-      'depd',
-      'secp256k1',
-      'mustache',
-      '@near-wallet-selector/core',
-      '@near-wallet-selector/meteor-wallet',
-      '@meteorwallet/sdk'
-    ]
-  },
-
   define: {
-    global: 'globalThis',
-    'process.env.NODE_ENV': JSON.stringify('development')
+    global: 'globalThis'
   },
-
-  server: {
-    proxy: {
-      '/rhea-quote': {
-        target: 'https://smartx.rhea.finance',
-        changeOrigin: true,
-        secure: true,
-        rewrite: (path) => path.replace(/^\/rhea-quote/, '/swapMultiDexPath')
-      },
-      '/near-rpc': {
-        target: 'https://rpc.mainnet.near.org',
-        changeOrigin: true,
-        secure: true,
-        rewrite: (path) => path.replace(/^\/near-rpc/, '')
-      },
-
-      '/gecko-ohlcv': {
-        target: 'https://api.geckoterminal.com',
-        changeOrigin: true,
-        secure: true,
-        rewrite: (path) =>
-          path.replace(/^\/gecko-ohlcv/, '')
-      },
-      '/dex-pairs': {
-        target: 'https://api.dexscreener.com',
-        changeOrigin: true,
-        secure: true,
-        rewrite: (path) =>
-          path.replace(/^\/dex-pairs/, '')
-      }
-    }
+  optimizeDeps: {
+    include: ['buffer', 'process']
   },
-
   build: {
+    target: 'es2022',
+    chunkSizeWarningLimit: 2500,
     commonjsOptions: {
       transformMixedEsModules: true
     }
   }
 });
-

@@ -1,7 +1,7 @@
 {
-  "name": "kinu-lp-terminal",
+  "name": "kinu-defi-terminal",
   "private": true,
-  "version": "0.2.0",
+  "version": "2.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,18 +9,20 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@near-wallet-selector/core": "latest",
-    "@near-wallet-selector/intear-wallet": "^10.1.4",
-    "@near-wallet-selector/meteor-wallet": "latest",
-    "@near-wallet-selector/modal-ui": "^10.1.4",
-    "buffer": "^6.0.3",
-    "lightweight-charts": "^5.2.1",
-    "process": "^0.11.10",
-    "react": "latest",
-    "react-dom": "latest"
+    "@near-wallet-selector/core": "10.1.4",
+    "@near-wallet-selector/here-wallet": "10.1.4",
+    "@near-wallet-selector/intear-wallet": "10.1.4",
+    "@near-wallet-selector/meteor-wallet": "10.1.4",
+    "@near-wallet-selector/modal-ui": "10.1.4",
+    "@near-wallet-selector/my-near-wallet": "10.1.4",
+    "buffer": "6.0.3",
+    "lightweight-charts": "5.2.1",
+    "process": "0.11.10",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "latest",
-    "vite": "latest"
+    "@vitejs/plugin-react": "6.1.2",
+    "vite": "8.3.4"
   }
 }
