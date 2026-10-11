@@ -4547,3 +4547,94 @@ a.trades__row:hover {
   font-family: var(--mono);
   font-size: 13px;
 }
+
+/* Your liquidity: compact distribution with the actions beside it. */
+.dcl-group__row {
+  display: grid;
+  grid-template-columns: minmax(0, 620px) 250px;
+  justify-content: start;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.dcl-group__row .pos-dist__chart {
+  height: 84px;
+}
+
+.dcl-group__side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+.dcl-group__side .hint {
+  margin: 0;
+  font-size: 11px;
+}
+
+.dcl-group__count {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dcl-group__count strong {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.dcl-group__count span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.dcl-group__count small {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--faint);
+  font-size: 11px;
+}
+
+.dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.dot--in {
+  background: var(--accent);
+}
+
+.dot--out {
+  background: var(--warn);
+}
+
+.lp-actions--stack {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.lp-actions--stack > :first-child {
+  grid-column: 1 / -1;
+}
+
+.lp-actions--stack .button--sm {
+  width: 100%;
+  height: 32px;
+}
+
+@media (max-width: 1080px) {
+  .dcl-group__row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

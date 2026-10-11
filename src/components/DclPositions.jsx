@@ -139,7 +139,7 @@ export function DclRemoveModal({ positions, x, y, onClose, onDone }) {
 }
 
 /** Claim / Add / Remove buttons for one pool's positions. */
-export function DclActions({ poolId, positions, x, y, onDone, onAdd, readOnly }) {
+export function DclActions({ poolId, positions, x, y, onDone, onAdd, readOnly, stacked = false }) {
   const { accountId, execute, prices } = useApp();
   const [removing, setRemoving] = useState(false);
   const [claiming, setClaiming] = useState(false);
@@ -164,9 +164,9 @@ export function DclActions({ poolId, positions, x, y, onDone, onAdd, readOnly })
   }
 
   return (
-    <div className="lp-actions">
+    <div className={`lp-actions ${stacked ? 'lp-actions--stack' : ''}`}>
       <button type="button" className="button button--outline button--sm" disabled={!summary.hasFees || claiming} onClick={claim}>
-        {claiming ? <Spinner size={12} /> : 'Claim'}
+        {claiming ? <Spinner size={12} /> : stacked ? `Claim fees${summary.hasFees ? ` · ${formatUsd(summary.feeUsd)}` : ''}` : 'Claim'}
       </button>
       {onAdd ? (
         <button type="button" className="button button--outline button--sm" onClick={onAdd}>
@@ -185,7 +185,7 @@ export function DclActions({ poolId, positions, x, y, onDone, onAdd, readOnly })
   );
 }
 
-const BUCKETS = 44;
+const BUCKETS = 32;
 
 /**
  * All positions of a pool merged into one liquidity distribution (like the
@@ -271,7 +271,7 @@ export function PositionDistribution({ positions, x, y }) {
           <i className="x" /> {x.symbol}
         </span>
         <span className="muted">
-          {y.symbol} per {x.symbol} · {positions.length} position{positions.length === 1 ? '' : 's'} combined
+          {y.symbol} per {x.symbol}
         </span>
       </div>
     </div>
@@ -297,9 +297,7 @@ export function DclGroupCard({ poolId, positions, x, y, onDone, onAdd }) {
         <div>
           <span className="stat__label">Price range</span>
           <RangeText summary={summary} x={x} y={y} />
-          <span className={`range-badge ${summary.inRange ? 'range-badge--in' : ''}`}>
-            {summary.inRange ? `In range · ${inRange}/${positions.length} active` : 'Out of range'}
-          </span>
+          <span className={`range-badge ${summary.inRange ? 'range-badge--in' : ''}`}>{summary.inRange ? 'In range' : 'Out of range'}</span>
         </div>
         <div>
           <span className="stat__label">Unclaimed fees</span>
@@ -307,10 +305,21 @@ export function DclGroupCard({ poolId, positions, x, y, onDone, onAdd }) {
           {summary.hasFees && <span className="muted small">{formatUsd(summary.feeUsd)}</span>}
         </div>
       </div>
-      <PositionDistribution positions={positions} x={x} y={y} />
-      <div className="dcl-group__foot">
-        <span className="muted small">Claim and Remove apply to all {positions.length} positions in this pool.</span>
-        <DclActions poolId={poolId} positions={positions} x={x} y={y} onDone={onDone} onAdd={onAdd} />
+      <div className="dcl-group__row">
+        <PositionDistribution positions={positions} x={x} y={y} />
+        <div className="dcl-group__side">
+          <div className="dcl-group__count">
+            <strong>{positions.length}</strong>
+            <span>
+              position{positions.length === 1 ? '' : 's'} in this pool
+              <small>
+                <i className="dot dot--in" /> {inRange} in range · <i className="dot dot--out" /> {positions.length - inRange} out of range
+              </small>
+            </span>
+          </div>
+          <DclActions poolId={poolId} positions={positions} x={x} y={y} onDone={onDone} onAdd={onAdd} stacked />
+          <p className="hint">Claim and Remove act on all {positions.length} positions at once.</p>
+        </div>
       </div>
     </div>
   );
