@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useRef } from 'react';
 import { useApp } from '../state.jsx';
 import { useAsync } from '../hooks.js';
 import { Link, useLocation } from '../router.jsx';
@@ -279,14 +279,47 @@ function DclPool({ poolId, initialTab }) {
   );
 }
 
+const DOCK_TOP = 76; // px below the viewport top where the workspace docks (top bar + gap)
+
+/**
+ * Independent wheel scrolling for the two workspace columns (desktop):
+ * the page scrolls until the workspace is docked under the top bar, then the
+ * hovered column scrolls on its own; scrolling up past a column's top scrolls
+ * the page back. Wheel over the price chart stays with the chart (zoom).
+ */
+function useDockedColumns(gridRef) {
+  useEffect(() => {
+    const grid = gridRef.current;
+    if (!grid) return undefined;
+    const columns = [...grid.children];
+    const onWheel = (event) => {
+      if (window.innerWidth <= 1080 || event.ctrlKey) return;
+      if (event.target.closest?.('.range-chart__canvas')) return;
+      const top = grid.getBoundingClientRect().top;
+      const column = event.currentTarget;
+      if (event.deltaY > 0 && top > DOCK_TOP + 1) {
+        event.preventDefault();
+        window.scrollBy({ top: Math.min(event.deltaY, top - DOCK_TOP) });
+      } else if (event.deltaY < 0 && column.scrollTop <= 0 && window.scrollY > 0) {
+        event.preventDefault();
+        window.scrollBy({ top: event.deltaY });
+      }
+    };
+    columns.forEach((c) => c.addEventListener('wheel', onWheel, { passive: false }));
+    return () => columns.forEach((c) => c.removeEventListener('wheel', onWheel));
+  }, [gridRef]);
+}
+
 /** CLMM page body: draggable range chart + Meteora-style create form. */
 function DclWorkspace({ poolId, pool, x, y, reserves, positions, onAdd, onDone }) {
   const { accountId } = useApp();
   const rangeState = useDclRange(pool, x, y);
   const onDrag = (side, price) => rangeState.setEdge(side, { price });
+  const gridRef = useRef(null);
+  useDockedColumns(gridRef);
 
   return (
-    <div className="pool-grid pool-grid--wide">
+    <div className="pool-grid pool-grid--wide" ref={gridRef}>
       <div className="pool-grid__main">
         <Suspense fallback={<div className="card chart-card--loading"><Skeleton height={420} radius={16} /></div>}>
           <RangeChart

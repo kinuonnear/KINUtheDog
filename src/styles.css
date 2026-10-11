@@ -3557,3 +3557,35 @@ a.trades__row:hover {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* CLMM workspace: chart column and form column scroll independently (desktop).
+   The workspace fills the viewport under the top bar; useDockedColumns() hands
+   wheel events to the page until it is docked, then to the hovered column. */
+@media (min-width: 1081px) {
+  .pool-grid--wide {
+    height: calc(100vh - 84px);
+    align-items: stretch;
+  }
+
+  .pool-grid--wide > .pool-grid__main,
+  .pool-grid--wide > .pool-grid__side {
+    position: static;
+    height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--surface-3) transparent;
+    padding-right: 4px;
+  }
+
+  .pool-grid--wide > .pool-grid__main::-webkit-scrollbar,
+  .pool-grid--wide > .pool-grid__side::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .pool-grid--wide > .pool-grid__main::-webkit-scrollbar-thumb,
+  .pool-grid--wide > .pool-grid__side::-webkit-scrollbar-thumb {
+    border-radius: 3px;
+    background: var(--surface-3);
+  }
+}
