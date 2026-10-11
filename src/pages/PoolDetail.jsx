@@ -12,7 +12,7 @@ import { useDclRange } from '../components/DclCreatePosition.jsx';
 import { fetchTrades } from '../lib/intear.js';
 
 const RangeChart = lazy(() => import('../components/RangeChart.jsx'));
-import { formatAmount, formatPercent, formatRawAmount, formatUsd, shortAccount, toBigInt, toNumber } from '../lib/format.js';
+import { formatAmount, formatChartPrice, formatPercent, formatRawAmount, formatUsd, shortAccount, toBigInt, toNumber } from '../lib/format.js';
 import { CONTRACTS, ENDPOINTS, NATIVE_NEAR } from '../config.js';
 import { CopyButton, EmptyState, ErrorNotice, PairIcons, Skeleton, Stat, Tabs, TokenIcon } from '../components/ui.jsx';
 
@@ -245,6 +245,7 @@ function DclPool({ poolId, initialTab }) {
   const totalY = toNumber(chain.data.total_y || '0', y.decimals);
   const usdX = totalX * priceOf(prices, tokenX);
   const usdY = totalY * priceOf(prices, tokenY);
+  const tvl = stats.data?.tvl || usdX + usdY;
 
   return (
     <div className="terminal">
@@ -254,11 +255,13 @@ function DclPool({ poolId, initialTab }) {
         feePercent={fee / 10000}
         rheaUrl={rheaPoolUrl({ kind: 'DCL', id: poolId })}
         swapLink={`/swap?from=${tokenX}&to=${tokenY}`}
+        price={{ value: price, x, y }}
         stats={[
-          { label: 'Current price', value: `${formatAmount(price)} ${y.symbol}`, hint: `per ${x.symbol}` },
-          { label: 'TVL', value: formatUsd(stats.data?.tvl || usdX + usdY) },
+          { label: 'Total value locked', value: formatUsd(tvl) },
           { label: '24h volume', value: stats.data ? formatUsd(stats.data.volume24h) : '-' },
           { label: '24h fees', value: stats.data ? formatUsd(stats.data.feeVolume24h) : '-' },
+          { label: '24h fees / TVL', value: stats.data && tvl > 0 ? formatPercent((stats.data.feeVolume24h / tvl) * 100) : '-' },
+          { label: 'Trading fee', value: formatPercent(fee / 10000, 2) },
           { label: 'Fee APR', value: stats.data ? formatPercent(stats.data.apy) : '-', accent: true }
         ]}
       />
@@ -325,6 +328,8 @@ function DclWorkspace({ poolId, pool, x, y, reserves, positions, onAdd, onDone }
       <div className="pool-grid__main">
         <Suspense fallback={<div className="card chart-card--loading"><Skeleton height={420} radius={16} /></div>}>
           <RangeChart
+            poolId={poolId}
+            bins={{ left: rangeState.range.left, right: rangeState.range.right, pointDelta: pool.point_delta }}
             x={x}
             y={y}
             currentPrice={rangeState.currentPrice}
@@ -422,7 +427,8 @@ function PoolTrades({ poolId, x, y }) {
 /* ------------------------------------------------------------------ */
 
 /** Compact Meteora-style pool bar: pair, type, fee and live stats in one row. */
-function PoolBar({ tokens, label, feePercent, rheaUrl, swapLink, stats }) {
+function PoolBar({ tokens, label, feePercent, rheaUrl, swapLink, stats, price }) {
+  const [flipped, setFlipped] = useState(false);
   return (
     <header className="pool-bar card">
       <Link to="/pools" className="pool-bar__back" aria-label="All pools">
@@ -438,6 +444,18 @@ function PoolBar({ tokens, label, feePercent, rheaUrl, swapLink, stats }) {
         </div>
       </div>
       <div className="pool-bar__stats">
+        {price && (
+          <div className="pool-bar__price">
+            <span>Current pool price</span>
+            <strong>
+              {flipped ? formatChartPrice(1 / price.value) : formatChartPrice(price.value)}{' '}
+              <small>{flipped ? `${price.x.symbol}/${price.y.symbol}` : `${price.y.symbol}/${price.x.symbol}`}</small>
+              <button type="button" className="flip" onClick={() => setFlipped((v) => !v)} title="Flip price" aria-label="Flip price">
+                {'\u21c4'}
+              </button>
+            </strong>
+          </div>
+        )}
         {stats.map((st) => (
           <div key={st.label}>
             <span>{st.label}</span>

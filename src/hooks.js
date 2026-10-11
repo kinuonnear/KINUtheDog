@@ -54,23 +54,38 @@ export function useDebounced(value, delay = 350) {
   return debounced;
 }
 
+function readStored(key, initial) {
+  try {
+    const stored = localStorage.getItem(key);
+    return stored === null ? initial : JSON.parse(stored);
+  } catch {
+    return initial;
+  }
+}
+
+/**
+ * State persisted in localStorage. If `key` changes, the value for the new key
+ * is loaded (instead of the old value being written under the new key).
+ */
 export function useLocalStorage(key, initial) {
-  const [value, setValue] = useState(() => {
-    try {
-      const stored = localStorage.getItem(key);
-      return stored === null ? initial : JSON.parse(stored);
-    } catch {
-      return initial;
-    }
-  });
+  const [state, setState] = useState(() => ({ key, value: readStored(key, initial) }));
+  let current = state;
+  if (state.key !== key) {
+    current = { key, value: readStored(key, initial) };
+    setState(current);
+  }
   useEffect(() => {
     try {
-      localStorage.setItem(key, JSON.stringify(value));
+      localStorage.setItem(current.key, JSON.stringify(current.value));
     } catch {
       // ignore quota / privacy mode
     }
-  }, [key, value]);
-  return [value, setValue];
+  }, [current.key, current.value]);
+  const setValue = useCallback(
+    (next) => setState((s) => ({ key: s.key, value: typeof next === 'function' ? next(s.value) : next })),
+    []
+  );
+  return [current.value, setValue];
 }
 
 /** Close a popover when clicking outside of `ref`. */
