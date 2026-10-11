@@ -3,7 +3,7 @@
 //   Stable / ALMM (STABLE, RATED, DEGEN)-> StableLiquidity
 //   CLMM (DCL)                         -> DclLiquidity
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useApp } from '../state.jsx';
 import { useAsync, useDebounced } from '../hooks.js';
 import {
@@ -16,19 +16,7 @@ import {
   predictRemoveAmounts,
   predictStableShares
 } from '../lib/liquidity.js';
-import {
-  alignPoint,
-  buildDclAddTransactions,
-  buildDclWithdrawTransactions,
-  floatToRaw,
-  fullRange,
-  getDclAssets,
-  pairedRawAmount,
-  pointToPrice,
-  priceToPoint,
-  rangeSide
-} from '../lib/dclLiquidity.js';
-import { view } from '../lib/rpc.js';
+import { buildDclWithdrawTransactions, getDclAssets } from '../lib/dclLiquidity.js';
 import {
   applySlippage,
   formatPercent,
@@ -40,6 +28,7 @@ import {
 } from '../lib/format.js';
 import { CONTRACTS, NEAR_GAS_RESERVE } from '../config.js';
 import { EmptyState, Spinner, Tabs, TokenIcon } from './ui.jsx';
+import DclCreatePosition from './DclCreatePosition.jsx';
 
 /* ------------------------------------------------------------------ */
 /* Shared pieces                                                       */
@@ -436,255 +425,8 @@ export function StableLiquidity({ pool, tokens, shares, staked, onDone, initialT
 /* CLMM (DCL)                                                          */
 /* ------------------------------------------------------------------ */
 
-const RANGE_PRESETS = [
-  { key: '5', label: '±5%' },
-  { key: '10', label: '±10%' },
-  { key: '25', label: '±25%' },
-  { key: '50', label: '±50%' },
-  { key: 'full', label: 'Full' }
-];
-
-function RangeBar({ left, right, current }) {
-  // Position on a log-price axis spanning the range with 25% padding either side.
-  const span = Math.max(right - left, 1);
-  const lo = left - span * 0.25;
-  const hi = right + span * 0.25;
-  const pos = (p) => `${Math.min(100, Math.max(0, ((p - lo) / (hi - lo)) * 100))}%`;
-  return (
-    <div className="range-bar">
-      <span className="range-bar__band" style={{ left: pos(left), right: `calc(100% - ${pos(right)})` }} />
-      <span className="range-bar__now" style={{ left: pos(current) }} title="Current price" />
-    </div>
-  );
-}
-
-function DclAdd({ pool, x, y, onDone }) {
-  const { accountId, connect, slippage, execute } = useApp();
-  const delta = pool.point_delta;
-  const current = pool.current_point;
-  const currentPrice = pointToPrice(current, x.decimals, y.decimals);
-
-  const [preset, setPreset] = useState('10');
-  const [minText, setMinText] = useState('');
-  const [maxText, setMaxText] = useState('');
-  const [inputs, setInputs] = useState({ x: '', y: '' });
-  const [lastEdited, setLastEdited] = useState('x');
-  const [submitting, setSubmitting] = useState(false);
-
-  const range = useMemo(() => {
-    if (preset === 'full') return fullRange(delta);
-    if (preset !== 'custom') {
-      const pct = Number(preset) / 100;
-      let left = alignPoint(priceToPoint(currentPrice * (1 - pct), x.decimals, y.decimals), delta, 'floor');
-      let right = alignPoint(priceToPoint(currentPrice * (1 + pct), x.decimals, y.decimals), delta, 'ceil');
-      if (right <= left) right = left + delta;
-      return { left, right };
-    }
-    const min = Number(minText);
-    const max = Number(maxText);
-    if (!(min > 0) || !(max > min)) return null;
-    let left = alignPoint(priceToPoint(min, x.decimals, y.decimals), delta, 'floor');
-    let right = alignPoint(priceToPoint(max, x.decimals, y.decimals), delta, 'ceil');
-    if (right <= left) right = left + delta;
-    return { left, right };
-  }, [preset, minText, maxText, currentPrice, delta, x.decimals, y.decimals]);
-
-  // Show the aligned prices in the inputs whenever a preset is selected.
-  useEffect(() => {
-    if (!range || preset === 'custom') return;
-    setMinText(preset === 'full' ? '0' : trimPrice(pointToPrice(range.left, x.decimals, y.decimals)));
-    setMaxText(preset === 'full' ? '∞' : trimPrice(pointToPrice(range.right, x.decimals, y.decimals)));
-  }, [range, preset, x.decimals, y.decimals]);
-
-  const side = range ? rangeSide(range.left, range.right, current) : 'both';
-  const needX = side !== 'y';
-  const needY = side !== 'x';
-
-  // Keep the paired amount in sync with whichever side the user typed.
-  const raws = useMemo(() => {
-    if (!range) return { x: '0', y: '0' };
-    const rawX = tryParseUnits(inputs.x, x.decimals) || '0';
-    const rawY = tryParseUnits(inputs.y, y.decimals) || '0';
-    if (side === 'x') return { x: rawX, y: '0' };
-    if (side === 'y') return { x: '0', y: rawY };
-    if (lastEdited === 'x') {
-      return { x: rawX, y: floatToRaw(pairedRawAmount({ from: 'x', amount: Number(rawX), ...range, current })) };
-    }
-    return { x: floatToRaw(pairedRawAmount({ from: 'y', amount: Number(rawY), ...range, current })), y: rawY };
-  }, [inputs, lastEdited, range, side, current, x.decimals, y.decimals]);
-
-  const shownX = lastEdited === 'x' || side !== 'both' ? inputs.x : trimDecimals(formatUnits(raws.x, x.decimals));
-  const shownY = lastEdited === 'y' || side !== 'both' ? inputs.y : trimDecimals(formatUnits(raws.y, y.decimals));
-
-  const dclTokenIds = useMemo(() => [pool.token_x, pool.token_y], [pool.token_x, pool.token_y]);
-  const spendable = useSpendable(dclTokenIds);
-  const { balances } = useApp();
-  const wrapFor = (tokenId, raw) =>
-    tokenId === CONTRACTS.wrapNear ? maxBig(0n, toBigInt(raw) - toBigInt(balances[CONTRACTS.wrapNear] || '0')).toString() : '0';
-  const wrapX = wrapFor(pool.token_x, raws.x);
-  const wrapY = wrapFor(pool.token_y, raws.y);
-
-  const storage = useAsync(() => view(CONTRACTS.dcl, 'get_user_storage_detail', { user_id: accountId }), [accountId], {
-    enabled: Boolean(accountId)
-  });
-
-  const hasAmount = toBigInt(raws.x) > 0n || toBigInt(raws.y) > 0n;
-  const insufficient = insufficientLabel([raws.x, raws.y], spendable, [x, y]);
-
-  const setMax = (which) => {
-    const index = which === 'x' ? 0 : 1;
-    const token = which === 'x' ? x : y;
-    setLastEdited(which);
-    setInputs((v) => ({ ...v, [which]: trimDecimals(formatUnits(spendable[index].toString(), token.decimals)) }));
-  };
-
-  const submit = async () => {
-    if (!accountId) return connect();
-    setSubmitting(true);
-    const ok = await execute(
-      () =>
-        buildDclAddTransactions({
-          pool,
-          left: range.left,
-          right: range.right,
-          amountX: raws.x,
-          amountY: raws.y,
-          slippage,
-          accountId,
-          wrapX,
-          wrapY
-        }),
-      { pending: 'Adding concentrated liquidity', success: 'Position created' }
-    );
-    setSubmitting(false);
-    if (ok) {
-      setInputs({ x: '', y: '' });
-      onDone();
-    }
-  };
-
-  const fullSelected = preset === 'full';
-
-  return (
-    <div className="liq-form">
-      <div className="range-head">
-        <span className="eyebrow">Price range</span>
-        <span className="muted small">
-          Current: <b>{trimPrice(currentPrice)}</b> {y.symbol} per {x.symbol}
-        </span>
-      </div>
-
-      <div className="segmented segmented--full">
-        {RANGE_PRESETS.map((p) => (
-          <button key={p.key} type="button" className={preset === p.key ? 'active' : ''} onClick={() => setPreset(p.key)}>
-            {p.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="range-inputs">
-        {[
-          ['Min price', minText, setMinText],
-          ['Max price', maxText, setMaxText]
-        ].map(([label, value, setter]) => (
-          <label key={label} className="range-input">
-            <span>{label}</span>
-            <input
-              inputMode="decimal"
-              value={value}
-              disabled={fullSelected}
-              onChange={(e) => {
-                const text = cleanDecimal(e.target.value);
-                if (text === null) return;
-                setPreset('custom');
-                setter(text);
-              }}
-            />
-            <small>
-              {y.symbol} per {x.symbol}
-            </small>
-          </label>
-        ))}
-      </div>
-
-      {range && <RangeBar left={range.left} right={range.right} current={current} />}
-      {range && side !== 'both' && (
-        <p className="liq-hint warn">
-          Range is {side === 'x' ? 'above' : 'below'} the current price — only {side === 'x' ? x.symbol : y.symbol} is deposited and
-          the position earns fees once the price enters the range.
-        </p>
-      )}
-      {!range && preset === 'custom' && <p className="liq-hint warn">Enter a min price lower than the max price.</p>}
-
-      <AmountField
-        token={x}
-        value={shownX}
-        onChange={(text) => {
-          setLastEdited('x');
-          setInputs((v) => ({ ...v, x: text }));
-        }}
-        spendable={spendable[0]}
-        onMax={() => setMax('x')}
-        disabled={!needX}
-        note={pool.token_x === CONTRACTS.wrapNear ? 'NEAR auto-wraps' : null}
-      />
-      <AmountField
-        token={y}
-        value={shownY}
-        onChange={(text) => {
-          setLastEdited('y');
-          setInputs((v) => ({ ...v, y: text }));
-        }}
-        spendable={spendable[1]}
-        onMax={() => setMax('y')}
-        disabled={!needY}
-        note={pool.token_y === CONTRACTS.wrapNear ? 'NEAR auto-wraps' : null}
-      />
-
-      {hasAmount && range && (
-        <dl className="kv">
-          <div>
-            <dt>Fee tier</dt>
-            <dd>{formatPercent(pool.fee / 10000, 2)}</dd>
-          </div>
-          {accountId && toBigInt(wrapX) + toBigInt(wrapY) > 0n && (
-            <div>
-              <dt>NEAR to wrap</dt>
-              <dd>{formatRawAmount((toBigInt(wrapX) + toBigInt(wrapY)).toString(), 24)} NEAR</dd>
-            </div>
-          )}
-          {accountId && storage.data === null && (
-            <div>
-              <dt>One-time CLMM registration</dt>
-              <dd>0.5 NEAR</dd>
-            </div>
-          )}
-          <div>
-            <dt>Max slippage</dt>
-            <dd>{slippage}%</dd>
-          </div>
-        </dl>
-      )}
-
-      <SubmitButton
-        label={!accountId ? 'Connect wallet' : !range ? 'Set a price range' : !hasAmount ? 'Enter an amount' : insufficient || 'Add position'}
-        disabled={accountId && (!range || !hasAmount || Boolean(insufficient))}
-        submitting={submitting}
-        onClick={submit}
-      />
-    </div>
-  );
-}
-
-function trimPrice(n) {
-  if (!Number.isFinite(n)) return '';
-  if (n >= 1) return String(Number(n.toPrecision(6)));
-  const digits = Math.min(18, Math.ceil(-Math.log10(n)) + 4);
-  return n.toFixed(digits).replace(/0+$/, '').replace(/\.$/, '');
-}
-
 /** CLMM side panel: open a new position (positions are managed in DclGroupCard). */
-export function DclLiquidity({ pool, x, y, onDone }) {
+export function DclLiquidity({ pool, x, y, rangeState, onDone }) {
   const { accountId, execute } = useApp();
   const assets = useAsync(() => getDclAssets(accountId), [accountId], { enabled: Boolean(accountId) });
   const parked = Object.entries(assets.data || {}).filter(([id]) => id === pool.token_x || id === pool.token_y);
@@ -699,7 +441,7 @@ export function DclLiquidity({ pool, x, y, onDone }) {
 
   return (
     <>
-      <h3 className="card-title">New position</h3>
+      <h3 className="card-title">Create position</h3>
       {parked.length > 0 && (
         <div className="notice notice--info">
           <span>
@@ -716,10 +458,11 @@ export function DclLiquidity({ pool, x, y, onDone }) {
           </button>
         </div>
       )}
-      <DclAdd
+      <DclCreatePosition
         pool={pool}
         x={x}
         y={y}
+        rangeState={rangeState}
         onDone={() => {
           assets.reload();
           onDone();

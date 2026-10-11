@@ -23,6 +23,7 @@ const DCL_ADD_GAS = '300000000000000';
 const DCL_REMOVE_GAS = '150000000000000';
 const DCL_BATCH_REMOVE_GAS = '300000000000000';
 const BATCH_SIZE = 10;
+const DCL_BATCH_ADD_GAS = '600000000000000'; // as app.rhea.finance
 const DCL_WITHDRAW_GAS = '100000000000000';
 
 const LOG_BASE = Math.log(1.0001);
@@ -64,21 +65,6 @@ export function rangeSide(left, right, current) {
   if (current < left) return 'x';
   if (current >= right) return 'y';
   return 'both';
-}
-
-/**
- * Given a raw amount of one token, the raw amount of the other token needed
- * for a position over [left, right) at the current point. Returns a float.
- */
-export function pairedRawAmount({ from, amount, left, right, current }) {
-  if (rangeSide(left, right, current) !== 'both') return 0;
-  const a = Number(amount);
-  if (!(a > 0)) return 0;
-  // Token amounts per unit of liquidity on each side of the current point.
-  const xPerL = dclAmountX(1, current, right);
-  const yPerL = dclAmountY(1, left, current);
-  if (!(xPerL > 0) || !(yPerL > 0)) return 0;
-  return from === 'x' ? (a / xPerL) * yPerL : (a / yPerL) * xPerL;
 }
 
 /** Float -> integer string (rounded down), safe for very large values. */
@@ -222,6 +208,134 @@ export async function buildDclWithdrawTransactions({ tokenIds, accountId }) {
   for (const token of tokenIds) {
     txs.push(await ensureStorageTx(token, accountId));
     txs.push(transaction(DCL, [functionCall('withdraw_asset', { token_id: token }, DCL_WITHDRAW_GAS)]));
+  }
+  return txs.filter(Boolean);
+}
+
+/* ------------------------------------------------------------------ */
+/* Market depth & multi-bin strategies (Spot / Curve / Bid-Ask)        */
+/* ------------------------------------------------------------------ */
+
+/** Pool liquidity by point segment: { current, segments: [{ left, right, liquidity }] }. */
+export async function getMarketDepth(poolId) {
+  const depth = await view(DCL, 'get_marketdepth', { pool_id: poolId, depth: 100 });
+  const segments = Object.values(depth?.liquidities || {})
+    .map((s) => ({ left: s.left_point, right: s.right_point, liquidity: Number(s.amount_l) }))
+    .filter((s) => s.right > s.left && s.liquidity > 0)
+    .sort((a, b) => a.left - b.left);
+  return { current: depth?.current_point, segments };
+}
+
+export const STRATEGIES = [
+  { key: 'spot', label: 'Spot', hint: 'Even liquidity across the range. Simple and works for any market.' },
+  { key: 'curve', label: 'Curve', hint: 'Concentrated around the current price. Highest fees while the price is calm.' },
+  { key: 'bidask', label: 'Bid-Ask', hint: 'More liquidity at the edges. Captures volatility and DCA-style entries/exits.' }
+];
+
+const MAX_BINS = 9; // one DCL position per bin; matches app.rhea.finance batch size
+
+/**
+ * Split [left, right) into positions shaped by the strategy.
+ * Spot is a single position; Curve / Bid-Ask use up to 9 weighted positions.
+ */
+export function buildBins({ left, right, current, pointDelta, strategy }) {
+  if (!(right > left)) return [];
+  if (strategy === 'spot') return [{ left, right, weight: 1 }];
+  const ticks = Math.round((right - left) / pointDelta);
+  const count = Math.max(1, Math.min(MAX_BINS, ticks));
+  const bins = [];
+  let start = left;
+  for (let i = 0; i < count; i += 1) {
+    const remaining = count - i;
+    const width = Math.max(1, Math.round((right - start) / pointDelta / remaining)) * pointDelta;
+    const end = i === count - 1 ? right : Math.min(right, start + width);
+    if (end > start) bins.push({ left: start, right: end });
+    start = end;
+  }
+  const reach = Math.max(current - left, right - current, 1);
+  return bins.map((b) => {
+    const d = Math.min(1, Math.abs((b.left + b.right) / 2 - current) / reach);
+    const weight = strategy === 'curve' ? Math.exp(-(d * d) / (2 * 0.38 * 0.38)) : 0.2 + d * d;
+    return { ...b, weight };
+  });
+}
+
+/**
+ * Size every bin from one known token amount so the whole shape is funded.
+ * Returns raw float amounts per bin plus totals; `from` is 'x' or 'y'.
+ */
+export function planBins({ bins, current, from, amount }) {
+  const withUnits = bins.map((b) => {
+    const split = Math.min(Math.max(current, b.left), b.right);
+    return { ...b, xPerL: dclAmountX(b.weight, split, b.right), yPerL: dclAmountY(b.weight, b.left, split) };
+  });
+  const unitX = withUnits.reduce((s, b) => s + b.xPerL, 0);
+  const unitY = withUnits.reduce((s, b) => s + b.yPerL, 0);
+  const a = Number(amount);
+  const unit = from === 'x' ? unitX : unitY;
+  const k = a > 0 && unit > 0 ? a / unit : 0;
+  const planned = withUnits.map((b) => ({ ...b, amountX: b.xPerL * k, amountY: b.yPerL * k }));
+  return {
+    bins: planned,
+    totalX: planned.reduce((s, b) => s + b.amountX, 0),
+    totalY: planned.reduce((s, b) => s + b.amountY, 0),
+    needsX: unitX > 0,
+    needsY: unitY > 0
+  };
+}
+
+/** Deposit and open every planned bin as its own position (batch_add_liquidity). */
+export async function buildDclBinsTransactions({ pool, plan, slippage, accountId, wrapX = '0', wrapY = '0' }) {
+  const infos = plan.bins
+    .map((b) => {
+      const amountX = floatToRaw(b.amountX);
+      const amountY = floatToRaw(b.amountY);
+      return {
+        pool_id: pool.pool_id,
+        left_point: b.left,
+        right_point: b.right,
+        amount_x: amountX,
+        amount_y: amountY,
+        min_amount_x: applySlippage(amountX, slippage),
+        min_amount_y: applySlippage(amountY, slippage)
+      };
+    })
+    .filter((i) => toBigInt(i.amount_x) > 0n || toBigInt(i.amount_y) > 0n);
+  if (!infos.length) throw new Error('Enter an amount.');
+  if (infos.length === 1) {
+    const [only] = infos;
+    return buildDclAddTransactions({
+      pool,
+      left: only.left_point,
+      right: only.right_point,
+      amountX: only.amount_x,
+      amountY: only.amount_y,
+      slippage,
+      accountId,
+      wrapX,
+      wrapY
+    });
+  }
+
+  const totalX = infos.reduce((s, i) => s + toBigInt(i.amount_x), 0n).toString();
+  const totalY = infos.reduce((s, i) => s + toBigInt(i.amount_y), 0n).toString();
+  const txs = [];
+  const storage = await dclStorageAction(accountId, infos.length);
+  if (storage) txs.push(transaction(DCL, [storage]));
+  for (const token of [pool.token_x, pool.token_y]) txs.push(await ensureStorageTx(token, accountId));
+  const wrapTotal = toBigInt(wrapX) + toBigInt(wrapY);
+  if (wrapTotal > 0n) {
+    txs.push(await ensureStorageTx(CONTRACTS.wrapNear, accountId));
+    txs.push(wrapNearTx(wrapTotal.toString()));
+  }
+  if (toBigInt(totalX) > 0n) txs.push(ftTransferCallTx(pool.token_x, DCL, totalX, '"Deposit"'));
+  if (toBigInt(totalY) > 0n) txs.push(ftTransferCallTx(pool.token_y, DCL, totalY, '"Deposit"'));
+  for (let i = 0; i < infos.length; i += BATCH_SIZE) {
+    txs.push(
+      transaction(DCL, [
+        functionCall('batch_add_liquidity', { add_liquidity_infos: infos.slice(i, i + BATCH_SIZE) }, DCL_BATCH_ADD_GAS)
+      ])
+    );
   }
   return txs.filter(Boolean);
 }

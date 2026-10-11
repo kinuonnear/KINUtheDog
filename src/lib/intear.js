@@ -81,6 +81,7 @@ export async function fetchTrades({ tokenId, limit = 30, signal }) {
     time: Number(t.timestamp_millis),
     side: t.side === 'sell' ? 'sell' : 'buy',
     trader: t.trader,
+    poolId: t.pool_id,
     usd: Number(t.usd_value) || 0,
     amountRaw: String(t.amount || '0'),
     counterparty: t.counterparty,
@@ -106,4 +107,32 @@ export function defaultChartSide(tokenIn, tokenOut) {
   if (!outQuote) return 'out';
   if (!inQuote) return 'in';
   return tokenIn?.native || tokenIn?.id === 'wrap.near' ? 'in' : 'out';
+}
+
+/**
+ * Candles for a pair: price of token X expressed in token Y, built from the two
+ * USD series (aligned by candle time). Used by the CLMM range chart.
+ */
+export async function fetchPairOhlc({ tokenX, tokenY, resolution = '60', countBack = 300, signal }) {
+  const [xs, ys] = await Promise.all([
+    fetchOhlc({ tokenId: tokenX, resolution, countBack, signal }),
+    fetchOhlc({ tokenId: tokenY, resolution, countBack, signal })
+  ]);
+  const byTime = new Map(ys.map((c) => [c.time, c]));
+  let lastY = null;
+  const out = [];
+  xs.forEach((x) => {
+    const y = byTime.get(x.time) || lastY;
+    if (!y) return;
+    lastY = y;
+    const open = x.open / y.open;
+    const close = x.close / y.close;
+    // A ratio's true high/low can't be recovered from two OHLC series; approximate with token Y's close.
+    const high = Math.max(open, close, x.high / y.close);
+    const low = Math.min(open, close, x.low / y.close);
+    if ([open, close, high, low].every((n) => Number.isFinite(n) && n > 0)) {
+      out.push({ time: x.time, open, high, low, close, volume: x.volume });
+    }
+  });
+  return out;
 }

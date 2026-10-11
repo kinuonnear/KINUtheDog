@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { useApp } from '../state.jsx';
 import { useAsync } from '../hooks.js';
 import { Link, useLocation } from '../router.jsx';
@@ -8,6 +8,10 @@ import { view } from '../lib/rpc.js';
 import { amountsForShares, isStableKind } from '../lib/liquidity.js';
 import { AmmLiquidity, DclLiquidity, StableLiquidity } from '../components/Liquidity.jsx';
 import { DclGroupCard } from '../components/DclPositions.jsx';
+import { useDclRange } from '../components/DclCreatePosition.jsx';
+import { fetchTrades } from '../lib/intear.js';
+
+const RangeChart = lazy(() => import('../components/RangeChart.jsx'));
 import { formatAmount, formatPercent, formatRawAmount, formatUsd, shortAccount, toBigInt, toNumber } from '../lib/format.js';
 import { CONTRACTS, ENDPOINTS, NATIVE_NEAR } from '../config.js';
 import { CopyButton, EmptyState, ErrorNotice, PairIcons, Skeleton, Stat, TokenIcon } from '../components/ui.jsx';
@@ -258,52 +262,118 @@ function DclPool({ poolId, initialTab }) {
         <Stat label="Fee APR" value={stats.data ? formatPercent(stats.data.apy) : '—'} loading={stats.loading} />
         <Stat label="Price" value={`${formatAmount(price)} ${y.symbol}`} hint={`per 1 ${x.symbol}`} />
       </div>
-      <div className="pool-grid">
-        <div className="pool-grid__main">
-          <section className="card">
-            <h3 className="card-title">Reserves</h3>
-            <div className="reserves">
-              {[
-                [x, totalX, usdX],
-                [y, totalY, usdY]
-              ].map(([token, amount, usd]) => (
-                <div className="reserve" key={token.id}>
-                  <TokenIcon token={token} size={32} />
-                  <div className="reserve__body">
-                    <strong>{formatAmount(amount)} {token.symbol}</strong>
-                    <small>{formatUsd(usd)} · {shortAccount(token.id, 12, 8)}</small>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-          {accountId && (
-            <section className="card">
-              <h3 className="card-title">Your liquidity</h3>
-              {positions.loading && !positions.data ? (
-                <Skeleton height={60} />
-              ) : !positions.data?.length ? (
-                <p className="muted">No concentrated positions in this pool yet — open one with the form.</p>
-              ) : (
-                <DclGroupCard
-                  poolId={poolId}
-                  positions={positions.data}
-                  x={x}
-                  y={y}
-                  onAdd={scrollToForm}
-                  onDone={refresh}
-                />
-              )}
-            </section>
-          )}
-        </div>
-        <aside className="pool-grid__side">
-          <section className="card" id="new-position">
-            <DclLiquidity pool={chain.data} x={x} y={y} onDone={refresh} />
-          </section>
-        </aside>
-      </div>
+      <DclWorkspace
+        poolId={poolId}
+        pool={chain.data}
+        x={x}
+        y={y}
+        reserves={[
+          [x, totalX, usdX],
+          [y, totalY, usdY]
+        ]}
+        positions={positions}
+        onAdd={scrollToForm}
+        onDone={refresh}
+      />
     </>
+  );
+}
+
+/** CLMM page body: draggable range chart + Meteora-style create form. */
+function DclWorkspace({ poolId, pool, x, y, reserves, positions, onAdd, onDone }) {
+  const { accountId } = useApp();
+  const rangeState = useDclRange(pool, x, y);
+  const onDrag = (side, price) => rangeState.setEdge(side, { price });
+
+  return (
+    <div className="pool-grid pool-grid--wide">
+      <div className="pool-grid__main">
+        <Suspense fallback={<div className="card chart-card--loading"><Skeleton height={420} radius={16} /></div>}>
+          <RangeChart
+            x={x}
+            y={y}
+            currentPrice={rangeState.currentPrice}
+            minPrice={rangeState.minPrice}
+            maxPrice={rangeState.maxPrice}
+            fullRange={rangeState.full}
+            onDrag={onDrag}
+          />
+        </Suspense>
+        {accountId && (
+          <section className="card">
+            <h3 className="card-title">Your liquidity</h3>
+            {positions.loading && !positions.data ? (
+              <Skeleton height={60} />
+            ) : !positions.data?.length ? (
+              <p className="muted">No concentrated positions in this pool yet — open one with the form.</p>
+            ) : (
+              <DclGroupCard poolId={poolId} positions={positions.data} x={x} y={y} onAdd={onAdd} onDone={onDone} />
+            )}
+          </section>
+        )}
+        <section className="card">
+          <h3 className="card-title">Pool composition</h3>
+          <div className="reserves">
+            {reserves.map(([token, amount, usd]) => (
+              <div className="reserve" key={token.id}>
+                <TokenIcon token={token} size={32} />
+                <div className="reserve__body">
+                  <strong>
+                    {formatAmount(amount)} {token.symbol}
+                  </strong>
+                  <small>
+                    {formatUsd(usd)} · {shortAccount(token.id, 12, 8)} <CopyButton text={token.id} />
+                  </small>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+        <PoolTrades poolId={poolId} x={x} y={y} />
+      </div>
+      <aside className="pool-grid__side">
+        <section className="card" id="new-position">
+          <DclLiquidity pool={pool} x={x} y={y} rangeState={rangeState} onDone={onDone} />
+        </section>
+      </aside>
+    </div>
+  );
+}
+
+/** Recent swaps through this exact pool (Intear trade feed). */
+function PoolTrades({ poolId, x, y }) {
+  const trades = useAsync(
+    async () => (await fetchTrades({ tokenId: x.id, limit: 100 })).filter((t) => t.poolId === `REFDCL-${poolId}`).slice(0, 15),
+    [poolId, x.id],
+    { refreshMs: 30_000 }
+  );
+  if (!trades.data?.length) return null;
+  return (
+    <section className="card">
+      <div className="card-head">
+        <h3>Recent transactions</h3>
+        <span className="live-pill">Live</span>
+      </div>
+      <div className="pool-trades">
+        {trades.data.map((t) => {
+          const xAmount = toNumber(t.amountRaw, x.decimals);
+          const yAmount = toNumber(t.counterpartyAmountRaw, y.decimals);
+          return (
+            <a key={t.id} className="pool-trades__row" href={`${ENDPOINTS.explorer}/txns/${t.txHash}`} target="_blank" rel="noopener noreferrer">
+              <span className={t.side === 'buy' ? 'up' : 'down'}>{t.side === 'buy' ? `Buy ${x.symbol}` : `Sell ${x.symbol}`}</span>
+              <span className="mono">
+                {formatAmount(xAmount)} {x.symbol}
+              </span>
+              <span className="mono muted">
+                {formatAmount(yAmount)} {y.symbol}
+              </span>
+              <span>{formatUsd(t.usd)}</span>
+              <span className="muted">{new Date(t.time).toLocaleString()}</span>
+            </a>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 
