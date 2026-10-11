@@ -4,6 +4,7 @@
 
 import { CONTRACTS, DEPOSIT, GAS } from '../config.js';
 import { getExchangeStorage } from './rhea.js';
+import { view } from './rpc.js';
 import { ensureStorageTx, ftTransferCallTx, functionCall, transaction, wrapNearTx } from './tx.js';
 import { applySlippage, toBigInt } from './format.js';
 
@@ -96,9 +97,13 @@ export async function buildAddLiquidityTransactions({ pool, amounts, accountId, 
   return txs.filter(Boolean);
 }
 
-export async function buildRemoveLiquidityTransactions({ pool, shares, accountId, slippage }) {
+/**
+ * Proportional withdrawal (works for AMM, Stable and ALMM pools).
+ * `expectedAmounts` overrides the simple reserve-ratio estimate (use predictRemoveAmounts for stable pools).
+ */
+export async function buildRemoveLiquidityTransactions({ pool, shares, accountId, slippage, expectedAmounts }) {
   if (toBigInt(shares) <= 0n) throw new Error('Enter an amount of shares to remove.');
-  const expected = amountsForShares(pool, shares);
+  const expected = expectedAmounts || amountsForShares(pool, shares);
   const txs = [];
 
   // The user must be registered on each token to receive the withdrawal.
@@ -118,7 +123,7 @@ export async function buildRemoveLiquidityTransactions({ pool, shares, accountId
         GAS.removeLiquidity,
         DEPOSIT.oneYocto
       ),
-      ...pool.tokenIds.map((tokenId) =>
+      ...pool.tokenIds.filter((_, i) => toBigInt(expected[i]) > 0n).map((tokenId) =>
         functionCall(
           'withdraw',
           { token_id: tokenId, amount: '0', unregister: false, skip_unwrap_near: false },
@@ -154,5 +159,62 @@ export async function buildWithdrawDepositsTransactions({ tokenIds, accountId })
       )
     );
   }
+  return txs.filter(Boolean);
+}
+
+/* ------------------------------------------------------------------ */
+/* Stable & ALMM pools (STABLE_SWAP, RATED_SWAP, DEGEN_SWAP)           */
+/* ------------------------------------------------------------------ */
+
+export const isStableKind = (kind) => ['STABLE_SWAP', 'RATED_SWAP', 'DEGEN_SWAP'].includes(kind);
+
+/** LP shares the contract would mint for `amounts` (raw, aligned with pool.tokenIds). */
+export async function predictStableShares(poolId, amounts) {
+  const shares = await view(exchange, 'predict_add_stable_liquidity', { pool_id: Number(poolId), amounts });
+  return String(shares ?? '0');
+}
+
+/** Token amounts returned for burning `shares` proportionally. */
+export async function predictRemoveAmounts(poolId, shares) {
+  const amounts = await view(exchange, 'predict_remove_liquidity', { pool_id: Number(poolId), shares });
+  return (amounts || []).map(String);
+}
+
+/**
+ * Stable / ALMM deposit: any ratio (even a single token) is accepted.
+ * @param minShares  minimum LP shares (predicted shares minus slippage)
+ */
+export async function buildAddStableLiquidityTransactions({ pool, amounts, minShares, accountId, wrapAmount = '0' }) {
+  if (!isStableKind(pool.kind)) throw new Error('Not a stable or ALMM pool.');
+  if (amounts.every((a) => toBigInt(a) <= 0n)) throw new Error('Enter an amount.');
+
+  const txs = [];
+  const storageAction = await exchangeStorageTx(accountId);
+  txs.push(
+    transaction(exchange, [
+      ...(storageAction ? [storageAction] : []),
+      functionCall('register_tokens', { token_ids: pool.tokenIds }, GAS.registerTokens, DEPOSIT.oneYocto)
+    ])
+  );
+
+  if (toBigInt(wrapAmount) > 0n) {
+    txs.push(await ensureStorageTx(CONTRACTS.wrapNear, accountId));
+    txs.push(wrapNearTx(wrapAmount));
+  }
+
+  pool.tokenIds.forEach((tokenId, i) => {
+    if (toBigInt(amounts[i]) > 0n) txs.push(ftTransferCallTx(tokenId, exchange, amounts[i], ''));
+  });
+
+  txs.push(
+    transaction(exchange, [
+      functionCall(
+        'add_stable_liquidity',
+        { pool_id: Number(pool.id), amounts, min_shares: minShares },
+        GAS.addLiquidity,
+        DEPOSIT.lpStorage
+      )
+    ])
+  );
   return txs.filter(Boolean);
 }

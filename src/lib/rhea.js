@@ -7,11 +7,41 @@ import { CONTRACTS, ENDPOINTS } from '../config.js';
 import { view } from './rpc.js';
 import { toBigInt } from './format.js';
 
+// Pool categories exactly as app.rhea.finance names them.
+// `type` / `labels` are the pool-search API parameters for each tab.
 export const POOL_TYPES = [
-  { key: 'all', label: 'All' },
-  { key: 'classic', label: 'Classic' },
-  { key: 'stable', label: 'Stable' },
-  { key: 'dcl', label: 'Concentrated' }
+  { key: 'all', label: 'All pools', type: 'all', hint: 'Every Rhea pool on NEAR.' },
+  {
+    key: 'amm',
+    label: 'AMM',
+    type: 'classic',
+    hint: 'Classic x·y=k pools. Liquidity spreads across all prices; deposit both tokens at the pool ratio.'
+  },
+  {
+    key: 'clmm',
+    label: 'CLMM',
+    type: 'dcl',
+    hint: 'Concentrated liquidity. Choose a price range to earn more fees while the price stays inside it.'
+  },
+  {
+    key: 'almm',
+    label: 'ALMM',
+    type: 'degen',
+    hint: 'Oracle-guided adaptive pools for volatile pairs. Deposit one or both tokens in any ratio.'
+  },
+  {
+    key: 'stable',
+    label: 'Stable',
+    type: 'stable',
+    hint: 'Low-slippage pools for pegged assets (stablecoins, liquid-staked NEAR). Any ratio is accepted.'
+  },
+  {
+    key: 'farm',
+    label: 'Farm',
+    type: 'all',
+    labels: 'farm',
+    hint: 'Pools with active Rhea farm rewards on top of trading fees.'
+  }
 ];
 
 export const POOL_SORTS = [
@@ -24,13 +54,12 @@ export const POOL_SORTS = [
 export function poolKindLabel(kind) {
   switch (kind) {
     case 'SIMPLE_POOL':
-      return 'Classic';
+      return 'AMM';
     case 'STABLE_SWAP':
-      return 'Stable';
     case 'RATED_SWAP':
-      return 'Rated';
+      return 'Stable';
     case 'DEGEN_SWAP':
-      return 'Degen';
+      return 'ALMM';
     case 'DCL':
       return 'CLMM';
     default:
@@ -74,7 +103,8 @@ export async function searchPools({
   offset = 0,
   hideLow = true,
   tokenList = '',
-  poolIds = ''
+  poolIds = '',
+  labels = ''
 } = {}) {
   const params = new URLSearchParams({
     type,
@@ -85,7 +115,7 @@ export async function searchPools({
     hide_low_pool: String(hideLow),
     hide_uncertified_token: 'false',
     order_by: order,
-    labels: '',
+    labels,
     token_type: '',
     token_list: tokenList,
     pool_id_list: poolIds
@@ -270,6 +300,7 @@ export async function getDclPositions(accountId) {
       return {
         id: l.lpt_id,
         poolId: l.pool_id,
+        liquidity: String(l.amount),
         tokenX,
         tokenY,
         feePercent: fee / 10000,

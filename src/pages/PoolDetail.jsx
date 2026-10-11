@@ -1,252 +1,23 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect } from 'react';
 import { useApp } from '../state.jsx';
 import { useAsync } from '../hooks.js';
 import { Link } from '../router.jsx';
 import { getDclPositions, getFarmStakes, getPool, getPoolShares, getPoolStats, dclPointToPrice, parseDclPoolId } from '../lib/rhea.js';
 import { getTokens, priceOf } from '../lib/tokens.js';
 import { view } from '../lib/rpc.js';
-import {
-  amountsForShares,
-  buildAddLiquidityTransactions,
-  buildRemoveLiquidityTransactions,
-  expectedShares,
-  pairedAmount
-} from '../lib/liquidity.js';
-import {
-  formatAmount,
-  formatPercent,
-  formatRawAmount,
-  formatUnits,
-  formatUsd,
-  maxBig,
-  shortAccount,
-  toBigInt,
-  toNumber,
-  tryParseUnits
-} from '../lib/format.js';
-import { CONTRACTS, ENDPOINTS, NATIVE_NEAR, NEAR_GAS_RESERVE } from '../config.js';
-import { CopyButton, EmptyState, ErrorNotice, PairIcons, Skeleton, Spinner, Stat, Tabs, TokenIcon } from '../components/ui.jsx';
+import { amountsForShares, isStableKind } from '../lib/liquidity.js';
+import { AmmLiquidity, DclLiquidity, StableLiquidity } from '../components/Liquidity.jsx';
+import { formatAmount, formatPercent, formatRawAmount, formatUsd, shortAccount, toBigInt, toNumber } from '../lib/format.js';
+import { CONTRACTS, ENDPOINTS, NATIVE_NEAR } from '../config.js';
+import { CopyButton, EmptyState, ErrorNotice, PairIcons, Skeleton, Stat, TokenIcon } from '../components/ui.jsx';
 
-/* ------------------------------------------------------------------ */
-/* Liquidity panel (classic pools)                                     */
-/* ------------------------------------------------------------------ */
-
-// Inputs show at most 8 decimals (rounded down so balances are never exceeded).
-function trimDecimals(text) {
-  const [whole, fraction = ''] = text.split('.');
-  const kept = fraction.slice(0, 8).replace(/0+$/, '');
-  return kept ? `${whole}.${kept}` : whole;
-}
-
-function AddLiquidity({ pool, tokens, onDone }) {
-  const { accountId, connect, balances, nearBalance, slippage, execute } = useApp();
-  const [inputs, setInputs] = useState(() => pool.tokenIds.map(() => ''));
-  const [submitting, setSubmitting] = useState(false);
-
-  const wrapIndex = pool.tokenIds.indexOf(CONTRACTS.wrapNear);
-  const nativeSpendable = useMemo(() => {
-    if (!nearBalance) return 0n;
-    const rest = toBigInt(nearBalance.available) - toBigInt(NEAR_GAS_RESERVE);
-    return rest > 0n ? rest : 0n;
-  }, [nearBalance]);
-
-  // Spendable per token; wNEAR also counts native NEAR (wrapped automatically).
-  const spendable = pool.tokenIds.map((id, i) => {
-    const ft = toBigInt(balances[id] || '0');
-    return i === wrapIndex ? ft + nativeSpendable : ft;
-  });
-
-  const raws = inputs.map((value, i) => tryParseUnits(value, tokens[i]?.decimals ?? 0));
-
-  const setAmount = (index, value) => {
-    const text = value.replace(',', '.');
-    if (!/^\d*\.?\d*$/.test(text)) return;
-    const raw = tryParseUnits(text, tokens[index]?.decimals ?? 0);
-    setInputs(
-      pool.tokenIds.map((_, j) => {
-        if (j === index) return text;
-        if (!raw || pool.tokenIds.length !== 2) return inputs[j];
-        return trimDecimals(formatUnits(pairedAmount(pool, index, j, raw), tokens[j]?.decimals ?? 0));
-      })
-    );
-  };
-
-  const setMax = (index) => {
-    if (pool.tokenIds.length !== 2) return;
-    const other = 1 - index;
-    // Largest deposit that fits both balances at the current ratio.
-    let amount = spendable[index];
-    const needed = toBigInt(pairedAmount(pool, index, other, amount.toString()));
-    if (needed > spendable[other]) amount = toBigInt(pairedAmount(pool, other, index, spendable[other].toString()));
-    setAmount(index, trimDecimals(formatUnits(amount.toString(), tokens[index]?.decimals ?? 0)));
-  };
-
-  const complete = raws.every((r) => r && toBigInt(r) > 0n);
-  const insufficientIndex = complete ? raws.findIndex((r, i) => toBigInt(r) > spendable[i]) : -1;
-  const shares = complete ? expectedShares(pool, raws) : '0';
-  const supply = toBigInt(pool.sharesTotalSupply);
-  const sharePct = supply > 0n && toBigInt(shares) > 0n ? (Number(shares) / Number(supply + toBigInt(shares))) * 100 : 0;
-
-  const wrapAmount =
-    complete && wrapIndex >= 0
-      ? maxBig(0n, toBigInt(raws[wrapIndex]) - toBigInt(balances[CONTRACTS.wrapNear] || '0')).toString()
-      : '0';
-
-  const submit = async () => {
-    if (!accountId) return connect();
-    setSubmitting(true);
-    const result = await execute(
-      () => buildAddLiquidityTransactions({ pool, amounts: raws, accountId, slippage, wrapAmount }),
-      { pending: 'Adding liquidity', success: 'Liquidity added' }
-    );
-    setSubmitting(false);
-    if (result) {
-      setInputs(pool.tokenIds.map(() => ''));
-      onDone();
-    }
-  };
-
-  let label = 'Add liquidity';
-  let disabled = false;
-  if (!accountId) label = 'Connect wallet';
-  else if (!complete) {
-    label = 'Enter amounts';
-    disabled = true;
-  } else if (insufficientIndex >= 0) {
-    label = `Insufficient ${tokens[insufficientIndex]?.symbol}`;
-    disabled = true;
-  } else if (submitting) {
-    label = 'Confirm in wallet…';
-    disabled = true;
+/** Pool page on app.rhea.finance, for users who want the original UI. */
+function rheaPoolUrl(pool) {
+  if (pool.kind === 'DCL') {
+    const { tokenX, tokenY, fee } = parseDclPoolId(pool.id);
+    return `${ENDPOINTS.rheaApp}/poolV2/${encodeURIComponent(`${tokenX}<>${tokenY}`)}@${fee}`;
   }
-
-  return (
-    <div className="liq-form">
-      {pool.tokenIds.map((id, i) => (
-        <div className="swap-field" key={id}>
-          <div className="swap-field__top">
-            <span>
-              {tokens[i]?.symbol}
-              {i === wrapIndex && <small className="muted"> · NEAR is wrapped automatically</small>}
-            </span>
-            {accountId && (
-              <span className="swap-field__balance">
-                Balance {formatRawAmount(spendable[i].toString(), tokens[i]?.decimals ?? 0)}
-                <button type="button" className="mini-button" onClick={() => setMax(i)}>
-                  Max
-                </button>
-              </span>
-            )}
-          </div>
-          <div className="swap-field__row">
-            <input inputMode="decimal" placeholder="0.0" value={inputs[i]} onChange={(e) => setAmount(i, e.target.value)} />
-            <span className="token-select token-select--static">
-              <TokenIcon token={tokens[i]} size={24} />
-              <strong>{tokens[i]?.symbol}</strong>
-            </span>
-          </div>
-        </div>
-      ))}
-
-      {complete && (
-        <dl className="kv">
-          <div>
-            <dt>LP shares (est.)</dt>
-            <dd>{formatRawAmount(shares, 24)}</dd>
-          </div>
-          <div>
-            <dt>Share of pool</dt>
-            <dd>{formatPercent(sharePct, 4)}</dd>
-          </div>
-          {accountId && toBigInt(wrapAmount) > 0n && (
-            <div>
-              <dt>NEAR to wrap</dt>
-              <dd>{formatRawAmount(wrapAmount, 24)} NEAR</dd>
-            </div>
-          )}
-          <div>
-            <dt>Max slippage</dt>
-            <dd>{slippage}%</dd>
-          </div>
-        </dl>
-      )}
-
-      <button type="button" className="button button--primary button--block button--lg" disabled={disabled} onClick={submit}>
-        {submitting && <Spinner size={14} />}
-        {label}
-      </button>
-    </div>
-  );
-}
-
-function RemoveLiquidity({ pool, tokens, shares, staked, onDone }) {
-  const { accountId, connect, slippage, execute } = useApp();
-  const [percent, setPercent] = useState(50);
-  const [submitting, setSubmitting] = useState(false);
-
-  const removeShares = ((toBigInt(shares) * BigInt(percent)) / 100n).toString();
-  const out = amountsForShares(pool, removeShares);
-
-  if (!accountId) {
-    return (
-      <EmptyState title="Connect to manage your position" action={<button className="button button--primary" onClick={connect}>Connect wallet</button>} />
-    );
-  }
-
-  if (toBigInt(shares) === 0n) {
-    return (
-      <EmptyState title="No removable liquidity">
-        {toBigInt(staked) > 0n
-          ? 'Your LP shares are staked in a Rhea farm. Unstake them on app.rhea.finance first.'
-          : 'You have no LP shares in this pool yet.'}
-      </EmptyState>
-    );
-  }
-
-  const submit = async () => {
-    setSubmitting(true);
-    const result = await execute(
-      () => buildRemoveLiquidityTransactions({ pool, shares: removeShares, accountId, slippage }),
-      { pending: 'Removing liquidity', success: 'Liquidity removed' }
-    );
-    setSubmitting(false);
-    if (result) onDone();
-  };
-
-  return (
-    <div className="liq-form">
-      <div className="range-block">
-        <div className="range-block__value">{percent}%</div>
-        <input type="range" min="1" max="100" value={percent} onChange={(e) => setPercent(Number(e.target.value))} aria-label="Percent to remove" />
-        <div className="segmented segmented--full">
-          {[25, 50, 75, 100].map((p) => (
-            <button key={p} type="button" className={percent === p ? 'active' : ''} onClick={() => setPercent(p)}>
-              {p === 100 ? 'Max' : `${p}%`}
-            </button>
-          ))}
-        </div>
-      </div>
-      <dl className="kv">
-        {pool.tokenIds.map((id, i) => (
-          <div key={id}>
-            <dt>
-              <TokenIcon token={tokens[i]} size={18} /> {tokens[i]?.symbol}
-            </dt>
-            <dd>{formatRawAmount(out[i], tokens[i]?.decimals ?? 0)}</dd>
-          </div>
-        ))}
-        <div>
-          <dt>Max slippage</dt>
-          <dd>{slippage}%</dd>
-        </div>
-      </dl>
-      <button type="button" className="button button--primary button--block button--lg" disabled={submitting} onClick={submit}>
-        {submitting && <Spinner size={14} />}
-        {submitting ? 'Confirm in wallet…' : 'Remove liquidity'}
-      </button>
-      <p className="hint">Tokens are withdrawn straight back to your wallet in the same transaction.</p>
-    </div>
-  );
+  return `${ENDPOINTS.rheaApp}/${isStableKind(pool.kind) ? 'sauce' : 'pool'}/${pool.id}`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -255,7 +26,6 @@ function RemoveLiquidity({ pool, tokens, shares, staked, onDone }) {
 
 function ClassicPool({ poolId }) {
   const { accountId, prices } = useApp();
-  const [tab, setTab] = useState('add');
 
   const poolQuery = useAsync(() => getPool(poolId), [poolId], { refreshMs: 30_000 });
   const stats = useAsync(() => getPoolStats(poolId), [poolId]);
@@ -303,7 +73,7 @@ function ClassicPool({ poolId }) {
         label={pool.label}
         feePercent={pool.feePercent}
         idText={`#${pool.id}`}
-        rheaUrl={`${ENDPOINTS.rheaApp}/pool/${pool.id}`}
+        rheaUrl={rheaPoolUrl(pool)}
         swapLink={tokens.length >= 2 ? `/swap?from=${tokens[0].id === CONTRACTS.wrapNear ? NATIVE_NEAR.id : tokens[0].id}&to=${tokens[1].id}` : null}
       />
 
@@ -401,39 +171,24 @@ function ClassicPool({ poolId }) {
         <aside className="pool-grid__side">
           <section className="card">
             {isSimple ? (
-              <>
-                <Tabs
-                  tabs={[
-                    { key: 'add', label: 'Add' },
-                    { key: 'remove', label: 'Remove' }
-                  ]}
-                  value={tab}
-                  onChange={setTab}
-                  size="block"
-                />
-                {tab === 'add' ? (
-                  <AddLiquidity pool={pool} tokens={tokens} onDone={refresh} />
-                ) : (
-                  <RemoveLiquidity
-                    pool={pool}
-                    tokens={tokens}
-                    shares={position.data?.shares || '0'}
-                    staked={position.data?.staked || '0'}
-                    onDone={refresh}
-                  />
-                )}
-              </>
+              <AmmLiquidity
+                pool={pool}
+                tokens={tokens}
+                shares={position.data?.shares || '0'}
+                staked={position.data?.staked || '0'}
+                onDone={refresh}
+              />
+            ) : isStableKind(pool.kind) ? (
+              <StableLiquidity
+                pool={pool}
+                tokens={tokens}
+                shares={position.data?.shares || '0'}
+                staked={position.data?.staked || '0'}
+                onDone={refresh}
+              />
             ) : (
-              <EmptyState
-                icon="⚖"
-                title={`${pool.label} pool`}
-                action={
-                  <a className="button button--ghost" href={`${ENDPOINTS.rheaApp}/pool/${pool.id}`} target="_blank" rel="noopener noreferrer">
-                    Manage on Rhea ↗
-                  </a>
-                }
-              >
-                Stable and rated pools use a different deposit formula. Manage this position directly on Rhea.
+              <EmptyState icon="⚖" title={`${pool.label} pool`}>
+                This pool type can&apos;t be managed here yet.
               </EmptyState>
             )}
           </section>
@@ -479,7 +234,7 @@ function DclPool({ poolId }) {
         label="CLMM"
         feePercent={fee / 10000}
         idText="Concentrated"
-        rheaUrl={`${ENDPOINTS.rheaApp}/pools`}
+        rheaUrl={rheaPoolUrl({ kind: 'DCL', id: poolId })}
         swapLink={`/swap?from=${tokenX}&to=${tokenY}`}
       />
       <div className="stats-row">
@@ -532,18 +287,16 @@ function DclPool({ poolId }) {
         </div>
         <aside className="pool-grid__side">
           <section className="card">
-            <EmptyState
-              icon="◎"
-              title="Concentrated liquidity"
-              action={
-                <a className="button button--ghost" href={`${ENDPOINTS.rheaApp}/pools`} target="_blank" rel="noopener noreferrer">
-                  Add a range on Rhea ↗
-                </a>
-              }
-            >
-              Concentrated positions need a price range. Create and manage them on Rhea; they appear in your KINU
-              portfolio automatically.
-            </EmptyState>
+            <DclLiquidity
+              pool={chain.data}
+              x={x}
+              y={y}
+              positions={positions.data}
+              onDone={() => {
+                chain.reload();
+                positions.reload();
+              }}
+            />
           </section>
         </aside>
       </div>

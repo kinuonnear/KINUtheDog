@@ -5,6 +5,7 @@ import { Link, navigate, poolPath, useLocation } from '../router.jsx';
 import { getAllBalances, getTokens, priceOf } from '../lib/tokens.js';
 import { getClassicPositions, getDclPositions, getDeposits, dclPointToPrice } from '../lib/rhea.js';
 import { buildWithdrawDepositsTransactions } from '../lib/liquidity.js';
+import { buildDclWithdrawTransactions, getDclAssets } from '../lib/dclLiquidity.js';
 import { formatAmount, formatPercent, formatPrice, formatUsd, shortAccount, toNumber } from '../lib/format.js';
 import { CONTRACTS, ENDPOINTS, NATIVE_NEAR } from '../config.js';
 import { EmptyState, ErrorNotice, PairIcons, Skeleton, Spinner, Stat, Tabs, TokenIcon } from '../components/ui.jsx';
@@ -13,20 +14,22 @@ const DUST_USD = 0.01;
 const ALLOCATION_COLORS = ['#b8ff3d', '#3ddc97', '#5ec8ff', '#ffb547', '#c792ff', '#5a6470'];
 
 async function loadPortfolio(account) {
-  const [wallet, deposits, classic, dcl] = await Promise.all([
+  const [wallet, deposits, dclAssets, classic, dcl] = await Promise.all([
     getAllBalances(account),
     getDeposits(account).catch(() => ({})),
+    getDclAssets(account).catch(() => ({})),
     getClassicPositions(account).catch(() => []),
     getDclPositions(account).catch(() => [])
   ]);
   const ids = new Set([
     ...Object.keys(wallet.balances),
     ...Object.keys(deposits),
+    ...Object.keys(dclAssets),
     ...classic.flatMap((p) => p.pool.tokenIds),
     ...dcl.flatMap((p) => [p.tokenX, p.tokenY])
   ]);
   const tokens = await getTokens([...ids]);
-  return { wallet, deposits, classic, dcl, tokens };
+  return { wallet, deposits, dclAssets, classic, dcl, tokens };
 }
 
 function AccountPrompt() {
@@ -77,7 +80,7 @@ export default function Portfolio() {
 
   const model = useMemo(() => {
     if (!data.data) return null;
-    const { wallet, deposits, classic, dcl, tokens } = data.data;
+    const { wallet, deposits, dclAssets, classic, dcl, tokens } = data.data;
     const meta = (id) => (id === NATIVE_NEAR.id ? NATIVE_NEAR : tokens[id] || { id, symbol: id.slice(0, 6), decimals: 0 });
     const usdOf = (id, raw) => toNumber(raw, meta(id).decimals) * priceOf(prices, id);
 
@@ -91,8 +94,12 @@ export default function Portfolio() {
       .filter((r) => r.amount > 0)
       .sort((a, b) => b.usd - a.usd || b.amount - a.amount);
 
-    const depositRows = Object.entries(deposits)
-      .map(([id, raw]) => ({ id, token: meta(id), amount: toNumber(raw, meta(id).decimals), usd: usdOf(id, raw) }))
+    // Tokens parked inside Rhea: the classic exchange and the CLMM (DCL) contract.
+    const depositRows = [
+      ...Object.entries(deposits).map(([id, raw]) => ({ id, raw, source: 'exchange' })),
+      ...Object.entries(dclAssets).map(([id, raw]) => ({ id, raw, source: 'dcl' }))
+    ]
+      .map((r) => ({ ...r, token: meta(r.id), amount: toNumber(r.raw, meta(r.id).decimals), usd: usdOf(r.id, r.raw) }))
       .sort((a, b) => b.usd - a.usd);
 
     const classicRows = classic
@@ -152,7 +159,14 @@ export default function Portfolio() {
 
   const withdrawAll = () =>
     execute(
-      () => buildWithdrawDepositsTransactions({ tokenIds: model.depositRows.map((r) => r.id), accountId }),
+      async () => {
+        const fromExchange = model.depositRows.filter((r) => r.source === 'exchange').map((r) => r.id);
+        const fromDcl = model.depositRows.filter((r) => r.source === 'dcl').map((r) => r.id);
+        return [
+          ...(fromExchange.length ? await buildWithdrawDepositsTransactions({ tokenIds: fromExchange, accountId }) : []),
+          ...(fromDcl.length ? await buildDclWithdrawTransactions({ tokenIds: fromDcl, accountId }) : [])
+        ];
+      },
       { pending: 'Withdrawing from Rhea', success: 'Withdrawn to wallet' }
     ).then((r) => r && data.reload());
 
@@ -347,8 +361,8 @@ export default function Portfolio() {
             <>
               <div className="deposits-head">
                 <p className="muted">
-                  Tokens held inside the Rhea exchange contract ({CONTRACTS.exchange}). They don&apos;t earn fees until
-                  added to a pool or withdrawn.
+                  Tokens held inside Rhea contracts ({CONTRACTS.exchange} and {CONTRACTS.dcl}), e.g. leftovers from a
+                  deposit. They don&apos;t earn fees until added to a pool or withdrawn.
                 </p>
                 {!readOnly && (
                   <button type="button" className="button button--primary button--sm" onClick={withdrawAll}>
@@ -357,7 +371,7 @@ export default function Portfolio() {
                 )}
               </div>
               {model.depositRows.map((r) => (
-                <div className="asset-row" key={r.id}>
+                <div className="asset-row" key={`${r.source}-${r.id}`}>
                   <span className="asset-row__token">
                     <TokenIcon token={r.token} size={32} />
                     <span>
@@ -365,7 +379,7 @@ export default function Portfolio() {
                       <small>{shortAccount(r.id, 14, 8)}</small>
                     </span>
                   </span>
-                  <span />
+                  <span className="muted small">{r.source === 'dcl' ? 'CLMM balance' : 'Exchange'}</span>
                   <span data-label="Balance">{formatAmount(r.amount)}</span>
                   <span data-label="Value">{formatUsd(r.usd)}</span>
                 </div>

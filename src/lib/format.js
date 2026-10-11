@@ -119,3 +119,17 @@ export function minBig(a, b) {
 export function maxBig(a, b) {
   return a > b ? a : b;
 }
+
+/** Compact price text that keeps significant digits for micro-cap tokens. */
+export function formatChartPrice(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '—';
+  const abs = Math.abs(n);
+  if (abs >= 1e9) return `${(n / 1e9).toFixed(2)}B`;
+  if (abs >= 1e6) return `${(n / 1e6).toFixed(2)}M`;
+  if (abs >= 1e4) return `${(n / 1e3).toFixed(1)}K`;
+  if (abs >= 1) return n.toFixed(4);
+  if (abs === 0) return '0';
+  const digits = Math.min(14, Math.ceil(-Math.log10(abs)) + 3);
+  return n.toFixed(digits);
+}

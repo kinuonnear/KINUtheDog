@@ -3,6 +3,8 @@ import { useApp } from '../state.jsx';
 import { useClickOutside, useDebounced, useLocalStorage } from '../hooks.js';
 import { navigate, useLocation } from '../router.jsx';
 import TokenPicker from '../components/TokenPicker.jsx';
+import RecentTrades from '../components/RecentTrades.jsx';
+import { defaultChartSide } from '../lib/intear.js';
 import { Spinner, TokenIcon } from '../components/ui.jsx';
 import { getCachedToken, getToken, priceOf } from '../lib/tokens.js';
 import { buildSwapTransactions, getSwapQuote } from '../lib/swap.js';
@@ -139,6 +141,12 @@ export default function Swap() {
   const [quoting, setQuoting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [invert, setInvert] = useState(false);
+  const [chartSide, setChartSide] = useState(null);
+
+  // The chart follows the non-quote token of the pair unless the user picks a side.
+  useEffect(() => setChartSide(null), [tokenIn.id, tokenOut.id]);
+  const side = chartSide || defaultChartSide(tokenIn, tokenOut);
+  const chartToken = side === 'in' ? tokenIn : tokenOut;
 
   // Initial tokens from the URL (?from=…&to=…), e.g. links from pool pages.
   useEffect(() => {
@@ -326,7 +334,7 @@ export default function Swap() {
       <div className={`swap-layout ${showChart ? '' : 'swap-layout--solo'}`}>
         {showChart && (
           <Suspense fallback={<div className="card chart-card chart-card--loading"><Spinner size={22} /></div>}>
-            <PriceChart base={tokenIn} quote={tokenOut} />
+            <PriceChart tokenIn={tokenIn} tokenOut={tokenOut} side={side} onSideChange={setChartSide} />
           </Suspense>
         )}
 
@@ -433,6 +441,8 @@ export default function Swap() {
             Quotes come from Rhea&apos;s SmartRouter, with direct Rhea CLMM routing for pairs it doesn&apos;t cover.
             Every transaction is reviewed and signed in your own wallet — KINU never holds your keys or funds.
           </p>
+
+          <RecentTrades token={chartToken} />
         </div>
       </div>
 

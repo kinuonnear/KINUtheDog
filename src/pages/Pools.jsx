@@ -65,7 +65,8 @@ export function PoolRowsSkeleton({ rows = 8 }) {
 }
 
 export default function Pools() {
-  const [type, setType] = useState('all');
+  const [category, setCategory] = useState('all');
+  const tab = POOL_TYPES.find((t) => t.key === category) || POOL_TYPES[0];
   const [sort, setSort] = useState('tvl');
   const [order, setOrder] = useState('desc');
   const [hideLow, setHideLow] = useState(true);
@@ -76,12 +77,13 @@ export default function Pools() {
   // With a search term we fetch a wider set and filter client-side by symbol/contract.
   const limit = q ? 300 : PAGE_SIZE * pages;
   const result = useAsync(
-    () => searchPools({ type, sort, order, limit, offset: 0, hideLow: q ? false : hideLow }),
-    [type, sort, order, limit, hideLow, Boolean(q)],
+    () =>
+      searchPools({ type: tab.type, labels: tab.labels || '', sort, order, limit, offset: 0, hideLow: q ? false : hideLow }),
+    [category, sort, order, limit, hideLow, Boolean(q)],
     { refreshMs: 60_000 }
   );
 
-  useEffect(() => setPages(1), [type, sort, order, hideLow]);
+  useEffect(() => setPages(1), [category, sort, order, hideLow]);
 
   const pools = useMemo(() => {
     const list = result.data?.list || [];
@@ -125,7 +127,7 @@ export default function Pools() {
       </header>
 
       <div className="toolbar">
-        <Tabs tabs={POOL_TYPES} value={type} onChange={setType} />
+        <Tabs tabs={POOL_TYPES} value={category} onChange={setCategory} />
         <div className="toolbar__right">
           <div className="search-field">
             <span aria-hidden>⌕</span>
@@ -149,6 +151,11 @@ export default function Pools() {
           </select>
         </div>
       </div>
+
+      <p className="type-hint">
+        <span className={`kind kind--${tab.key}`}>{tab.label}</span>
+        {tab.hint}
+      </p>
 
       <ErrorNotice error={result.error} onRetry={result.reload} />
 

@@ -7,9 +7,9 @@ All on-chain data comes from **[Rhea Finance](https://app.rhea.finance)** (forme
 
 | Area | What it does |
 | --- | --- |
-| **Swap aggregator** | Best route across Rhea AMM, stable and CLMM pools via Rhea's SmartRouter, executed through the Rhea aggregator contract (`aggregatedex.near`) exactly like app.rhea.finance. Pairs the router doesn't cover (e.g. **KINU**, which only trades in community CLMM pools) are routed directly through Rhea DCL pools (1- and 2-hop, quoted on-chain). Native NEAR ⇄ wNEAR wrap/unwrap. Live candles, price-impact estimate, slippage settings. |
-| **Pools** | Every Rhea pool (classic, stable/rated, concentrated) with live TVL, 24h volume and APR, search, filters and sorting. |
-| **Liquidity** | Add / remove liquidity on classic pools in one flow (auto-paired amounts, auto-wrap of NEAR, storage handled). Stable and CLMM pools link to Rhea for management. |
+| **Swap aggregator** | Best route across Rhea AMM, stable and CLMM pools via Rhea's SmartRouter, executed through the Rhea aggregator contract (`aggregatedex.near`) exactly like app.rhea.finance. Pairs the router doesn't cover (e.g. **KINU**, which only trades in community CLMM pools) are routed directly through Rhea DCL pools (1- and 2-hop, quoted on-chain). Native NEAR ⇄ wNEAR wrap/unwrap. Intear-style USD chart (1m–1W, Price/MCap, OHLC legend, volume), token stats and live recent trades. Price-impact estimate, slippage settings. |
+| **Pools** | Every Rhea pool with live TVL, 24h volume and APR, grouped like app.rhea.finance: **AMM**, **CLMM**, **ALMM**, **Stable** and **Farm**, plus search and sorting. |
+| **Liquidity** | Deposit and withdraw in-app for every pool type: AMM (auto-paired amounts), Stable & ALMM (any ratio, shares predicted on-chain), CLMM (price-range presets or custom min/max, range preview, per-position removal). NEAR auto-wraps; storage registration is handled. |
 | **Portfolio** | Net worth across wallet tokens, classic LP positions (incl. farm-staked shares), CLMM ranges and tokens parked in the Rhea exchange, with one-click "withdraw all". Any account can be viewed read-only via `/portfolio?account=name.near`. |
 
 Wallets: Meteor, Intear, HOT (Here), MyNearWallet. **KINU never handles keys** — every transaction is reviewed and signed in the user's wallet.
@@ -23,7 +23,7 @@ Wallets: Meteor, Intear, HOT (Here), MyNearWallet. **KINU never handles keys** �
 | Swap routes | `smartx.rhea.finance/swapMultiDexPath`, fallback: `dclv2.ref-labs.near` `quote` |
 | Live pool state, LP shares, deposits | `v2.ref-finance.near`, `dclv2.ref-labs.near`, `boostfarm.ref-labs.near` |
 | Wallet balances | FastNEAR FT index + NEAR RPC |
-| Charts | DexScreener (pair lookup) + GeckoTerminal (OHLCV) |
+| Charts, token stats, recent trades | Intear price indexer (`prices.intear.tech`) |
 
 All endpoints allow CORS, so there is no backend or proxy: the build is a static site.
 
@@ -59,12 +59,13 @@ src/
     rhea.js            Rhea pools, pool state, LP/CLMM/farm positions, deposits
     swap.js            SmartRouter quotes + aggregator swap transactions
     dclRouter.js       direct DCL (CLMM) routing fallback
-    liquidity.js       add/remove liquidity + withdraw transactions
+    liquidity.js       AMM / Stable / ALMM deposit + withdraw transactions
+    dclLiquidity.js    CLMM price-range math, positions, deposit + withdraw
     tx.js              transaction helpers (storage registration, wrap, merge)
     wallet.js          wallet-selector setup and signing
-    market.js          chart data
+    intear.js          USD candles, token stats, recent trades
   pages/               Home, Swap, Pools, PoolDetail, Portfolio
-  components/          shared UI, TokenPicker, PriceChart
+  components/          shared UI, TokenPicker, PriceChart, RecentTrades, Liquidity
   state.jsx            wallet session, prices, balances, toasts, settings
   router.jsx           client-side routing
 ```
