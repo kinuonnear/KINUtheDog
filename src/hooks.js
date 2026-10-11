@@ -99,3 +99,29 @@ export function useClickOutside(ref, onOutside, active = true) {
     return () => document.removeEventListener('mousedown', handler);
   }, [ref, onOutside, active]);
 }
+
+/** Whether a CSS media query currently matches (updates live). */
+export function useMediaQuery(query) {
+  const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const mql = window.matchMedia(query);
+    const onChange = () => setMatches(mql.matches);
+    onChange();
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, [query]);
+  return matches;
+}
+
+/** Live pixel height of an element. */
+export function useElementHeight(ref) {
+  const [height, setHeight] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    const observer = new ResizeObserver(([entry]) => setHeight(Math.round(entry.contentRect.height)));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [ref]);
+  return height;
+}

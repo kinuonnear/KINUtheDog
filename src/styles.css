@@ -4353,3 +4353,170 @@ a.trades__row:hover {
 .pool-grid--wide > .pool-grid__side > * {
   flex-shrink: 0;
 }
+
+/* ==========================================================================
+   Resizable chart / data split & combined position distribution
+   ========================================================================== */
+@media (min-width: 1081px) {
+  .pool-grid--wide > .pool-grid__main--split {
+    overflow: hidden;
+    gap: 0;
+    padding-right: 0;
+  }
+
+  .pool-grid__main--split > .split-top {
+    display: flex;
+    min-height: 0;
+  }
+
+  .pool-grid__main--split > .split-top > * {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .pool-grid__main--split .pro-chart__body {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .terminal .pool-grid__main--split .pro-chart .range-chart__canvas {
+    height: auto;
+    min-height: 0;
+  }
+
+  .pool-grid__main--split > .bottom-panel {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--surface-3) transparent;
+  }
+}
+
+.splitter {
+  display: grid;
+  place-items: center;
+  flex: none;
+  height: 12px;
+  cursor: row-resize;
+  touch-action: none;
+  outline: none;
+}
+
+.splitter span {
+  width: 44px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border-strong);
+  transition: background 0.15s, width 0.15s;
+}
+
+.splitter:hover span,
+.splitter:focus-visible span {
+  width: 64px;
+  background: var(--accent);
+}
+
+.pos-dist {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pos-dist__chart {
+  position: relative;
+  height: 120px;
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+.pos-dist__bar {
+  position: absolute;
+  bottom: 0;
+  border-radius: 2px 2px 0 0;
+  box-shadow: inset -1px 0 0 var(--surface-2);
+  opacity: 0.85;
+}
+
+.pos-dist__bar--y {
+  background: #3dc6e0;
+}
+
+.pos-dist__bar--x {
+  background: #8b6cff;
+}
+
+.pos-dist__bar--cur {
+  background: var(--accent);
+}
+
+.pos-dist__bar.hover {
+  opacity: 1;
+  filter: brightness(1.25);
+}
+
+.pos-dist__current {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-left: 1px dashed rgba(255, 255, 255, 0.75);
+  pointer-events: none;
+}
+
+.pos-dist__current em {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(13, 18, 16, 0.85);
+  color: var(--text);
+  font-style: normal;
+  font-family: var(--mono);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.pos-dist__tip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-3);
+  font-size: 11px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.pos-dist__tip b {
+  font-family: var(--mono);
+  font-weight: 500;
+}
+
+.pos-dist__tip span {
+  color: var(--muted);
+}
+
+.pos-dist__axis {
+  display: flex;
+  justify-content: space-between;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 10px;
+}
+
+.dcl-group__foot {
+  justify-content: space-between;
+}
+
+/* Drawing toolbar scrolls when the chart is resized very short. */
+.pro-chart__tools {
+  overflow-y: auto;
+  scrollbar-width: none;
+}

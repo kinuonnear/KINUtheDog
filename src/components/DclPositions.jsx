@@ -1,12 +1,13 @@
 // Grouped CLMM positions for one pool, with the same actions as the
 // "Your Liquidity" panel on app.rhea.finance/poolV2: Claim fees, Add, Remove.
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useApp } from '../state.jsx';
 import { Link, poolPath } from '../router.jsx';
 import { buildDclClaimTransactions, buildDclRemoveTransactions, pointToPrice } from '../lib/dclLiquidity.js';
 import { priceOf } from '../lib/tokens.js';
-import { formatAmount, formatUsd, toNumber } from '../lib/format.js';
+import { formatAmount, formatChartPrice, formatUsd, toNumber } from '../lib/format.js';
+import { dclAmountX, dclAmountY } from '../lib/rhea.js';
 import { Modal, Spinner, TokenIcon } from './ui.jsx';
 
 /** Summary numbers for a set of positions in one pool. */
@@ -184,11 +185,104 @@ export function DclActions({ poolId, positions, x, y, onDone, onAdd, readOnly })
   );
 }
 
-/** "Your liquidity" card on the CLMM pool page. */
+const BUCKETS = 44;
+
+/**
+ * All positions of a pool merged into one liquidity distribution (like the
+ * "Your Liquidity" chart on app.rhea.finance): liquidity summed per price
+ * bucket, coloured by the token held on each side of the current price.
+ */
+export function PositionDistribution({ positions, x, y }) {
+  const [hover, setHover] = useState(null);
+  const current = positions[0]?.currentPoint ?? 0;
+
+  const model = useMemo(() => {
+    const lo = Math.min(...positions.map((p) => p.leftPoint));
+    const hi = Math.max(...positions.map((p) => p.rightPoint));
+    const span = Math.max(hi - lo, 1);
+    const from = Math.min(lo, current) - span * 0.04;
+    const to = Math.max(hi, current) + span * 0.04;
+    const width = (to - from) / BUCKETS;
+    const buckets = Array.from({ length: BUCKETS }, (_, i) => {
+      const left = from + i * width;
+      const right = left + width;
+      let liquidity = 0;
+      let amountX = 0;
+      let amountY = 0;
+      positions.forEach((p) => {
+        const a = Math.max(left, p.leftPoint);
+        const b = Math.min(right, p.rightPoint);
+        if (b <= a) return;
+        liquidity += Number(p.liquidity) * ((b - a) / width);
+        const split = Math.min(Math.max(current, a), b);
+        amountX += dclAmountX(p.liquidity, split, b);
+        amountY += dclAmountY(p.liquidity, a, split);
+      });
+      return { left, right, liquidity, amountX, amountY };
+    });
+    const max = Math.max(...buckets.map((b) => b.liquidity), 1);
+    return { from, to, buckets: buckets.map((b) => ({ ...b, h: b.liquidity / max })) };
+  }, [positions, current]);
+
+  const toPct = (point) => ((point - model.from) / (model.to - model.from)) * 100;
+  const price = (point) => pointToPrice(point, x.decimals, y.decimals);
+  const ticks = [0, 0.25, 0.5, 0.75, 1].map((t) => model.from + t * (model.to - model.from));
+  const hovered = hover !== null ? model.buckets[hover] : null;
+
+  return (
+    <div className="pos-dist">
+      <div className="pos-dist__chart" onMouseLeave={() => setHover(null)}>
+        {model.buckets.map((b, i) => {
+          const containsCurrent = current >= b.left && current < b.right;
+          const side = containsCurrent ? 'cur' : b.right <= current ? 'y' : 'x';
+          return (
+            <span
+              key={i}
+              className={`pos-dist__bar pos-dist__bar--${side} ${hover === i ? 'hover' : ''}`}
+              style={{ left: `${(i / BUCKETS) * 100}%`, width: `${100 / BUCKETS}%`, height: `${b.liquidity > 0 ? Math.max(3, b.h * 100) : 0}%` }}
+              onMouseEnter={() => setHover(i)}
+            />
+          );
+        })}
+        <span className="pos-dist__current" style={{ left: `${toPct(current)}%` }}>
+          <em>{formatChartPrice(price(current))}</em>
+        </span>
+        {hovered && hovered.liquidity > 0 && (
+          <div className="pos-dist__tip" style={{ left: `${Math.min(80, Math.max(2, (hover / BUCKETS) * 100))}%` }}>
+            <b>
+              {formatChartPrice(price(hovered.left))} – {formatChartPrice(price(hovered.right))}
+            </b>
+            <span>
+              {formatAmount(hovered.amountX / 10 ** x.decimals)} {x.symbol} + {formatAmount(hovered.amountY / 10 ** y.decimals)} {y.symbol}
+            </span>
+          </div>
+        )}
+      </div>
+      <div className="pos-dist__axis">
+        {ticks.map((t) => (
+          <span key={t}>{formatChartPrice(price(t))}</span>
+        ))}
+      </div>
+      <div className="depth__legend">
+        <span>
+          <i className="y" /> {y.symbol}
+        </span>
+        <span>
+          <i className="x" /> {x.symbol}
+        </span>
+        <span className="muted">
+          {y.symbol} per {x.symbol} · {positions.length} position{positions.length === 1 ? '' : 's'} combined
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/** "Your liquidity" card on the CLMM pool page: one combined view of every position. */
 export function DclGroupCard({ poolId, positions, x, y, onDone, onAdd }) {
   const { prices } = useApp();
-  const [expanded, setExpanded] = useState(false);
   const summary = summarizeDclGroup(positions, x, y, prices);
+  const inRange = positions.filter((p) => p.inRange).length;
 
   return (
     <div className="dcl-group">
@@ -203,7 +297,9 @@ export function DclGroupCard({ poolId, positions, x, y, onDone, onAdd }) {
         <div>
           <span className="stat__label">Price range</span>
           <RangeText summary={summary} x={x} y={y} />
-          <span className={`range-badge ${summary.inRange ? 'range-badge--in' : ''}`}>{summary.inRange ? 'In range' : 'Out of range'}</span>
+          <span className={`range-badge ${summary.inRange ? 'range-badge--in' : ''}`}>
+            {summary.inRange ? `In range · ${inRange}/${positions.length} active` : 'Out of range'}
+          </span>
         </div>
         <div>
           <span className="stat__label">Unclaimed fees</span>
@@ -211,27 +307,11 @@ export function DclGroupCard({ poolId, positions, x, y, onDone, onAdd }) {
           {summary.hasFees && <span className="muted small">{formatUsd(summary.feeUsd)}</span>}
         </div>
       </div>
+      <PositionDistribution positions={positions} x={x} y={y} />
       <div className="dcl-group__foot">
-        <button type="button" className="link-button" onClick={() => setExpanded((v) => !v)}>
-          {expanded ? 'Hide' : 'Show'} {positions.length} position{positions.length === 1 ? '' : 's'}
-        </button>
+        <span className="muted small">Claim and Remove apply to all {positions.length} positions in this pool.</span>
         <DclActions poolId={poolId} positions={positions} x={x} y={y} onDone={onDone} onAdd={onAdd} />
       </div>
-      {expanded && (
-        <div className="dcl-group__list">
-          {positions.map((p) => (
-            <div className="dcl-group__item" key={p.id}>
-              <span className={`range-badge ${p.inRange ? 'range-badge--in' : ''}`}>{p.inRange ? 'In range' : 'Out'}</span>
-              <span className="mono">
-                {formatAmount(pointToPrice(p.leftPoint, x.decimals, y.decimals))} – {formatAmount(pointToPrice(p.rightPoint, x.decimals, y.decimals))}
-              </span>
-              <span className="muted">
-                {formatAmount(p.amountX / 10 ** x.decimals)} {x.symbol} + {formatAmount(p.amountY / 10 ** y.decimals)} {y.symbol}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

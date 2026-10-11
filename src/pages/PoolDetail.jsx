@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useApp } from '../state.jsx';
-import { useAsync } from '../hooks.js';
+import { useAsync, useElementHeight, useLocalStorage, useMediaQuery } from '../hooks.js';
 import { Link, useLocation } from '../router.jsx';
 import { getDclPositions, getFarmStakes, getPool, getPoolShares, getPoolStats, dclPointToPrice, parseDclPoolId } from '../lib/rhea.js';
 import { getTokens, priceOf } from '../lib/tokens.js';
@@ -282,7 +282,11 @@ function DclPool({ poolId, initialTab }) {
   );
 }
 
-const DOCK_TOP = 76; // px below the viewport top where the workspace docks (top bar + gap)
+const DOCK_TOP = 76;
+// Share of the left column given to the chart (the rest is the data panel).
+const DEFAULT_SPLIT = 0.68;
+const MIN_SPLIT = 0.3;
+const MAX_SPLIT = 0.9; // px below the viewport top where the workspace docks (top bar + gap)
 
 /**
  * Independent wheel scrolling for the two workspace columns (desktop):
@@ -323,9 +327,35 @@ function DclWorkspace({ poolId, pool, x, y, reserves, positions, onAdd, onDone }
   useDockedColumns(gridRef);
   const [panel, setPanel] = useState(accountId ? 'liquidity' : 'composition');
 
+  // Resizable split between the chart and the bottom panel (desktop).
+  const mainRef = useRef(null);
+  const desktop = useMediaQuery('(min-width: 1081px)');
+  const columnHeight = useElementHeight(mainRef);
+  const [ratio, setRatio] = useLocalStorage('kinu.split.chart', DEFAULT_SPLIT);
+  const chartHeight = desktop && columnHeight ? Math.round(columnHeight * ratio) : undefined;
+  const startResize = (event) => {
+    event.preventDefault();
+    const handle = event.currentTarget;
+    handle.setPointerCapture(event.pointerId);
+    const rect = mainRef.current.getBoundingClientRect();
+    const move = (e) => setRatio(Math.min(MAX_SPLIT, Math.max(MIN_SPLIT, (e.clientY - rect.top) / rect.height)));
+    const up = (e) => {
+      handle.releasePointerCapture(e.pointerId);
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', up);
+    };
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', up);
+  };
+  const nudgeSplit = (e) => {
+    if (e.key === 'ArrowUp') setRatio((r) => Math.max(MIN_SPLIT, r - 0.04));
+    if (e.key === 'ArrowDown') setRatio((r) => Math.min(MAX_SPLIT, r + 0.04));
+  };
+
   return (
     <div className="pool-grid pool-grid--wide" ref={gridRef}>
-      <div className="pool-grid__main">
+      <div className={`pool-grid__main ${desktop ? 'pool-grid__main--split' : ''}`} ref={mainRef}>
+        <div className="split-top" style={chartHeight ? { height: chartHeight } : undefined}>
         <Suspense fallback={<div className="card chart-card--loading"><Skeleton height={420} radius={16} /></div>}>
           <RangeChart
             poolId={poolId}
@@ -339,6 +369,22 @@ function DclWorkspace({ poolId, pool, x, y, reserves, positions, onAdd, onDone }
             onDrag={onDrag}
           />
         </Suspense>
+        </div>
+        {desktop && (
+          <div
+            className="splitter"
+            role="separator"
+            aria-orientation="horizontal"
+            aria-label="Resize chart"
+            tabIndex={0}
+            title="Drag to resize · double-click to reset"
+            onPointerDown={startResize}
+            onDoubleClick={() => setRatio(DEFAULT_SPLIT)}
+            onKeyDown={nudgeSplit}
+          >
+            <span />
+          </div>
+        )}
         <section className="card bottom-panel">
           <Tabs
             tabs={[
