@@ -2792,3 +2792,264 @@ a.trades__row:hover {
 .dcl-position__remove .range-block {
   background: var(--surface-3);
 }
+
+/* ==========================================================================
+   Unified liquidity table (portfolio) & CLMM group card (pool page)
+   ========================================================================== */
+.button--outline {
+  background: transparent;
+  border-color: rgba(184, 255, 61, 0.5);
+  color: var(--accent);
+}
+
+.button--outline:hover:not(:disabled) {
+  background: var(--accent-soft);
+}
+
+.button--outline:disabled {
+  border-color: var(--border);
+  color: var(--faint);
+}
+
+.lp-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.lp-actions .button--sm {
+  height: 30px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+.lp-table-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.lp-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-bottom: 1px solid var(--border);
+}
+
+.lp-summary .stat {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  align-items: center;
+  text-align: center;
+}
+
+.lp-summary .stat + .stat {
+  border-left: 1px solid var(--border);
+}
+
+.lp-table__bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.lp-table {
+  padding: 6px;
+}
+
+.lp-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1.7fr) minmax(0, 0.8fr) minmax(0, 1.4fr) minmax(0, 1.2fr) minmax(0, 1.6fr);
+  align-items: center;
+  gap: 14px;
+  padding: 14px 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.lp-row + .lp-row {
+  border-top: 1px solid var(--border);
+}
+
+.lp-row--head {
+  padding-top: 10px;
+  padding-bottom: 10px;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.lp-row--head span:last-child {
+  text-align: right;
+}
+
+.lp-row__pool {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.lp-row__pool:hover strong {
+  color: var(--accent);
+}
+
+.lp-row__pool > span {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.lp-row__pool strong {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.lp-row__pool small {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  color: var(--faint);
+  font-size: 11px;
+}
+
+.lp-row__range,
+.lp-row__value {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.lp-row__range b {
+  font-weight: 500;
+}
+
+.lp-row__value small {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 11px;
+}
+
+.fees {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.fees > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dcl-group {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dcl-group__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.dcl-group__grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--surface-2);
+}
+
+.dcl-group__value {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.dcl-group__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.dcl-group__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dcl-group__item {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr) minmax(0, 1.4fr);
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-size: 12px;
+}
+
+@media (max-width: 1080px) {
+  .lp-row--head {
+    display: none;
+  }
+
+  .lp-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lp-row__pool,
+  .lp-row__actions {
+    grid-column: 1 / -1;
+  }
+
+  .lp-row > [data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 2px;
+    color: var(--faint);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .lp-actions {
+    justify-content: flex-start;
+  }
+
+  .lp-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lp-summary .stat:nth-child(3) {
+    border-left: 0;
+  }
+
+  .lp-summary .stat:nth-child(n + 3) {
+    border-top: 1px solid var(--border);
+  }
+
+  .dcl-group__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dcl-group__item {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

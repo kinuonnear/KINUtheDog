@@ -1,14 +1,15 @@
 import { useMemo, useState } from 'react';
 import { useApp } from '../state.jsx';
 import { useAsync } from '../hooks.js';
-import { Link, navigate, poolPath, useLocation } from '../router.jsx';
+import { Link, navigate, useLocation } from '../router.jsx';
 import { getAllBalances, getTokens, priceOf } from '../lib/tokens.js';
-import { getClassicPositions, getDclPositions, getDeposits, dclPointToPrice } from '../lib/rhea.js';
+import { getClassicPositions, getDclPositions, getDeposits } from '../lib/rhea.js';
 import { buildWithdrawDepositsTransactions } from '../lib/liquidity.js';
 import { buildDclWithdrawTransactions, getDclAssets } from '../lib/dclLiquidity.js';
-import { formatAmount, formatPercent, formatPrice, formatUsd, shortAccount, toNumber } from '../lib/format.js';
+import { formatAmount, formatPrice, formatUsd, shortAccount, toNumber } from '../lib/format.js';
 import { CONTRACTS, ENDPOINTS, NATIVE_NEAR } from '../config.js';
-import { EmptyState, ErrorNotice, PairIcons, Skeleton, Spinner, Stat, Tabs, TokenIcon } from '../components/ui.jsx';
+import LiquidityTable from '../components/LiquidityTable.jsx';
+import { EmptyState, ErrorNotice, Skeleton, Spinner, Stat, Tabs, TokenIcon } from '../components/ui.jsx';
 
 const DUST_USD = 0.01;
 const ALLOCATION_COLORS = ['#b8ff3d', '#3ddc97', '#5ec8ff', '#ffb547', '#c792ff', '#5a6470'];
@@ -155,7 +156,8 @@ export default function Portfolio() {
 
   const visibleTokens = model ? model.walletRows.filter((r) => showDust || r.usd >= DUST_USD || r.id === NATIVE_NEAR.id) : [];
   const hiddenCount = model ? model.walletRows.length - visibleTokens.length : 0;
-  const lpCount = model ? model.classicRows.length + model.dclRows.length : 0;
+  // One entry per pool: CLMM positions in the same pool count once.
+  const lpCount = model ? model.classicRows.length + new Set(model.dclRows.map((r) => r.poolId)).size : 0;
 
   const withdrawAll = () =>
     execute(
@@ -208,7 +210,7 @@ export default function Portfolio() {
         </div>
         <div className="net-worth__stats">
           <Stat label="Wallet" value={model ? formatUsd(model.walletUsd) : null} loading={!model} />
-          <Stat label="Liquidity" value={model ? formatUsd(model.liquidityUsd) : null} loading={!model} hint={model ? `${lpCount} position${lpCount === 1 ? '' : 's'}` : null} />
+          <Stat label="Liquidity" value={model ? formatUsd(model.liquidityUsd) : null} loading={!model} hint={model ? `${lpCount} pool${lpCount === 1 ? '' : 's'}` : null} />
           <Stat label="Rhea deposits" value={model ? formatUsd(model.depositUsd) : null} loading={!model} />
         </div>
         {allocation.length > 0 && (
@@ -287,74 +289,13 @@ export default function Portfolio() {
           )}
         </section>
       ) : tab === 'liquidity' ? (
-        <section className="lp-list">
-          {!lpCount && (
-            <div className="card">
-              <EmptyState
-                icon="≋"
-                title="No liquidity positions"
-                action={
-                  <Link to="/pools" className="button button--primary">
-                    Explore pools
-                  </Link>
-                }
-              >
-                Provide liquidity to a Rhea pool to earn a share of every trade.
-              </EmptyState>
-            </div>
-          )}
-          {model.classicRows.map((p) => (
-            <Link to={poolPath(p.pool.id)} className="card lp-card" key={`c-${p.pool.id}`}>
-              <div className="lp-card__head">
-                <PairIcons tokens={p.parts.map((x) => x.token)} size={30} />
-                <div>
-                  <strong>{p.parts.map((x) => x.token.symbol).join(' / ')}</strong>
-                  <small>
-                    <span className={`kind kind--${p.pool.label.toLowerCase()}`}>{p.pool.label}</span> #{p.pool.id}
-                    {p.staked !== '0' && <span className="kind kind--farm">Farming</span>}
-                  </small>
-                </div>
-                <strong className="lp-card__value">{formatUsd(p.usd)}</strong>
-              </div>
-              <div className="lp-card__body">
-                {p.parts.map((x) => (
-                  <span key={x.token.id}>
-                    {formatAmount(x.amount)} {x.token.symbol}
-                  </span>
-                ))}
-                <span className="muted">{formatPercent(p.sharePct, 4)} of pool</span>
-              </div>
-            </Link>
-          ))}
-          {model.dclRows.map((p) => (
-            <Link to={poolPath(p.poolId)} className="card lp-card" key={`d-${p.id}`}>
-              <div className="lp-card__head">
-                <PairIcons tokens={[p.x, p.y]} size={30} />
-                <div>
-                  <strong>
-                    {p.x.symbol} / {p.y.symbol}
-                  </strong>
-                  <small>
-                    <span className="kind kind--clmm">CLMM</span>
-                    <span className={`range-badge ${p.inRange ? 'range-badge--in' : ''}`}>{p.inRange ? 'In range' : 'Out of range'}</span>
-                  </small>
-                </div>
-                <strong className="lp-card__value">{formatUsd(p.usd)}</strong>
-              </div>
-              <div className="lp-card__body">
-                <span>
-                  {formatAmount(p.ax)} {p.x.symbol}
-                </span>
-                <span>
-                  {formatAmount(p.ay)} {p.y.symbol}
-                </span>
-                <span className="muted">
-                  Range {formatAmount(dclPointToPrice(p.leftPoint, p.x.decimals, p.y.decimals))} – {formatAmount(dclPointToPrice(p.rightPoint, p.x.decimals, p.y.decimals))}
-                </span>
-              </div>
-            </Link>
-          ))}
-        </section>
+        <LiquidityTable
+          classicRows={model.classicRows}
+          dclRows={model.dclRows}
+          depositUsd={model.depositUsd}
+          readOnly={readOnly}
+          onDone={data.reload}
+        />
       ) : (
         <section className="card asset-table">
           {model.depositRows.length ? (

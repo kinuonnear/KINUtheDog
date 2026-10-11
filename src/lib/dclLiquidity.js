@@ -3,12 +3,14 @@
 //   storage_deposit on the DCL contract (position slots)
 //   ft_transfer_call(token -> DCL, msg: "Deposit") for each token
 //   add_liquidity { pool_id, left_point, right_point, amount_x, amount_y, min_amount_x, min_amount_y }
-//   remove_liquidity { lpt_id, amount, min_amount_x, min_amount_y } then withdraw_asset per token
+//   batch_remove_liquidity { remove_liquidity_infos: [{ lpt_id, amount, min_amount_x, min_amount_y }] }
+//   claim fees = remove_liquidity { lpt_id, amount: "0" } (fees are paid straight to the wallet)
 //
 // Prices: a DCL "point" p corresponds to a raw price of 1.0001^p (raw token Y per raw token X).
 
 import { CONTRACTS, GAS } from '../config.js';
 import { view } from './rpc.js';
+import { dclAmountX, dclAmountY } from './rhea.js';
 import { ensureStorageTx, ftTransferCallTx, functionCall, transaction, wrapNearTx } from './tx.js';
 import { applySlippage, toBigInt } from './format.js';
 
@@ -19,6 +21,8 @@ const DCL = CONTRACTS.dcl;
 const DCL_REGISTER_DEPOSIT = '500000000000000000000000'; // 0.5 NEAR, as app.rhea.finance
 const DCL_ADD_GAS = '300000000000000';
 const DCL_REMOVE_GAS = '150000000000000';
+const DCL_BATCH_REMOVE_GAS = '300000000000000';
+const BATCH_SIZE = 10;
 const DCL_WITHDRAW_GAS = '100000000000000';
 
 const LOG_BASE = Math.log(1.0001);
@@ -50,8 +54,6 @@ export function fullRange(pointDelta) {
   };
 }
 
-const sqrtAt = (point) => Math.pow(1.0001, point / 2);
-
 /**
  * Which tokens a range needs relative to the current point:
  *   'x'    – range entirely above the price: only token X
@@ -66,22 +68,17 @@ export function rangeSide(left, right, current) {
 
 /**
  * Given a raw amount of one token, the raw amount of the other token needed
- * for a position over [left, right] at the current point. Returns a float.
+ * for a position over [left, right) at the current point. Returns a float.
  */
 export function pairedRawAmount({ from, amount, left, right, current }) {
-  const side = rangeSide(left, right, current);
-  if (side !== 'both') return 0;
-  const sl = sqrtAt(left);
-  const su = sqrtAt(right);
-  const sc = sqrtAt(current);
+  if (rangeSide(left, right, current) !== 'both') return 0;
   const a = Number(amount);
   if (!(a > 0)) return 0;
-  if (from === 'x') {
-    const liquidity = a / (1 / sc - 1 / su);
-    return liquidity * (sc - sl);
-  }
-  const liquidity = a / (sc - sl);
-  return liquidity * (1 / sc - 1 / su);
+  // Token amounts per unit of liquidity on each side of the current point.
+  const xPerL = dclAmountX(1, current, right);
+  const yPerL = dclAmountY(1, left, current);
+  if (!(xPerL > 0) || !(yPerL > 0)) return 0;
+  return from === 'x' ? (a / xPerL) * yPerL : (a / yPerL) * xPerL;
 }
 
 /** Float -> integer string (rounded down), safe for very large values. */
@@ -161,44 +158,55 @@ export async function buildDclAddTransactions({
   return txs.filter(Boolean);
 }
 
-/**
- * Remove `percent` of a position and withdraw the tokens to the wallet.
- * @param position  item from rhea.getDclPositions()
- */
-export async function buildDclRemoveTransactions({ position, liquidity, percent, slippage, accountId }) {
-  const amount = ((toBigInt(liquidity) * BigInt(percent)) / 100n).toString();
-  if (toBigInt(amount) <= 0n) throw new Error('Nothing to remove.');
-  const share = percent / 100;
-  const expectX = floatToRaw(position.amountX * share);
-  const expectY = floatToRaw(position.amountY * share);
-
+async function tokenStorageTxs(position, accountId) {
   const txs = [];
-  for (const token of [position.tokenX, position.tokenY]) {
-    txs.push(await ensureStorageTx(token, accountId));
+  for (const token of [position.tokenX, position.tokenY]) txs.push(await ensureStorageTx(token, accountId));
+  return txs;
+}
+
+/**
+ * Remove `percent` of every position in `positions` (one pool), as the
+ * Remove button on app.rhea.finance/poolV2 does. Tokens go straight to the wallet.
+ * @param positions  items from rhea.getDclPositions() (same pool)
+ */
+export async function buildDclRemoveTransactions({ positions, percent, slippage, accountId }) {
+  if (!positions.length) throw new Error('Nothing to remove.');
+  const infos = positions
+    .map((p) => {
+      const amount = ((toBigInt(p.liquidity) * BigInt(percent)) / 100n).toString();
+      const share = percent / 100;
+      return {
+        lpt_id: p.id,
+        amount,
+        min_amount_x: applySlippage(floatToRaw(p.amountX * share), slippage),
+        min_amount_y: applySlippage(floatToRaw(p.amountY * share), slippage)
+      };
+    })
+    .filter((info) => toBigInt(info.amount) > 0n);
+  if (!infos.length) throw new Error('Nothing to remove.');
+
+  const txs = await tokenStorageTxs(positions[0], accountId);
+  for (let i = 0; i < infos.length; i += BATCH_SIZE) {
+    txs.push(
+      transaction(DCL, [
+        functionCall('batch_remove_liquidity', { remove_liquidity_infos: infos.slice(i, i + BATCH_SIZE) }, DCL_BATCH_REMOVE_GAS)
+      ])
+    );
   }
-  txs.push(
-    transaction(DCL, [
-      functionCall(
-        'remove_liquidity',
-        {
-          lpt_id: position.id,
-          amount,
-          min_amount_x: applySlippage(expectX, slippage),
-          min_amount_y: applySlippage(expectY, slippage)
-        },
-        DCL_REMOVE_GAS
-      )
-    ])
-  );
-  // Withdraw each token in its own transaction so one empty side can't revert the other.
-  // Unclaimed fees are paid out together with the liquidity.
-  [
-    [position.tokenX, expectX, position.unclaimedFeeX],
-    [position.tokenY, expectY, position.unclaimedFeeY]
-  ].forEach(([token, expected, fee]) => {
-    if (toBigInt(expected) + toBigInt(fee) > 0n) {
-      txs.push(transaction(DCL, [functionCall('withdraw_asset', { token_id: token }, DCL_WITHDRAW_GAS)]));
-    }
+  return txs.filter(Boolean);
+}
+
+/** Claim unclaimed fees of the given positions (same pool) to the wallet. */
+export async function buildDclClaimTransactions({ positions, accountId }) {
+  const withFees = positions.filter((p) => toBigInt(p.unclaimedFeeX) > 0n || toBigInt(p.unclaimedFeeY) > 0n);
+  if (!withFees.length) throw new Error('No fees to claim.');
+  const txs = await tokenStorageTxs(withFees[0], accountId);
+  withFees.forEach((p) => {
+    txs.push(
+      transaction(DCL, [
+        functionCall('remove_liquidity', { lpt_id: p.id, amount: '0', min_amount_x: '0', min_amount_y: '0' }, DCL_REMOVE_GAS)
+      ])
+    );
   });
   return txs.filter(Boolean);
 }

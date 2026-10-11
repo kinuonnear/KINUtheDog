@@ -19,7 +19,6 @@ import {
 import {
   alignPoint,
   buildDclAddTransactions,
-  buildDclRemoveTransactions,
   buildDclWithdrawTransactions,
   floatToRaw,
   fullRange,
@@ -32,7 +31,6 @@ import {
 import { view } from '../lib/rpc.js';
 import {
   applySlippage,
-  formatAmount,
   formatPercent,
   formatRawAmount,
   formatUnits,
@@ -318,8 +316,8 @@ function SharesRemove({ pool, tokens, shares, staked, onDone, predict }) {
   );
 }
 
-export function AmmLiquidity({ pool, tokens, shares, staked, onDone }) {
-  const [tab, setTab] = useState('add');
+export function AmmLiquidity({ pool, tokens, shares, staked, onDone, initialTab = 'add' }) {
+  const [tab, setTab] = useState(initialTab === 'remove' ? 'remove' : 'add');
   return (
     <>
       <Tabs tabs={[{ key: 'add', label: 'Deposit' }, { key: 'remove', label: 'Withdraw' }]} value={tab} onChange={setTab} size="block" />
@@ -420,8 +418,8 @@ function StableAdd({ pool, tokens, onDone }) {
   );
 }
 
-export function StableLiquidity({ pool, tokens, shares, staked, onDone }) {
-  const [tab, setTab] = useState('add');
+export function StableLiquidity({ pool, tokens, shares, staked, onDone, initialTab = 'add' }) {
+  const [tab, setTab] = useState(initialTab === 'remove' ? 'remove' : 'add');
   return (
     <>
       <Tabs tabs={[{ key: 'add', label: 'Deposit' }, { key: 'remove', label: 'Withdraw' }]} value={tab} onChange={setTab} size="block" />
@@ -685,70 +683,10 @@ function trimPrice(n) {
   return n.toFixed(digits).replace(/0+$/, '').replace(/\.$/, '');
 }
 
-function DclPositionRow({ position, x, y, onDone }) {
-  const { accountId, slippage, execute } = useApp();
-  const [open, setOpen] = useState(false);
-  const [percent, setPercent] = useState(100);
-  const [submitting, setSubmitting] = useState(false);
-  const lo = pointToPrice(position.leftPoint, x.decimals, y.decimals);
-  const hi = pointToPrice(position.rightPoint, x.decimals, y.decimals);
-  const full = position.leftPoint <= -790000 && position.rightPoint >= 790000;
-
-  const submit = async () => {
-    setSubmitting(true);
-    const ok = await execute(
-      () => buildDclRemoveTransactions({ position, liquidity: position.liquidity, percent, slippage, accountId }),
-      { pending: 'Removing position', success: 'Liquidity withdrawn' }
-    );
-    setSubmitting(false);
-    if (ok) {
-      setOpen(false);
-      onDone();
-    }
-  };
-
-  return (
-    <div className="dcl-position">
-      <div className="dcl-position__head">
-        <span className={`range-badge ${position.inRange ? 'range-badge--in' : ''}`}>{position.inRange ? 'In range' : 'Out of range'}</span>
-        <button type="button" className="mini-button" onClick={() => setOpen((v) => !v)}>
-          {open ? 'Cancel' : 'Remove'}
-        </button>
-      </div>
-      <span>{full ? 'Full range' : `${formatAmount(lo)} – ${formatAmount(hi)} ${y.symbol}/${x.symbol}`}</span>
-      <span className="muted">
-        {formatAmount(position.amountX / 10 ** x.decimals)} {x.symbol} + {formatAmount(position.amountY / 10 ** y.decimals)} {y.symbol}
-      </span>
-      {(toBigInt(position.unclaimedFeeX) > 0n || toBigInt(position.unclaimedFeeY) > 0n) && (
-        <span className="muted small">
-          Fees earned: {formatRawAmount(position.unclaimedFeeX, x.decimals)} {x.symbol} + {formatRawAmount(position.unclaimedFeeY, y.decimals)}{' '}
-          {y.symbol}
-        </span>
-      )}
-      {open && (
-        <div className="dcl-position__remove">
-          <PercentPicker percent={percent} setPercent={setPercent} />
-          <dl className="kv">
-            <div>
-              <dt>{x.symbol}</dt>
-              <dd>{formatAmount(((position.amountX / 10 ** x.decimals) * percent) / 100)}</dd>
-            </div>
-            <div>
-              <dt>{y.symbol}</dt>
-              <dd>{formatAmount(((position.amountY / 10 ** y.decimals) * percent) / 100)}</dd>
-            </div>
-          </dl>
-          <SubmitButton label={`Remove ${percent}%`} submitting={submitting} onClick={submit} />
-        </div>
-      )}
-    </div>
-  );
-}
-
-export function DclLiquidity({ pool, x, y, positions, onDone }) {
+/** CLMM side panel: open a new position (positions are managed in DclGroupCard). */
+export function DclLiquidity({ pool, x, y, onDone }) {
   const { accountId, execute } = useApp();
-  const [tab, setTab] = useState('add');
-  const assets = useAsync(() => getDclAssets(accountId), [accountId, positions], { enabled: Boolean(accountId) });
+  const assets = useAsync(() => getDclAssets(accountId), [accountId], { enabled: Boolean(accountId) });
   const parked = Object.entries(assets.data || {}).filter(([id]) => id === pool.token_x || id === pool.token_y);
 
   const withdrawParked = async () => {
@@ -761,15 +699,7 @@ export function DclLiquidity({ pool, x, y, positions, onDone }) {
 
   return (
     <>
-      <Tabs
-        tabs={[
-          { key: 'add', label: 'New position' },
-          { key: 'positions', label: 'My positions', count: accountId ? positions?.length ?? 0 : undefined }
-        ]}
-        value={tab}
-        onChange={setTab}
-        size="block"
-      />
+      <h3 className="card-title">New position</h3>
       {parked.length > 0 && (
         <div className="notice notice--info">
           <span>
@@ -786,19 +716,15 @@ export function DclLiquidity({ pool, x, y, positions, onDone }) {
           </button>
         </div>
       )}
-      {tab === 'add' ? (
-        <DclAdd pool={pool} x={x} y={y} onDone={onDone} />
-      ) : !accountId ? (
-        <ConnectPrompt />
-      ) : !positions?.length ? (
-        <EmptyState title="No positions yet">Create a range in “New position” to start earning fees.</EmptyState>
-      ) : (
-        <div className="dcl-positions">
-          {positions.map((p) => (
-            <DclPositionRow key={p.id} position={p} x={x} y={y} onDone={onDone} />
-          ))}
-        </div>
-      )}
+      <DclAdd
+        pool={pool}
+        x={x}
+        y={y}
+        onDone={() => {
+          assets.reload();
+          onDone();
+        }}
+      />
     </>
   );
 }

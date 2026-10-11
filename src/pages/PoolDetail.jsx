@@ -1,12 +1,13 @@
 import { useEffect } from 'react';
 import { useApp } from '../state.jsx';
 import { useAsync } from '../hooks.js';
-import { Link } from '../router.jsx';
+import { Link, useLocation } from '../router.jsx';
 import { getDclPositions, getFarmStakes, getPool, getPoolShares, getPoolStats, dclPointToPrice, parseDclPoolId } from '../lib/rhea.js';
 import { getTokens, priceOf } from '../lib/tokens.js';
 import { view } from '../lib/rpc.js';
 import { amountsForShares, isStableKind } from '../lib/liquidity.js';
 import { AmmLiquidity, DclLiquidity, StableLiquidity } from '../components/Liquidity.jsx';
+import { DclGroupCard } from '../components/DclPositions.jsx';
 import { formatAmount, formatPercent, formatRawAmount, formatUsd, shortAccount, toBigInt, toNumber } from '../lib/format.js';
 import { CONTRACTS, ENDPOINTS, NATIVE_NEAR } from '../config.js';
 import { CopyButton, EmptyState, ErrorNotice, PairIcons, Skeleton, Stat, TokenIcon } from '../components/ui.jsx';
@@ -24,7 +25,7 @@ function rheaPoolUrl(pool) {
 /* Classic / stable pool page                                          */
 /* ------------------------------------------------------------------ */
 
-function ClassicPool({ poolId }) {
+function ClassicPool({ poolId, initialTab }) {
   const { accountId, prices } = useApp();
 
   const poolQuery = useAsync(() => getPool(poolId), [poolId], { refreshMs: 30_000 });
@@ -173,6 +174,7 @@ function ClassicPool({ poolId }) {
             {isSimple ? (
               <AmmLiquidity
                 pool={pool}
+                initialTab={initialTab}
                 tokens={tokens}
                 shares={position.data?.shares || '0'}
                 staked={position.data?.staked || '0'}
@@ -181,6 +183,7 @@ function ClassicPool({ poolId }) {
             ) : isStableKind(pool.kind) ? (
               <StableLiquidity
                 pool={pool}
+                initialTab={initialTab}
                 tokens={tokens}
                 shares={position.data?.shares || '0'}
                 staked={position.data?.staked || '0'}
@@ -202,7 +205,7 @@ function ClassicPool({ poolId }) {
 /* Concentrated liquidity (DCL) pool page                              */
 /* ------------------------------------------------------------------ */
 
-function DclPool({ poolId }) {
+function DclPool({ poolId, initialTab }) {
   const { accountId, prices } = useApp();
   const { tokenX, tokenY, fee } = parseDclPoolId(poolId);
   const tokenQuery = useAsync(() => getTokens([tokenX, tokenY]), [tokenX, tokenY]);
@@ -213,6 +216,18 @@ function DclPool({ poolId }) {
     [poolId, accountId],
     { enabled: Boolean(accountId) }
   );
+
+  const refresh = () => {
+    chain.reload();
+    positions.reload();
+  };
+  const scrollToForm = () => document.getElementById('new-position')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  // Deep link from the portfolio "Add" button: /pools/<id>?tab=add
+  useEffect(() => {
+    if (initialTab === 'add' && chain.data && tokenQuery.data) setTimeout(scrollToForm, 50);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialTab, Boolean(chain.data && tokenQuery.data)]);
 
   if (chain.error && !chain.data) {
     return <EmptyState icon="⚠" title="Pool could not be loaded">{chain.error.message}</EmptyState>;
@@ -264,39 +279,27 @@ function DclPool({ poolId }) {
           </section>
           {accountId && (
             <section className="card">
-              <h3 className="card-title">Your positions</h3>
+              <h3 className="card-title">Your liquidity</h3>
               {positions.loading && !positions.data ? (
-                <Skeleton height={40} />
+                <Skeleton height={60} />
               ) : !positions.data?.length ? (
-                <p className="muted">No concentrated positions in this pool.</p>
+                <p className="muted">No concentrated positions in this pool yet — open one with the form.</p>
               ) : (
-                positions.data.map((p) => (
-                  <div className="dcl-position" key={p.id}>
-                    <span className={`range-badge ${p.inRange ? 'range-badge--in' : ''}`}>{p.inRange ? 'In range' : 'Out of range'}</span>
-                    <span>
-                      {formatAmount(dclPointToPrice(p.leftPoint, x.decimals, y.decimals))} – {formatAmount(dclPointToPrice(p.rightPoint, x.decimals, y.decimals))} {y.symbol}/{x.symbol}
-                    </span>
-                    <span className="muted">
-                      {formatAmount(p.amountX / 10 ** x.decimals)} {x.symbol} + {formatAmount(p.amountY / 10 ** y.decimals)} {y.symbol}
-                    </span>
-                  </div>
-                ))
+                <DclGroupCard
+                  poolId={poolId}
+                  positions={positions.data}
+                  x={x}
+                  y={y}
+                  onAdd={scrollToForm}
+                  onDone={refresh}
+                />
               )}
             </section>
           )}
         </div>
         <aside className="pool-grid__side">
-          <section className="card">
-            <DclLiquidity
-              pool={chain.data}
-              x={x}
-              y={y}
-              positions={positions.data}
-              onDone={() => {
-                chain.reload();
-                positions.reload();
-              }}
-            />
+          <section className="card" id="new-position">
+            <DclLiquidity pool={chain.data} x={x} y={y} onDone={refresh} />
           </section>
         </aside>
       </div>
@@ -355,6 +358,8 @@ function PoolSkeleton() {
 }
 
 export default function PoolDetail({ poolId }) {
+  const { search } = useLocation();
+  const initialTab = search.get('tab') || undefined;
   useEffect(() => {
     window.scrollTo({ top: 0 });
   }, [poolId]);
@@ -366,5 +371,5 @@ export default function PoolDetail({ poolId }) {
       </div>
     );
   }
-  return <div className="page">{isDcl ? <DclPool poolId={poolId} /> : <ClassicPool poolId={poolId} />}</div>;
+  return <div className="page">{isDcl ? <DclPool poolId={poolId} initialTab={initialTab} /> : <ClassicPool poolId={poolId} initialTab={initialTab} />}</div>;
 }

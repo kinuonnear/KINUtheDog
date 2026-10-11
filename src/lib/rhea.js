@@ -244,25 +244,32 @@ export function parseDclPoolId(poolId) {
   return { tokenX, tokenY, fee: Number(fee || 0) };
 }
 
-const sqrtPriceAt = (point) => Math.pow(1.0001, point / 2);
+// Rhea DCL (iZiSwap design) keeps liquidity on discrete points: a position over
+// [left, right) holds L·sqrtP(i) of token Y and L/sqrtP(i) of token X at every point i.
+// Summing those geometric series gives the closed forms below.
+const SQRT_RATE = Math.sqrt(1.0001);
+const sqrtPriceAt = (point) => Math.pow(SQRT_RATE, point);
 
-/** Token amounts held by a DCL position (raw units, approximate floats). */
+/** Raw token Y held by liquidity L over points [left, right). */
+export function dclAmountY(liquidity, left, right) {
+  if (right <= left) return 0;
+  return (Number(liquidity) * (sqrtPriceAt(right) - sqrtPriceAt(left))) / (SQRT_RATE - 1);
+}
+
+/** Raw token X held by liquidity L over points [left, right). */
+export function dclAmountX(liquidity, left, right) {
+  if (right <= left) return 0;
+  return ((Number(liquidity) * (1 / sqrtPriceAt(left) - 1 / sqrtPriceAt(right))) * SQRT_RATE) / (SQRT_RATE - 1);
+}
+
+/** Token amounts held by a DCL position (raw units, floats). */
 export function dclPositionAmounts({ liquidity, leftPoint, rightPoint, currentPoint }) {
-  const L = Number(liquidity);
-  const sl = sqrtPriceAt(leftPoint);
-  const su = sqrtPriceAt(rightPoint);
-  const sc = sqrtPriceAt(Math.min(Math.max(currentPoint, leftPoint), rightPoint));
-  let x = 0;
-  let y = 0;
-  if (currentPoint < leftPoint) {
-    x = L * (1 / sl - 1 / su);
-  } else if (currentPoint >= rightPoint) {
-    y = L * (su - sl);
-  } else {
-    x = L * (1 / sc - 1 / su);
-    y = L * (sc - sl);
-  }
-  return { x: Math.max(0, x), y: Math.max(0, y) };
+  // Below the current point the position holds Y, from the current point upward it holds X.
+  const split = Math.min(Math.max(currentPoint, leftPoint), rightPoint);
+  return {
+    x: dclAmountX(liquidity, split, rightPoint),
+    y: dclAmountY(liquidity, leftPoint, split)
+  };
 }
 
 /** Human price of token X in token Y at a DCL point. */
