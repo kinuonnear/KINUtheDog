@@ -339,3 +339,26 @@ export async function buildDclBinsTransactions({ pool, plan, slippage, accountId
   }
   return txs.filter(Boolean);
 }
+
+/**
+ * Size a planned shape to fit token budgets (raw floats): the scarcer side
+ * decides. Used by Zap In, where budgets are the swaps' minimum outputs.
+ * @param bins  planned bins carrying xPerL / yPerL (from planBins)
+ */
+export function planBinsByBudget({ bins, budgetX, budgetY }) {
+  const unitX = bins.reduce((s, b) => s + b.xPerL, 0);
+  const unitY = bins.reduce((s, b) => s + b.yPerL, 0);
+  const limits = [];
+  if (unitX > 0) limits.push(Number(budgetX) / unitX);
+  if (unitY > 0) limits.push(Number(budgetY) / unitY);
+  // Stay a hair under the budget so float rounding can never overspend.
+  const k = limits.length ? Math.max(0, Math.min(...limits)) * (1 - 1e-9) : 0;
+  const planned = bins.map((b) => ({ ...b, amountX: b.xPerL * k, amountY: b.yPerL * k }));
+  return {
+    bins: planned,
+    totalX: planned.reduce((s, b) => s + b.amountX, 0),
+    totalY: planned.reduce((s, b) => s + b.amountY, 0),
+    needsX: unitX > 0,
+    needsY: unitY > 0
+  };
+}

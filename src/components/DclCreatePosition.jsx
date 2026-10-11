@@ -22,6 +22,8 @@ import { view } from '../lib/rpc.js';
 import { formatChartPrice, formatPercent, formatRawAmount, formatUnits, maxBig, toBigInt, tryParseUnits } from '../lib/format.js';
 import { CONTRACTS, NEAR_GAS_RESERVE } from '../config.js';
 import { Spinner, TokenIcon } from './ui.jsx';
+import { buildZapTransactions, quoteZap } from '../lib/zap.js';
+import { defaultZapToken, useZapQuote, useZapSpendable, ZapBreakdown, ZapInput } from './ZapIn.jsx';
 
 const PRESETS = [
   { key: '5', label: '±5%' },
@@ -285,6 +287,9 @@ export default function DclCreatePosition({ pool, x, y, rangeState, onDone }) {
   const [inputs, setInputs] = useState({ x: '', y: '' });
   const [lastEdited, setLastEdited] = useState('x');
   const [submitting, setSubmitting] = useState(false);
+  const [mode, setMode] = useState('dual'); // 'dual' | 'zap'
+  const [zapToken, setZapToken] = useState(() => defaultZapToken(x, y));
+  const [zapText, setZapText] = useState('');
   const { range, current, full } = rangeState;
 
   const tokenIds = useMemo(() => [pool.token_x, pool.token_y], [pool.token_x, pool.token_y]);
@@ -304,6 +309,25 @@ export default function DclCreatePosition({ pool, x, y, rangeState, onDone }) {
   const sourceRaw = tryParseUnits(inputs[source], sourceToken.decimals) || '0';
   const plan = useMemo(() => planBins({ bins, current, from: source, amount: Number(sourceRaw) }), [bins, current, source, sourceRaw]);
 
+  // Zap In: the unit shape (amount-independent) decides how the single input is split.
+  const unitPlan = useMemo(() => planBins({ bins, current, from: 'x', amount: 0 }), [bins, current]);
+  const zapRaw = tryParseUnits(zapText, zapToken.decimals) || '0';
+  const zapSpendable = useZapSpendable(zapToken);
+  const shapeKey = `${range.left}:${range.right}:${strategy}`;
+  const zapQuote = useZapQuote({
+    enabled: mode === 'zap',
+    token: zapToken,
+    amountRaw: zapRaw,
+    x,
+    y,
+    pool,
+    unitPlan,
+    shapeKey,
+    slippage,
+    accountId
+  });
+  const zapStale = mode === 'zap' && (zapQuote.loading || (zapQuote.data && zapQuote.data.legX && toBigInt(zapRaw) !== toBigInt(zapQuote.data.legX.amountIn) + toBigInt(zapQuote.data.legY.amountIn)));
+
   const rawX = source === 'x' ? sourceRaw : plan.bins.reduce((s, b) => s + BigInt(Math.floor(b.amountX)), 0n).toString();
   const rawY = source === 'y' ? sourceRaw : plan.bins.reduce((s, b) => s + BigInt(Math.floor(b.amountY)), 0n).toString();
   const shownX = source === 'x' ? inputs.x : toBigInt(rawX) > 0n ? trimDecimals(formatUnits(rawX, x.decimals)) : '';
@@ -317,10 +341,19 @@ export default function DclCreatePosition({ pool, x, y, rangeState, onDone }) {
   const storage = useAsync(() => view(CONTRACTS.dcl, 'get_user_storage_detail', { user_id: accountId }), [accountId], {
     enabled: Boolean(accountId)
   });
-  const positionsCount = plan.bins.filter((b) => b.amountX >= 1 || b.amountY >= 1).length || bins.length;
-  const hasAmount = toBigInt(rawX) > 0n || toBigInt(rawY) > 0n;
-  const short =
-    toBigInt(rawX) > spendable[0] ? `Insufficient ${x.symbol}` : toBigInt(rawY) > spendable[1] ? `Insufficient ${y.symbol}` : null;
+  const zapMode = mode === 'zap';
+  const activePlan = zapMode && zapQuote.data ? zapQuote.data.plan : plan;
+  const positionsCount = activePlan.bins.filter((b) => b.amountX >= 1 || b.amountY >= 1).length || bins.length;
+  const hasAmount = zapMode ? toBigInt(zapRaw) > 0n : toBigInt(rawX) > 0n || toBigInt(rawY) > 0n;
+  const short = zapMode
+    ? toBigInt(zapRaw) > zapSpendable
+      ? `Insufficient ${zapToken.symbol}`
+      : null
+    : toBigInt(rawX) > spendable[0]
+      ? `Insufficient ${x.symbol}`
+      : toBigInt(rawY) > spendable[1]
+        ? `Insufficient ${y.symbol}`
+        : null;
 
   const setAmount = (which, text) => {
     const clean = text.replace(',', '.');
@@ -338,13 +371,23 @@ export default function DclCreatePosition({ pool, x, y, rangeState, onDone }) {
   const submit = async () => {
     if (!accountId) return connect();
     setSubmitting(true);
-    const ok = await execute(() => buildDclBinsTransactions({ pool, plan, slippage, accountId, wrapX, wrapY }), {
-      pending: `Creating ${positionsCount} position${positionsCount === 1 ? '' : 's'}`,
-      success: 'Liquidity added'
-    });
+    const ok = zapMode
+      ? await execute(
+          async () => {
+            // Always execute a fresh, user-bound quote.
+            const zap = await quoteZap({ inputToken: zapToken, amountIn: zapRaw, x, y, pool, unitPlan, slippage, user: accountId });
+            return buildZapTransactions({ zap, inputToken: zapToken, x, y, pool, slippage, accountId });
+          },
+          { pending: `Zapping ${zapToken.symbol} into ${x.symbol}/${y.symbol}`, success: 'Zap complete — position created' }
+        )
+      : await execute(() => buildDclBinsTransactions({ pool, plan, slippage, accountId, wrapX, wrapY }), {
+          pending: `Creating ${positionsCount} position${positionsCount === 1 ? '' : 's'}`,
+          success: 'Liquidity added'
+        });
     setSubmitting(false);
     if (ok) {
       setInputs({ x: '', y: '' });
+      setZapText('');
       onDone?.();
     }
   };
@@ -390,16 +433,40 @@ export default function DclCreatePosition({ pool, x, y, rangeState, onDone }) {
   if (!accountId) label = 'Connect wallet';
   else if (!hasAmount) label = 'Enter an amount';
   else if (short) label = short;
+  else if (zapMode && zapQuote.error) label = 'No route for this zap';
+  else if (zapMode && zapStale) label = 'Finding best split…';
+  else if (zapMode) label = `Zap in ${zapToken.symbol}`;
+  const blocked = zapMode && (Boolean(zapQuote.error) || zapStale || !zapQuote.data);
 
   return (
     <div className="create-pos">
       <section>
         <div className="create-pos__head">
           <h3>Amount</h3>
-          <span className="muted small">Auto-fill keeps both sides in the right ratio</span>
+          <div className="segmented">
+            <button type="button" className={!zapMode ? 'active' : ''} onClick={() => setMode('dual')}>
+              Dual tokens
+            </button>
+            <button type="button" className={zapMode ? 'active' : ''} onClick={() => setMode('zap')}>
+              ⚡ Zap in
+            </button>
+          </div>
         </div>
-        {amountRow('x', x, shownX, 0)}
-        {amountRow('y', y, shownY, 1)}
+        {zapMode ? (
+          <>
+            <ZapInput token={zapToken} setToken={setZapToken} text={zapText} setText={setZapText} spendable={zapSpendable} x={x} y={y} />
+            <p className="liq-hint">
+              Deposit a single token — KINU swaps the right share into {x.symbol}/{y.symbol} and opens the position in one
+              wallet request.
+            </p>
+          </>
+        ) : (
+          <>
+            {amountRow('x', x, shownX, 0)}
+            {amountRow('y', y, shownY, 1)}
+            <p className="liq-hint">Auto-fill keeps both sides in the right ratio.</p>
+          </>
+        )}
       </section>
 
       <section>
@@ -424,7 +491,7 @@ export default function DclCreatePosition({ pool, x, y, rangeState, onDone }) {
             {y.symbol} per {x.symbol}
           </span>
         </div>
-        <DepthHistogram pool={pool} x={x} y={y} rangeState={rangeState} plan={hasAmount ? plan : { bins: plan.bins }} />
+        <DepthHistogram pool={pool} x={x} y={y} rangeState={rangeState} plan={hasAmount ? activePlan : { bins: activePlan.bins }} />
         <div className="segmented segmented--full">
           {PRESETS.map((p) => (
             <button key={p.key} type="button" className={rangeState.preset === p.key ? 'active' : ''} onClick={() => rangeState.setPreset(p.key)}>
@@ -460,6 +527,10 @@ export default function DclCreatePosition({ pool, x, y, rangeState, onDone }) {
         )}
       </section>
 
+      {zapMode && hasAmount && (
+        <ZapBreakdown zap={zapQuote.data} loading={zapQuote.loading} error={zapQuote.error} token={zapToken} x={x} y={y} />
+      )}
+
       <dl className="kv create-pos__summary">
         <div>
           <dt>Positions created</dt>
@@ -477,7 +548,7 @@ export default function DclCreatePosition({ pool, x, y, rangeState, onDone }) {
           <dt>Fee tier</dt>
           <dd>{formatPercent(pool.fee / 10000, 2)}</dd>
         </div>
-        {accountId && toBigInt(wrapX) + toBigInt(wrapY) > 0n && (
+        {!zapMode && accountId && toBigInt(wrapX) + toBigInt(wrapY) > 0n && (
           <div>
             <dt>NEAR to wrap</dt>
             <dd>{formatRawAmount((toBigInt(wrapX) + toBigInt(wrapY)).toString(), 24)} NEAR</dd>
@@ -498,7 +569,7 @@ export default function DclCreatePosition({ pool, x, y, rangeState, onDone }) {
       <button
         type="button"
         className="button button--primary button--block button--lg"
-        disabled={(accountId && (!hasAmount || Boolean(short))) || submitting}
+        disabled={(accountId && (!hasAmount || Boolean(short) || blocked)) || submitting}
         onClick={submit}
       >
         {submitting && <Spinner size={14} />}

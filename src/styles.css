@@ -3935,3 +3935,109 @@ a.trades__row:hover {
 .terminal .range-chart__tip {
   margin: 6px 0 8px;
 }
+
+/* ==========================================================================
+   Zap In
+   ========================================================================== */
+.amount-row--zap {
+  padding: 12px 14px 10px;
+}
+
+.amount-row__zapinput {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex: 1;
+  min-width: 0;
+}
+
+.amount-row__zapinput input {
+  width: 100%;
+  font-size: 22px;
+}
+
+.amount-row__zapinput small {
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.zap-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.zap-tools__tokens {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.zap-tools__tokens .chip {
+  height: 28px;
+  font-size: 12px;
+}
+
+.zap-tools__balance {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.zap-tools__balance button {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+}
+
+.zap-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(184, 255, 61, 0.3);
+  background: var(--accent-soft);
+}
+
+.zap-breakdown__split {
+  display: flex;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-3);
+}
+
+.zap-breakdown__split .x {
+  background: #8b6cff;
+}
+
+.zap-breakdown__split .y {
+  background: #3dc6e0;
+}
+
+.zap-breakdown__legend {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.zap-breakdown .kv dd small {
+  display: block;
+  font-size: 11px;
+}
+
+.zap-breakdown .hint {
+  margin-top: 0;
+}
