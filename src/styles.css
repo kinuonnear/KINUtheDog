@@ -4521,8 +4521,8 @@ a.trades__row:hover {
   scrollbar-width: none;
 }
 
-/* The left column scrolls as one: wheel over the chart moves chart and data
-   together. The splitter still sets the chart height. */
+/* The left column scrolls as one: the wheel over the data panel moves chart and
+   data together (over the chart it zooms). The splitter sets the chart height. */
 @media (min-width: 1081px) {
   .pool-grid--wide > .pool-grid__main--split {
     overflow-y: auto;
