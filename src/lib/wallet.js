@@ -6,6 +6,7 @@ import '@near-wallet-selector/modal-ui/styles.css';
 
 import { CONTRACTS, NETWORK_ID } from '../config.js';
 import { mergeTransactions } from './tx.js';
+import { assertSafeTransactions } from './txGuard.js';
 
 let selectorPromise = null;
 let modal = null;
@@ -75,6 +76,7 @@ export async function sendTransactions(transactions) {
   const wallet = await selector.wallet();
   const merged = mergeTransactions(transactions);
   if (!merged.length) throw new Error('Nothing to send.');
+  assertSafeTransactions(merged, activeAccountId(selector));
 
   const outcomes = await wallet.signAndSendTransactions({
     transactions: merged.map((tx) => ({

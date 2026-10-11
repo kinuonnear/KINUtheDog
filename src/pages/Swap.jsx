@@ -6,7 +6,7 @@ import TokenPicker from '../components/TokenPicker.jsx';
 import RecentTrades from '../components/RecentTrades.jsx';
 import { defaultChartSide } from '../lib/intear.js';
 import { Spinner, TokenIcon } from '../components/ui.jsx';
-import { getCachedToken, getToken, getTokens, priceOf } from '../lib/tokens.js';
+import { getCachedToken, getToken, getTokens, getWhitelistedTokens, priceOf } from '../lib/tokens.js';
 import { buildSwapTransactions, getSwapQuote } from '../lib/swap.js';
 import { getAggregatorBalances } from '../lib/rhea.js';
 import { buildAggregatorWithdrawTransactions } from '../lib/liquidity.js';
@@ -20,7 +20,7 @@ import {
   toNumber,
   tryParseUnits
 } from '../lib/format.js';
-import { CONTRACTS, DEPOSIT, NATIVE_NEAR, NEAR_GAS_RESERVE } from '../config.js';
+import { CONTRACTS, DEPOSIT, NATIVE_NEAR, NEAR_GAS_RESERVE, PINNED_TOKENS } from '../config.js';
 
 const PriceChart = lazy(() => import('../components/PriceChart.jsx'));
 
@@ -72,6 +72,32 @@ function StuckSwapFunds({ refreshKey }) {
       <button type="button" className="link-button" onClick={withdraw}>
         Withdraw
       </button>
+    </div>
+  );
+}
+
+/**
+ * Anyone can deploy a token called "USDC". Warn when a side of the swap isn't on Rhea's
+ * whitelist (KINU's pinned tokens and native NEAR are trusted).
+ */
+function UnverifiedTokenWarning({ tokens }) {
+  const whitelist = useAsync(() => getWhitelistedTokens(), []);
+  if (!whitelist.data) return null;
+  const trusted = new Set([...whitelist.data, ...PINNED_TOKENS, NATIVE_NEAR.id]);
+  const unverified = tokens.filter((t) => t && !trusted.has(t.id));
+  if (!unverified.length) return null;
+  return (
+    <div className="notice notice--warn">
+      <span>
+        {unverified.map((t, i) => (
+          <span key={t.id}>
+            {i > 0 && ' and '}
+            <b>{t.symbol}</b> <code className="mono">{t.id.length > 30 ? `${t.id.slice(0, 14)}…${t.id.slice(-10)}` : t.id}</code>
+          </span>
+        ))}{' '}
+        {unverified.length > 1 ? "aren't" : "isn't"} on Rhea&apos;s verified list. Anyone can create a token with any name — check the
+        contract address before you swap.
+      </span>
     </div>
   );
 }
@@ -435,6 +461,7 @@ export default function Swap() {
             />
 
             {quoteError && typedRaw && !quoting && <div className="notice notice--error">{quoteError}</div>}
+            <UnverifiedTokenWarning tokens={[tokenIn, tokenOut]} />
             <StuckSwapFunds refreshKey={swapCount} />
             {tokenIn.native && accountId && !wrapMode && (
               <p className="hint">0.25 NEAR stays in your wallet for gas when using Max.</p>
