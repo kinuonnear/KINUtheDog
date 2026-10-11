@@ -136,3 +136,22 @@ export async function fetchPairOhlc({ tokenX, tokenY, resolution = '60', countBa
   });
   return out;
 }
+
+/** Whether a token reads better as the quote side of a pair (NEAR, stablecoins). */
+export const isQuoteToken = (id) => QUOTE_TOKENS.has(id);
+
+const infoCache = new Map();
+
+/** Token stats with an in-memory cache (shared by pool lists). */
+export function getTokenInfoCached(tokenId) {
+  if (!infoCache.has(tokenId)) {
+    infoCache.set(
+      tokenId,
+      fetchTokenInfo(tokenId).catch(() => {
+        infoCache.delete(tokenId);
+        return null;
+      })
+    );
+  }
+  return infoCache.get(tokenId);
+}

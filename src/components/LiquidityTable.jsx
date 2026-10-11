@@ -8,7 +8,10 @@ import { Link, poolPath } from '../router.jsx';
 import { searchPools } from '../lib/rhea.js';
 import { buildDclClaimTransactions } from '../lib/dclLiquidity.js';
 import { formatAmount, formatPercent, formatUsd } from '../lib/format.js';
-import { DclActions, FeesText, RangeText, summarizeDclGroup } from './DclPositions.jsx';
+import { formatAge } from '../lib/lpHistory.js';
+import { pointToPrice } from '../lib/dclLiquidity.js';
+import { DclActions, RangeText, summarizeDclGroup } from './DclPositions.jsx';
+import { PnlValue } from './LpPnl.jsx';
 import { EmptyState, PairIcons, Spinner, Stat } from './ui.jsx';
 
 /** Group CLMM positions by pool. `positions` carry x / y token metadata. */
@@ -21,9 +24,84 @@ function groupDcl(positions, prices) {
   return [...groups.values()].map((g) => ({ ...g, summary: summarizeDclGroup(g.positions, g.x, g.y, prices) }));
 }
 
-export default function LiquidityTable({ classicRows, dclRows, depositUsd, readOnly, onDone }) {
+/** Age / invested / fees / PnL of a set of CLMM positions from the event history. */
+function perf(positions, open) {
+  if (!open) return null;
+  const infos = positions.map((p) => open.get(p.id)).filter(Boolean);
+  const known = infos.filter((i) => i.known);
+  const sum = (list, fn) => list.reduce((s, i) => s + fn(i), 0);
+  const gross = sum(known, (i) => i.ledger.investedUsd);
+  const pnl = sum(known, (i) => i.pnl);
+  return {
+    known: known.length > 0,
+    partial: known.length < positions.length,
+    openedAt: known.length ? Math.min(...known.map((i) => i.ledger.openedAt)) : null,
+    invested: sum(known, (i) => i.invested),
+    fees: sum(infos, (i) => (i.ledger?.feesUsd || 0) + i.unclaimed),
+    unclaimed: sum(infos, (i) => i.unclaimed),
+    pnl,
+    pnlPct: gross > 0 ? (pnl / gross) * 100 : null
+  };
+}
+
+const placeholder = (loading) => (loading ? <Spinner size={12} /> : <span className="muted">—</span>);
+
+function AgeCell({ p, loading }) {
+  return <span data-label="Age">{p?.openedAt ? formatAge(Date.now() - p.openedAt) : placeholder(loading)}</span>;
+}
+
+/** Invested · Value · Fees · uPnL cells. */
+function PerfCells({ p, loading, value, amounts }) {
+  const dash = placeholder(loading);
+  return (
+    <>
+      <span data-label="Invested">
+        {p?.known ? (
+          <>
+            {formatUsd(p.invested)}
+            {p.partial && (
+              <small className="muted" title="Some positions predate the loaded history">
+                {' '}
+                *
+              </small>
+            )}
+          </>
+        ) : (
+          dash
+        )}
+      </span>
+      <span className="lp-row__value" data-label="Value">
+        <strong>{formatUsd(value)}</strong>
+        {amounts && <small className="muted">{amounts}</small>}
+      </span>
+      <span data-label="Fees">
+        {p ? (
+          <span className="lp-fees">
+            <b className={p.fees > 0 ? 'up' : ''}>{formatUsd(p.fees)}</b>
+            {p.unclaimed > 0 && p.fees - p.unclaimed > 0.005 && <small className="muted">{formatUsd(p.unclaimed)} unclaimed</small>}
+          </span>
+        ) : (
+          dash
+        )}
+      </span>
+      <span data-label="uPnL">{p?.known ? <PnlValue value={p.pnl} pct={p.pnlPct} /> : dash}</span>
+    </>
+  );
+}
+
+export default function LiquidityTable({ classicRows, dclRows, depositUsd, readOnly, history, onDone }) {
   const { prices, accountId, execute } = useApp();
   const [claimingAll, setClaimingAll] = useState(false);
+  const [expanded, setExpanded] = useState(() => new Set());
+  const open = history?.model?.open || null;
+  const histLoading = Boolean(history?.loading);
+  const toggle = (id) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const dclGroups = useMemo(() => groupDcl(dclRows, prices).sort((a, b) => b.summary.usd - a.summary.usd), [dclRows, prices]);
   const poolIds = [...classicRows.map((r) => r.pool.id), ...dclGroups.map((g) => g.poolId)];
@@ -98,48 +176,91 @@ export default function LiquidityTable({ classicRows, dclRows, depositUsd, readO
 
       <div className="lp-table">
         <div className="lp-row lp-row--head">
-          <span>Pool</span>
+          <span>Position / Pool</span>
+          <span>Age</span>
           <span>Price range</span>
+          <span>Invested</span>
+          <span>Value</span>
+          <span>Fees</span>
+          <span>uPnL</span>
           <span>Pool APR</span>
-          <span>Your liquidity</span>
-          <span>Unclaimed fees</span>
           <span>Action</span>
         </div>
 
-        {dclGroups.map((g) => (
-          <div className="lp-row" key={g.poolId}>
-            <Link to={poolPath(g.poolId)} className="lp-row__pool">
-              <PairIcons tokens={[g.x, g.y]} size={30} />
-              <span>
-                <strong>
-                  {g.x.symbol} / {g.y.symbol}
-                </strong>
-                <small>
-                  <span className="kind kind--clmm">CLMM</span>
-                  {formatPercent(Number(g.poolId.split('|')[2]) / 10000, 2)} fee · {g.positions.length} position
-                  {g.positions.length === 1 ? '' : 's'}
-                </small>
-              </span>
-            </Link>
-            <span className="lp-row__range" data-label="Price range">
-              <RangeText summary={g.summary} x={g.x} y={g.y} />
-              <span className={`range-badge ${g.summary.inRange ? 'range-badge--in' : ''}`}>{g.summary.inRange ? 'In range' : 'Out of range'}</span>
-            </span>
-            <span data-label="Pool APR">{apr(g.poolId)}</span>
-            <span className="lp-row__value" data-label="Your liquidity">
-              <strong>{formatUsd(g.summary.usd)}</strong>
-              <small className="muted">
-                {formatAmount(g.summary.amountX)} {g.x.symbol} + {formatAmount(g.summary.amountY)} {g.y.symbol}
-              </small>
-            </span>
-            <span data-label="Unclaimed fees">
-              <FeesText summary={g.summary} x={g.x} y={g.y} />
-            </span>
-            <span className="lp-row__actions">
-              <DclActions poolId={g.poolId} positions={g.positions} x={g.x} y={g.y} onDone={onDone} readOnly={readOnly} />
-            </span>
-          </div>
-        ))}
+        {dclGroups.map((g) => {
+          const p = perf(g.positions, open);
+          const isOpen = expanded.has(g.poolId);
+          return (
+            <div className="lp-group" key={g.poolId}>
+              <div className="lp-row">
+                <span className="lp-row__pool">
+                  <button
+                    type="button"
+                    className={`lp-expand ${isOpen ? 'lp-expand--open' : ''}`}
+                    onClick={() => toggle(g.poolId)}
+                    aria-label={isOpen ? 'Hide positions' : 'Show positions'}
+                  >
+                    ▸
+                  </button>
+                  <Link to={poolPath(g.poolId)} className="lp-row__pool">
+                    <PairIcons tokens={[g.x, g.y]} size={30} />
+                    <span>
+                      <strong>
+                        {g.x.symbol} / {g.y.symbol}
+                      </strong>
+                      <small>
+                        <span className="kind kind--clmm">CLMM</span>
+                        {formatPercent(Number(g.poolId.split('|')[2]) / 10000, 2)} · {g.positions.length} pos
+                      </small>
+                    </span>
+                  </Link>
+                </span>
+                <AgeCell p={p} loading={histLoading} />
+                <span className="lp-row__range" data-label="Price range">
+                  <RangeText summary={g.summary} x={g.x} y={g.y} />
+                  <span className={`range-badge ${g.summary.inRange ? 'range-badge--in' : ''}`}>{g.summary.inRange ? 'In range' : 'Out of range'}</span>
+                </span>
+                <PerfCells
+                  p={p}
+                  loading={histLoading}
+                  value={g.summary.usd}
+                  amounts={`${formatAmount(g.summary.amountX)} ${g.x.symbol} + ${formatAmount(g.summary.amountY)} ${g.y.symbol}`}
+                />
+                <span data-label="Pool APR">{apr(g.poolId)}</span>
+                <span className="lp-row__actions">
+                  <DclActions poolId={g.poolId} positions={g.positions} x={g.x} y={g.y} onDone={onDone} readOnly={readOnly} />
+                </span>
+              </div>
+              {isOpen &&
+                g.positions.map((pos) => {
+                  const pp = perf([pos], open);
+                  const lo = pointToPrice(pos.leftPoint, g.x.decimals, g.y.decimals);
+                  const hi = pointToPrice(pos.rightPoint, g.x.decimals, g.y.decimals);
+                  return (
+                    <div className="lp-row lp-row--sub" key={pos.id}>
+                      <span className="lp-row__pool lp-sub__id">
+                        <span className={`dot ${pos.inRange ? 'dot--in' : 'dot--out'}`} />#{pos.id.split('#')[1]}
+                      </span>
+                      <AgeCell p={pp} loading={histLoading} />
+                      <span className="lp-row__range" data-label="Price range">
+                        <b className="mono">
+                          {formatAmount(lo)} – {formatAmount(hi)}
+                        </b>
+                      </span>
+                      <PerfCells
+                        p={pp}
+                        loading={histLoading}
+                        value={pos.usd}
+                        amounts={`${formatAmount(pos.ax)} ${g.x.symbol} + ${formatAmount(pos.ay)} ${g.y.symbol}`}
+                      />
+                      <span />
+                      <span />
+                    </div>
+                  );
+                })}
+            </div>
+          );
+        })}
 
         {classicRows.map((r) => (
           <div className="lp-row" key={r.pool.id}>
@@ -154,18 +275,27 @@ export default function LiquidityTable({ classicRows, dclRows, depositUsd, readO
                 </small>
               </span>
             </Link>
+            <span data-label="Age" className="muted">
+              —
+            </span>
             <span className="lp-row__range" data-label="Price range">
               <span>Full range</span>
               <span className="muted small">{formatPercent(r.sharePct, 4)} of pool</span>
             </span>
-            <span data-label="Pool APR">{apr(r.pool.id)}</span>
-            <span className="lp-row__value" data-label="Your liquidity">
+            <span data-label="Invested" className="muted">
+              —
+            </span>
+            <span className="lp-row__value" data-label="Value">
               <strong>{formatUsd(r.usd)}</strong>
               <small className="muted">{r.parts.map((p) => `${formatAmount(p.amount)} ${p.token.symbol}`).join(' + ')}</small>
             </span>
-            <span data-label="Unclaimed fees">
+            <span data-label="Fees">
               <span className="muted small">Auto-compounded</span>
             </span>
+            <span data-label="uPnL" className="muted">
+              —
+            </span>
+            <span data-label="Pool APR">{apr(r.pool.id)}</span>
             <span className="lp-row__actions">
               {readOnly ? (
                 <Link to={poolPath(r.pool.id)} className="button button--ghost button--sm">

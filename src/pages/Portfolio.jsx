@@ -2,13 +2,16 @@ import { useMemo, useState } from 'react';
 import { useApp } from '../state.jsx';
 import { useAsync } from '../hooks.js';
 import { Link, navigate, useLocation } from '../router.jsx';
-import { getAllBalances, getTokens, priceOf } from '../lib/tokens.js';
+import { asPoolToken, getAllBalances, getTokens, priceOf } from '../lib/tokens.js';
 import { getClassicPositions, getDclPositions, getDeposits } from '../lib/rhea.js';
 import { buildWithdrawDepositsTransactions } from '../lib/liquidity.js';
 import { buildDclWithdrawTransactions, getDclAssets } from '../lib/dclLiquidity.js';
 import { formatAmount, formatPrice, formatUsd, shortAccount, toNumber } from '../lib/format.js';
 import { CONTRACTS, ENDPOINTS, NATIVE_NEAR } from '../config.js';
 import LiquidityTable from '../components/LiquidityTable.jsx';
+import { ClosedPositions, PnlDashboard, PnlValue, useLpHistory } from '../components/LpPnl.jsx';
+import { AvgCell, rowPnl, SoldTokens, TokenPnlSummary, useTokenPnl } from '../components/TokenPnl.jsx';
+import { fetchTokenInfo } from '../lib/intear.js';
 import { EmptyState, ErrorNotice, Skeleton, Spinner, Stat, Tabs, TokenIcon } from '../components/ui.jsx';
 
 const DUST_USD = 0.01;
@@ -105,7 +108,7 @@ export default function Portfolio() {
 
     const classicRows = classic
       .map((p) => {
-        const parts = p.pool.tokenIds.map((id, i) => ({ token: meta(id), amount: toNumber(p.amounts[i], meta(id).decimals), usd: usdOf(id, p.amounts[i]) }));
+        const parts = p.pool.tokenIds.map((id, i) => ({ token: asPoolToken(meta(id)), amount: toNumber(p.amounts[i], meta(id).decimals), usd: usdOf(id, p.amounts[i]) }));
         const supply = Number(p.pool.sharesTotalSupply);
         return {
           ...p,
@@ -118,11 +121,14 @@ export default function Portfolio() {
 
     const dclRows = dcl
       .map((p) => {
-        const x = meta(p.tokenX);
-        const y = meta(p.tokenY);
+        const x = asPoolToken(meta(p.tokenX));
+        const y = asPoolToken(meta(p.tokenY));
         const ax = p.amountX / 10 ** x.decimals;
         const ay = p.amountY / 10 ** y.decimals;
-        return { ...p, x, y, ax, ay, usd: ax * priceOf(prices, p.tokenX) + ay * priceOf(prices, p.tokenY) };
+        const px = priceOf(prices, p.tokenX);
+        const py = priceOf(prices, p.tokenY);
+        const feeUsd = toNumber(p.unclaimedFeeX, x.decimals) * px + toNumber(p.unclaimedFeeY, y.decimals) * py;
+        return { ...p, x, y, ax, ay, usd: ax * px + ay * py, feeUsd };
       })
       .sort((a, b) => b.usd - a.usd);
 
@@ -142,6 +148,19 @@ export default function Portfolio() {
       near: wallet.near
     };
   }, [data.data, prices]);
+
+  const history = useLpHistory(viewed, model?.dclRows, prices);
+
+  const tokenPnl = useTokenPnl(viewed, prices);
+
+  // 24h price change per held token (Intear), shown under the price.
+  const heldIds = model ? model.walletRows.filter((r) => r.usd >= DUST_USD).map((r) => (r.id === NATIVE_NEAR.id ? CONTRACTS.wrapNear : r.id)) : [];
+  const changes = useAsync(
+    async () => Object.fromEntries(await Promise.all(heldIds.map(async (id) => [id, (await fetchTokenInfo(id).catch(() => null))?.change24h ?? null]))),
+    [heldIds.join(',')],
+    { enabled: heldIds.length > 0, refreshMs: 60_000 }
+  );
+  const change24h = (id) => changes.data?.[id === NATIVE_NEAR.id ? CONTRACTS.wrapNear : id] ?? null;
 
   if (!viewed) return <AccountPrompt />;
 
@@ -173,7 +192,7 @@ export default function Portfolio() {
     ).then((r) => r && data.reload());
 
   return (
-    <div className="page">
+    <div className="page page--portfolio">
       <header className="page-head page-head--split">
         <div>
           <span className="eyebrow">Portfolio{readOnly ? ' · read-only' : ''}</span>
@@ -209,33 +228,17 @@ export default function Portfolio() {
           )}
         </div>
         <div className="net-worth__stats">
-          <Stat label="Wallet" value={model ? formatUsd(model.walletUsd) : null} loading={!model} />
+          <Stat label="Token" value={model ? formatUsd(model.walletUsd) : null} loading={!model} />
           <Stat label="Liquidity" value={model ? formatUsd(model.liquidityUsd) : null} loading={!model} hint={model ? `${lpCount} pool${lpCount === 1 ? '' : 's'}` : null} />
           <Stat label="Rhea deposits" value={model ? formatUsd(model.depositUsd) : null} loading={!model} />
         </div>
-        {allocation.length > 0 && (
-          <div className="allocation">
-            <div className="allocation__bar">
-              {allocation.map((a) => (
-                <span key={a.label} style={{ width: `${Math.max(a.pct, 0.8)}%`, background: a.color }} title={`${a.label} ${a.pct.toFixed(1)}%`} />
-              ))}
-            </div>
-            <div className="allocation__legend">
-              {allocation.map((a) => (
-                <span key={a.label}>
-                  <i style={{ background: a.color }} />
-                  {a.label} <b>{a.pct.toFixed(1)}%</b>
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
       </section>
 
       <Tabs
         tabs={[
           { key: 'tokens', label: 'Tokens', count: model?.walletRows.length },
           { key: 'liquidity', label: 'Liquidity', count: model ? lpCount : undefined },
+          { key: 'history', label: 'History', count: history.model?.closed.length },
           { key: 'deposits', label: 'Rhea deposits', count: model?.depositRows.length }
         ]}
         value={tab}
@@ -253,49 +256,108 @@ export default function Portfolio() {
           ))}
         </div>
       ) : tab === 'tokens' ? (
-        <section className="card asset-table">
-          <div className="asset-row asset-row--head">
-            <span>Asset</span>
-            <span>Price</span>
-            <span>Balance</span>
-            <span>Value</span>
-          </div>
-          {visibleTokens.map((r) => (
-            <div className="asset-row" key={r.id}>
-              <span className="asset-row__token">
-                <TokenIcon token={r.token} size={32} />
-                <span>
-                  <strong>{r.token.symbol}</strong>
-                  <small>{r.id === NATIVE_NEAR.id ? 'Native' : shortAccount(r.id, 14, 8)}</small>
-                </span>
-              </span>
-              <span data-label="Price">{formatPrice(r.price)}</span>
-              <span data-label="Balance">{formatAmount(r.amount)}</span>
-              <span data-label="Value" className="asset-row__value">
-                {formatUsd(r.usd)}
-                {!readOnly && (
-                  <Link to={`/swap?from=${r.id}`} className="mini-button">
-                    Swap
-                  </Link>
-                )}
-              </span>
+        <>
+          <section className="card allocation-card">
+            <TokenPnlSummary pnl={tokenPnl} rows={visibleTokens} />
+            {allocation.length > 0 && (
+              <div className="allocation">
+                <div className="allocation__bar">
+                  {allocation.map((a) => (
+                    <span key={a.label} style={{ width: `${Math.max(a.pct, 0.8)}%`, background: a.color }} title={`${a.label} ${a.pct.toFixed(1)}%`} />
+                  ))}
+                </div>
+                <div className="allocation__legend">
+                  {allocation.map((a) => (
+                    <span key={a.label}>
+                      <i style={{ background: a.color }} />
+                      {a.label} <b>{a.pct.toFixed(1)}%</b>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+          <section className="card asset-table asset-table--pnl">
+            <div className="asset-row asset-row--head">
+              <span>Asset</span>
+              <span>Price</span>
+              <span>Balance</span>
+              <span>Avg buy</span>
+              <span>PnL</span>
+              <span>Realized</span>
+              <span>Value</span>
             </div>
-          ))}
-          {!visibleTokens.length && <EmptyState title="No tokens">This account holds no fungible tokens.</EmptyState>}
-          {hiddenCount > 0 && (
-            <button type="button" className="link-button asset-table__more" onClick={() => setShowDust((v) => !v)}>
-              {showDust ? 'Hide small balances' : `Show ${hiddenCount} small or unpriced balance${hiddenCount === 1 ? '' : 's'}`}
-            </button>
-          )}
-        </section>
+            {visibleTokens.map((r) => {
+              const info = rowPnl(tokenPnl, r);
+              const change = change24h(r.id);
+              return (
+              <div className="asset-row" key={r.id}>
+                <span className="asset-row__token">
+                  <TokenIcon token={r.token} size={32} />
+                  <span>
+                    <strong>{r.token.symbol}</strong>
+                    <small>{r.id === NATIVE_NEAR.id ? 'Native' : shortAccount(r.id, 14, 8)}</small>
+                  </span>
+                </span>
+                <span data-label="Price" className="price-cell">
+                  {formatPrice(r.price)}
+                  {change !== null && (
+                    <small className={change > 0 ? 'up' : change < 0 ? 'down' : 'muted'}>
+                      {change > 0 ? '+' : ''}
+                      {change.toFixed(2)}% 24h
+                    </small>
+                  )}
+                </span>
+                <span data-label="Balance">{formatAmount(r.amount)}</span>
+                <span data-label="Avg buy">
+                  <AvgCell info={info} loading={tokenPnl.loading} />
+                </span>
+                <span data-label="PnL">
+                  {info?.avg ? (
+                    <span title={info.partial ? 'Part of this balance predates the loaded history' : undefined}>
+                      <PnlValue value={info.pnl} pct={info.pct} />
+                    </span>
+                  ) : (
+                    <span className="muted">{tokenPnl.loading ? <Spinner size={12} /> : '—'}</span>
+                  )}
+                </span>
+                <span data-label="Realized">
+                  {info && Math.abs(info.realized) >= 0.005 ? <PnlValue value={info.realized} /> : <span className="muted">—</span>}
+                </span>
+                <span data-label="Value" className="asset-row__value">
+                  {formatUsd(r.usd)}
+                  {!readOnly && (
+                    <Link to={`/swap?from=${r.id}`} className="mini-button">
+                      Swap
+                    </Link>
+                  )}
+                </span>
+              </div>
+              );
+            })}
+            {!visibleTokens.length && <EmptyState title="No tokens">This account holds no fungible tokens.</EmptyState>}
+            {hiddenCount > 0 && (
+              <button type="button" className="link-button asset-table__more" onClick={() => setShowDust((v) => !v)}>
+                {showDust ? 'Hide small balances' : `Show ${hiddenCount} small or unpriced balance${hiddenCount === 1 ? '' : 's'}`}
+              </button>
+            )}
+          </section>
+          <SoldTokens pnl={tokenPnl} heldIds={new Set(model.walletRows.map((r) => r.id))} />
+        </>
       ) : tab === 'liquidity' ? (
-        <LiquidityTable
-          classicRows={model.classicRows}
-          dclRows={model.dclRows}
-          depositUsd={model.depositUsd}
-          readOnly={readOnly}
-          onDone={data.reload}
-        />
+        <>
+          <PnlDashboard history={history} />
+          <LiquidityTable
+            classicRows={model.classicRows}
+            dclRows={model.dclRows}
+            depositUsd={model.depositUsd}
+            readOnly={readOnly}
+            history={history}
+            onDone={data.reload}
+          />
+        </>
+      ) : tab === 'history' ? (
+        <ClosedPositions history={history} />
       ) : (
         <section className="card asset-table">
           {model.depositRows.length ? (

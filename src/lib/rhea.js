@@ -44,12 +44,6 @@ export const POOL_TYPES = [
   }
 ];
 
-export const POOL_SORTS = [
-  { key: 'tvl', label: 'TVL' },
-  { key: 'volume_24h', label: 'Volume 24h' },
-  { key: 'apy', label: 'APR' },
-  { key: 'fee', label: 'Fee' }
-];
 
 export function poolKindLabel(kind) {
   switch (kind) {

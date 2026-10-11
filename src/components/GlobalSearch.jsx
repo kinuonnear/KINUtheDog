@@ -7,7 +7,7 @@ import { useApp } from '../state.jsx';
 import { useAsync, useClickOutside, useDebounced } from '../hooks.js';
 import { navigate, poolPath } from '../router.jsx';
 import { getPoolStats, searchPools } from '../lib/rhea.js';
-import { getCachedToken, getTokens, priceOf, searchPriceList } from '../lib/tokens.js';
+import { asPoolToken, getCachedToken, getTokens, priceOf, searchPriceList } from '../lib/tokens.js';
 import { formatPercent, formatPrice, formatUsd, shortAccount } from '../lib/format.js';
 import { NATIVE_NEAR } from '../config.js';
 import { PairIcons, Spinner, TokenIcon } from './ui.jsx';
@@ -175,7 +175,7 @@ export default function GlobalSearch() {
           {(pools.data || []).map((p) => {
             index += 1;
             const i = index;
-            const toks = p.tokenIds.map((id, k) => meta(id, p.symbols?.[k]));
+            const toks = p.tokenIds.map((id, k) => asPoolToken(meta(id, p.symbols?.[k])));
             return (
               <button
                 key={`p-${p.id}`}

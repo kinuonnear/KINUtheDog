@@ -51,5 +51,5 @@ export const INDICATORS = [
   { key: 'ma50', label: 'MA 50', color: '#5ec8ff' },
   { key: 'ema20', label: 'EMA 20', color: '#c792ff' },
   { key: 'bb', label: 'Bollinger Bands (20, 2)', color: '#3ddc97' },
-  { key: 'volume', label: 'Volume', color: '#8b978f' }
+  { key: 'volume', label: 'Volume', color: '#8a96a8' }
 ];

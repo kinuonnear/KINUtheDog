@@ -171,7 +171,7 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
       autoSize: true,
       layout: {
         background: { color: 'transparent' },
-        textColor: 'rgba(231, 240, 233, 0.5)',
+        textColor: 'rgba(226, 234, 245, 0.5)',
         fontFamily: 'JetBrains Mono, ui-monospace, monospace',
         fontSize: 11,
         attributionLogo: false
@@ -292,7 +292,9 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
     const band = overlay.querySelector('.range-chart__band');
     const lines = { min: overlay.querySelector('[data-side="min"]'), max: overlay.querySelector('[data-side="max"]') };
     const ctx = canvas.getContext('2d');
+    let disposed = false; // a queued frame may fire after the chart is removed
     const paint = () => {
+      if (disposed) return;
       const { minPrice: lo, maxPrice: hi, currentPrice: cur, fullRange: full, usdFactor: f } = live.current;
       const width = Math.max(0, container.clientWidth - chart.priceScale('right').width());
       const height = Math.max(0, container.clientHeight - chart.timeScale().height());
@@ -454,6 +456,7 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
 
     chartApi.current = { chart, canvas };
     return () => {
+      disposed = true;
       if (frame !== null) cancelAnimationFrame(frame);
       paintRef.current = null;
       chartApi.current = null;

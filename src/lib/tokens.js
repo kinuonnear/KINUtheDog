@@ -3,11 +3,17 @@
 //   prices    -> Rhea indexer /list-token-price
 //   balances  -> FastNEAR FT index + view_account for native NEAR
 
-import { CONTRACTS, ENDPOINTS, NATIVE_NEAR, NEAR_ICON } from '../config.js';
+import { CONTRACTS, ENDPOINTS, NATIVE_NEAR, NEAR_ICON, WNEAR_ICON } from '../config.js';
 import { view, viewAccount } from './rpc.js';
 import { toBigInt } from './format.js';
 
-const META_STORAGE_KEY = 'kinu.meta.v3';
+const META_STORAGE_KEY = 'kinu.meta.v6';
+
+// Tokens whose metadata has no icon on-chain; same artwork Rhea Finance ships for them.
+const ICON_OVERRIDES = {
+  [CONTRACTS.wrapNear]: WNEAR_ICON,
+  'qtc.omft.near': '/tokens/qtc.png'
+};
 const MAX_STORED_ICON = 24_000;
 
 const metaCache = new Map();
@@ -50,8 +56,7 @@ function normalizeMeta(id, raw) {
     symbol: raw?.symbol || id.slice(0, 10),
     name: raw?.name || raw?.symbol || id,
     decimals: Number(raw?.decimals ?? 0),
-    // wrap.near publishes no icon on-chain; show the NEAR mark for wNEAR.
-    icon: raw?.icon || (id === CONTRACTS.wrapNear ? NEAR_ICON : null)
+    icon: ICON_OVERRIDES[id] || raw?.icon || null
   };
 }
 
@@ -222,4 +227,21 @@ export async function getAllBalances(accountId) {
     }
   });
   return { balances, near };
+}
+
+/* ------------------------------------------------------------------ */
+/* Display names                                                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Pool views show wrap.near as "NEAR" (as Rhea Finance does): deposits wrap
+ * native NEAR automatically, so the distinction only matters for wallets/swaps.
+ */
+export function asPoolToken(token) {
+  return token && token.id === CONTRACTS.wrapNear ? { ...token, symbol: 'NEAR', name: 'NEAR', icon: NEAR_ICON } : token;
+}
+
+/** Wallet / swap views keep wNEAR distinct from native NEAR. */
+export function asWalletToken(token) {
+  return token && token.id === CONTRACTS.wrapNear ? { ...token, symbol: 'wNEAR', name: 'Wrapped NEAR', icon: WNEAR_ICON } : token;
 }

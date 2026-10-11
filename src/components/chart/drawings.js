@@ -13,12 +13,12 @@ export const TOOLS = [
 ];
 
 export const FIB_LEVELS = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
-const FIB_COLORS = ['#8b978f', '#ff5d6c', '#ffb547', '#3ddc97', '#5ec8ff', '#c792ff', '#8b978f'];
+const FIB_COLORS = ['#8a96a8', '#ff5d6c', '#ffb547', '#3ddc97', '#5ec8ff', '#c792ff', '#8a96a8'];
 
 const LINE = '#5ec8ff';
 const SELECTED = '#b8ff3d';
 
-function label(ctx, text, x, y, { bg = 'rgba(13,18,16,0.92)', fg = '#e8efe9', align = 'left' } = {}) {
+function label(ctx, text, x, y, { bg = 'rgba(13,18,16,0.92)', fg = '#e6edf5', align = 'left' } = {}) {
   ctx.font = '11px "JetBrains Mono", ui-monospace, monospace';
   const w = ctx.measureText(text).width + 10;
   const left = align === 'right' ? x - w : align === 'center' ? x - w / 2 : x;
@@ -32,7 +32,7 @@ function label(ctx, text, x, y, { bg = 'rgba(13,18,16,0.92)', fg = '#e8efe9', al
 function handle(ctx, x, y) {
   ctx.beginPath();
   ctx.arc(x, y, 4, 0, Math.PI * 2);
-  ctx.fillStyle = '#0d1210';
+  ctx.fillStyle = '#121821';
   ctx.fill();
   ctx.lineWidth = 2;
   ctx.strokeStyle = SELECTED;

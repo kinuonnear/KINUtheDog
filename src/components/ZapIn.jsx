@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { useApp } from '../state.jsx';
 import { useAsync, useDebounced } from '../hooks.js';
 import { quoteZap } from '../lib/zap.js';
-import { priceOf } from '../lib/tokens.js';
+import { asWalletToken, priceOf } from '../lib/tokens.js';
 import { formatAmount, formatPercent, formatRawAmount, formatUnits, formatUsd, toBigInt, toNumber, tryParseUnits } from '../lib/format.js';
 import { CONTRACTS, NATIVE_NEAR, NEAR_GAS_RESERVE } from '../config.js';
 import TokenPicker from './TokenPicker.jsx';
@@ -49,15 +49,16 @@ export function ZapInput({ token, setToken, text, setText, spendable, x, y }) {
   const [picking, setPicking] = useState(false);
   const raw = tryParseUnits(text, token.decimals) || '0';
   const usd = toNumber(raw, token.decimals) * priceOf(prices, token.id);
-  const quick = [x, y, ...(x.id === CONTRACTS.wrapNear || y.id === CONTRACTS.wrapNear ? [NATIVE_NEAR] : [])];
+  const quick = [x, y, ...(x.id === CONTRACTS.wrapNear || y.id === CONTRACTS.wrapNear ? [NATIVE_NEAR] : [])].map(asWalletToken);
+  const shown = asWalletToken(token);
   const uniqueQuick = quick.filter((t, i) => quick.findIndex((o) => o.id === t.id) === i);
 
   return (
     <>
       <div className="amount-row amount-row--zap">
         <button type="button" className="token-select" onClick={() => setPicking(true)}>
-          <TokenIcon token={token} size={24} />
-          <strong>{token.symbol}</strong>
+          <TokenIcon token={shown} size={24} />
+          <strong>{shown.symbol}</strong>
           <span aria-hidden>▾</span>
         </button>
         <div className="amount-row__zapinput">

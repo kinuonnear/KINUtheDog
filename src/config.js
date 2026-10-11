@@ -62,8 +62,9 @@ export const NEAR_GAS_RESERVE = '250000000000000000000000'; // 0.25 NEAR
 export const DEFAULT_SLIPPAGE = 0.5; // percent
 
 // Native NEAR is represented as its own pseudo-token; on-chain it is wrap.near.
-export const NEAR_ICON =
-  'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Ccircle%20cx%3D%2216%22%20cy%3D%2216%22%20r%3D%2216%22%20fill%3D%22%230b0f0c%22%2F%3E%3Cpath%20d%3D%22M10%2023V9h2.2l7.6%2010.2V9H22v14h-2.2l-7.6-10.2V23z%22%20fill%3D%22%23b8ff3d%22%2F%3E%3C%2Fsvg%3E';
+// Same assets Rhea Finance uses: the official NEAR logo for NEAR, a distinct mark for wNEAR.
+export const NEAR_ICON = '/tokens/near-logo.png';
+export const WNEAR_ICON = '/tokens/wnear.png';
 
 export const NATIVE_NEAR = {
   id: 'near',

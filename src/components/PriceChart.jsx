@@ -51,7 +51,7 @@ export default function PriceChart({ tokenIn, tokenOut, side, onSideChange }) {
       autoSize: true,
       layout: {
         background: { color: 'transparent' },
-        textColor: 'rgba(231, 240, 233, 0.5)',
+        textColor: 'rgba(226, 234, 245, 0.5)',
         fontFamily: 'JetBrains Mono, ui-monospace, monospace',
         fontSize: 11,
         attributionLogo: false

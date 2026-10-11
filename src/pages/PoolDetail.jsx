@@ -3,7 +3,7 @@ import { useApp } from '../state.jsx';
 import { useAsync, useElementHeight, useLocalStorage, useMediaQuery } from '../hooks.js';
 import { Link, useLocation } from '../router.jsx';
 import { getDclPositions, getFarmStakes, getPool, getPoolShares, getPoolStats, dclPointToPrice, parseDclPoolId } from '../lib/rhea.js';
-import { getTokens, priceOf } from '../lib/tokens.js';
+import { asPoolToken, getTokens, priceOf } from '../lib/tokens.js';
 import { view } from '../lib/rpc.js';
 import { amountsForShares, isStableKind } from '../lib/liquidity.js';
 import { AmmLiquidity, DclLiquidity, StableLiquidity } from '../components/Liquidity.jsx';
@@ -50,7 +50,7 @@ function ClassicPool({ poolId, initialTab }) {
   }
   if (!pool || !tokenQuery.data) return <PoolSkeleton />;
 
-  const tokens = pool.tokenIds.map((id) => tokenQuery.data[id] || { id, symbol: id.slice(0, 6), decimals: 0 });
+  const tokens = pool.tokenIds.map((id) => asPoolToken(tokenQuery.data[id] || { id, symbol: id.slice(0, 6), decimals: 0 }));
   const reserves = pool.amounts.map((a, i) => toNumber(a, tokens[i].decimals));
   const reserveUsd = reserves.map((r, i) => r * priceOf(prices, pool.tokenIds[i]));
   const tvl = stats.data?.tvl || reserveUsd.reduce((a, b) => a + b, 0);
@@ -238,8 +238,8 @@ function DclPool({ poolId, initialTab }) {
   }
   if (!tokenQuery.data || !chain.data) return <PoolSkeleton />;
 
-  const x = tokenQuery.data[tokenX];
-  const y = tokenQuery.data[tokenY];
+  const x = asPoolToken(tokenQuery.data[tokenX]);
+  const y = asPoolToken(tokenQuery.data[tokenY]);
   const price = dclPointToPrice(chain.data.current_point, x.decimals, y.decimals);
   const totalX = toNumber(chain.data.total_x || '0', x.decimals);
   const totalY = toNumber(chain.data.total_y || '0', y.decimals);
