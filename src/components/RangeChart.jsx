@@ -180,7 +180,10 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
       rightPriceScale: { borderColor: 'rgba(255,255,255,0.06)', scaleMargins: { top: 0.1, bottom: indicators.includes('volume') ? 0.2 : 0.08 } },
       timeScale: { borderColor: 'rgba(255,255,255,0.06)', timeVisible: true, secondsVisible: false, rightOffset: 8 },
       crosshair: { mode: 0 },
-      localization: { priceFormatter: formatChartPrice }
+      localization: { priceFormatter: formatChartPrice },
+      // Plain wheel scrolls the workspace column (chart and data move together).
+      handleScroll: { mouseWheel: false, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
+      handleScale: { mouseWheel: false, pinch: true, axisPressedMouseMove: true, axisDoubleClickReset: true }
     });
 
     const autoscaleInfoProvider = (original) => {
@@ -377,6 +380,26 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
     resize.observe(container);
     requestAnimationFrame(paint);
 
+    // Ctrl/⌘ + wheel zooms around the pointer, Shift + wheel pans through time.
+    const onWheel = (e) => {
+      if (!(e.ctrlKey || e.metaKey || e.shiftKey)) return;
+      e.preventDefault();
+      const ts = chart.timeScale();
+      const range = ts.getVisibleLogicalRange();
+      if (!range) return;
+      const delta = e.deltaY || e.deltaX;
+      if (e.shiftKey && !(e.ctrlKey || e.metaKey)) {
+        const shift = ((range.to - range.from) * Math.sign(delta)) / 12;
+        ts.setVisibleLogicalRange({ from: range.from + shift, to: range.to + shift });
+        return;
+      }
+      const rect = host.getBoundingClientRect();
+      const anchor = ts.coordinateToLogical(e.clientX - rect.left) ?? range.to;
+      const factor = delta > 0 ? 1.15 : 1 / 1.15;
+      ts.setVisibleLogicalRange({ from: anchor - (anchor - range.from) * factor, to: anchor + (range.to - anchor) * factor });
+    };
+    host.addEventListener('wheel', onWheel, { passive: false });
+
     const byTime = new Map(data.map((c) => [c.time, c]));
     chart.subscribeCrosshairMove((param) => setLegend(param?.time ? byTime.get(param.time) || null : null));
 
@@ -458,6 +481,7 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
       paintRef.current = null;
       chartApi.current = null;
       resize.disconnect();
+      host.removeEventListener('wheel', onWheel);
       host.removeEventListener('pointerenter', startLoop);
       host.removeEventListener('pointerleave', stopLoop);
       canvas.removeEventListener('pointerdown', onCanvasDown);
@@ -482,6 +506,19 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
     link.download = `${x.symbol}-${y.symbol}-${new Date().toISOString().slice(0, 16).replace(':', '')}.png`;
     link.href = out.toDataURL('image/png');
     link.click();
+  };
+
+  /** Toolbar zoom: factor < 1 zooms in, > 1 zooms out (anchored at the latest bar); null resets. */
+  const zoom = (factor) => {
+    const ts = chartApi.current?.chart.timeScale();
+    if (!ts) return;
+    if (factor === null) {
+      ts.fitContent();
+      return;
+    }
+    const range = ts.getVisibleLogicalRange();
+    if (!range) return;
+    ts.setVisibleLogicalRange({ from: range.to - (range.to - range.from) * factor, to: range.to });
   };
 
   const fullscreen = () => {
@@ -555,6 +592,18 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
           ☰ Bin Lines
         </button>
         <span className="pro-chart__spacer" />
+        <div className="zoom-tools" title="Zoom (or Ctrl + scroll on the chart)">
+          <button type="button" className="ctool" onClick={() => zoom(1 / 1.4)} aria-label="Zoom in">
+            +
+          </button>
+          <button type="button" className="ctool" onClick={() => zoom(1.4)} aria-label="Zoom out">
+            −
+          </button>
+          <button type="button" className="ctool" onClick={() => zoom(null)} aria-label="Fit all">
+            Fit
+          </button>
+        </div>
+        <span className="ctool-sep" />
         <button type="button" className="ctool" onClick={screenshot} title="Save screenshot">
           <ToolIcon kind="camera" />
         </button>

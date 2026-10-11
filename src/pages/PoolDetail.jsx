@@ -292,7 +292,7 @@ const MAX_SPLIT = 0.9; // px below the viewport top where the workspace docks (t
  * Independent wheel scrolling for the two workspace columns (desktop):
  * the page scrolls until the workspace is docked under the top bar, then the
  * hovered column scrolls on its own; scrolling up past a column's top scrolls
- * the page back. Wheel over the price chart stays with the chart (zoom).
+ * the page back. Over the chart the wheel scrolls too (Ctrl + wheel zooms).
  */
 function useDockedColumns(gridRef) {
   useEffect(() => {
@@ -301,7 +301,6 @@ function useDockedColumns(gridRef) {
     const columns = [...grid.children];
     const onWheel = (event) => {
       if (window.innerWidth <= 1080 || event.ctrlKey) return;
-      if (event.target.closest?.('.range-chart__canvas')) return;
       const top = grid.getBoundingClientRect().top;
       const column = event.currentTarget;
       const pageCanScroll = document.documentElement.scrollHeight - window.innerHeight - window.scrollY > 1;

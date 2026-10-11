@@ -4520,3 +4520,30 @@ a.trades__row:hover {
   overflow-y: auto;
   scrollbar-width: none;
 }
+
+/* The left column scrolls as one: wheel over the chart moves chart and data
+   together. The splitter still sets the chart height. */
+@media (min-width: 1081px) {
+  .pool-grid--wide > .pool-grid__main--split {
+    overflow-y: auto;
+  }
+
+  .pool-grid__main--split > .bottom-panel {
+    flex: none;
+    min-height: 0;
+    overflow: visible;
+  }
+}
+
+.zoom-tools {
+  display: inline-flex;
+  align-items: center;
+}
+
+.zoom-tools .ctool {
+  min-width: 30px;
+  justify-content: center;
+  padding: 0 8px;
+  font-family: var(--mono);
+  font-size: 13px;
+}
