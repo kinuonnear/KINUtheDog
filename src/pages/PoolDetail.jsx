@@ -405,7 +405,7 @@ function DclWorkspace({ poolId, pool, x, y, reserves, positions, onAdd, onDone }
               ) : !positions.data?.length ? (
                 <p className="muted">No concentrated positions in this pool yet. Create one with the form.</p>
               ) : (
-                <DclGroupCard poolId={poolId} positions={positions.data} x={x} y={y} onAdd={onAdd} onDone={onDone} />
+                <DclGroupCard poolId={poolId} positions={positions.data} x={x} y={y} pool={pool} onAdd={onAdd} onDone={onDone} />
               ))}
             {panel === 'composition' && (
               <div className="reserves">

@@ -4638,3 +4638,267 @@ a.trades__row:hover {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ==========================================================================
+   Your liquidity board (CLMM pool page)
+   ========================================================================== */
+.lp-board {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.lp-board__bar {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 10px 14px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.lp-board__bar > div {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.lp-board__bar > div + div {
+  padding-left: 22px;
+  border-left: 1px solid var(--border-strong);
+}
+
+.lp-board__bar span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.lp-board__bar strong {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.lp-board__bar strong small {
+  color: var(--faint);
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.lp-board__spacer {
+  flex: 1;
+}
+
+.lp-board__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1fr) 150px;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.lp-board__row--head {
+  padding-top: 9px;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--border);
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.lp-board__row--head span:last-child {
+  text-align: right;
+}
+
+.lp-board__range,
+.lp-board__cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.lp-board__range strong {
+  font-size: 14px;
+}
+
+.lp-board__range small {
+  color: var(--faint);
+  font-size: 11px;
+}
+
+.lp-board__cell strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.lp-board__cell > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.lp-board__cell small {
+  color: var(--faint);
+  font-size: 10px;
+}
+
+.pill {
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  color: var(--muted);
+  font-style: normal;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.range-track {
+  position: relative;
+  height: 10px;
+  margin-top: 4px;
+  max-width: 220px;
+  border-radius: 999px;
+  background: var(--surface-3);
+}
+
+.range-track__seg {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  border-radius: 999px;
+  background: rgba(255, 181, 71, 0.45);
+}
+
+.range-track__seg.in {
+  background: rgba(184, 255, 61, 0.7);
+}
+
+.range-track__now {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--text);
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
+}
+
+.lp-board__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.icon-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.icon-action {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  background: var(--surface-3);
+  color: var(--muted);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.icon-action:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+.icon-action:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.icon-action--claim {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.icon-action--add {
+  background: rgba(61, 220, 151, 0.12);
+  color: var(--mint);
+}
+
+.icon-action--remove {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.icon-action--more svg {
+  transition: transform 0.15s;
+}
+
+.icon-action--more.open svg {
+  transform: rotate(180deg);
+}
+
+.lp-board__detail {
+  padding: 4px 14px 14px;
+  border-top: 1px dashed var(--border);
+}
+
+.lp-board__detail .pos-dist {
+  max-width: 640px;
+}
+
+.lp-board__detail .pos-dist__chart {
+  height: 84px;
+}
+
+@media (max-width: 1080px) {
+  .lp-board__bar {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .lp-board__bar > div + div {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .lp-board__row--head {
+    display: none;
+  }
+
+  .lp-board__row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lp-board__range,
+  .lp-board__actions {
+    grid-column: 1 / -1;
+  }
+
+  .lp-board__actions {
+    justify-content: flex-start;
+  }
+
+  .lp-board__cell::before {
+    content: attr(data-label);
+    color: var(--faint);
+    font-family: var(--mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+}

@@ -139,7 +139,20 @@ export function DclRemoveModal({ positions, x, y, onClose, onDone }) {
 }
 
 /** Claim / Add / Remove buttons for one pool's positions. */
-export function DclActions({ poolId, positions, x, y, onDone, onAdd, readOnly, stacked = false }) {
+function ActionIcon({ kind }) {
+  const paths = {
+    claim: <path d="M9 2v9M5.5 7.5 9 11l3.5-3.5M3 14h12" />,
+    add: <path d="M9 3v12M3 9h12" />,
+    remove: <path d="M3 9h12" />
+  };
+  return (
+    <svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {paths[kind]}
+    </svg>
+  );
+}
+
+export function DclActions({ poolId, positions, x, y, onDone, onAdd, readOnly, stacked = false, icons = false, claimOnly = false }) {
   const { accountId, execute, prices } = useApp();
   const [removing, setRemoving] = useState(false);
   const [claiming, setClaiming] = useState(false);
@@ -160,6 +173,40 @@ export function DclActions({ poolId, positions, x, y, onDone, onAdd, readOnly, s
       <Link to={poolPath(poolId)} className="button button--ghost button--sm">
         View
       </Link>
+    );
+  }
+
+  if (claimOnly) {
+    return (
+      <button type="button" className="button button--outline button--sm" disabled={!summary.hasFees || claiming} onClick={claim}>
+        {claiming ? <Spinner size={12} /> : 'Claim all'}
+      </button>
+    );
+  }
+
+  if (icons) {
+    const addProps = onAdd ? { onClick: onAdd } : {};
+    const AddTag = onAdd ? 'button' : Link;
+    return (
+      <div className="icon-actions">
+        <button type="button" className="icon-action icon-action--claim" disabled={!summary.hasFees || claiming} onClick={claim} title="Claim fees" aria-label="Claim fees">
+          {claiming ? <Spinner size={12} /> : <ActionIcon kind="claim" />}
+        </button>
+        <AddTag
+          type={onAdd ? 'button' : undefined}
+          to={onAdd ? undefined : `${poolPath(poolId)}?tab=add`}
+          className="icon-action icon-action--add"
+          title="Add liquidity"
+          aria-label="Add liquidity"
+          {...addProps}
+        >
+          <ActionIcon kind="add" />
+        </AddTag>
+        <button type="button" className="icon-action icon-action--remove" onClick={() => setRemoving(true)} title="Remove liquidity" aria-label="Remove liquidity">
+          <ActionIcon kind="remove" />
+        </button>
+        {removing && <DclRemoveModal positions={positions} x={x} y={y} onClose={() => setRemoving(false)} onDone={onDone} />}
+      </div>
     );
   }
 
@@ -278,48 +325,125 @@ export function PositionDistribution({ positions, x, y }) {
   );
 }
 
-/** "Your liquidity" card on the CLMM pool page: one combined view of every position. */
-export function DclGroupCard({ poolId, positions, x, y, onDone, onAdd }) {
+/** Mini range track: every position as a segment, plus the current price. */
+function RangeTrack({ positions }) {
+  const current = positions[0]?.currentPoint ?? 0;
+  const lo = Math.min(current, ...positions.map((p) => p.leftPoint));
+  const hi = Math.max(current, ...positions.map((p) => p.rightPoint));
+  const pad = (hi - lo) * 0.06 || 1;
+  const pos = (pt) => ((pt - (lo - pad)) / (hi - lo + 2 * pad)) * 100;
+  return (
+    <div className="range-track" aria-hidden="true">
+      {positions.map((p) => (
+        <span
+          key={p.id}
+          className={`range-track__seg ${p.inRange ? 'in' : ''}`}
+          style={{ left: `${pos(p.leftPoint)}%`, width: `${Math.max(1.5, pos(p.rightPoint) - pos(p.leftPoint))}%` }}
+        />
+      ))}
+      <span className="range-track__now" style={{ left: `${pos(current)}%` }} />
+    </div>
+  );
+}
+
+/**
+ * "Your liquidity" on the CLMM pool page: a summary bar and one combined row
+ * for all of the pool's positions (range, liquidity, claimable fees, active
+ * share, actions). The row expands to the liquidity distribution.
+ */
+export function DclGroupCard({ poolId, positions, x, y, pool, onDone, onAdd }) {
   const { prices } = useApp();
+  const [open, setOpen] = useState(false);
   const summary = summarizeDclGroup(positions, x, y, prices);
-  const inRange = positions.filter((p) => p.inRange).length;
+  const inRange = positions.filter((p) => p.inRange);
+  const activeL = inRange.reduce((s2, p) => s2 + Number(p.liquidity), 0);
+  const poolL = Number(pool?.liquidity || 0);
+  const activeShare = poolL > 0 ? (activeL / poolL) * 100 : null;
+  const feeShare = summary.usd > 0 ? (summary.feeUsd / summary.usd) * 100 : 0;
+  const px = priceOf(prices, x.id);
+  const py = priceOf(prices, y.id);
 
   return (
-    <div className="dcl-group">
-      <div className="dcl-group__grid">
+    <div className="lp-board">
+      <div className="lp-board__bar">
         <div>
-          <span className="stat__label">Your liquidity</span>
-          <strong className="dcl-group__value">{formatUsd(summary.usd)}</strong>
-          <span className="muted small">
-            {formatAmount(summary.amountX)} {x.symbol} + {formatAmount(summary.amountY)} {y.symbol}
-          </span>
+          <span>Claimable fees</span>
+          <strong className={summary.hasFees ? 'up' : ''}>{formatUsd(summary.feeUsd)}</strong>
         </div>
         <div>
-          <span className="stat__label">Price range</span>
-          <RangeText summary={summary} x={x} y={y} />
-          <span className={`range-badge ${summary.inRange ? 'range-badge--in' : ''}`}>{summary.inRange ? 'In range' : 'Out of range'}</span>
+          <span>Positions</span>
+          <strong>
+            {inRange.length}
+            <small>/{positions.length} in range</small>
+          </strong>
         </div>
         <div>
-          <span className="stat__label">Unclaimed fees</span>
-          <FeesText summary={summary} x={x} y={y} />
-          {summary.hasFees && <span className="muted small">{formatUsd(summary.feeUsd)}</span>}
+          <span>Liquidity</span>
+          <strong>{formatUsd(summary.usd)}</strong>
         </div>
+        <span className="lp-board__spacer" />
+        <DclActions poolId={poolId} positions={positions} x={x} y={y} onDone={onDone} claimOnly />
       </div>
-      <div className="dcl-group__row">
-        <PositionDistribution positions={positions} x={x} y={y} />
-        <div className="dcl-group__side">
-          <div className="dcl-group__count">
-            <strong>{positions.length}</strong>
+
+      <div className="lp-board__table">
+        <div className="lp-board__row lp-board__row--head">
+          <span>Price range</span>
+          <span>Your liquidity</span>
+          <span>Claimable fees</span>
+          <span>Active share</span>
+          <span>Actions</span>
+        </div>
+        <div className="lp-board__row">
+          <div className="lp-board__range" data-label="Price range">
+            <strong className="mono">
+              {summary.fullRange ? 'Full range' : `${formatChartPrice(summary.minPrice)} – ${formatChartPrice(summary.maxPrice)}`}
+            </strong>
+            <small>
+              {y.symbol} per {x.symbol} · {positions.length} position{positions.length === 1 ? '' : 's'}
+            </small>
+            <RangeTrack positions={positions} />
+          </div>
+          <div className="lp-board__cell" data-label="Your liquidity">
+            <strong>{formatUsd(summary.usd)}</strong>
             <span>
-              position{positions.length === 1 ? '' : 's'} in this pool
-              <small>
-                <i className="dot dot--in" /> {inRange} in range · <i className="dot dot--out" /> {positions.length - inRange} out of range
-              </small>
+              <TokenIcon token={x} size={14} /> {formatAmount(summary.amountX)}
+            </span>
+            <span>
+              <TokenIcon token={y} size={14} /> {formatAmount(summary.amountY)}
             </span>
           </div>
-          <DclActions poolId={poolId} positions={positions} x={x} y={y} onDone={onDone} onAdd={onAdd} stacked />
-          <p className="hint">Claim and Remove act on all {positions.length} positions at once.</p>
+          <div className="lp-board__cell" data-label="Claimable fees">
+            <strong>
+              {formatUsd(summary.feeUsd)} <em className="pill">{feeShare.toFixed(2)}%</em>
+            </strong>
+            <span>
+              <TokenIcon token={x} size={14} /> {formatAmount(summary.feeX)} <small>({formatUsd(summary.feeX * px)})</small>
+            </span>
+            <span>
+              <TokenIcon token={y} size={14} /> {formatAmount(summary.feeY)} <small>({formatUsd(summary.feeY * py)})</small>
+            </span>
+          </div>
+          <div className="lp-board__cell" data-label="Active share">
+            <strong className={inRange.length ? 'up' : 'warn'}>{activeShare !== null ? `${activeShare.toFixed(2)}%` : '—'}</strong>
+            <span className={`range-badge ${summary.inRange ? 'range-badge--in' : ''}`}>
+              {summary.inRange ? `${inRange.length} of ${positions.length} earning` : 'Not earning'}
+            </span>
+            <small className="muted">of active pool liquidity</small>
+          </div>
+          <div className="lp-board__actions" data-label="Actions">
+            <DclActions poolId={poolId} positions={positions} x={x} y={y} onDone={onDone} onAdd={onAdd} icons />
+            <button type="button" className={`icon-action icon-action--more ${open ? 'open' : ''}`} onClick={() => setOpen((v) => !v)} title="Liquidity distribution" aria-expanded={open}>
+              <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+                <path d="M3 5l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </div>
         </div>
+        {open && (
+          <div className="lp-board__detail">
+            <PositionDistribution positions={positions} x={x} y={y} />
+          </div>
+        )}
       </div>
     </div>
   );
