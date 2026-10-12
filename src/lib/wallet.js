@@ -20,6 +20,15 @@ const inMeteorApp = () =>
   typeof window !== 'undefined' &&
   Boolean(window.__is_running_in_meteor_wallet_app__ || /meteor/i.test(navigator.userAgent || '') || window.ReactNativeWebView);
 
+/**
+ * Instant-link modules (Meteor in-app) sign in by themselves on page load. The user should
+ * choose to connect, so the module is offered in the modal like any other wallet instead.
+ */
+const withoutAutoConnect = (factory) => async (...args) => {
+  const module = await factory(...args);
+  return module && { ...module, metadata: { ...module.metadata, runOnStartup: false } };
+};
+
 let selectorPromise = null;
 let modal = null;
 let toNajAction = null;
@@ -43,7 +52,9 @@ export function getSelector() {
       const selector = await core.setupWalletSelector({
         network: NETWORK_ID,
         modules: [
-          meteor.setupMeteorWalletApp ? meteor.setupMeteorWalletApp({ contractId: CONTRACTS.signIn }) : meteor.setupMeteorWallet(),
+          meteor.setupMeteorWalletApp
+            ? withoutAutoConnect(meteor.setupMeteorWalletApp({ contractId: CONTRACTS.signIn }))
+            : meteor.setupMeteorWallet(),
           intear.setupIntearWallet(),
           here.setupHereWallet(),
           myNear.setupMyNearWallet()
@@ -69,7 +80,14 @@ export function activeAccountId(selector) {
 }
 
 export async function openWalletModal() {
-  await getSelector();
+  const selector = await getSelector();
+  // The modal hides instant-link wallets, so inside the Meteor app "Connect wallet" asks
+  // Meteor to sign in directly (and only when the user presses it).
+  if (inMeteorApp() && selector.store.getState().modules.some((m) => m.id === 'meteor-wallet-app')) {
+    const wallet = await selector.wallet('meteor-wallet-app');
+    await wallet.signIn({ contractId: CONTRACTS.signIn, accounts: [] });
+    return;
+  }
   modal?.show();
 }
 
