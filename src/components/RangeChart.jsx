@@ -117,9 +117,10 @@ function paintMine(ctx, mine, toY, width, height, cur, f) {
 
 /**
  * mine: the user's own positions to show on the chart, [{ min, max, inRange }] in pair price
+ * hideRange: hide the new-position range (lines, band, bin lines) while a position is shown
  * (null to hide). The price scale widens to fit them.
  */
-export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPrice, fullRange, onDrag, bins, mine = null }) {
+export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPrice, fullRange, onDrag, bins, mine = null, hideRange = false }) {
   const [resolution, setResolution] = useLocalStorage('kinu.range.resolution', '60');
   const [unit, setUnit] = useLocalStorage('kinu.range.unit', 'pair'); // 'pair' | 'usd'
   const [chartType, setChartType] = useLocalStorage('kinu.range.type', 'candles');
@@ -170,11 +171,11 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
     return out;
   }, [showBins, bins, fullRange, x.decimals, y.decimals]);
 
-  live.current = { minPrice, maxPrice, currentPrice, fullRange, onDrag, usdFactor, drawings, selected, hidden, tool, magnet, binPrices, mine, setDrawings, setSelected, setTool };
+  live.current = { minPrice, maxPrice, currentPrice, fullRange, onDrag, usdFactor, drawings, selected, hidden, tool, magnet, binPrices, mine, hideRange, setDrawings, setSelected, setTool };
 
   useEffect(() => {
     paintRef.current?.();
-  }, [minPrice, maxPrice, fullRange, drawings, selected, hidden, binPrices, currentPrice]);
+  }, [minPrice, maxPrice, fullRange, drawings, selected, hidden, binPrices, currentPrice, hideRange]);
 
   // Showing / hiding your positions re-fits the price scale around them.
   const mineKey = mine ? mine.map((m) => `${m.min}:${m.max}`).join(',') : '';
@@ -219,9 +220,10 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
     const autoscaleInfoProvider = (original) => {
       const res = original();
       const { minPrice: lo, maxPrice: hi, currentPrice: cur, fullRange: full, usdFactor: f } = live.current;
-      if (!res || full) return res;
-      let minValue = lo > cur / 20 ? Math.min(res.priceRange.minValue, lo * f) : res.priceRange.minValue;
-      let maxValue = hi < cur * 20 ? Math.max(res.priceRange.maxValue, hi * f) : res.priceRange.maxValue;
+      if (!res || (full && !live.current.hideRange)) return res;
+      const range = !full && !live.current.hideRange;
+      let minValue = range && lo > cur / 20 ? Math.min(res.priceRange.minValue, lo * f) : res.priceRange.minValue;
+      let maxValue = range && hi < cur * 20 ? Math.max(res.priceRange.maxValue, hi * f) : res.priceRange.maxValue;
       // Your positions (when shown) are kept in view, within a sane distance of the price.
       const own = live.current.mine;
       if (own?.length) {
@@ -344,8 +346,9 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
 
       const yMax = main.priceToCoordinate(hi * f);
       const yMin = main.priceToCoordinate(lo * f);
+      const off = live.current.hideRange;
       const place = (el, yPos, price, text) => {
-        if (yPos === null || full) {
+        if (yPos === null || full || off) {
           el.style.display = 'none';
           return;
         }
@@ -355,7 +358,9 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
       };
       place(lines.max, yMax, hi, 'Max');
       place(lines.min, yMin, lo, 'Min');
-      if (full) {
+      if (off) {
+        band.style.display = 'none';
+      } else if (full) {
         band.style.display = 'block';
         band.style.top = '0px';
         band.style.height = '100%';
@@ -381,7 +386,7 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
       geo.height = height;
       const pending = pendingRef.current ? [pendingRef.current] : [];
       drawAll(ctx, live.current.hidden ? pending : [...live.current.drawings, ...pending], geo, live.current.selected);
-      if (live.current.binPrices.length) {
+      if (live.current.binPrices.length && !off) {
         ctx.save();
         ctx.strokeStyle = 'rgba(255,138,61,0.22)';
         ctx.lineWidth = 1;

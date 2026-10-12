@@ -391,6 +391,7 @@ function DclWorkspace({ poolId, pool, x, y, reserves, positions, onAdd, onDone }
             fullRange={rangeState.full}
             onDrag={onDrag}
             mine={mine}
+            hideRange={Boolean(mine)}
           />
         </Suspense>
         </div>
@@ -466,7 +467,8 @@ function DclWorkspace({ poolId, pool, x, y, reserves, positions, onAdd, onDone }
         </section>
       </div>
       <aside className="pool-grid__side">
-        <section className="card" id="new-position">
+        {/* Using the form brings its range back on the chart (and hides your position). */}
+        <section className="card" id="new-position" onPointerDownCapture={() => setChartKey(null)} onFocusCapture={() => setChartKey(null)}>
           <DclLiquidity pool={pool} x={x} y={y} rangeState={rangeState} onDone={onDone} />
         </section>
       </aside>
