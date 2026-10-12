@@ -225,6 +225,14 @@ async function getSmartRouterQuote({ tokenIn, tokenOut, amountIn, slippage, user
     }
     const data = json.result_data;
     if (toBigInt(data.amount_out) === 0n) throw new Error('No liquidity route found for this pair.');
+    // The quote is executed as-is, so it must spend exactly what the user typed, on this pair.
+    const path = data.tokens || [];
+    if (
+      String(data.amount_in) !== String(amountIn) ||
+      (path.length && (path[0] !== contractOf(tokenIn) || path[path.length - 1] !== contractOf(tokenOut)))
+    ) {
+      throw new Error('SmartRouter returned a quote that does not match your swap. Refresh the quote.');
+    }
     return {
       amountIn: String(data.amount_in),
       amountOut: String(data.amount_out),

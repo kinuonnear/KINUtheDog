@@ -9,6 +9,8 @@ import { mergeTransactions } from './tx.js';
 import { assertSafeTransactions } from './txGuard.js';
 import { describeFailure, failureOf } from './txErrors.js';
 
+const PENDING_REDIRECT_KEY = 'kinu.pendingRedirect';
+
 let selectorPromise = null;
 let modal = null;
 let toNajAction = null;
@@ -79,6 +81,13 @@ export async function sendTransactions(transactions) {
   if (!merged.length) throw new Error('Nothing to send.');
   assertSafeTransactions(merged, activeAccountId(selector));
 
+  // Redirect-based wallets come back with the result in the URL; only a redirect we
+  // started may show one (see consumeRedirectResult).
+  try {
+    sessionStorage.setItem(PENDING_REDIRECT_KEY, String(Date.now()));
+  } catch {
+    // storage unavailable: the result toast is skipped, the transaction is not
+  }
   const outcomes = await wallet.signAndSendTransactions({
     transactions: merged.map((tx) => ({
       receiverId: tx.receiverId,
@@ -105,8 +114,22 @@ export function consumeRedirectResult() {
   if (!hashes && !errorCode) return null;
   ['transactionHashes', 'errorCode', 'errorMessage'].forEach((k) => url.searchParams.delete(k));
   window.history.replaceState(window.history.state, '', url.toString());
-  if (errorCode) {
-    return { ok: false, message: decodeURIComponent(errorMessage || errorCode) };
+
+  // Anyone can link to kinudefi.com/?errorMessage=…; without a redirect we started in the
+  // last 30 minutes, the parameters are dropped instead of shown as a KINU message.
+  let started = 0;
+  try {
+    started = Number(sessionStorage.getItem(PENDING_REDIRECT_KEY)) || 0;
+    sessionStorage.removeItem(PENDING_REDIRECT_KEY);
+  } catch {
+    // storage unavailable
   }
-  return { ok: true, hashes: hashes.split(',') };
+  if (!started || Date.now() - started > 30 * 60_000) return null;
+
+  if (errorCode) {
+    const text = String(errorMessage || errorCode).replace(/https?:\/\/\S+/gi, '').slice(0, 160);
+    return { ok: false, message: text || 'The wallet did not complete the transaction.' };
+  }
+  const list = hashes.split(',').filter((h) => /^[1-9A-HJ-NP-Za-km-z]{32,64}$/.test(h));
+  return list.length ? { ok: true, hashes: list } : null;
 }

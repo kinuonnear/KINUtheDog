@@ -13,6 +13,11 @@ import { CONTRACTS } from '../config.js';
 
 const ONE_NEAR = 10n ** 24n;
 const MAX_FEE_DEPOSIT = 2n * ONE_NEAR; // storage / registration costs stay far below this
+// A token's storage_deposit normally costs 0.00125 NEAR; the cost comes from the token
+// contract itself, so a hostile token could ask for more — and keep it.
+const MAX_TOKEN_STORAGE = ONE_NEAR / 20n; // 0.05 NEAR
+// All fees in one signing request together (wrapping NEAR excluded).
+const MAX_BUNDLE_FEES = 2n * ONE_NEAR;
 
 /** Contracts KINU talks to directly, and the methods it calls on each. */
 const PROTOCOL_METHODS = {
@@ -44,6 +49,7 @@ function refuse(tx, reason) {
 /** Throws if any transaction falls outside what KINU is allowed to ask the wallet to sign. */
 export function assertSafeTransactions(transactions, signerId) {
   if (!signerId) throw new Error('No connected account.');
+  let fees = 0n;
   transactions.forEach((tx) => {
     if (!tx || typeof tx.receiverId !== 'string' || !Array.isArray(tx.actions) || !tx.actions.length) {
       refuse(tx || { receiverId: '?' }, 'malformed transaction');
@@ -57,6 +63,11 @@ export function assertSafeTransactions(transactions, signerId) {
       const attached = BigInt(deposit || '0');
       const isWrap = tx.receiverId === CONTRACTS.wrapNear && methodName === 'near_deposit';
       if (!isWrap && attached > MAX_FEE_DEPOSIT) refuse(tx, `"${methodName}" attaches an unusually large NEAR deposit`);
+      if (!isWrap) fees += attached;
+      if (fees > MAX_BUNDLE_FEES) refuse(tx, 'the fees in this request add up to an unusually large NEAR amount');
+      if (!PROTOCOL_METHODS[tx.receiverId] && methodName === 'storage_deposit' && attached > MAX_TOKEN_STORAGE) {
+        refuse(tx, 'this token asks for an unusually large registration fee');
+      }
 
       if (methodName === 'ft_transfer_call' && !TOKEN_DESTINATIONS.has(args.receiver_id)) {
         refuse(tx, `tokens would be sent to "${args.receiver_id}", which is not a Rhea contract`);
