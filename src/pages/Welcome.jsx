@@ -1,7 +1,7 @@
 // kinudefi.com welcome page: KINU × RHEA — the KINU token (paired with RHEA on Rhea Finance)
 // and the KINU Terminal. LAUNCH APP opens the platform.
 
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { useApp } from '../state.jsx';
 import { Link, poolPath } from '../router.jsx';
 import { useAsync } from '../hooks.js';
@@ -84,48 +84,8 @@ const STEPS = [
   { title: 'Track your PnL', text: 'Token and LP profit, fees earned and closed positions in one portfolio.' }
 ];
 
-/** Muted, looping hero video with the guardian image as fallback (autoplay can be blocked). */
-function useHeroVideo(videoRef, fallbackRef) {
-  useEffect(() => {
-    const video = videoRef.current;
-    const fallback = fallbackRef.current;
-    if (!video) return undefined;
-    video.muted = true;
-    video.defaultMuted = true;
-    const showVideo = () => {
-      video.classList.remove('video-fallback');
-      if (fallback) fallback.style.opacity = '0';
-    };
-    const showFallback = () => {
-      video.classList.add('video-fallback');
-      if (fallback) fallback.style.opacity = '1';
-    };
-    const start = () => video.play().then(showVideo, showFallback);
-    const onStalled = () => video.readyState < 2 && showFallback();
-    video.addEventListener('playing', showVideo);
-    video.addEventListener('error', showFallback);
-    video.addEventListener('stalled', onStalled);
-    if (video.readyState >= 2) start();
-    else video.addEventListener('loadeddata', start, { once: true });
-    // A muted video is normally allowed to autoplay; retry after the first interaction if not.
-    const retry = () => video.paused && start();
-    window.addEventListener('pointerdown', retry, { once: true, passive: true });
-    window.addEventListener('keydown', retry, { once: true });
-    return () => {
-      video.removeEventListener('playing', showVideo);
-      video.removeEventListener('error', showFallback);
-      video.removeEventListener('stalled', onStalled);
-      window.removeEventListener('pointerdown', retry);
-      window.removeEventListener('keydown', retry);
-    };
-  }, [videoRef, fallbackRef]);
-}
-
 export default function Welcome() {
   const { prices } = useApp();
-  const videoRef = useRef(null);
-  const fallbackRef = useRef(null);
-  useHeroVideo(videoRef, fallbackRef);
 
   // The original site scrolled smoothly between sections.
   useEffect(() => {
@@ -179,10 +139,8 @@ export default function Welcome() {
         <header className="hero" id="top">
           <div className="hero-card">
             <div className="hero-bg" aria-hidden="true">
-              <video ref={videoRef} className="hero-video" autoPlay muted loop playsInline preload="metadata" poster="/site/kinu-guardian.jpg">
-                <source src="/site/kinu-background.mp4" type="video/mp4" />
-              </video>
-              <div ref={fallbackRef} className="hero-image-fallback" />
+              {/* A still image: on phones (and wallet in-app browsers) a video could open full screen. */}
+              <div className="hero-image" />
               <div className="hero-bg-shade" />
             </div>
             <div className="hero-content">
