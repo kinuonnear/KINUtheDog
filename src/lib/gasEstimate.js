@@ -27,7 +27,13 @@ function typicalTGas(receiverId, methodName, args = {}) {
     tokens_storage_deposit: 5,
     register_tokens: 4,
     withdraw: receiverId === CONTRACTS.aggregator ? 40 : 20,
-    withdraw_asset: 20
+    withdraw_asset: 20,
+    // liquidity calls (medians measured on mainnet)
+    add_liquidity: receiverId === CONTRACTS.dcl ? 15 : 10,
+    batch_add_liquidity: 28,
+    remove_liquidity: 22,
+    batch_remove_liquidity: 27,
+    add_stable_liquidity: 7
   };
   return table[methodName] ?? null;
 }

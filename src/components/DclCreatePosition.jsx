@@ -5,7 +5,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../state.jsx';
-import { useAsync } from '../hooks.js';
+import { useAsync, useDebounced } from '../hooks.js';
 import {
   alignPoint,
   buildBins,
@@ -19,7 +19,10 @@ import {
   STRATEGIES
 } from '../lib/dclLiquidity.js';
 import { view } from '../lib/rpc.js';
-import { formatChartPrice, formatPercent, formatRawAmount, formatUnits, maxBig, toBigInt, tryParseUnits } from '../lib/format.js';
+import { formatAmount, formatChartPrice, formatPercent, formatRawAmount, formatUnits, formatUsd, maxBig, toBigInt, tryParseUnits } from '../lib/format.js';
+import { mergeTransactions } from '../lib/tx.js';
+import { estimateNetworkFee } from '../lib/gasEstimate.js';
+import { priceOf } from '../lib/tokens.js';
 import { CONTRACTS, NEAR_GAS_RESERVE } from '../config.js';
 import { Spinner, TokenIcon } from './ui.jsx';
 import { buildZapTransactions, quoteZap } from '../lib/zap.js';
@@ -32,6 +35,18 @@ const PRESETS = [
   { key: '50', label: '±50%' },
   { key: 'full', label: 'Full' }
 ];
+
+/** Calls a deposit will make, for the fee estimate when no wallet is connected. */
+function sketchDeposit({ depositX, depositY, bins, swaps, wrap }) {
+  const call = (receiverId, methodName, args, gas) => ({ receiverId, actions: [{ type: 'FunctionCall', params: { methodName, args, gas, deposit: '0' } }] });
+  const txs = [];
+  for (let i = 0; i < swaps; i += 1) txs.push(call('token', 'ft_transfer_call', { receiver_id: CONTRACTS.aggregator }, '300000000000000'));
+  if (wrap) txs.push(call(CONTRACTS.wrapNear, 'near_deposit', {}, '10000000000000'));
+  if (depositX) txs.push(call('token-x', 'ft_transfer_call', { receiver_id: CONTRACTS.dcl, msg: '"Deposit"' }, '600000000000000'));
+  if (depositY) txs.push(call('token-y', 'ft_transfer_call', { receiver_id: CONTRACTS.dcl, msg: '"Deposit"' }, '600000000000000'));
+  txs.push(bins > 1 ? call(CONTRACTS.dcl, 'batch_add_liquidity', {}, '600000000000000') : call(CONTRACTS.dcl, 'add_liquidity', {}, '300000000000000'));
+  return txs;
+}
 
 function trimDecimals(text) {
   const [whole, fraction = ''] = String(text).split('.');
@@ -282,7 +297,7 @@ function useSpendable(tokenIds) {
 }
 
 export default function DclCreatePosition({ pool, x, y, rangeState, onDone }) {
-  const { accountId, connect, slippage, execute, balances } = useApp();
+  const { accountId, connect, slippage, execute, balances, prices } = useApp();
   const [strategy, setStrategy] = useState('spot');
   const [inputs, setInputs] = useState({ x: '', y: '' });
   const [lastEdited, setLastEdited] = useState('x');
@@ -345,6 +360,37 @@ export default function DclCreatePosition({ pool, x, y, rangeState, onDone }) {
   const activePlan = zapMode && zapQuote.data ? zapQuote.data.plan : plan;
   const positionsCount = activePlan.bins.filter((b) => b.amountX >= 1 || b.amountY >= 1).length || bins.length;
   const hasAmount = zapMode ? toBigInt(zapRaw) > 0n : toBigInt(rawX) > 0n || toBigInt(rawY) > 0n;
+
+  // What this deposit costs on top of the tokens: gas for every step, plus one-time storage.
+  // Built from the same transactions the button sends (estimated per call from mainnet medians).
+  const costKey = useDebounced(
+    [mode, rawX, rawY, wrapX, wrapY, positionsCount, zapQuote.data?.fetchedAt || '', accountId || ''].join('|'),
+    500
+  );
+  const costs = useAsync(
+    async () => {
+      let txs;
+      if (accountId && (!zapMode || zapQuote.data)) {
+        txs = zapMode
+          ? await buildZapTransactions({ zap: zapQuote.data, inputToken: zapToken, x, y, pool, slippage, accountId })
+          : await buildDclBinsTransactions({ pool, plan, slippage, accountId, wrapX, wrapY });
+      } else {
+        const legs = zapMode && zapQuote.data ? [zapQuote.data.legX, zapQuote.data.legY] : [];
+        txs = sketchDeposit({
+          depositX: zapMode ? (zapQuote.data?.plan.totalX || 0) > 0 : toBigInt(rawX) > 0n,
+          depositY: zapMode ? (zapQuote.data?.plan.totalY || 0) > 0 : toBigInt(rawY) > 0n,
+          bins: positionsCount,
+          swaps: legs.filter((l) => l.kind === 'swap').length,
+          wrap: legs.some((l) => l.kind === 'wrap') || toBigInt(wrapX) + toBigInt(wrapY) > 0n
+        });
+      }
+      const merged = mergeTransactions(txs);
+      return { ...(await estimateNetworkFee(merged)), txCount: merged.length };
+    },
+    [costKey],
+    { enabled: hasAmount && (!zapMode || Boolean(zapQuote.data)) }
+  );
+  const nearUsd = priceOf(prices, CONTRACTS.wrapNear);
   const short = zapMode
     ? toBigInt(zapRaw) > zapSpendable
       ? `Insufficient ${zapToken.symbol}`
@@ -583,16 +629,54 @@ export default function DclCreatePosition({ pool, x, y, rangeState, onDone }) {
             <dd>{formatRawAmount((toBigInt(wrapX) + toBigInt(wrapY)).toString(), 24)} NEAR</dd>
           </div>
         )}
-        {accountId && storage.data === null && (
-          <div>
-            <dt>One-time CLMM registration</dt>
-            <dd>0.5 NEAR</dd>
-          </div>
-        )}
         <div>
           <dt>Max slippage</dt>
           <dd>{slippage}%</dd>
         </div>
+      </dl>
+
+      <dl className="kv create-pos__costs">
+        <div>
+          <dt>Network fee (gas)</dt>
+          <dd title={costs.data ? `Up to ${costs.data.maxFeeNear.toFixed(4)} NEAR if every step used all its gas — unused gas is refunded.` : undefined}>
+            {costs.data ? (
+              <>
+                ≈ {costs.data.feeNear.toFixed(4)} NEAR
+                <small className="muted">
+                  {' '}
+                  · {costs.data.txCount} transaction{costs.data.txCount === 1 ? '' : 's'}
+                </small>
+              </>
+            ) : hasAmount && costs.loading ? (
+              <Spinner size={12} />
+            ) : (
+              <span className="muted">—</span>
+            )}
+          </dd>
+        </div>
+        {(costs.data?.storageNear > 0 || (!costs.data && accountId && storage.data === null)) && (
+          <div>
+            <dt>One-time storage</dt>
+            <dd title="Registration on Rhea's CLMM contract and token storage. Paid once per account; refundable when unregistering.">
+              {formatAmount(costs.data ? costs.data.storageNear : 0.5)} NEAR
+            </dd>
+          </div>
+        )}
+        {zapMode && (
+          <div>
+            <dt>Swap trading fee</dt>
+            <dd className="muted">included in the swap output above</dd>
+          </div>
+        )}
+        {costs.data && (
+          <div className="create-pos__total">
+            <dt>Total cost</dt>
+            <dd>
+              ≈ {(costs.data.feeNear + costs.data.storageNear).toFixed(4)} NEAR
+              {nearUsd > 0 && <small className="muted"> ({formatUsd((costs.data.feeNear + costs.data.storageNear) * nearUsd)})</small>}
+            </dd>
+          </div>
+        )}
       </dl>
 
       <div className="live-price">

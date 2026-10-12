@@ -6135,3 +6135,24 @@ a.dt-row:hover {
     animation: none;
   }
 }
+
+/* CLMM deposit: costs */
+.create-pos__costs {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.create-pos__total {
+  padding-top: 8px;
+  margin-top: 4px;
+  border-top: 1px dashed var(--border-strong);
+}
+
+.create-pos__total dt,
+.create-pos__total dd {
+  color: var(--text);
+  font-weight: 700;
+}
