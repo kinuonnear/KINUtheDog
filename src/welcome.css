@@ -1,97 +1,97 @@
 /* kinudefi.com welcome page — original site styles, scoped to .welcome (generated). */
-.welcome{--bg:#02060a;--panel:#071019;--panel2:#0a151e;--line:#17333e;--teal:#31f1d1;--cyan:#86fff1;--white:#f4fffd;--muted:#91a7b0;--pink:#ff79bd;--gold:#ffc76b}
+.welcome{--bg:#0b0e14;--panel:#121821;--panel2:#171e29;--line:#1f2733;--teal:#b8ff3d;--cyan:#c9ff6a;--white:#e6edf5;--muted:#8a96a8;--pink:#ff79bd;--gold:#ffc76b}
 .welcome, .welcome *{box-sizing:border-box}
 .welcome{scroll-behavior:smooth}
-.welcome{margin:0;background:radial-gradient(900px 600px at 80% -10%,#06465b55,transparent 65%),radial-gradient(700px 600px at 0 40%,#1b0d3b33,transparent 65%),var(--bg);color:var(--white);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow-x:hidden}
+.welcome{margin:0;background:radial-gradient(900px 600px at 80% -10%,#1a2a1055,transparent 65%),radial-gradient(700px 600px at 0 40%,#111a2433,transparent 65%),var(--bg);color:var(--white);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow-x:hidden}
 .welcome:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.045;background-image:linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px);background-size:64px 64px;mask-image:linear-gradient(to bottom,#000,transparent 78%)}
 .welcome a{text-decoration:none;color:inherit}
-.welcome .container{width:min(1200px,calc(100% - 36px));margin:auto}
-.welcome nav{height:78px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #132c35;position:relative;z-index:20;backdrop-filter:blur(16px);background:#02060acc}
+.welcome .container{width:min(1480px,calc(100% - 64px));margin:auto}
+.welcome nav{height:78px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #1f2733;position:relative;z-index:20;backdrop-filter:blur(16px);background:#0b0e14cc}
 .welcome .logo{display:flex;align-items:center;gap:10px;font-size:22px;font-weight:950;letter-spacing:.18em}
-.welcome .logo-mark{width:32px;height:32px;border-radius:50%;overflow:hidden;border:1px solid #2d8e84;box-shadow:0 0 25px #35f2d033}
+.welcome .logo-mark{width:32px;height:32px;border-radius:50%;overflow:hidden;border:1px solid #6f9a2a;box-shadow:0 0 25px #b8ff3d33}
 .welcome .logo-mark img{width:100%;height:100%;object-fit:cover}
 .welcome .logo span{color:var(--teal)}
 .welcome .navlinks{display:flex;gap:28px;color:var(--muted);font-size:14px;font-weight:800}
 .welcome .navlinks a:hover{color:var(--teal)}
-.welcome .navbtn{border:1px solid #2b685c;padding:11px 16px;border-radius:10px;color:var(--teal);font-weight:900;background:#071310aa}
-.welcome .navbtn:hover{background:#0d2520}
+.welcome .navbtn{border:1px solid #4a6a1c;padding:11px 16px;border-radius:10px;color:var(--teal);font-weight:900;background:#10170aaa}
+.welcome .navbtn:hover{background:#1f2b12}
 .welcome .navactions{display:flex;align-items:center;gap:10px}
-.welcome .navbtn--app{background:var(--teal);color:#04100d;border-color:var(--teal);box-shadow:0 0 24px #35f2d033}
-.welcome .navbtn--app:hover{background:#5ff7dd}
-.welcome .btn.app{border-color:var(--teal);color:var(--teal);box-shadow:0 0 22px #35f2d022}
-.welcome .btn.app:hover{background:#0b2420}
+.welcome .navbtn--app{background:var(--teal);color:#0b1204;border-color:var(--teal);box-shadow:0 0 24px #b8ff3d33}
+.welcome .navbtn--app:hover{background:#c9ff6a}
+.welcome .btn.app{border-color:var(--teal);color:var(--teal);box-shadow:0 0 22px #b8ff3d22}
+.welcome .btn.app:hover{background:#1a2410}
 .welcome .hero{padding:28px 0 74px}
-.welcome .hero-card{position:relative;min-height:620px;border:1px solid #1d4752;border-radius:28px;overflow:hidden;background:#02060a;box-shadow:0 30px 100px #0008}
-.welcome .hero-bg{position:absolute;inset:0;background-image:linear-gradient(90deg,#02060a 0%,#02060a33 42%,#02060a05 70%),linear-gradient(0deg,#02060acc 0%,transparent 45%);background-size:cover;background-position:center}
+.welcome .hero-card{position:relative;min-height:620px;border:1px solid #2a3442;border-radius:28px;overflow:hidden;background:#0b0e14;box-shadow:0 30px 100px #0008}
+.welcome .hero-bg{position:absolute;inset:0;background-image:linear-gradient(90deg,#0b0e14 0%,#0b0e1433 42%,#0b0e1405 70%),linear-gradient(0deg,#0b0e14cc 0%,transparent 45%);background-size:cover;background-position:center}
 .welcome .hero-content{position:relative;z-index:2;min-height:620px;display:flex;align-items:flex-end;padding:42px}
 .welcome .hero-copy{max-width:610px}
-.welcome .kicker{display:inline-flex;align-items:center;gap:9px;border:1px solid #24584d;background:#06110eee;padding:8px 12px;border-radius:999px;color:#c4eee7;font-size:11px;font-weight:950;letter-spacing:.16em;text-transform:uppercase}
+.welcome .kicker{display:inline-flex;align-items:center;gap:9px;border:1px solid #3e5a18;background:#0e1409ee;padding:8px 12px;border-radius:999px;color:#d4dce8;font-size:11px;font-weight:950;letter-spacing:.16em;text-transform:uppercase}
 .welcome .dot{width:7px;height:7px;border-radius:50%;background:var(--teal);box-shadow:0 0 16px var(--teal)}
 .welcome .hero h1{font-size:clamp(58px,8vw,105px);line-height:.84;letter-spacing:-.08em;margin:20px 0 12px}
-.welcome .gradient{background:linear-gradient(105deg,#fff,#d7fff8 40%,var(--teal));-webkit-background-clip:text;background-clip:text;color:transparent}
+.welcome .gradient{background:linear-gradient(105deg,#fff,#e6edf5 40%,var(--teal));-webkit-background-clip:text;background-clip:text;color:transparent}
 .welcome .hero-tag{font-size:clamp(25px,3vw,43px);font-weight:950;line-height:.98;letter-spacing:-.05em}
 .welcome .hero-tag span{color:var(--teal)}
-.welcome .hero p{font-size:17px;line-height:1.65;color:#c0d0d5;max-width:580px;margin:20px 0}
+.welcome .hero p{font-size:17px;line-height:1.65;color:#c3ccd8;max-width:580px;margin:20px 0}
 .welcome .hero p strong{color:var(--white)}
 .welcome .cta{display:flex;gap:11px;flex-wrap:wrap;margin-top:20px}
-.welcome .btn{padding:13px 18px;border-radius:11px;border:1px solid #31515a;background:#071219e8;font-weight:950;transition:.2s}
+.welcome .btn{padding:13px 18px;border-radius:11px;border:1px solid #2a3442;background:#121821e8;font-weight:950;transition:.2s}
 .welcome .btn:hover{transform:translateY(-2px);border-color:var(--teal)}
-.welcome .btn.primary{background:var(--teal);color:#04100d;border-color:var(--teal);box-shadow:0 0 35px #35f2d033}
+.welcome .btn.primary{background:var(--teal);color:#0b1204;border-color:var(--teal);box-shadow:0 0 35px #b8ff3d33}
 .welcome .socials{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}
-.welcome .social{border:1px solid #24414a;background:#071019dd;padding:8px 11px;border-radius:9px;color:#b4c6cb;font-size:11px;font-weight:850}
-.welcome .social:hover{color:var(--teal);border-color:#3b8275}
+.welcome .social{border:1px solid #2a3442;background:#121821dd;padding:8px 11px;border-radius:9px;color:#b3bdcb;font-size:11px;font-weight:850}
+.welcome .social:hover{color:var(--teal);border-color:#5c8424}
 .welcome .hero-strip{position:absolute;right:24px;bottom:24px;z-index:3;display:flex;gap:8px}
-.welcome .hero-chip{padding:8px 11px;border:1px solid #ffffff22;background:#02060acc;border-radius:999px;font-size:10px;font-weight:900;letter-spacing:.1em;color:#d7e8e5}
-.welcome section{padding:96px 0;border-top:1px solid #102b35}
+.welcome .hero-chip{padding:8px 11px;border:1px solid #ffffff22;background:#0b0e14cc;border-radius:999px;font-size:10px;font-weight:900;letter-spacing:.1em;color:#d4dce8}
+.welcome section{padding:96px 0;border-top:1px solid #1f2733}
 .welcome .section-head{display:flex;justify-content:space-between;gap:30px;align-items:end;margin-bottom:30px}
 .welcome .eyebrow{color:var(--teal);font-size:10px;font-weight:950;letter-spacing:.22em;text-transform:uppercase}
 .welcome .section-head h2{font-size:clamp(38px,5vw,65px);letter-spacing:-.06em;margin:10px 0 0}
 .welcome .section-head p{max-width:470px;color:var(--muted);line-height:1.7;margin:0}
-.welcome .token-wrap{border:1px solid var(--line);border-radius:24px;background:linear-gradient(145deg,#09131be8,#050d13dd);padding:28px}
+.welcome .token-wrap{border:1px solid var(--line);border-radius:24px;background:linear-gradient(145deg,#171e29e8,#0f141cdd);padding:28px}
 .welcome .token-top{display:grid;grid-template-columns:.85fr 2fr;gap:20px;align-items:center}
-.welcome .supply-label{color:#78939c;text-transform:uppercase;letter-spacing:.15em;font-size:11px;font-weight:900}
+.welcome .supply-label{color:#7b8799;text-transform:uppercase;letter-spacing:.15em;font-size:11px;font-weight:900}
 .welcome .supply{font-size:clamp(58px,9vw,105px);line-height:.9;font-weight:1000;letter-spacing:-.08em;background:linear-gradient(100deg,#fff,var(--teal));-webkit-background-clip:text;background-clip:text;color:transparent}
-.welcome .supply-unit{font-size:20px;font-weight:950;color:#dffdf7;margin-left:7px}
+.welcome .supply-unit{font-size:20px;font-weight:950;color:#e6edf5;margin-left:7px}
 .welcome .allocations{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-.welcome .alloc-card{border:1px solid var(--line);background:#071119;border-radius:17px;padding:24px;position:relative;overflow:hidden}
-.welcome .alloc-card:before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:var(--teal);box-shadow:0 0 18px #39f5d066}
+.welcome .alloc-card{border:1px solid var(--line);background:#121821;border-radius:17px;padding:24px;position:relative;overflow:hidden}
+.welcome .alloc-card:before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:var(--teal);box-shadow:0 0 18px #b8ff3d66}
 .welcome .alloc-card:nth-child(2):before{background:var(--gold)}
 .welcome .alloc-card:nth-child(3):before{background:#9d8cff}
-.welcome .alloc-card small{display:block;color:#78929c;font-size:10px;font-weight:950;letter-spacing:.14em}
+.welcome .alloc-card small{display:block;color:#7b8799;font-size:10px;font-weight:950;letter-spacing:.14em}
 .welcome .alloc-card strong{display:block;font-size:38px;margin-top:8px}
 .welcome .alloc-card p{color:var(--muted);font-size:13px;line-height:1.55;margin-bottom:0}
 .welcome .token-note{color:var(--muted);font-size:13px;line-height:1.7;margin:18px 0 0}
 .welcome .lore{display:grid;grid-template-columns:1.08fr .92fr;gap:18px}
-.welcome .panel{border:1px solid var(--line);background:linear-gradient(145deg,#09151ddd,#050e14dd);border-radius:22px;padding:32px}
-.welcome .story p{font-size:19px;line-height:1.7;color:#c6d7dc;margin:0}
+.welcome .panel{border:1px solid var(--line);background:linear-gradient(145deg,#171e29dd,#0f141cdd);border-radius:22px;padding:32px}
+.welcome .story p{font-size:19px;line-height:1.7;color:#c3ccd8;margin:0}
 .welcome .story p+p{margin-top:15px}
 .welcome .quote{font-size:clamp(42px,5vw,70px);font-weight:1000;line-height:.92;letter-spacing:-.06em}
 .welcome .quote span{color:var(--teal)}
 .welcome .quote-sub{color:var(--muted);line-height:1.7;margin-top:22px}
-.welcome .lore-art{margin-top:18px;border:1px solid var(--line);border-radius:22px;overflow:hidden;height:310px;background:#02060a}
+.welcome .lore-art{margin-top:18px;border:1px solid var(--line);border-radius:22px;overflow:hidden;height:310px;background:#0b0e14}
 .welcome .lore-art img{width:100%;height:100%;object-fit:cover;object-position:center}
 .welcome .culture-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
-.welcome .feature{padding:34px;border:1px solid var(--line);border-radius:22px;background:#071119}
+.welcome .feature{padding:34px;border:1px solid var(--line);border-radius:22px;background:#121821}
 .welcome .feature h3{font-size:28px;margin:0 0 12px}
 .welcome .feature p{color:var(--muted);line-height:1.75;margin:0}
-.welcome .culture-banner{margin-top:18px;border:1px solid var(--line);border-radius:22px;padding:38px;background:radial-gradient(circle at 70% 50%,#0b4c4055,transparent 38%),linear-gradient(120deg,#07121a,#0a1d24);overflow:hidden;position:relative}
+.welcome .culture-banner{margin-top:18px;border:1px solid var(--line);border-radius:22px;padding:38px;background:radial-gradient(circle at 70% 50%,#2e4a0a55,transparent 38%),linear-gradient(120deg,#121821,#171e29);overflow:hidden;position:relative}
 .welcome .culture-banner:after{content:"🐾";position:absolute;right:7%;bottom:-45px;font-size:210px;opacity:.08}
 .welcome .culture-big{font-size:clamp(45px,7vw,92px);line-height:.9;letter-spacing:-.07em;font-weight:1000}
 .welcome .culture-big em{color:var(--teal);font-style:normal}
 .welcome .community{text-align:center;padding-bottom:120px}
 .welcome .community h2{font-size:clamp(50px,8vw,102px);letter-spacing:-.075em;margin:14px 0}
 .welcome .community p{color:var(--muted);font-size:18px}
-.welcome .community-box{border:1px solid var(--line);border-radius:24px;padding:48px 24px;background:radial-gradient(circle at center,#0c3c3350,transparent 60%),#061019}
+.welcome .community-box{border:1px solid var(--line);border-radius:24px;padding:48px 24px;background:radial-gradient(circle at center,#2e4a0a50,transparent 60%),#121821}
 .welcome .links{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:20px}
-.welcome .link{padding:12px 16px;border:1px solid #31515a;border-radius:10px;color:#d7e8e5;font-weight:900;font-size:13px}
+.welcome .link{padding:12px 16px;border:1px solid #2a3442;border-radius:10px;color:#d4dce8;font-weight:900;font-size:13px}
 .welcome .link:hover{border-color:var(--teal);color:var(--teal)}
-.welcome footer{border-top:1px solid #102b35;padding:35px 0;color:#667f86;font-size:12px}
+.welcome footer{border-top:1px solid #1f2733;padding:35px 0;color:#6b778a;font-size:12px}
 .welcome .footerline{display:flex;justify-content:space-between;gap:20px}
 .welcome .footerline strong{color:var(--white)}
 @media(max-width:860px){.welcome .navlinks{display:none}
 .welcome .hero-card,.welcome .hero-content{min-height:650px}
 .welcome .hero-bg{background-position:58% center}
-.welcome .hero-content{padding:28px;align-items:flex-end;background:linear-gradient(0deg,#02060aee 0%,#02060a66 55%,transparent)}
+.welcome .hero-content{padding:28px;align-items:flex-end;background:linear-gradient(0deg,#0b0e14ee 0%,#0b0e1466 55%,transparent)}
 .welcome .hero-strip{display:none}
 .welcome .section-head{display:block}
 .welcome .section-head p{margin-top:18px}
@@ -100,7 +100,7 @@
 .welcome .footerline{display:block}
 .welcome .footerline div+div{margin-top:10px}
 }
-@media(max-width:520px){.welcome .container{width:min(100% - 24px,1200px)}
+@media(max-width:520px){.welcome .container{width:calc(100% - 32px)}
 .welcome nav{height:70px}
 .welcome .navbtn{padding:9px 12px;font-size:12px}
 .welcome .navactions .navbtn:not(.navbtn--app){display:none}
@@ -117,7 +117,7 @@
 .welcome .hero-card{isolation:isolate}
 .welcome .hero-bg{
   overflow:hidden;
-  background:#020605;
+  background:#0b0e14;
 }
 .welcome .hero-video,.welcome .hero-image-fallback,.welcome .hero-bg-shade{
   position:absolute;
@@ -140,8 +140,8 @@
 .welcome .hero-bg-shade{
   z-index:2;
   background:
-    linear-gradient(90deg,#020605f2 0%,#020605aa 34%,#02060522 70%,#02060545 100%),
-    linear-gradient(0deg,#020605d8 0%,transparent 46%,#0206052a 100%);
+    linear-gradient(90deg,#0b0e14f2 0%,#0b0e14aa 34%,#0b0e1422 70%,#0b0e1445 100%),
+    linear-gradient(0deg,#0b0e14d8 0%,transparent 46%,#0b0e142a 100%);
 }
 .welcome .hero-content{z-index:3}
 .welcome .hero-card:hover .hero-video{transform:scale(1.055)}
@@ -159,7 +159,7 @@
   overflow:hidden;
   border:1px solid var(--line);
   border-radius:22px;
-  background:#020605;
+  background:#0b0e14;
   box-shadow:0 30px 90px #0008;
 }
 .welcome .cinematic-gallery img{
@@ -176,14 +176,14 @@
 .welcome .cinematic-gallery figure:after{
   content:"";
   position:absolute;inset:0;
-  background:linear-gradient(0deg,#020605d0,transparent 45%);
+  background:linear-gradient(0deg,#0b0e14d0,transparent 45%);
   pointer-events:none;
 }
 .welcome .cinematic-gallery figcaption{
   position:absolute;
   z-index:2;
   left:20px;bottom:18px;
-  color:#dffff8;
+  color:#e6edf5;
   font-size:10px;
   font-weight:950;
   letter-spacing:.22em;
@@ -201,7 +201,7 @@
   inset:0;
   overflow:hidden;
   z-index:0;
-  background:#020605;
+  background:#0b0e14;
 }
 .welcome .hero-video{
   position:absolute !important;
@@ -215,7 +215,7 @@
   opacity:1;
   visibility:visible;
   pointer-events:none;
-  background:#020605;
+  background:#0b0e14;
   transform:scale(1.035);
   filter:saturate(.92) contrast(1.04);
 }
@@ -232,8 +232,8 @@
   z-index:3 !important;
   pointer-events:none;
   background:
-    linear-gradient(90deg,#020605f2 0%,#020605aa 34%,#02060522 70%,#02060545 100%),
-    linear-gradient(0deg,#020605d8 0%,transparent 46%,#0206052a 100%);
+    linear-gradient(90deg,#0b0e14f2 0%,#0b0e14aa 34%,#0b0e1422 70%,#0b0e1445 100%),
+    linear-gradient(0deg,#0b0e14d8 0%,transparent 46%,#0b0e142a 100%);
 }
 .welcome .hero-content{
   position:relative;
@@ -257,12 +257,12 @@
   object-fit:cover;
 }
 .welcome .logo-mark.logo-fallback{
-  background:radial-gradient(circle at 35% 30%,#22e8ae,#073d2d 58%,#020605);
-  box-shadow:0 0 18px #00e89a35 inset;
+  background:radial-gradient(circle at 35% 30%,#b8ff3d,#22340c 58%,#0b0e14);
+  box-shadow:0 0 18px #b8ff3d35 inset;
 }
 .welcome .logo-mark.logo-fallback:after{
   content:"K";
-  color:#f2fff9;
+  color:#e6edf5;
   font-weight:950;
   font-size:18px;
   line-height:1;
@@ -278,15 +278,15 @@
 
 /* ---- Additions for the KINU Terminal (hand-written; same visual language as the site) ---- */
 .welcome{min-height:100vh}
-.welcome .hero-chip--price{color:var(--teal);border-color:#2b685c}
+.welcome .hero-chip--price{color:var(--teal);border-color:#4a6a1c}
 .welcome .platform-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
-.welcome .platform-card{display:flex;flex-direction:column;gap:10px;padding:26px;border:1px solid var(--line);border-radius:20px;background:linear-gradient(145deg,#09131be8,#050d13dd);transition:.2s}
-.welcome .platform-card:hover{transform:translateY(-3px);border-color:#2b685c;box-shadow:0 18px 60px #35f2d014}
-.welcome .platform-card__icon{display:grid;place-items:center;width:42px;height:42px;border-radius:12px;background:#0b2420;border:1px solid #24584d;color:var(--teal);font-size:20px}
+.welcome .platform-card{display:flex;flex-direction:column;gap:10px;padding:26px;border:1px solid var(--line);border-radius:20px;background:linear-gradient(145deg,#171e29e8,#0f141cdd);transition:.2s}
+.welcome .platform-card:hover{transform:translateY(-3px);border-color:#4a6a1c;box-shadow:0 18px 60px #b8ff3d14}
+.welcome .platform-card__icon{display:grid;place-items:center;width:42px;height:42px;border-radius:12px;background:#1a2410;border:1px solid #3e5a18;color:var(--teal);font-size:20px}
 .welcome .platform-card h3{margin:4px 0 0;font-size:21px;letter-spacing:-.02em}
 .welcome .platform-card p{margin:0;color:var(--muted);font-size:14px;line-height:1.65}
 .welcome .platform-card__cta{margin-top:auto;padding-top:6px;color:var(--teal);font-size:13px;font-weight:900}
-.welcome .platform-launch{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-top:18px;padding:30px 34px;border:1px solid var(--line);border-radius:22px;background:radial-gradient(circle at 85% 50%,#0b4c4055,transparent 40%),linear-gradient(120deg,#07121a,#0a1d24)}
+.welcome .platform-launch{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-top:18px;padding:30px 34px;border:1px solid var(--line);border-radius:22px;background:radial-gradient(circle at 85% 50%,#2e4a0a55,transparent 40%),linear-gradient(120deg,#121821,#171e29)}
 .welcome .platform-launch__title{font-size:clamp(28px,3.4vw,44px);font-weight:1000;line-height:1;letter-spacing:-.05em;margin-top:8px}
 .welcome .platform-launch__title em{color:var(--teal);font-style:normal}
 .welcome .link--app{border-color:var(--teal);color:var(--teal)}
@@ -298,51 +298,51 @@
 .welcome .hero{padding:24px 0 18px}
 .welcome section{padding:76px 0}
 .welcome .section-head{margin-bottom:26px}
-.welcome .hero-promise{margin:16px 0 0;font-size:clamp(17px,1.6vw,21px);font-weight:800;line-height:1.35;color:#dff7f2;letter-spacing:-.01em;max-width:560px}
+.welcome .hero-promise{margin:16px 0 0;font-size:clamp(17px,1.6vw,21px);font-weight:800;line-height:1.35;color:#e6edf5;letter-spacing:-.01em;max-width:560px}
 .welcome .hero-promise b{color:var(--teal);font-weight:950}
 .welcome .hero p{margin:12px 0 0;font-size:16px}
 .welcome .cta{margin-top:24px}
 .welcome .hero-chip--price{display:inline-flex;align-items:center;gap:7px;font-size:11px;padding:9px 13px}
-.welcome .stats-bar{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--line);border-radius:18px;background:linear-gradient(145deg,#09131be8,#050d13dd);overflow:hidden}
+.welcome .stats-bar{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--line);border-radius:18px;background:linear-gradient(145deg,#171e29e8,#0f141cdd);overflow:hidden}
 .welcome .stats-bar__item{display:flex;flex-direction:column;gap:6px;padding:20px 24px}
 .welcome .stats-bar__item+.stats-bar__item{border-left:1px solid var(--line)}
-.welcome .stats-bar__item span{color:#78939c;font-size:10px;font-weight:950;letter-spacing:.16em;text-transform:uppercase}
+.welcome .stats-bar__item span{color:#7b8799;font-size:10px;font-weight:950;letter-spacing:.16em;text-transform:uppercase}
 .welcome .stats-bar__item strong{display:flex;align-items:baseline;gap:8px;font-size:22px;font-weight:900;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .welcome .stats-bar__item em{font-style:normal;font-size:12px;font-weight:800}
 .welcome .stats-bar__item em.up{color:var(--teal)}
 .welcome .stats-bar__item em.down{color:#ff6b81}
-.welcome .stats-bar__skeleton{display:inline-block;width:90px;height:20px;border-radius:6px;background:linear-gradient(90deg,#0f1f27,#15303a,#0f1f27);background-size:200% 100%;animation:welcome-shimmer 1.4s linear infinite}
+.welcome .stats-bar__skeleton{display:inline-block;width:90px;height:20px;border-radius:6px;background:linear-gradient(90deg,#1d2531,#1f2733,#1d2531);background-size:200% 100%;animation:welcome-shimmer 1.4s linear infinite}
 @keyframes welcome-shimmer{to{background-position:-200% 0}}
-.welcome .trust-row{display:flex;justify-content:center;flex-wrap:wrap;gap:8px 14px;padding:22px 0 0;color:#6f8890;font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase}
-.welcome .trust-row span+span:before{content:"•";color:#2b685c;margin-right:14px}
+.welcome .trust-row{display:flex;justify-content:center;flex-wrap:wrap;gap:8px 14px;padding:22px 0 0;color:#6b778a;font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase}
+.welcome .trust-row span+span:before{content:"•";color:#4a6a1c;margin-right:14px}
 .welcome .feature__num{display:inline-block;margin-bottom:14px;color:var(--teal);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;font-weight:800;letter-spacing:.12em}
-.welcome .link--muted{color:#6f8890;border-style:dashed}
+.welcome .link--muted{color:#6b778a;border-style:dashed}
 .welcome .site-footer{padding:56px 0 30px}
 .welcome .site-footer__grid{display:grid;grid-template-columns:1.5fr repeat(3,minmax(0,1fr));gap:32px}
-.welcome .site-footer__grid>div{display:flex;flex-direction:column;gap:10px;font-size:13px;color:#8aa2aa}
+.welcome .site-footer__grid>div{display:flex;flex-direction:column;gap:10px;font-size:13px;color:#8a96a8}
 .welcome .site-footer__grid h4{margin:0 0 4px;color:var(--white);font-size:12px;font-weight:950;letter-spacing:.14em;text-transform:uppercase}
 .welcome .site-footer__grid a:hover{color:var(--teal)}
 .welcome .site-footer__brand p{margin:6px 0 0;max-width:320px;line-height:1.6}
-.welcome .site-footer .mono-id{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#5f7880;word-break:break-all}
-.welcome .site-footer__legal{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-top:40px;padding-top:22px;border-top:1px solid #102b35;color:#5f7880;font-size:12px;line-height:1.6}
+.welcome .site-footer .mono-id{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#5b6678;word-break:break-all}
+.welcome .site-footer__legal{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-top:40px;padding-top:22px;border-top:1px solid #1f2733;color:#5b6678;font-size:12px;line-height:1.6}
 @media(max-width:860px){.welcome .stats-bar{grid-template-columns:repeat(2,minmax(0,1fr))}.welcome .stats-bar__item:nth-child(3){border-left:0}.welcome .stats-bar__item:nth-child(n+3){border-top:1px solid var(--line)}.welcome .site-footer__grid{grid-template-columns:1fr 1fr}.welcome .site-footer__brand{grid-column:1/-1}}
 @media(max-width:520px){.welcome section{padding:56px 0}.welcome .stats-bar__item{padding:16px}.welcome .stats-bar__item strong{font-size:18px}.welcome .trust-row{gap:6px 14px;font-size:10px}.welcome .trust-row span+span:before{display:none}.welcome .trust-row{justify-content:flex-start}.welcome .site-footer__grid{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){.welcome .stats-bar__skeleton{animation:none}}
 
 /* ---- Why KINU (replaces the culture section) ---- */
 .welcome .why-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
-.welcome .why-card{padding:26px;border:1px solid var(--line);border-radius:20px;background:linear-gradient(145deg,#09131be8,#050d13dd)}
+.welcome .why-card{padding:26px;border:1px solid var(--line);border-radius:20px;background:linear-gradient(145deg,#171e29e8,#0f141cdd)}
 .welcome .why-card__num{display:inline-block;margin-bottom:16px;color:var(--teal);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;font-weight:800;letter-spacing:.12em}
 .welcome .why-card h3{margin:0 0 10px;font-size:19px;letter-spacing:-.02em}
 .welcome .why-card p{margin:0;color:var(--muted);font-size:14px;line-height:1.65}
-.welcome .steps{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,2.2fr);align-items:center;gap:28px;margin-top:18px;padding:28px 32px;border:1px solid var(--line);border-radius:22px;background:#071119}
+.welcome .steps{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,2.2fr);align-items:center;gap:28px;margin-top:18px;padding:28px 32px;border:1px solid var(--line);border-radius:22px;background:#121821}
 .welcome .steps__head h3{margin:8px 0 0;font-size:24px;letter-spacing:-.03em}
 .welcome .steps__list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin:0;padding:0;list-style:none}
 .welcome .steps__list li{display:flex;gap:12px}
-.welcome .steps__list b{display:grid;flex:none;place-items:center;width:30px;height:30px;border-radius:50%;background:#0b2420;border:1px solid #24584d;color:var(--teal);font-size:13px}
+.welcome .steps__list b{display:grid;flex:none;place-items:center;width:30px;height:30px;border-radius:50%;background:#1a2410;border:1px solid #3e5a18;color:var(--teal);font-size:13px}
 .welcome .steps__list h4{margin:4px 0;font-size:15px}
 .welcome .steps__list p{margin:0;color:var(--muted);font-size:13px;line-height:1.55}
-.welcome .closing-banner{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-top:18px;padding:38px;border:1px solid var(--line);border-radius:22px;background:radial-gradient(circle at 80% 50%,#0b4c4055,transparent 40%),linear-gradient(120deg,#07121a,#0a1d24)}
+.welcome .closing-banner{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-top:18px;padding:38px;border:1px solid var(--line);border-radius:22px;background:radial-gradient(circle at 80% 50%,#2e4a0a55,transparent 40%),linear-gradient(120deg,#121821,#171e29)}
 .welcome .closing-banner__title{margin-top:10px;font-size:clamp(34px,5vw,64px);line-height:.95;letter-spacing:-.06em;font-weight:1000}
 .welcome .closing-banner__title em{color:var(--teal);font-style:normal}
 @media(max-width:1080px){.welcome .why-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.welcome .steps{grid-template-columns:1fr}}
@@ -350,18 +350,18 @@
 
 /* ---- About KINU (replaces the lore section and gallery) ---- */
 .welcome .about{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:14px}
-.welcome .about__story,.welcome .about__facts{padding:30px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(145deg,#09151ddd,#050e14dd)}
-.welcome .about__story p{margin:0;color:#c6d7dc;font-size:17px;line-height:1.7}
+.welcome .about__story,.welcome .about__facts{padding:30px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(145deg,#171e29dd,#0f141cdd)}
+.welcome .about__story p{margin:0;color:#c3ccd8;font-size:17px;line-height:1.7}
 .welcome .about__story p+p{margin-top:14px}
 .welcome .about__story strong{color:var(--white)}
 .welcome .about__facts dl{margin:14px 0 0}
-.welcome .about__facts dl>div{display:flex;justify-content:space-between;gap:16px;padding:13px 0;border-bottom:1px solid #12303a}
+.welcome .about__facts dl>div{display:flex;justify-content:space-between;gap:16px;padding:13px 0;border-bottom:1px solid #1f2733}
 .welcome .about__facts dl>div:last-child{border-bottom:0}
-.welcome .about__facts dt{color:#78939c;font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+.welcome .about__facts dt{color:#7b8799;font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
 .welcome .about__facts dd{margin:0;color:var(--white);font-size:14px;font-weight:800;text-align:right}
-.welcome .about__art{position:relative;margin:14px 0 0;height:min(36vw,440px);min-height:260px;overflow:hidden;border:1px solid var(--line);border-radius:22px;background:#020605}
+.welcome .about__art{position:relative;margin:14px 0 0;height:min(36vw,440px);min-height:260px;overflow:hidden;border:1px solid var(--line);border-radius:22px;background:#0b0e14}
 .welcome .about__art img{width:100%;height:100%;object-fit:cover;object-position:center 40%;display:block;filter:saturate(.95) contrast(1.04)}
-.welcome .about__art:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#020605d9 0%,#02060566 40%,transparent 70%),linear-gradient(0deg,#020605b3,transparent 50%);pointer-events:none}
+.welcome .about__art:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#0b0e14d9 0%,#0b0e1466 40%,transparent 70%),linear-gradient(0deg,#0b0e14b3,transparent 50%);pointer-events:none}
 .welcome .about__art figcaption{position:absolute;z-index:2;left:34px;bottom:30px;display:flex;flex-direction:column;gap:8px}
 .welcome .about__art figcaption strong{font-size:clamp(24px,3vw,40px);font-weight:1000;letter-spacing:-.04em;line-height:1}
 @media(max-width:860px){.welcome .about{grid-template-columns:1fr}.welcome .about__art figcaption{left:22px;bottom:20px}}
