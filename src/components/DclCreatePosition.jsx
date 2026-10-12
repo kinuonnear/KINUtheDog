@@ -355,11 +355,39 @@ export default function DclCreatePosition({ pool, x, y, rangeState, onDone }) {
         ? `Insufficient ${y.symbol}`
         : null;
 
+  // Price the amounts were entered at: the pool price refreshes every few seconds and the
+  // paired amount follows it, so show how far it has moved since.
+  const anchorRef = useRef(null);
+  const priceDrift = anchorRef.current === null ? 0 : (Math.pow(1.0001, current - anchorRef.current) - 1) * 100;
+
+  // Zap amounts are typed in the Zap box: anchor the drift there too.
+  useEffect(() => {
+    anchorRef.current = zapText ? current : null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zapText]);
+
   const setAmount = (which, text) => {
     const clean = text.replace(',', '.');
     if (!/^\d*\.?\d*$/.test(clean)) return;
+    anchorRef.current = current;
     setLastEdited(which);
     setInputs((v) => ({ ...v, [which]: clean }));
+  };
+
+  /**
+   * Re-read the pool right before the wallet opens. Beyond the slippage tolerance the deposit
+   * would fail on-chain, so stop and let the user review the updated amounts instead.
+   */
+  const livePool = async () => {
+    const fresh = (await view(CONTRACTS.dcl, 'get_pool', { pool_id: pool.pool_id }, { fresh: true }).catch(() => null)) || pool;
+    const moved = (Math.pow(1.0001, fresh.current_point - current) - 1) * 100;
+    if (Math.abs(moved) > Number(slippage)) {
+      onDone?.(); // refresh the pool so the form shows the new amounts
+      throw new Error(
+        `The pool price moved ${moved > 0 ? '+' : ''}${moved.toFixed(2)}% while you were confirming — more than your ${slippage}% slippage. Amounts have been updated; review and confirm again.`
+      );
+    }
+    return fresh;
   };
   const setFraction = (which, fraction) => {
     const index = which === 'x' ? 0 : 1;
@@ -374,13 +402,14 @@ export default function DclCreatePosition({ pool, x, y, rangeState, onDone }) {
     const ok = zapMode
       ? await execute(
           async () => {
-            // Always execute a fresh, user-bound quote.
-            const zap = await quoteZap({ inputToken: zapToken, amountIn: zapRaw, x, y, pool, unitPlan, slippage, user: accountId });
-            return buildZapTransactions({ zap, inputToken: zapToken, x, y, pool, slippage, accountId });
+            // Always execute a fresh, user-bound quote on the live pool.
+            const fresh = await livePool();
+            const zap = await quoteZap({ inputToken: zapToken, amountIn: zapRaw, x, y, pool: fresh, unitPlan, slippage, user: accountId });
+            return buildZapTransactions({ zap, inputToken: zapToken, x, y, pool: fresh, slippage, accountId });
           },
           { pending: `Zapping ${zapToken.symbol} into ${x.symbol}/${y.symbol}`, success: 'Zap complete — position created' }
         )
-      : await execute(() => buildDclBinsTransactions({ pool, plan, slippage, accountId, wrapX, wrapY }), {
+      : await execute(async () => buildDclBinsTransactions({ pool: await livePool(), plan, slippage, accountId, wrapX, wrapY }), {
           pending: `Creating ${positionsCount} position${positionsCount === 1 ? '' : 's'}`,
           success: 'Liquidity added'
         });
@@ -566,6 +595,16 @@ export default function DclCreatePosition({ pool, x, y, rangeState, onDone }) {
         </div>
       </dl>
 
+      <div className="live-price">
+        <span className="live-price__dot" aria-hidden />
+        Live pool price · updates every few seconds
+        {(zapMode ? toBigInt(zapRaw) > 0n : hasAmount) && Math.abs(priceDrift) >= 0.05 && (
+          <b className={Math.abs(priceDrift) > Number(slippage) ? 'down' : 'warn'}>
+            {priceDrift > 0 ? '+' : ''}
+            {priceDrift.toFixed(2)}% since you entered amounts{zapMode ? '' : ' — paired amount updated'}
+          </b>
+        )}
+      </div>
       <button
         type="button"
         className="button button--primary button--block button--lg"

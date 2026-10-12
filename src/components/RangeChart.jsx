@@ -118,7 +118,14 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
 
   useEffect(() => {
     paintRef.current?.();
-  }, [minPrice, maxPrice, fullRange, drawings, selected, hidden, binPrices]);
+  }, [minPrice, maxPrice, fullRange, drawings, selected, hidden, binPrices, currentPrice]);
+
+  // The pool price refreshes every few seconds: move the dashed price line in place instead
+  // of rebuilding the chart (which would reset the user's zoom and scroll).
+  const priceLineRef = useRef(null);
+  useEffect(() => {
+    if (currentPrice) priceLineRef.current?.applyOptions({ price: currentPrice * usdFactor });
+  }, [currentPrice, usdFactor]);
 
   useDrawingKeys(live, pendingRef, paintRef);
 
@@ -126,8 +133,9 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
     const container = containerRef.current;
     const overlay = overlayRef.current;
     const canvas = canvasRef.current;
-    if (!container || !overlay || !canvas || !candles.data || !currentPrice) return undefined;
-    const data = noHistory ? placeholderCandles(currentPrice * usdFactor, step) : candles.data;
+    if (!container || !overlay || !canvas || !candles.data || !live.current.currentPrice) return undefined;
+    const startPrice = live.current.currentPrice * live.current.usdFactor;
+    const data = noHistory ? placeholderCandles(startPrice, step) : candles.data;
 
     const chart = createChart(container, {
       autoSize: true,
@@ -180,7 +188,7 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
       main.createPriceLine({ price: high, color: 'rgba(231,240,233,0.35)', lineWidth: 1, lineStyle: 1, axisLabelVisible: true, title: 'High' });
       main.createPriceLine({ price: low, color: 'rgba(231,240,233,0.35)', lineWidth: 1, lineStyle: 1, axisLabelVisible: true, title: 'Low' });
     }
-    main.createPriceLine({ price: currentPrice * usdFactor, color: 'rgba(255,255,255,0.55)', lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: '' });
+    priceLineRef.current = main.createPriceLine({ price: startPrice, color: 'rgba(255,255,255,0.55)', lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: '' });
 
     if (indicators.includes('volume')) {
       const vol = chart.addSeries(HistogramSeries, { priceFormat: { type: 'volume' }, priceScaleId: 'volume', lastValueVisible: false, priceLineVisible: false });
@@ -431,7 +439,9 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
       chart.remove();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [candles.data, noHistory, currentPrice, chartType, indicators.join(','), usdFactor, step]);
+    // Rebuilt when the data or the display changes — not on every pool price tick.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [candles.data, noHistory, Boolean(currentPrice), chartType, indicators.join(','), unit, step]);
 
   const screenshot = () => {
     const api = chartApi.current;

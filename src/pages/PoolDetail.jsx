@@ -16,6 +16,8 @@ import { formatAmount, formatChartPrice, formatPercent, formatRawAmount, formatU
 import { CONTRACTS, ENDPOINTS, NATIVE_NEAR } from '../config.js';
 import { CopyButton, EmptyState, ErrorNotice, PairIcons, Skeleton, Stat, Tabs, TokenIcon } from '../components/ui.jsx';
 
+const LIVE_POOL_MS = 4_000;
+
 /** Pool page on app.rhea.finance, for users who want the original UI. */
 function rheaPoolUrl(pool) {
   if (pool.kind === 'DCL') {
@@ -213,7 +215,8 @@ function DclPool({ poolId, initialTab }) {
   const { accountId, prices } = useApp();
   const { tokenX, tokenY, fee } = parseDclPoolId(poolId);
   const tokenQuery = useAsync(() => getTokens([tokenX, tokenY]), [tokenX, tokenY]);
-  const chain = useAsync(() => view(CONTRACTS.dcl, 'get_pool', { pool_id: poolId }), [poolId], { refreshMs: 30_000 });
+  // Live pool state: the price moves between quoting and signing, so the deposit form follows it.
+  const chain = useAsync(() => view(CONTRACTS.dcl, 'get_pool', { pool_id: poolId }), [poolId], { refreshMs: LIVE_POOL_MS });
   const stats = useAsync(() => getPoolStats(poolId), [poolId]);
   const positions = useAsync(
     async () => (await getDclPositions(accountId)).filter((p) => p.poolId === poolId),

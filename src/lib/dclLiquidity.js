@@ -12,7 +12,7 @@ import { CONTRACTS, GAS } from '../config.js';
 import { view } from './rpc.js';
 import { dclAmountX, dclAmountY } from './rhea.js';
 import { ensureStorageTx, ftTransferCallTx, functionCall, transaction, wrapNearTx } from './tx.js';
-import { applySlippage, toBigInt } from './format.js';
+import { toBigInt } from './format.js';
 
 export const POINT_MIN = -800000;
 export const POINT_MAX = 800000;
@@ -73,6 +73,67 @@ export function floatToRaw(value) {
   return BigInt(Math.floor(value)).toString();
 }
 
+/** Points the price may move up / down within a slippage tolerance (in %). A 1% drop spans
+ * slightly more points than a 1% rise, so the two sides are sized separately. */
+function slippageBand(slippage) {
+  const sl = Math.min(Number(slippage) / 100, 0.5);
+  return {
+    up: Math.max(1, Math.ceil(Math.log(1 + sl) / LOG_BASE)),
+    down: Math.max(1, Math.ceil(-Math.log(1 - sl) / LOG_BASE))
+  };
+}
+
+/**
+ * Minimum amounts for add_liquidity that tolerate price moves within the slippage band.
+ *
+ * The contract adds the most liquidity both deposited amounts allow at the price it sees
+ * when the transaction lands, then checks min_amount_x / min_amount_y against what it used.
+ * In a concentrated range a small price move shifts the X/Y mix a lot, so "amount minus
+ * slippage" per token fails on ordinary moves (worst in narrow ranges). Instead, the minimums
+ * are what the position would use anywhere within ±slippage of the current price: it still
+ * fails when the price really moved past the tolerance, but not on small drifts.
+ */
+export function minAmountsInBand({ left, right, current, amountX, amountY, slippage }) {
+  const ax = Number(amountX);
+  const ay = Number(amountY);
+  const UNIT = 1e24; // reference liquidity; only ratios matter
+  const used = (point) => {
+    const split = Math.min(Math.max(point, left), right);
+    const ux = dclAmountX(UNIT, split, right);
+    const uy = dclAmountY(UNIT, left, split);
+    const lx = ux > 0 ? ax / ux : Infinity;
+    const ly = uy > 0 ? ay / uy : Infinity;
+    const l = Math.min(lx, ly);
+    return Number.isFinite(l) ? { x: l * ux, y: l * uy } : { x: 0, y: 0 };
+  };
+  const { up, down } = slippageBand(slippage);
+  // Used amounts are monotonic in the price, so the band's ends (plus the middle) bound them.
+  const samples = [-down, -down / 2, 0, up / 2, up].map((k) => used(Math.round(current + k)));
+  const margin = 0.999; // rounding headroom between this math and the contract's integer math
+  return {
+    minX: floatToRaw(Math.min(...samples.map((s) => s.x)) * margin),
+    minY: floatToRaw(Math.min(...samples.map((s) => s.y)) * margin)
+  };
+}
+
+/**
+ * Minimum amounts for removing `liquidity` from a position: the least of each token it returns
+ * anywhere within ±slippage of the current price (the X/Y mix shifts with the price).
+ */
+export function removeMinsInBand({ left, right, current, liquidity, slippage }) {
+  const L = Number(liquidity);
+  const { up, down } = slippageBand(slippage);
+  const samples = [-down, -down / 2, 0, up / 2, up].map((k) => {
+    const split = Math.min(Math.max(Math.round(current + k), left), right);
+    return { x: dclAmountX(L, split, right), y: dclAmountY(L, left, split) };
+  });
+  const margin = 0.999;
+  return {
+    minX: floatToRaw(Math.min(...samples.map((s) => s.x)) * margin),
+    minY: floatToRaw(Math.min(...samples.map((s) => s.y)) * margin)
+  };
+}
+
 /** Storage-deposit action needed on the DCL contract before adding a position. */
 async function dclStorageAction(accountId, newSlots) {
   const detail = await view(DCL, 'get_user_storage_detail', { user_id: accountId }, { fresh: true }).catch(() => null);
@@ -123,6 +184,7 @@ export async function buildDclAddTransactions({
   if (toBigInt(amountX) > 0n) txs.push(ftTransferCallTx(pool.token_x, DCL, amountX, '"Deposit"'));
   if (toBigInt(amountY) > 0n) txs.push(ftTransferCallTx(pool.token_y, DCL, amountY, '"Deposit"'));
 
+  const { minX, minY } = minAmountsInBand({ left, right, current: pool.current_point, amountX, amountY, slippage });
   txs.push(
     transaction(DCL, [
       functionCall(
@@ -133,8 +195,8 @@ export async function buildDclAddTransactions({
           right_point: right,
           amount_x: amountX,
           amount_y: amountY,
-          min_amount_x: applySlippage(amountX, slippage),
-          min_amount_y: applySlippage(amountY, slippage)
+          min_amount_x: minX,
+          min_amount_y: minY
         },
         DCL_ADD_GAS
       )
@@ -160,13 +222,8 @@ export async function buildDclRemoveTransactions({ positions, percent, slippage,
   const infos = positions
     .map((p) => {
       const amount = ((toBigInt(p.liquidity) * BigInt(percent)) / 100n).toString();
-      const share = percent / 100;
-      return {
-        lpt_id: p.id,
-        amount,
-        min_amount_x: applySlippage(floatToRaw(p.amountX * share), slippage),
-        min_amount_y: applySlippage(floatToRaw(p.amountY * share), slippage)
-      };
+      const { minX, minY } = removeMinsInBand({ left: p.leftPoint, right: p.rightPoint, current: p.currentPoint, liquidity: amount, slippage });
+      return { lpt_id: p.id, amount, min_amount_x: minX, min_amount_y: minY };
     })
     .filter((info) => toBigInt(info.amount) > 0n);
   if (!infos.length) throw new Error('Nothing to remove.');
@@ -290,14 +347,15 @@ export async function buildDclBinsTransactions({ pool, plan, slippage, accountId
     .map((b) => {
       const amountX = floatToRaw(b.amountX);
       const amountY = floatToRaw(b.amountY);
+      const { minX, minY } = minAmountsInBand({ left: b.left, right: b.right, current: pool.current_point, amountX, amountY, slippage });
       return {
         pool_id: pool.pool_id,
         left_point: b.left,
         right_point: b.right,
         amount_x: amountX,
         amount_y: amountY,
-        min_amount_x: applySlippage(amountX, slippage),
-        min_amount_y: applySlippage(amountY, slippage)
+        min_amount_x: minX,
+        min_amount_y: minY
       };
     })
     .filter((i) => toBigInt(i.amount_x) > 0n || toBigInt(i.amount_y) > 0n);
