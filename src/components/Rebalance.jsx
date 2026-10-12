@@ -7,6 +7,7 @@ import { useAsync } from '../hooks.js';
 import { buildRebalanceTransactions, quoteRebalance, REBALANCE_WIDTHS } from '../lib/rebalance.js';
 import { pointToPrice, STRATEGIES } from '../lib/dclLiquidity.js';
 import { formatAmount, toNumber } from '../lib/format.js';
+import { feeLabel } from '../lib/platformFee.js';
 import { Modal, Spinner, TokenIcon } from './ui.jsx';
 
 function RangeLine({ left, right, x, y }) {
@@ -152,7 +153,11 @@ function RebalanceModal({ all, x, y, onClose, onDone }) {
                 <span>
                   {formatAmount(toNumber(q.swap.amountIn, q.swap.tokenIn.decimals))} {q.swap.tokenIn.symbol} → at least{' '}
                   {formatAmount(toNumber(q.swap.quote.minAmountOut, q.swap.tokenOut.decimals))} {q.swap.tokenOut.symbol}
-                  <small className="muted"> · {q.swap.quote.source}</small>
+                  <small className="muted">
+                    {' '}
+                    · {q.swap.quote.source}
+                    {q.swap.quote.platformFee && ` · ${feeLabel(q.swap.quote.platformFee)}`}
+                  </small>
                 </span>
               ) : (
                 <span className="muted">Not needed — the withdrawn tokens already fit the new range.</span>

@@ -9,7 +9,7 @@
 //   - storage is only ever bought for the signer (or for Rhea's contracts on a new token)
 //   - attached NEAR is capped, except when wrapping NEAR (the amount the user typed)
 
-import { CONTRACTS } from '../config.js';
+import { CONTRACTS, PLATFORM_FEE } from '../config.js';
 
 const ONE_NEAR = 10n ** 24n;
 const MAX_FEE_DEPOSIT = 2n * ONE_NEAR; // storage / registration costs stay far below this
@@ -58,6 +58,14 @@ export function assertSafeTransactions(transactions, signerId) {
     tx.actions.forEach((action) => {
       if (action?.type !== 'FunctionCall') refuse(tx, `"${action?.type}" actions are never used by KINU`);
       const { methodName, args = {}, deposit = '0' } = action.params || {};
+      if (methodName === 'ft_transfer') {
+        // Only the platform fee, only to the treasury; its size is checked over the whole bundle below.
+        if (!PLATFORM_FEE.enabled || args.receiver_id !== PLATFORM_FEE.treasury) {
+          refuse(tx, `tokens would be sent to "${args.receiver_id}"`);
+        }
+        if (BigInt(deposit || '0') !== 1n) refuse(tx, 'unexpected deposit on a fee transfer');
+        return;
+      }
       if (!allowed.includes(methodName)) refuse(tx, `unexpected method "${methodName}"`);
 
       const attached = BigInt(deposit || '0');
@@ -81,5 +89,28 @@ export function assertSafeTransactions(transactions, signerId) {
         refuse(tx, `router storage would be bought for "${args.user}" instead of you`);
       }
     });
+  });
+  assertFeeWithinRate(transactions);
+}
+
+/**
+ * A platform fee in a token may be at most `bps` of what is spent in that token in the same
+ * request (fee + the amounts sent into Rhea), so a bug can never send more than the fee.
+ */
+function assertFeeWithinRate(transactions) {
+  const fee = new Map();
+  const spent = new Map();
+  const add = (map, token, amount) => map.set(token, (map.get(token) || 0n) + BigInt(amount || '0'));
+  transactions.forEach((tx) =>
+    tx.actions.forEach(({ params: { methodName, args = {} } = {} }) => {
+      if (methodName === 'ft_transfer') add(fee, tx.receiverId, args.amount);
+      if (methodName === 'ft_transfer_call') add(spent, tx.receiverId, args.amount);
+    })
+  );
+  fee.forEach((amount, token) => {
+    const gross = amount + (spent.get(token) || 0n);
+    if (!spent.get(token) || amount * 10_000n > gross * BigInt(PLATFORM_FEE.bps) + 10_000n) {
+      refuse({ receiverId: token }, 'the platform fee is larger than the published rate');
+    }
   });
 }

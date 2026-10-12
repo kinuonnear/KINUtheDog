@@ -15,6 +15,7 @@ import {
 import { toBigInt } from './format.js';
 import { getWhitelistedTokens } from './tokens.js';
 import { buildDclSwapTransactions, dclNeighbors, getDclQuote } from './dclRouter.js';
+import { platformFeeFor, withPlatformFee } from './platformFee.js';
 
 const QUOTE_TIMEOUT_MS = 8_000;
 
@@ -28,7 +29,24 @@ const contractOf = (token) => token.contract || token.id;
  * and can split large trades. If neither has a path, a two-step route through
  * a bridge token is tried. Pass `user` to get an executable, user-bound quote.
  */
+/**
+ * Best quote for a swap, with the platform fee (when switched on) taken from the input first:
+ * routes are quoted on the remaining amount and carry `platformFee` for buildSwapTransactions.
+ */
 export async function getSwapQuote(params) {
+  const fee = await platformFeeFor(params);
+  const quote = await getNetSwapQuote(fee ? { ...params, amountIn: fee.net } : params);
+  if (!fee) return quote;
+  for (const route of quote.routes || []) {
+    route.quote.platformFee = fee;
+    if (route.quote.hybrid) route.quote.hybrid.legs[0].platformFee = fee;
+  }
+  quote.platformFee = fee;
+  if (quote.hybrid) quote.hybrid.legs[0].platformFee = fee;
+  return quote;
+}
+
+async function getNetSwapQuote(params) {
   const [router, clmm, bridge] = await Promise.allSettled([getSmartRouterQuote(params), getDclQuote(params), getHybridQuote(params)]);
   if (params.signal?.aborted) throw router.reason || new DOMException('Aborted', 'AbortError');
 
@@ -261,7 +279,12 @@ async function getSmartRouterQuote({ tokenIn, tokenOut, amountIn, slippage, user
  * the route is registered for the user and the aggregator, then
  * ft_transfer_call the input token to the aggregator with the signed route.
  */
+/** Swap transactions for a quote, plus its platform fee transfer when the quote carries one. */
 export async function buildSwapTransactions({ tokenIn, tokenOut, quote, accountId }) {
+  return withPlatformFee(await buildNetSwapTransactions({ tokenIn, tokenOut, quote, accountId }), quote?.platformFee);
+}
+
+async function buildNetSwapTransactions({ tokenIn, tokenOut, quote, accountId }) {
   if (quote?.user !== accountId) throw new Error('Quote was created for another account. Refresh the quote.');
   if (quote.hybrid) throw new Error('Combined routes are executed one leg at a time.');
   if (quote.dcl) return buildDclSwapTransactions({ tokenIn, tokenOut, quote, accountId });

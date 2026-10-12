@@ -8,6 +8,7 @@ import { quoteZap } from '../lib/zap.js';
 import { asWalletToken, priceOf } from '../lib/tokens.js';
 import { formatAmount, formatPercent, formatRawAmount, formatUnits, formatUsd, toBigInt, toNumber, tryParseUnits } from '../lib/format.js';
 import { CONTRACTS, NATIVE_NEAR, NEAR_GAS_RESERVE } from '../config.js';
+import { feeLabel } from '../lib/platformFee.js';
 import TokenPicker from './TokenPicker.jsx';
 import { Spinner, TokenIcon } from './ui.jsx';
 
@@ -155,6 +156,7 @@ export function ZapBreakdown({ zap, loading, error, token, x, y }) {
                 <small className="muted">
                   {' '}
                   → ≥ {formatRawAmount(leg.minOut, t.decimals)} {t.symbol} · {leg.quote.dexs.join(' + ')}
+                  {leg.quote.platformFee && ` · ${feeLabel(leg.quote.platformFee)}`}
                 </small>
               )}
             </dd>

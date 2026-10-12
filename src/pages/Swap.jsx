@@ -9,6 +9,7 @@ import { Modal, Spinner, TokenIcon } from '../components/ui.jsx';
 import { getCachedToken, getToken, getTokens, getWhitelistedTokens, priceOf } from '../lib/tokens.js';
 import { buildSwapTransactions, getSwapQuote, quoteHybridSecondLeg, selectRoute } from '../lib/swap.js';
 import { estimateNetworkFee } from '../lib/gasEstimate.js';
+import { feeLabel } from '../lib/platformFee.js';
 import { warmDclGraph } from '../lib/dclRouter.js';
 import { view } from '../lib/rpc.js';
 import { getAggregatorBalances } from '../lib/rhea.js';
@@ -695,6 +696,7 @@ export default function Swap() {
                           {quote.source === quote.bestSource ? <em className="badge badge--best">Best</em> : <em className="badge badge--gap">Not best</em>}
                           {quote.compared.length > 1 && <span aria-hidden>▾</span>}
                         </button>
+                        {quote.platformFee && <small className="route-fee">{feeLabel(quote.platformFee)}</small>}
                       </dd>
                     </div>
                   )}

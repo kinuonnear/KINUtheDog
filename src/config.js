@@ -84,6 +84,10 @@ export const NATIVE_NEAR = {
 // The official $KINU (relaunched 2026-10-12, paired with RHEA). kinu / kinu-2 are not official.
 export const KINU_TOKEN = 'kinu-3.nearlytrade.near';
 
+// Platform fee on swaps (whitepaper section 6). OFF until it is announced: set enabled to true
+// only after the docs, security page and an announcement say so. bps: 10 = 0.1%.
+export const PLATFORM_FEE = { enabled: false, bps: 10, treasury: 'kinu-treasury.near' };
+
 // Tokens pinned at the top of the token picker.
 export const PINNED_TOKENS = [
   'near',

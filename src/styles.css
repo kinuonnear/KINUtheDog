@@ -6375,3 +6375,6 @@ a.dt-row:hover {
 .wp-flow li + li { margin-top: 22px; }
 .wp-flow li + li::before { content: '↓'; position: absolute; top: -21px; left: 22px; color: var(--accent); font-weight: 700; }
 .wp-flow span { color: var(--muted); font-size: 14px; }
+
+/* Platform fee disclosure (shown only when the fee is switched on) */
+.route-fee { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; text-align: right; }
