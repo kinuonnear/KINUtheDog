@@ -7,6 +7,7 @@ import { Link, poolPath } from '../router.jsx';
 import { useAsync } from '../hooks.js';
 import { fetchTokenInfo } from '../lib/intear.js';
 import { getPoolStats } from '../lib/rhea.js';
+import { getToken } from '../lib/tokens.js';
 import { formatAmount, formatPrice, formatUsd } from '../lib/format.js';
 import '../welcome.css';
 
@@ -104,6 +105,8 @@ export default function Welcome() {
   const pool = useAsync(() => getPoolStats(KINU_RHEA_POOL), [], { refreshMs: 60_000 });
   const price = stats?.price ?? kinuPrice;
   const rheaPrice = prices?.get(RHEA)?.price;
+  // RHEA's own token icon from its on-chain metadata (as wallets and DEXes show it).
+  const rheaToken = useAsync(() => getToken(RHEA), []);
 
   return (
     <div className="welcome">
@@ -120,6 +123,7 @@ export default function Welcome() {
           <div className="navlinks">
             <a href="#rhea">KINU × RHEA</a>
             <a href="#platform">Platform</a>
+            <a href="#features">Features</a>
             <a href="#about">About</a>
             <a href="#token">Token</a>
             <a href="#why">Why KINU</a>
@@ -232,7 +236,7 @@ export default function Welcome() {
               <div className="pair__logos">
                 <img src={LOGO} alt="KINU" />
                 <span>×</span>
-                <b>RHEA</b>
+                {rheaToken.data?.icon ? <img src={rheaToken.data.icon} alt="RHEA" /> : <b>RHEA</b>}
               </div>
               <div>
                 <h3>KINU / RHEA</h3>
@@ -298,6 +302,232 @@ export default function Welcome() {
               LAUNCH APP ↗
             </Link>
           </div>
+        </section>
+
+        <section id="features">
+          <div className="section-head">
+            <div>
+              <div className="eyebrow">WHY LPS CHOOSE KINU</div>
+              <h2>
+                Built for liquidity,
+                <br />
+                not just swaps.
+              </h2>
+            </div>
+            <p>
+              Four tools you won’t find together anywhere else on NEAR — from the first swap to the day you close your
+              position.
+            </p>
+          </div>
+
+          <div className="feature-list">
+            <article className="feature">
+              <div className="feature__copy">
+                <span className="feature__num">01 · SWAP</span>
+                <h3>
+                  Smart routes. <em>Better swaps.</em>
+                </h3>
+                <p>
+                  Every swap is quoted on Rhea’s SmartRouter <strong>and</strong> on direct CLMM routes up to three hops, side
+                  by side. The best output is picked for you — or choose any route yourself.
+                </p>
+                <ul>
+                  <li>Routes compared live, best marked</li>
+                  <li>Price impact, minimum received and network fee before you sign</li>
+                  <li>Quick 25 · 50 · 80 · 100% amounts</li>
+                </ul>
+                <Link className="feature__cta" to="/swap">
+                  Try a swap →
+                </Link>
+              </div>
+              <div className="feature__art" aria-hidden="true">
+                <div className="mock">
+                  <div className="mock__head">
+                    <strong>Select route</strong>
+                    <small>Quoted live on Rhea</small>
+                  </div>
+                  <div className="mock-route">
+                    <span>
+                      <b>SmartRouter</b>
+                      <small>RheaCLMM</small>
+                    </span>
+                    <span className="mock-route__out">
+                      0.08312 QTC <i className="tag tag--down">−1.58%</i>
+                    </span>
+                  </div>
+                  <div className="mock-route mock-route--best">
+                    <span>
+                      <b>Rhea CLMM (direct)</b>
+                      <small>RheaCLMM · via USDC</small>
+                    </span>
+                    <span className="mock-route__out">
+                      0.08446 QTC <i className="tag tag--best">Best</i>
+                    </span>
+                  </div>
+                  <div className="mock-route">
+                    <span>
+                      <b>Bridge route (2 steps)</b>
+                      <small>RheaAMM + RheaCLMM</small>
+                    </span>
+                    <span className="mock-route__out">
+                      0.08374 QTC <i className="tag tag--down">−0.85%</i>
+                    </span>
+                  </div>
+                  <div className="mock__foot">
+                    <span>Price impact</span>
+                    <b>0.14%</b>
+                    <span>Network fee</span>
+                    <b>≈ 0.0035 NEAR</b>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <article className="feature feature--flip">
+              <div className="feature__copy">
+                <span className="feature__num">02 · ZAP IN</span>
+                <h3>
+                  One token. <em>A simpler way in.</em>
+                </h3>
+                <p>
+                  Open a concentrated-liquidity position with <strong>just one token</strong>. KINU swaps the right share into
+                  the pair and opens your range — in a single wallet request.
+                </p>
+                <ul>
+                  <li>No manual swapping or ratio math</li>
+                  <li>Spot, Curve or Bid-Ask shapes</li>
+                  <li>Sized from guaranteed minimums — never over-spends</li>
+                </ul>
+                <Link className="feature__cta" to="/pools">
+                  Find a pool →
+                </Link>
+              </div>
+              <div className="feature__art" aria-hidden="true">
+                <div className="mock mock--zap">
+                  <div className="zap-in">
+                    <span className="chip chip--big">5 NEAR</span>
+                    <span className="zap-in__bolt">⚡ Zap in</span>
+                  </div>
+                  <div className="zap-split">
+                    <span className="chip">≈ 2.5 NEAR → wNEAR</span>
+                    <span className="chip">≈ 2.5 NEAR → QTC</span>
+                  </div>
+                  <div className="zap-bars">
+                    {[30, 46, 62, 78, 90, 78, 62, 46, 30].map((h, i) => (
+                      <i key={i} style={{ height: `${h}%` }} className={i < 4 ? 'y' : i > 4 ? 'x' : 'mid'} />
+                    ))}
+                  </div>
+                  <div className="mock__foot mock__foot--center">
+                    <i className="tag tag--best">Position opened</i>
+                    <span>Curve · 1 wallet request</span>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <article className="feature">
+              <div className="feature__copy">
+                <span className="feature__num">03 · REBALANCE</span>
+                <h3>
+                  Out of range? <em>One click back in.</em>
+                </h3>
+                <p>
+                  When the price leaves your range, your liquidity stops earning. <strong>Rebalance</strong> withdraws it,
+                  swaps what the new range needs and reopens it around the current price — all in one request.
+                </p>
+                <ul>
+                  <li>Same width or ±5 / 10 / 25%, any strategy</li>
+                  <li>Every step shown before you sign</li>
+                  <li>Stops safely if the pool can’t fill it</li>
+                </ul>
+                <Link className="feature__cta" to="/portfolio">
+                  Check your positions →
+                </Link>
+              </div>
+              <div className="feature__art" aria-hidden="true">
+                <div className="mock mock--rebalance">
+                  <div className="mock__head">
+                    <strong>KINU / RHEA</strong>
+                    <small>CLMM · 1% fee</small>
+                  </div>
+                  <div className="rb-track">
+                    <span className="rb-range rb-range--old">
+                      <i className="tag tag--warn">Out of range</i>
+                    </span>
+                    <span className="rb-price">
+                      <i>price</i>
+                    </span>
+                    <span className="rb-range rb-range--new">
+                      <i className="tag tag--best">Earning again</i>
+                    </span>
+                  </div>
+                  <div className="rb-steps">
+                    <span>
+                      <b>1</b> Withdraw
+                    </span>
+                    <span>
+                      <b>2</b> Swap
+                    </span>
+                    <span>
+                      <b>3</b> Reopen
+                    </span>
+                  </div>
+                  <div className="rb-button">⟲ Rebalance</div>
+                </div>
+              </div>
+            </article>
+
+            <article className="feature feature--flip">
+              <div className="feature__copy">
+                <span className="feature__num">04 · PORTFOLIO</span>
+                <h3>
+                  Know exactly how <em>your LP performs.</em>
+                </h3>
+                <p>
+                  Total LP PnL <strong>with fees included</strong>, win rate, holding time and the history of every closed
+                  position — plus real token PnL from your own buys and sells.
+                </p>
+                <ul>
+                  <li>Unrealized + realized PnL in one place</li>
+                  <li>Fees earned per position</li>
+                  <li>Share a clean PnL card to X — no wallet address</li>
+                </ul>
+                <Link className="feature__cta" to="/portfolio">
+                  Open portfolio →
+                </Link>
+              </div>
+              <div className="feature__art" aria-hidden="true">
+                <div className="mock mock--pnl">
+                  <div className="pnl-top">
+                    <span>
+                      <small>Total LP PnL</small>
+                      <b>+$1,284.52</b>
+                    </span>
+                    <span className="share-chip">↗ Share</span>
+                  </div>
+                  <svg className="pnl-spark" viewBox="0 0 300 70" preserveAspectRatio="none">
+                    <path className="fill" d="M0 60 C30 58 45 50 70 52 S110 40 135 42 S170 26 195 30 S240 12 265 14 S290 6 300 4 L300 70 L0 70Z" />
+                    <path className="line" d="M0 60 C30 58 45 50 70 52 S110 40 135 42 S170 26 195 30 S240 12 265 14 S290 6 300 4" />
+                  </svg>
+                  <div className="pnl-grid">
+                    <span>
+                      <small>Fees earned</small>
+                      <b>$412.30</b>
+                    </span>
+                    <span>
+                      <small>Win rate</small>
+                      <b>72%</b>
+                    </span>
+                    <span>
+                      <small>Closed</small>
+                      <b>18</b>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </div>
+          <p className="feature-note">Illustrations show example numbers.</p>
         </section>
 
         <section id="token">
