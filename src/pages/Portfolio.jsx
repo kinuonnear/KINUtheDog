@@ -12,6 +12,8 @@ import LiquidityTable from '../components/LiquidityTable.jsx';
 import { ClosedPositions, PnlDashboard, PnlValue, useLpHistory } from '../components/LpPnl.jsx';
 import { AvgCell, rowPnl, SoldTokens, TokenPnlSummary, useTokenPnl } from '../components/TokenPnl.jsx';
 import { fetchTokenInfo } from '../lib/intear.js';
+import { tokenShareCard } from '../lib/shareCard.js';
+import ShareButton from '../components/ShareCard.jsx';
 import { EmptyState, ErrorNotice, Skeleton, Spinner, Stat, Tabs, TokenIcon } from '../components/ui.jsx';
 
 const DUST_USD = 0.01;
@@ -88,6 +90,8 @@ export default function Portfolio() {
   const { accountId, prices, execute } = useApp();
   const { search } = useLocation();
   const viewed = search.get('account') || accountId;
+  // Cards say "my PnL": only offered on your own portfolio.
+  const ownPortfolio = Boolean(accountId) && viewed === accountId;
   const readOnly = viewed !== accountId;
   const [tab, setTab] = useState('tokens');
   const [showDust, setShowDust] = useState(false);
@@ -331,8 +335,11 @@ export default function Portfolio() {
                 </span>
                 <span data-label="PnL">
                   {info?.avg ? (
-                    <span title={info.partial ? 'Part of this balance predates the loaded history' : undefined}>
+                    <span className="pnl-share" title={info.partial ? 'Part of this balance predates the loaded history' : undefined}>
                       <PnlValue value={info.pnl} pct={info.pct} />
+                      {ownPortfolio && (
+                        <ShareButton label="" className="icon-button pnl-share__button" build={(hideUsd) => tokenShareCard(r, info, hideUsd)} />
+                      )}
                     </span>
                   ) : (
                     <span className="muted">{tokenPnl.loading ? <Spinner size={12} /> : '—'}</span>
@@ -363,7 +370,7 @@ export default function Portfolio() {
         </>
       ) : tab === 'liquidity' ? (
         <>
-          <PnlDashboard history={history} />
+          <PnlDashboard history={history} shareable={ownPortfolio} />
           <LiquidityTable
             classicRows={model.classicRows}
             dclRows={model.dclRows}

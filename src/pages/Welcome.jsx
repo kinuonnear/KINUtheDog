@@ -164,6 +164,7 @@ export default function Welcome() {
             <a href="#token">Token</a>
             <a href="#why">Why KINU</a>
             <a href="#community">Community</a>
+            <Link to="/docs">Docs</Link>
           </div>
           <div className="navactions">
             <a className="navbtn" href={X_URL} {...ext}>
@@ -254,6 +255,7 @@ export default function Welcome() {
           <span>Built on NEAR</span>
           <span>Non-custodial — you sign every transaction</span>
           <span>Open source</span>
+          <Link to="/security">Security &amp; transparency →</Link>
         </div>
 
         <section id="rhea">
@@ -522,6 +524,8 @@ export default function Welcome() {
               <Link to="/swap">Swap</Link>
               <Link to="/pools">Pools &amp; Smart LP</Link>
               <Link to="/portfolio">Portfolio</Link>
+              <Link to="/docs">Docs</Link>
+              <Link to="/security">Security &amp; transparency</Link>
             </div>
             <div>
               <h4>Community</h4>

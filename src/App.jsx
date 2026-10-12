@@ -13,12 +13,15 @@ import Pools from './pages/Pools.jsx';
 import PoolDetail from './pages/PoolDetail.jsx';
 import Portfolio from './pages/Portfolio.jsx';
 import CreatePool from './pages/CreatePool.jsx';
+import Security from './pages/Security.jsx';
+import Docs from './pages/Docs.jsx';
 
 const NAV = [
   { to: '/app', label: 'Home', match: ['app'] },
   { to: '/swap', label: 'Swap', match: ['swap'] },
   { to: '/pools', label: 'Pools', match: ['pools', 'pool'] },
-  { to: '/portfolio', label: 'Portfolio', match: ['portfolio'] }
+  { to: '/portfolio', label: 'Portfolio', match: ['portfolio'] },
+  { to: '/docs', label: 'Docs', match: ['docs'] }
 ];
 
 // Trading screens use the full window width (like Meteora / Intear). CLMM pool
@@ -33,6 +36,7 @@ const TITLES = {
   pool: 'Pool · KINU',
   portfolio: 'Portfolio · KINU',
   create: 'Create pool · KINU',
+  security: 'Security & transparency · KINU',
   notfound: 'Not found · KINU'
 };
 
@@ -92,7 +96,8 @@ export default function App() {
   const appView = route.name === 'pool' && route.params[0]?.includes('|');
 
   useEffect(() => {
-    document.title = TITLES[route.name] || TITLES.home;
+    // Docs pages set their own title per article.
+    if (route.name !== 'docs') document.title = TITLES[route.name] || TITLES.home;
   }, [route.name]);
 
   let page;
@@ -114,6 +119,12 @@ export default function App() {
       break;
     case 'create':
       page = <CreatePool />;
+      break;
+    case 'security':
+      page = <Security />;
+      break;
+    case 'docs':
+      page = <Docs slug={route.params[0]} />;
       break;
     default:
       page = (
@@ -172,7 +183,7 @@ export default function App() {
           <a href={ENDPOINTS.rheaApp} target="_blank" rel="noopener noreferrer">
             Rhea Finance
           </a>{' '}
-          · Non-custodial
+          · Non-custodial · <Link to="/docs">Docs</Link> · <Link to="/security">Security</Link>
         </span>
       </footer>
       )}

@@ -11,6 +11,8 @@ import { buildHistory, formatAge, loadDclEvents, loadPriceHistory } from '../lib
 import { pointToPrice } from '../lib/dclLiquidity.js';
 import { formatAmount, formatPercent, formatUsd } from '../lib/format.js';
 import { EmptyState, PairIcons, Skeleton, Spinner } from './ui.jsx';
+import { lpShareCard } from '../lib/shareCard.js';
+import ShareButton from './ShareCard.jsx';
 
 const UP = '#b8ff3d';
 const DOWN = '#ff5d6c';
@@ -222,7 +224,7 @@ function Metric({ label, children, loading, tone }) {
   );
 }
 
-export function PnlDashboard({ history }) {
+export function PnlDashboard({ history, shareable = false }) {
   const [mode, setMode] = useState('pnl');
   const [range, setRange] = useState('30d');
   const { model, loading, error, reload } = history;
@@ -233,7 +235,10 @@ export function PnlDashboard({ history }) {
     <section className="card pnl-dash">
       <div className="pnl-dash__stats">
         <div className="pnl-dash__headline">
-          <span className="eyebrow">Total LP PnL</span>
+          <span className="pnl-dash__title">
+            <span className="eyebrow">Total LP PnL</span>
+            {shareable && !busy && (s.closedCount > 0 || s.totalInvested > 0) && <ShareButton build={(hideUsd) => lpShareCard(s, hideUsd)} />}
+          </span>
           {busy ? (
             <Skeleton width={160} height={34} />
           ) : (

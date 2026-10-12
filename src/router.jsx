@@ -35,7 +35,9 @@ const ROUTES = [
   { name: 'pools', pattern: /^\/pools$/ },
   { name: 'pool', pattern: /^\/pools\/([^/]+)$/ },
   { name: 'create', pattern: /^\/create-pool$/ },
-  { name: 'portfolio', pattern: /^\/portfolio$/ }
+  { name: 'portfolio', pattern: /^\/portfolio$/ },
+  { name: 'security', pattern: /^\/security$/ },
+  { name: 'docs', pattern: /^\/docs(?:\/([^/]+))?$/ }
 ];
 
 export function matchRoute(pathname) {

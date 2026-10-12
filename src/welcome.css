@@ -380,3 +380,4 @@
 .welcome .pair__actions{grid-area:actions;display:flex;gap:10px;flex-wrap:wrap}
 @media(max-width:900px){.welcome .pair{grid-template-columns:1fr;grid-template-areas:"head" "stats" "actions"}}
 @media(max-width:620px){.welcome .pair{padding:22px}.welcome .pair__stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.welcome .trust-row a{color:var(--teal)}.welcome .trust-row a:before{content:"•";color:#4a6a1c;margin-right:14px}.welcome .trust-row a:hover{text-decoration:underline}
