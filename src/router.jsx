@@ -46,7 +46,8 @@ export function matchRoute(pathname) {
   for (const route of ROUTES) {
     const match = pathname.match(route.pattern);
     if (match) {
-      return { name: route.name, params: match.slice(1).map((p) => decodeURIComponent(p)) };
+      // Optional groups that did not match stay undefined (not the string "undefined").
+      return { name: route.name, params: match.slice(1).map((p) => (p === undefined ? undefined : decodeURIComponent(p))) };
     }
   }
   return { name: 'notfound', params: [] };

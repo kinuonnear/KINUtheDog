@@ -3,6 +3,7 @@
 
 import { useEffect } from 'react';
 import { Link, poolPath } from '../router.jsx';
+import { WHITEPAPER } from './Whitepaper.jsx';
 
 const KINU = 'kinu-3.nearlytrade.near';
 const RHEA = 'token.rhealab.near';
@@ -45,6 +46,13 @@ function Terms({ items }) {
 }
 
 const DOCS = [
+  {
+    group: 'Start here',
+    slug: 'whitepaper',
+    title: 'Whitepaper',
+    summary: 'KINU DeFi: the terminal, the $KINU token, revenue and roadmap.',
+    body: WHITEPAPER
+  },
   {
     group: 'Start here',
     slug: 'introduction',
@@ -410,7 +418,9 @@ const DOCS = [
 ];
 
 export default function Docs({ slug }) {
-  const index = Math.max(0, DOCS.findIndex((d) => d.slug === slug));
+  // /docs opens the introduction; the whitepaper is listed first in the menu.
+  const found = DOCS.findIndex((d) => d.slug === slug);
+  const index = found >= 0 ? found : DOCS.findIndex((d) => d.slug === 'introduction');
   const doc = DOCS[index];
   const prev = DOCS[index - 1];
   const next = DOCS[index + 1];

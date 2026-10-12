@@ -713,6 +713,7 @@ export default function Welcome() {
               <Link to="/pools">Pools &amp; Smart LP</Link>
               <Link to="/portfolio">Portfolio</Link>
               <Link to="/docs">Docs</Link>
+              <Link to="/docs/whitepaper">Whitepaper</Link>
               <Link to="/security">Security &amp; transparency</Link>
             </div>
             <div>
