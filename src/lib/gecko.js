@@ -61,16 +61,22 @@ async function fetchAttributes(pools) {
     const url = `${ENDPOINTS.geckoterminal}/networks/near/pools/multi/${batch.map((p) => encodeURIComponent(geckoPoolId(p))).join(',')}`;
     // Gecko signals rate limiting with HTTP 429 or with a 200 whose body carries
     // error_code 429; back off and retry a couple of times before giving up.
+    // A 429 sent without CORS headers surfaces as a network error, so that is retried too.
     let json = null;
     for (let attempt = 0; attempt <= 2 && !json; attempt += 1) {
       if (attempt) await new Promise((r) => setTimeout(r, 6_000 * attempt));
-      const res = await fetch(url);
+      const res = await fetch(url).catch(() => null);
+      if (!res) continue;
       const body = res.status === 429 ? null : await res.json().catch(() => null);
       if (res.status === 429 || body?.status?.error_code === 429) continue;
       if (!res.ok) throw new Error(`GeckoTerminal HTTP ${res.status}`);
       json = body;
     }
-    if (!json) throw new Error('GeckoTerminal rate limit');
+    if (!json) {
+      // Keep what earlier batches returned; these pools stay unknown (and uncached).
+      if (Object.keys(out).length) continue;
+      throw new Error('GeckoTerminal rate limit');
+    }
     const byId = new Map((json.data || []).map((d) => [d.attributes?.address, d.attributes]));
     batch.forEach((p) => {
       const value = byId.get(geckoPoolId(p)) || null;
@@ -92,7 +98,7 @@ const trades = (t) => (t ? (Number(t.buys) || 0) + (Number(t.sells) || 0) : 0);
 
 /**
  * Recent activity per pool: volume windows, base-token price change (%) and trade counts.
- * { [poolId]: { volume: { h1, h4, h6, h12, h24 }, change: { h1, h6, h24 }, trades: { h1, h24 } } | null }
+ * { [poolId]: { volume: { h1, h4, h6, h12, h24 }, change: { h1, h6, h24 }, trades: { h1, h6, h24 } } | null }
  */
 export async function fetchPoolActivity(pools) {
   const attrs = await fetchAttributes(pools);
@@ -106,7 +112,7 @@ export async function fetchPoolActivity(pools) {
         {
           volume: windowsFrom(a.volume_usd || {}),
           change: { h1: pct(change.h1), h6: pct(change.h6), h24: pct(change.h24) },
-          trades: { h1: trades(a.transactions?.h1), h24: trades(a.transactions?.h24) }
+          trades: { h1: trades(a.transactions?.h1), h6: trades(a.transactions?.h6), h24: trades(a.transactions?.h24) }
         }
       ];
     })

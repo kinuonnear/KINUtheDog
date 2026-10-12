@@ -32,8 +32,22 @@ export async function enrichTokens(ids) {
   }));
 }
 
+const SHARE_MS = 60_000; // the Discover banner and table share one fetch
+const shared = new Map(); // limit -> { at, promise }
+
 /** Top tokens by 24h Rhea pool volume (each pool's volume counts for both of its tokens). */
-export async function getTrending({ limit = 20 } = {}) {
+export function getTrending({ limit = 20 } = {}) {
+  const hit = shared.get(limit);
+  if (hit && Date.now() - hit.at < SHARE_MS) return hit.promise;
+  const promise = loadTrending(limit);
+  shared.set(limit, { at: Date.now(), promise });
+  promise.catch(() => {
+    if (shared.get(limit)?.promise === promise) shared.delete(limit);
+  });
+  return promise;
+}
+
+async function loadTrending(limit) {
   const { list } = await searchPools({ sort: 'volume_24h', limit: 60, hideLow: true });
   const volume = new Map();
   list.forEach((pool) => {

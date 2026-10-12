@@ -2,14 +2,14 @@
 // New launches and your Watchlist.
 
 import { useMemo, useState } from 'react';
-import { useAsync } from '../hooks.js';
+import { useAsync, useLocalStorage } from '../hooks.js';
 import { Link, navigate, poolPath, useLocation } from '../router.jsx';
 import { EmptyState, ErrorNotice, PairIcons, Skeleton, Tabs, TokenIcon } from '../components/ui.jsx';
 import WatchStar from '../components/WatchStar.jsx';
 import { enrichTokens, getTrending } from '../lib/trending.js';
 import { useWatchlist } from '../lib/watchlist.js';
 import { formatPercent, formatPrice, formatUsd } from '../lib/format.js';
-import { bestToLp, getPoolRadar, hotPairs, LP_MIN_TVL } from '../lib/poolRadar.js';
+import { bestToLp, filterRadar, getPoolRadar, hotPairs, LP_MIN_TVL, RADAR_TYPES, RADAR_WINDOWS } from '../lib/poolRadar.js';
 import { NATIVE_NEAR } from '../config.js';
 import { NewLaunches } from './NewOnRhea.jsx';
 import { usePoolTokens } from './Pools.jsx';
@@ -25,20 +25,21 @@ const TABS = [
 
 const MIN_GAINER_LIQUIDITY = 10_000;
 
+// [before, highlighted word, after]
 const TITLES = {
-  trending: 'Trending on Rhea',
-  hot: 'Hot pairs on Rhea',
-  gainers: 'Top gainers on Rhea',
-  lp: 'Best pools to LP',
-  new: 'New on Rhea',
-  watchlist: 'Your watchlist'
+  trending: ['Trending on ', 'Rhea', ''],
+  hot: ['Hot pairs on ', 'Rhea', ''],
+  gainers: ['Top gainers on ', 'Rhea', ''],
+  lp: ['Best pools ', 'to', ' LP'],
+  new: ['New on ', 'Rhea', ''],
+  watchlist: ['Your ', 'watchlist', '']
 };
 
 const INTROS = {
   trending: 'Tokens with the most trading volume across Rhea pools in the last 24 hours. NEAR and stablecoins are left out.',
-  hot: 'The pairs traded most in the last hour: where the action is right now.',
+  hot: 'The pairs traded most right now, over the last hour, 6 hours or day.',
   gainers: 'Biggest 24h moves among actively traded Rhea tokens with at least $10K liquidity.',
-  lp: `Pools that paid their liquidity providers the most fees per dollar in the last 24 hours (TVL ≥ $${LP_MIN_TVL / 1000}K), with how much the price moved.`,
+  lp: `Pools that paid their liquidity providers the most fees per dollar (TVL ≥ $${LP_MIN_TVL / 1000}K), with how much the price moved.`,
   new: 'The newest tokens with a Rhea pool, launched on Nearly. Live every minute, with the facts that matter before you buy.',
   watchlist: 'Tokens you starred, with live prices.'
 };
@@ -131,23 +132,41 @@ function Trending({ gainers }) {
   );
 }
 
-/** Pool table shared by Hot pairs and Best to LP: rank, pair, five numbers, one action. */
+/** ☆ / ★ for a pool, shared with the favourites on the Pools page. */
+function PoolStar({ id, favorites, onToggle }) {
+  const on = favorites.includes(id);
+  return (
+    <button
+      type="button"
+      className={`watch-star disc-star ${on ? 'watch-star--on' : ''}`}
+      onClick={() => onToggle(id)}
+      aria-pressed={on}
+      title={on ? 'Remove from favourite pools' : 'Add to favourite pools'}
+    >
+      {on ? '★' : '☆'}
+    </button>
+  );
+}
+
+/** Pool table shared by Hot pairs and Best to LP: rank, pair, five numbers, star + one action. */
 function PoolTable({ rows, loading, error, onRetry, heads, cells, action, empty }) {
   const tokensOf = usePoolTokens(rows || []);
+  const [favorites, setFavorites] = useLocalStorage('kinu.pool.favorites', []);
+  const toggle = (id) => setFavorites((list) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]));
   if (error && !rows) return <ErrorNotice error={error} onRetry={onRetry} />;
   return (
     <section className="card new-table disc-table">
-      <div className="new-row disc-row new-row--head">
+      <div className="new-row disc-row disc-row--pools new-row--head">
         <span>#</span>
         <span>Pair</span>
         {heads.map((h) => (
           <span key={h}>{h}</span>
         ))}
-        <span />
+        <span className="disc-row__actions-head">Actions</span>
       </div>
       {loading && !rows
         ? Array.from({ length: 8 }, (_, i) => (
-            <div className="new-row disc-row" key={i}>
+            <div className="new-row disc-row disc-row--pools" key={i}>
               <Skeleton width={16} />
               <Skeleton width={140} />
               {heads.map((h) => (
@@ -159,10 +178,17 @@ function PoolTable({ rows, loading, error, onRetry, heads, cells, action, empty 
         : rows?.map((r, i) => {
             const tokens = tokensOf(r);
             return (
-              <div className="new-row disc-row" key={r.id} onClick={() => navigate(poolPath(r.id))} role="link" tabIndex={0}>
+              <div
+                className="new-row disc-row disc-row--pools disc-row--in"
+                style={{ animationDelay: `${Math.min(i, 12) * 35}ms` }}
+                key={r.id}
+                onClick={() => navigate(poolPath(r.id))}
+                role="link"
+                tabIndex={0}
+              >
                 <span className="disc-row__rank">{i + 1}</span>
                 <span className="new-row__token">
-                  <PairIcons tokens={tokens} size={26} />
+                  <PairIcons tokens={tokens} size={28} />
                   <span>
                     <strong>{tokens.map((t) => t.symbol).join(' / ')}</strong>
                     <small>
@@ -176,7 +202,8 @@ function PoolTable({ rows, loading, error, onRetry, heads, cells, action, empty 
                     {c}
                   </span>
                 ))}
-                <span className="new-row__buy" onClick={(e) => e.stopPropagation()}>
+                <span className="new-row__buy disc-row__actions" onClick={(e) => e.stopPropagation()}>
+                  <PoolStar id={r.id} favorites={favorites} onToggle={toggle} />
                   {action(r)}
                 </span>
               </div>
@@ -187,9 +214,9 @@ function PoolTable({ rows, loading, error, onRetry, heads, cells, action, empty 
   );
 }
 
-function Segmented({ value, onChange, options }) {
+function Segmented({ value, onChange, options, className = '' }) {
   return (
-    <div className="segmented disc-sort">
+    <div className={`segmented disc-seg ${className}`}>
       {options.map((o) => (
         <button key={o.key} type="button" className={value === o.key ? 'active' : ''} onClick={() => onChange(o.key)}>
           {o.label}
@@ -199,30 +226,63 @@ function Segmented({ value, onChange, options }) {
   );
 }
 
-function HotPairs() {
+const windowLabel = (key) => RADAR_WINDOWS.find((w) => w.key === key)?.label || '24H';
+
+/** Sort toggle on the left; time window and pool search on the right. */
+function PoolToolbar({ sort, sorts, onSort, filters, onFilters }) {
+  return (
+    <div className="disc-toolbar">
+      <Segmented value={sort} onChange={onSort} options={sorts} />
+      <div className="disc-toolbar__right">
+        <Segmented
+          className="disc-seg--window"
+          value={filters.window}
+          onChange={(window) => onFilters({ ...filters, window })}
+          options={RADAR_WINDOWS.map((w) => ({ key: w.key, label: w.label }))}
+        />
+        <label className="disc-search">
+          <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+            <circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" strokeWidth="1.6" />
+            <path d="M11 11l3.5 3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+          </svg>
+          <input value={filters.query} onChange={(e) => onFilters({ ...filters, query: e.target.value })} placeholder="Search pools…" aria-label="Search pools" />
+        </label>
+      </div>
+    </div>
+  );
+}
+
+function HotPairs({ filters, onFilters }) {
   const data = useAsync(getPoolRadar, [], { refreshMs: 90_000 });
   const [by, setBy] = useState('volume');
-  const rows = useMemo(() => (data.data ? hotPairs(data.data, by) : null), [data.data, by]);
+  const { window } = filters;
+  const rows = useMemo(
+    () => (data.data ? hotPairs(filterRadar(data.data, filters), { by, window }) : null),
+    [data.data, by, window, filters]
+  );
+  const w = windowLabel(window);
   return (
     <>
-      <Segmented
-        value={by}
-        onChange={setBy}
-        options={[
+      <PoolToolbar
+        sort={by}
+        onSort={setBy}
+        sorts={[
           { key: 'volume', label: 'By volume' },
           { key: 'trades', label: 'By trades' }
         ]}
+        filters={filters}
+        onFilters={onFilters}
       />
       <PoolTable
         rows={rows}
         loading={data.loading}
         error={data.error}
         onRetry={data.reload}
-        heads={['Volume 1H', 'Trades 1H', 'Price 1H', 'Volume 24H', 'TVL']}
+        heads={[`Volume ${w}`, `Trades ${w}`, `Price ${w}`, 'Volume 24H', 'TVL']}
         cells={(r) => [
-          formatUsd(r.activity.volume.h1),
-          r.activity.trades.h1.toLocaleString(),
-          <Change key="c" value={r.activity.change.h1} />,
+          formatUsd(r.activity.volume[window]),
+          (r.activity.trades[window] || 0).toLocaleString(),
+          <Change key="c" value={r.activity.change[window]} />,
           formatUsd(r.activity.volume.h24 || r.volume24h),
           formatUsd(r.tvl)
         ]}
@@ -234,40 +294,47 @@ function HotPairs() {
             Swap
           </Link>
         )}
-        empty={<p className="muted small new-table__empty">No trading activity in the last hour.</p>}
+        empty={<p className="muted small new-table__empty">No pairs match. Try another filter or window.</p>}
       />
     </>
   );
 }
 
-function BestToLp() {
+function BestToLp({ filters, onFilters }) {
   const data = useAsync(getPoolRadar, [], { refreshMs: 90_000 });
   const [mode, setMode] = useState('yield');
-  const rows = useMemo(() => (data.data ? bestToLp(data.data, mode) : null), [data.data, mode]);
+  const { window } = filters;
+  const rows = useMemo(
+    () => (data.data ? bestToLp(filterRadar(data.data, filters), { mode, window }) : null),
+    [data.data, mode, window, filters]
+  );
+  const w = windowLabel(window);
   return (
     <>
-      <Segmented
-        value={mode}
-        onChange={setMode}
-        options={[
+      <PoolToolbar
+        sort={mode}
+        onSort={setMode}
+        sorts={[
           { key: 'yield', label: 'Highest yield' },
           { key: 'balanced', label: 'Yield vs. price swings' }
         ]}
+        filters={filters}
+        onFilters={onFilters}
       />
       <PoolTable
         rows={rows}
         loading={data.loading}
         error={data.error}
         onRetry={data.reload}
-        heads={['Fees 24H', 'Yield 24H', 'Rhea APR', 'Price 24H', 'TVL']}
+        heads={[`Fees ${w}`, `Yield ${w}`, 'Rhea APR', `Price ${w}`, 'TVL']}
         cells={(r) => [
-          formatUsd(r.feeVolume24h),
-          <b key="y" className="up" title="24h fees ÷ TVL: what $100 of liquidity earned in a day">
+          formatUsd(r.fees),
+          <b key="y" className="up" title={`Fees over ${w} ÷ TVL: what $100 of liquidity earned`}>
             {formatPercent(r.yieldPct, 2)}
           </b>,
           formatPercent(r.apy + r.farmApy),
           <span key="m" className="disc-swing">
-            <Change value={r.activity?.change.h24} />
+            <Change value={r.change} />
             {r.swing && <em className={`swing swing--${r.swing.key}`}>{r.swing.label}</em>}
           </span>,
           formatUsd(r.tvl)
@@ -277,7 +344,7 @@ function BestToLp() {
             Add LP
           </Link>
         )}
-        empty={<p className="muted small new-table__empty">No pools to show right now.</p>}
+        empty={<p className="muted small new-table__empty">No pools match. Try another filter or window.</p>}
       />
     </>
   );
@@ -298,40 +365,69 @@ function Watchlist() {
   return <TokenTable rows={data.data} loading={data.loading} error={data.error} onRetry={data.reload} />;
 }
 
+const POOL_TABS = new Set(['hot', 'lp']);
+const DEFAULT_WINDOW = { hot: 'h1', lp: 'h24' };
+
 export default function Discover({ defaultTab = 'trending' }) {
   const { search } = useLocation();
   const tab = TABS.some((t) => t.key === search.get('tab')) ? search.get('tab') : defaultTab;
   const { list } = useWatchlist();
+  const [type, setType] = useState('all');
+  const [query, setQuery] = useState('');
+  const [windows, setWindows] = useState(DEFAULT_WINDOW);
+  const filters = { type, query, window: windows[tab] || 'h24' };
+  const setFilters = (next) => {
+    setType(next.type);
+    setQuery(next.query);
+    setWindows((w) => ({ ...w, [tab]: next.window }));
+  };
+  const [pre, accent, post] = TITLES[tab];
 
   return (
-    <div className="page new-page">
-      <header className="page-head">
-        <span className="eyebrow">Discover</span>
-        <h1>{TITLES[tab]}</h1>
-        <p>{INTROS[tab]}</p>
-      </header>
-      <Tabs
-        tabs={TABS.map((t) => (t.key === 'watchlist' ? { ...t, count: list.length || undefined } : t))}
-        value={tab}
-        onChange={(key) => navigate(`/discover?tab=${key}`, { replace: true })}
-      />
+    <div className="page new-page disc-page">
+      <section className="disc-banner">
+        <div className="disc-banner__img" aria-hidden="true" />
+        <div className="disc-banner__shade" aria-hidden="true" />
+        <header className="page-head disc-banner__head" key={tab}>
+          <span className="eyebrow">Discover</span>
+          <h1>
+            {pre}
+            <span className="disc-accent">{accent}</span>
+            {post}
+          </h1>
+          <p>{INTROS[tab]}</p>
+        </header>
+      </section>
+
+
+      <div className="disc-nav">
+        <Tabs
+          tabs={TABS.map((t) => (t.key === 'watchlist' ? { ...t, count: list.length || undefined } : t))}
+          value={tab}
+          onChange={(key) => navigate(`/discover?tab=${key}`, { replace: true })}
+        />
+        {POOL_TABS.has(tab) && (
+          <Segmented className="disc-seg--types" value={type} onChange={setType} options={RADAR_TYPES.map((t) => ({ key: t.key, label: t.label }))} />
+        )}
+      </div>
+
       <div className="disc-body">
         {tab === 'new' ? (
           <NewLaunches />
         ) : tab === 'watchlist' ? (
           <Watchlist />
         ) : tab === 'hot' ? (
-          <HotPairs />
+          <HotPairs filters={filters} onFilters={setFilters} />
         ) : tab === 'lp' ? (
-          <BestToLp />
+          <BestToLp filters={filters} onFilters={setFilters} />
         ) : (
           <Trending gainers={tab === 'gainers'} />
         )}
       </div>
       {tab !== 'new' && (
         <p className="muted small">
-          {tab === 'hot' || tab === 'lp'
-            ? 'Data: Rhea pools and GeckoTerminal. Past fees do not promise future fees, and a concentrated range stops earning when the price leaves it. Not a recommendation.'
+          {POOL_TABS.has(tab)
+            ? `Data: Rhea pools and GeckoTerminal, among the most active pools on Rhea. 1H and 6H fees are estimated from window volume at each pool's fee rate. Past fees do not promise future fees, and a concentrated range stops earning when the price leaves it. Not a recommendation.`
             : 'Data: Rhea pools and Intear. Not a recommendation — always check the contract before you buy.'}
         </p>
       )}
