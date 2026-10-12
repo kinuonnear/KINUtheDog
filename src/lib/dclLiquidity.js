@@ -426,46 +426,74 @@ export function planBinsByBudget({ bins, budgetX, budgetY }) {
 /* ------------------------------------------------------------------ */
 
 const raw = (n) => (n > 0 ? BigInt(Math.floor(n)) : 0n);
+const isFull = (p) => p.leftPoint <= POINT_MIN + 10000 && p.rightPoint >= POINT_MAX - 10000;
+const MIN_SHARE = 0.002; // skip appends below 0.2% of a token's pool of fees (saves gas)
 
 /**
- * How much of each position's unclaimed fees can go back into that same position at the
- * current price. In range, fees are used in the position's X/Y ratio; above the price only X
- * fits, below it only Y. Whatever doesn't fit stays in the wallet after the claim.
+ * How the pool's claimable fees go back into the positions. All fees are pooled first, then:
+ *   1. positions in range take both tokens in their own X/Y ratio, in proportion to liquidity;
+ *   2. mode 'shape': leftover X goes to positions above the price, leftover Y to positions below,
+ *      in proportion to liquidity — the user's range shape is kept;
+ *      mode 'earning': only step 1; the rest stays in the wallet.
  * Returns { items: [{ position, amountX, amountY }], totalX, totalY, feeX, feeY } (raw BigInt).
  */
-export function planCompound(positions) {
+export function planCompound(positions, { mode = 'shape' } = {}) {
+  const feeX = positions.reduce((s, p) => s + toBigInt(p.unclaimedFeeX), 0n);
+  const feeY = positions.reduce((s, p) => s + toBigInt(p.unclaimedFeeY), 0n);
+  const alloc = new Map(); // id -> { position, x, y } (floats)
+  const add = (p, x, y) => {
+    const a = alloc.get(p.id) || { position: p, x: 0, y: 0 };
+    a.x += x;
+    a.y += y;
+    alloc.set(p.id, a);
+  };
+  const ranged = positions.filter((p) => !isFull(p) && Number(p.liquidity) > 0);
+  let leftX = Number(feeX);
+  let leftY = Number(feeY);
+
+  // 1. In range: both tokens in each position's ratio, weighted by its liquidity.
+  const inRange = ranged.filter((p) => p.currentPoint >= p.leftPoint && p.currentPoint < p.rightPoint);
+  const units = inRange.map((p) => {
+    const L = Number(p.liquidity);
+    return { p, x: dclAmountX(L, p.currentPoint, p.rightPoint), y: dclAmountY(L, p.leftPoint, p.currentPoint) };
+  });
+  const sumX = units.reduce((s, u) => s + u.x, 0);
+  const sumY = units.reduce((s, u) => s + u.y, 0);
+  const k = Math.min(sumX > 0 ? leftX / sumX : Infinity, sumY > 0 ? leftY / sumY : Infinity);
+  if (Number.isFinite(k) && k > 0) {
+    units.forEach((u) => add(u.p, u.x * k, u.y * k));
+    leftX -= sumX * k;
+    leftY -= sumY * k;
+  }
+
+  // 2. Keep the shape: the rest of X above the price, the rest of Y below it.
+  if (mode === 'shape') {
+    const spread = (list, amount, key) => {
+      const total = list.reduce((s, p) => s + Number(p.liquidity), 0);
+      if (!(total > 0) || !(amount > 0)) return 0;
+      list.forEach((p) => add(p, key === 'x' ? (amount * Number(p.liquidity)) / total : 0, key === 'y' ? (amount * Number(p.liquidity)) / total : 0));
+      return amount;
+    };
+    leftX -= spread(ranged.filter((p) => p.currentPoint < p.leftPoint), leftX, 'x');
+    leftY -= spread(ranged.filter((p) => p.currentPoint >= p.rightPoint), leftY, 'y');
+  }
+
+  // Integer amounts, never above the fees, dust appends dropped.
+  const items = [];
   let totalX = 0n;
   let totalY = 0n;
-  let feeX = 0n;
-  let feeY = 0n;
-  const items = [];
-  positions.forEach((p) => {
-    const fx = toBigInt(p.unclaimedFeeX);
-    const fy = toBigInt(p.unclaimedFeeY);
-    feeX += fx;
-    feeY += fy;
-    if (fx <= 0n && fy <= 0n) return;
-    const { leftPoint: left, rightPoint: right, currentPoint: cur } = p;
-    let ax = 0n;
-    let ay = 0n;
-    if (cur < left) ax = fx;
-    else if (cur >= right) ay = fy;
-    else {
-      const ux = dclAmountX(1e24, cur, right);
-      const uy = dclAmountY(1e24, left, cur);
-      const l = Math.min(ux > 0 ? Number(fx) / ux : Infinity, uy > 0 ? Number(fy) / uy : Infinity);
-      if (Number.isFinite(l) && l > 0) {
-        ax = raw(l * ux);
-        ay = raw(l * uy);
-        if (ax > fx) ax = fx;
-        if (ay > fy) ay = fy;
-      }
-    }
+  alloc.forEach(({ position, x, y }) => {
+    let ax = raw(x * 0.9999);
+    let ay = raw(y * 0.9999);
+    if (Number(ax) < Number(feeX) * MIN_SHARE) ax = 0n;
+    if (Number(ay) < Number(feeY) * MIN_SHARE) ay = 0n;
     if (ax <= 0n && ay <= 0n) return;
-    items.push({ position: p, amountX: ax, amountY: ay });
+    items.push({ position, amountX: ax, amountY: ay });
     totalX += ax;
     totalY += ay;
   });
+  // Rounding can never push the deposit above what is claimed.
+  if (totalX > feeX || totalY > feeY) return { items: [], totalX: 0n, totalY: 0n, feeX, feeY };
   return { items, totalX, totalY, feeX, feeY };
 }
 
@@ -473,9 +501,9 @@ export function planCompound(positions) {
  * One wallet request: claim every position's fees (they arrive in the wallet), deposit the
  * part that fits back into the CLMM contract, and append it to the same positions.
  */
-export async function buildDclCompoundTransactions({ positions, slippage, accountId }) {
+export async function buildDclCompoundTransactions({ positions, slippage, accountId, mode = 'shape' }) {
   const withFees = positions.filter((p) => toBigInt(p.unclaimedFeeX) > 0n || toBigInt(p.unclaimedFeeY) > 0n);
-  const plan = planCompound(withFees);
+  const plan = planCompound(positions, { mode });
   if (!plan.items.length) throw new Error('No fees can be compounded into these positions right now.');
   const { tokenX, tokenY } = withFees[0];
 
