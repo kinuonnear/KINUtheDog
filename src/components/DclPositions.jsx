@@ -485,15 +485,13 @@ export function DclGroupCard({ poolId, positions, deposits, x, y, pool, onDone, 
       <div className="lp-board__bar">
         <div>
           <span>Claimable fees</span>
-          <strong className={summary.hasFees ? 'up' : ''}>
-            {formatUsd(summary.feeUsd)}
-            {onRefresh && (
-              <button type="button" className="fee-refresh" onClick={refresh} disabled={refreshing} title="Refresh fees now" aria-label="Refresh fees now">
-                {refreshing ? <Spinner size={10} /> : '↻'}
-              </button>
-            )}
-          </strong>
+          <strong className={summary.hasFees ? 'up' : ''}>{formatUsd(summary.feeUsd)}</strong>
           {updatedAt && <UpdatedAgo at={updatedAt} />}
+          {onRefresh && (
+            <button type="button" className="fee-refresh" onClick={refresh} disabled={refreshing} title="Refresh fees now">
+              {refreshing ? <Spinner size={11} /> : '↻'} Refresh
+            </button>
+          )}
         </div>
         <div>
           <span>Positions earning</span>

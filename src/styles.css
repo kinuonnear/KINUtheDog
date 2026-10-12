@@ -3818,8 +3818,8 @@ a.trades__row:hover {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: var(--faint);
-  font-size: 11px;
+  color: var(--muted);
+  font-size: 12px;
   white-space: nowrap;
 }
 
@@ -3840,17 +3840,19 @@ a.trades__row:hover {
 }
 
 .pool-bar__stats span {
-  color: var(--faint);
-  font-size: 11px;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .pool-bar__stats strong {
-  font-size: 13px;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
 .pool-bar__stats small {
-  color: var(--faint);
+  color: var(--muted);
   font-weight: 400;
   font-size: 11px;
 }
@@ -4311,8 +4313,8 @@ a.trades__row:hover {
 }
 
 .pool-bar__price span {
-  color: var(--faint);
-  font-size: 11px;
+  color: var(--muted);
+  font-size: 12px;
   text-decoration: underline dotted;
 }
 
@@ -4320,7 +4322,8 @@ a.trades__row:hover {
   display: inline-flex;
   align-items: baseline;
   gap: 4px;
-  font-size: 13px;
+  font-size: 15px;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
@@ -4329,9 +4332,9 @@ a.trades__row:hover {
   padding: 0 4px;
   border: 0;
   border-radius: 4px;
-  background: var(--surface-2);
-  color: var(--muted);
-  font-size: 12px;
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: 13px;
 }
 
 .pool-bar__price .flip:hover {
@@ -4705,9 +4708,10 @@ a.trades__row:hover {
   padding-top: 9px;
   padding-bottom: 9px;
   border-bottom: 1px solid var(--border);
-  color: var(--faint);
+  color: var(--muted);
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 11px;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -4728,31 +4732,35 @@ a.trades__row:hover {
   font-size: 14px;
 }
 
-.fee-refresh {
-  display: inline-grid;
-  margin-left: 6px;
-  vertical-align: middle;
-  place-items: center;
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--muted);
+.lp-board__bar .fee-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  align-self: center;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
   font-size: 12px;
-  line-height: 1;
+  font-weight: 600;
   cursor: pointer;
 }
 
-.fee-refresh:hover:not(:disabled) {
-  color: var(--text);
-  border-color: var(--faint);
+.lp-board__bar .fee-refresh:hover:not(:disabled) {
+  border-color: var(--accent, var(--faint));
+}
+
+.lp-board__bar .fee-refresh:disabled {
+  opacity: 0.7;
+  cursor: progress;
 }
 
 .lp-board__bar .fee-updated {
-  color: var(--faint);
-  font-size: 10px;
+  color: var(--muted);
+  font-size: 11px;
 }
 
 .lp-board__title {
@@ -4765,7 +4773,7 @@ a.trades__row:hover {
 }
 
 .lp-board__title small {
-  color: var(--faint);
+  color: var(--muted);
   font-weight: 400;
 }
 
@@ -4775,8 +4783,8 @@ a.trades__row:hover {
 }
 
 .lp-board__range small {
-  color: var(--faint);
-  font-size: 11px;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .lp-board__cell strong {
@@ -4790,14 +4798,19 @@ a.trades__row:hover {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: var(--muted);
+  color: var(--text);
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .lp-board__cell small {
-  color: var(--faint);
-  font-size: 10px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.lp-board .range-badge {
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .pill {
@@ -4813,7 +4826,7 @@ a.trades__row:hover {
 
 .range-track {
   position: relative;
-  height: 10px;
+  height: 12px;
   margin-top: 4px;
   max-width: 220px;
   border-radius: 999px;
@@ -4825,11 +4838,11 @@ a.trades__row:hover {
   top: 2px;
   bottom: 2px;
   border-radius: 999px;
-  background: rgba(255, 181, 71, 0.45);
+  background: rgba(255, 181, 71, 0.8);
 }
 
 .range-track__seg.in {
-  background: rgba(184, 255, 61, 0.7);
+  background: var(--accent);
 }
 
 .range-track__now {
