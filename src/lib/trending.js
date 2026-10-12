@@ -7,7 +7,7 @@ import { searchPools } from './rhea.js';
 import { getTokens } from './tokens.js';
 import { fetchTokenInfo } from './intear.js';
 
-const SKIP = new Set([
+export const BASE_TOKENS = new Set([
   CONTRACTS.wrapNear,
   '17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1', // USDC
   'usdt.tether-token.near',
@@ -38,7 +38,7 @@ export async function getTrending({ limit = 20 } = {}) {
   const volume = new Map();
   list.forEach((pool) => {
     pool.tokenIds.forEach((id) => {
-      if (!SKIP.has(id)) volume.set(id, (volume.get(id) || 0) + pool.volume24h);
+      if (!BASE_TOKENS.has(id)) volume.set(id, (volume.get(id) || 0) + pool.volume24h);
     });
   });
   const ids = [...volume.entries()]

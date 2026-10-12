@@ -2,7 +2,8 @@
 // indexes every Rhea pool:
 //   classic / stable / ALMM pools -> refv1-<pool id>
 //   CLMM (DCL) pools              -> refv2-<tokenX>:<tokenY>:<fee>
-// One multi-pool call returns exact 1h / 6h / 24h volume for up to 30 pools.
+// One multi-pool call returns exact 1h / 6h / 24h volume (plus price change and trade
+// counts) for up to 30 pools.
 // 4h and 12h aren't published; per-pool candles would hit Gecko's public rate
 // limit, so those two windows are estimated between the nearest exact windows.
 
@@ -42,10 +43,10 @@ function windowsFrom(v) {
   };
 }
 
-const multiCache = new Map(); // geckoId -> { at, value }
+const multiCache = new Map(); // geckoId -> { at, value } (value: the pool's Gecko attributes)
 
-/** { [poolId]: { h1, h4, h6, h12, h24 } } USD volume for the given pools (null when unknown). */
-export async function fetchWindowVolumes(pools) {
+/** { [poolId]: Gecko pool attributes } for the given pools (null when unknown). */
+async function fetchAttributes(pools) {
   const out = {};
   const now = Date.now();
   const missing = [];
@@ -70,13 +71,44 @@ export async function fetchWindowVolumes(pools) {
       json = body;
     }
     if (!json) throw new Error('GeckoTerminal rate limit');
-    const byId = new Map((json.data || []).map((d) => [d.attributes?.address, d.attributes?.volume_usd]));
+    const byId = new Map((json.data || []).map((d) => [d.attributes?.address, d.attributes]));
     batch.forEach((p) => {
-      const v = byId.get(geckoPoolId(p));
-      const value = v ? windowsFrom(v) : null;
+      const value = byId.get(geckoPoolId(p)) || null;
       multiCache.set(geckoPoolId(p), { at: Date.now(), value });
       out[p.id] = value;
     });
   }
   return out;
+}
+
+/** { [poolId]: { h1, h4, h6, h12, h24 } } USD volume for the given pools (null when unknown). */
+export async function fetchWindowVolumes(pools) {
+  const attrs = await fetchAttributes(pools);
+  return Object.fromEntries(pools.map((p) => [p.id, attrs[p.id]?.volume_usd ? windowsFrom(attrs[p.id].volume_usd) : null]));
+}
+
+const pct = (v) => (v === null || v === undefined || v === '' ? null : Number(v));
+const trades = (t) => (t ? (Number(t.buys) || 0) + (Number(t.sells) || 0) : 0);
+
+/**
+ * Recent activity per pool: volume windows, base-token price change (%) and trade counts.
+ * { [poolId]: { volume: { h1, h4, h6, h12, h24 }, change: { h1, h6, h24 }, trades: { h1, h24 } } | null }
+ */
+export async function fetchPoolActivity(pools) {
+  const attrs = await fetchAttributes(pools);
+  return Object.fromEntries(
+    pools.map((p) => {
+      const a = attrs[p.id];
+      if (!a) return [p.id, null];
+      const change = a.price_change_percentage || {};
+      return [
+        p.id,
+        {
+          volume: windowsFrom(a.volume_usd || {}),
+          change: { h1: pct(change.h1), h6: pct(change.h6), h24: pct(change.h24) },
+          trades: { h1: trades(a.transactions?.h1), h24: trades(a.transactions?.h24) }
+        }
+      ];
+    })
+  );
 }

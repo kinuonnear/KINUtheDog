@@ -1,24 +1,47 @@
-// Discover (/discover, /new): Trending on Rhea, top Gainers, New launches and your Watchlist.
+// Discover (/discover, /new): Trending on Rhea, Hot pairs, top Gainers, Best to LP,
+// New launches and your Watchlist.
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useAsync } from '../hooks.js';
-import { Link, navigate, useLocation } from '../router.jsx';
-import { EmptyState, ErrorNotice, Skeleton, Tabs, TokenIcon } from '../components/ui.jsx';
+import { Link, navigate, poolPath, useLocation } from '../router.jsx';
+import { EmptyState, ErrorNotice, PairIcons, Skeleton, Tabs, TokenIcon } from '../components/ui.jsx';
 import WatchStar from '../components/WatchStar.jsx';
 import { enrichTokens, getTrending } from '../lib/trending.js';
 import { useWatchlist } from '../lib/watchlist.js';
-import { formatPrice, formatUsd } from '../lib/format.js';
+import { formatPercent, formatPrice, formatUsd } from '../lib/format.js';
+import { bestToLp, getPoolRadar, hotPairs, LP_MIN_TVL } from '../lib/poolRadar.js';
 import { NATIVE_NEAR } from '../config.js';
 import { NewLaunches } from './NewOnRhea.jsx';
+import { usePoolTokens } from './Pools.jsx';
 
 const TABS = [
   { key: 'trending', label: 'Trending' },
+  { key: 'hot', label: 'Hot pairs' },
   { key: 'gainers', label: 'Gainers' },
+  { key: 'lp', label: 'Best to LP' },
   { key: 'new', label: 'New launches' },
   { key: 'watchlist', label: 'Watchlist' }
 ];
 
 const MIN_GAINER_LIQUIDITY = 10_000;
+
+const TITLES = {
+  trending: 'Trending on Rhea',
+  hot: 'Hot pairs on Rhea',
+  gainers: 'Top gainers on Rhea',
+  lp: 'Best pools to LP',
+  new: 'New on Rhea',
+  watchlist: 'Your watchlist'
+};
+
+const INTROS = {
+  trending: 'Tokens with the most trading volume across Rhea pools in the last 24 hours. NEAR and stablecoins are left out.',
+  hot: 'The pairs traded most in the last hour: where the action is right now.',
+  gainers: 'Biggest 24h moves among actively traded Rhea tokens with at least $10K liquidity.',
+  lp: `Pools that paid their liquidity providers the most fees per dollar in the last 24 hours (TVL ≥ $${LP_MIN_TVL / 1000}K), with how much the price moved.`,
+  new: 'The newest tokens with a Rhea pool, launched on Nearly. Live every minute, with the facts that matter before you buy.',
+  watchlist: 'Tokens you starred, with live prices.'
+};
 
 function Change({ value }) {
   if (value === null || value === undefined || !Number.isFinite(value)) return <span className="muted">—</span>;
@@ -108,6 +131,158 @@ function Trending({ gainers }) {
   );
 }
 
+/** Pool table shared by Hot pairs and Best to LP: rank, pair, five numbers, one action. */
+function PoolTable({ rows, loading, error, onRetry, heads, cells, action, empty }) {
+  const tokensOf = usePoolTokens(rows || []);
+  if (error && !rows) return <ErrorNotice error={error} onRetry={onRetry} />;
+  return (
+    <section className="card new-table disc-table">
+      <div className="new-row disc-row new-row--head">
+        <span>#</span>
+        <span>Pair</span>
+        {heads.map((h) => (
+          <span key={h}>{h}</span>
+        ))}
+        <span />
+      </div>
+      {loading && !rows
+        ? Array.from({ length: 8 }, (_, i) => (
+            <div className="new-row disc-row" key={i}>
+              <Skeleton width={16} />
+              <Skeleton width={140} />
+              {heads.map((h) => (
+                <Skeleton key={h} width={60} />
+              ))}
+              <span />
+            </div>
+          ))
+        : rows?.map((r, i) => {
+            const tokens = tokensOf(r);
+            return (
+              <div className="new-row disc-row" key={r.id} onClick={() => navigate(poolPath(r.id))} role="link" tabIndex={0}>
+                <span className="disc-row__rank">{i + 1}</span>
+                <span className="new-row__token">
+                  <PairIcons tokens={tokens} size={26} />
+                  <span>
+                    <strong>{tokens.map((t) => t.symbol).join(' / ')}</strong>
+                    <small>
+                      <span className={`kind kind--${r.label.toLowerCase()}`}>{r.label}</span>{' '}
+                      {r.feePercent > 0 && `${formatPercent(r.feePercent, r.feePercent < 0.1 ? 3 : 2)} fee`}
+                    </small>
+                  </span>
+                </span>
+                {cells(r).map((c, j) => (
+                  <span key={heads[j]} data-label={heads[j]}>
+                    {c}
+                  </span>
+                ))}
+                <span className="new-row__buy" onClick={(e) => e.stopPropagation()}>
+                  {action(r)}
+                </span>
+              </div>
+            );
+          })}
+      {rows && !rows.length && empty}
+    </section>
+  );
+}
+
+function Segmented({ value, onChange, options }) {
+  return (
+    <div className="segmented disc-sort">
+      {options.map((o) => (
+        <button key={o.key} type="button" className={value === o.key ? 'active' : ''} onClick={() => onChange(o.key)}>
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function HotPairs() {
+  const data = useAsync(getPoolRadar, [], { refreshMs: 90_000 });
+  const [by, setBy] = useState('volume');
+  const rows = useMemo(() => (data.data ? hotPairs(data.data, by) : null), [data.data, by]);
+  return (
+    <>
+      <Segmented
+        value={by}
+        onChange={setBy}
+        options={[
+          { key: 'volume', label: 'By volume' },
+          { key: 'trades', label: 'By trades' }
+        ]}
+      />
+      <PoolTable
+        rows={rows}
+        loading={data.loading}
+        error={data.error}
+        onRetry={data.reload}
+        heads={['Volume 1H', 'Trades 1H', 'Price 1H', 'Volume 24H', 'TVL']}
+        cells={(r) => [
+          formatUsd(r.activity.volume.h1),
+          r.activity.trades.h1.toLocaleString(),
+          <Change key="c" value={r.activity.change.h1} />,
+          formatUsd(r.activity.volume.h24 || r.volume24h),
+          formatUsd(r.tvl)
+        ]}
+        action={(r) => (
+          <Link
+            className="button button--outline button--sm"
+            to={`/swap?from=${encodeURIComponent(r.tokenIds[0])}&to=${encodeURIComponent(r.tokenIds[1])}`}
+          >
+            Swap
+          </Link>
+        )}
+        empty={<p className="muted small new-table__empty">No trading activity in the last hour.</p>}
+      />
+    </>
+  );
+}
+
+function BestToLp() {
+  const data = useAsync(getPoolRadar, [], { refreshMs: 90_000 });
+  const [mode, setMode] = useState('yield');
+  const rows = useMemo(() => (data.data ? bestToLp(data.data, mode) : null), [data.data, mode]);
+  return (
+    <>
+      <Segmented
+        value={mode}
+        onChange={setMode}
+        options={[
+          { key: 'yield', label: 'Highest yield' },
+          { key: 'balanced', label: 'Yield vs. price swings' }
+        ]}
+      />
+      <PoolTable
+        rows={rows}
+        loading={data.loading}
+        error={data.error}
+        onRetry={data.reload}
+        heads={['Fees 24H', 'Yield 24H', 'Rhea APR', 'Price 24H', 'TVL']}
+        cells={(r) => [
+          formatUsd(r.feeVolume24h),
+          <b key="y" className="up" title="24h fees ÷ TVL: what $100 of liquidity earned in a day">
+            {formatPercent(r.yieldPct, 2)}
+          </b>,
+          formatPercent(r.apy + r.farmApy),
+          <span key="m" className="disc-swing">
+            <Change value={r.activity?.change.h24} />
+            {r.swing && <em className={`swing swing--${r.swing.key}`}>{r.swing.label}</em>}
+          </span>,
+          formatUsd(r.tvl)
+        ]}
+        action={(r) => (
+          <Link className="button button--outline button--sm" to={`${poolPath(r.id)}?tab=add`}>
+            Add LP
+          </Link>
+        )}
+        empty={<p className="muted small new-table__empty">No pools to show right now.</p>}
+      />
+    </>
+  );
+}
+
 function Watchlist() {
   const { list } = useWatchlist();
   const key = list.join(',');
@@ -132,16 +307,8 @@ export default function Discover({ defaultTab = 'trending' }) {
     <div className="page new-page">
       <header className="page-head">
         <span className="eyebrow">Discover</span>
-        <h1>{tab === 'new' ? 'New on Rhea' : tab === 'watchlist' ? 'Your watchlist' : tab === 'gainers' ? 'Top gainers on Rhea' : 'Trending on Rhea'}</h1>
-        <p>
-          {tab === 'new'
-            ? 'The newest tokens with a Rhea pool, launched on Nearly. Live every minute, with the facts that matter before you buy.'
-            : tab === 'watchlist'
-              ? 'Tokens you starred, with live prices.'
-              : tab === 'gainers'
-                ? 'Biggest 24h moves among actively traded Rhea tokens with at least $10K liquidity.'
-                : 'Tokens with the most trading volume across Rhea pools in the last 24 hours. NEAR and stablecoins are left out.'}
-        </p>
+        <h1>{TITLES[tab]}</h1>
+        <p>{INTROS[tab]}</p>
       </header>
       <Tabs
         tabs={TABS.map((t) => (t.key === 'watchlist' ? { ...t, count: list.length || undefined } : t))}
@@ -149,9 +316,25 @@ export default function Discover({ defaultTab = 'trending' }) {
         onChange={(key) => navigate(`/discover?tab=${key}`, { replace: true })}
       />
       <div className="disc-body">
-        {tab === 'new' ? <NewLaunches /> : tab === 'watchlist' ? <Watchlist /> : <Trending gainers={tab === 'gainers'} />}
+        {tab === 'new' ? (
+          <NewLaunches />
+        ) : tab === 'watchlist' ? (
+          <Watchlist />
+        ) : tab === 'hot' ? (
+          <HotPairs />
+        ) : tab === 'lp' ? (
+          <BestToLp />
+        ) : (
+          <Trending gainers={tab === 'gainers'} />
+        )}
       </div>
-      {tab !== 'new' && <p className="muted small">Data: Rhea pools and Intear. Not a recommendation — always check the contract before you buy.</p>}
+      {tab !== 'new' && (
+        <p className="muted small">
+          {tab === 'hot' || tab === 'lp'
+            ? 'Data: Rhea pools and GeckoTerminal. Past fees do not promise future fees, and a concentrated range stops earning when the price leaves it. Not a recommendation.'
+            : 'Data: Rhea pools and Intear. Not a recommendation — always check the contract before you buy.'}
+        </p>
+      )}
     </div>
   );
 }
