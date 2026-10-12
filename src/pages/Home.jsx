@@ -20,19 +20,33 @@ const TICKER_TOKENS = [
 function Ticker() {
   const { prices } = useApp();
   const tokens = useAsync(() => getTokens(TICKER_TOKENS), []);
+  const items = (copy) =>
+    TICKER_TOKENS.map((id) => {
+      const token = id === NATIVE_NEAR.id ? NATIVE_NEAR : tokens.data?.[id];
+      const price = prices?.get(id)?.price;
+      return (
+        <Link
+          key={`${copy}-${id}`}
+          to={`/swap?from=${id === NATIVE_NEAR.id ? 'usdt.tether-token.near' : NATIVE_NEAR.id}&to=${id}`}
+          className="ticker__item"
+          tabIndex={copy ? -1 : undefined}
+        >
+          <TokenIcon token={token || { symbol: prices?.get(id)?.symbol || '?' }} size={22} />
+          <span>{token?.symbol || prices?.get(id)?.symbol || '…'}</span>
+          <strong>{price ? formatPrice(price) : <Skeleton width={50} />}</strong>
+        </Link>
+      );
+    });
+  // Marquee: the list is rendered twice and the track slides by half its width, so it loops
+  // seamlessly. Pauses on hover; still for users who prefer reduced motion.
   return (
-    <div className="ticker">
-      {TICKER_TOKENS.map((id) => {
-        const token = id === NATIVE_NEAR.id ? NATIVE_NEAR : tokens.data?.[id];
-        const price = prices?.get(id)?.price;
-        return (
-          <Link key={id} to={`/swap?from=${id === NATIVE_NEAR.id ? 'usdt.tether-token.near' : NATIVE_NEAR.id}&to=${id}`} className="ticker__item">
-            <TokenIcon token={token || { symbol: prices?.get(id)?.symbol || '?' }} size={22} />
-            <span>{token?.symbol || prices?.get(id)?.symbol || '…'}</span>
-            <strong>{price ? formatPrice(price) : <Skeleton width={50} />}</strong>
-          </Link>
-        );
-      })}
+    <div className="ticker ticker--marquee">
+      <div className="ticker__track">
+        <div className="ticker__set">{items(0)}</div>
+        <div className="ticker__set" aria-hidden="true">
+          {items(1)}
+        </div>
+      </div>
     </div>
   );
 }

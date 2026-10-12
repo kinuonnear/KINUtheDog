@@ -5782,3 +5782,52 @@ a.dt-row:hover {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Home ticker: continuous leftward marquee */
+.ticker--marquee {
+  display: block;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 6%, #000 94%, transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 6%, #000 94%, transparent 100%);
+}
+
+.ticker__track {
+  display: flex;
+  width: max-content;
+  animation: ticker-scroll 38s linear infinite;
+}
+
+.ticker--marquee:hover .ticker__track,
+.ticker--marquee:focus-within .ticker__track {
+  animation-play-state: paused;
+}
+
+.ticker__set {
+  display: flex;
+  gap: 10px;
+  padding-right: 10px;
+}
+
+.ticker--marquee .ticker__item {
+  flex: none;
+  min-width: 210px;
+}
+
+@keyframes ticker-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ticker__track {
+    animation: none;
+  }
+
+  .ticker--marquee {
+    overflow-x: auto;
+  }
+}
