@@ -22,10 +22,14 @@ import {
   formatPercent,
   formatRawAmount,
   formatUnits,
+  formatUsd,
   maxBig,
   toBigInt,
+  toNumber,
   tryParseUnits
 } from '../lib/format.js';
+import { priceOf } from '../lib/tokens.js';
+import { getDegenPoolLimit } from '../lib/rhea.js';
 import { CONTRACTS, NEAR_GAS_RESERVE } from '../config.js';
 import { EmptyState, Spinner, Tabs, TokenIcon } from './ui.jsx';
 import DclCreatePosition from './DclCreatePosition.jsx';
@@ -323,9 +327,21 @@ export function AmmLiquidity({ pool, tokens, shares, staked, onDone, initialTab 
 /* Stable / ALMM                                                       */
 /* ------------------------------------------------------------------ */
 
+/** Above this, an unbalanced stable / ALMM deposit gets a visible warning. */
+const IMBALANCE_WARN_PCT = 1;
+
+const DEPOSIT_MODES = [
+  { key: 'balanced', label: 'Balanced' },
+  { key: 'custom', label: 'Custom amounts' }
+];
+
 function StableAdd({ pool, tokens, onDone }) {
-  const { accountId, connect, slippage, execute } = useApp();
+  const { accountId, connect, slippage, execute, prices } = useApp();
   const [inputs, setInputs] = useState(() => pool.tokenIds.map(() => ''));
+  // Balanced by default (same as app.rhea.finance): one amount fills the others at the pool
+  // ratio. Custom lets any mix through, including a single token, for an imbalance fee.
+  const [mode, setMode] = useState('balanced');
+  const capacity = useAsync(() => (pool.kind === 'DEGEN_SWAP' ? getDegenPoolLimit(pool.id) : null), [pool.id, pool.kind]);
   const [submitting, setSubmitting] = useState(false);
   const spendable = useSpendable(pool.tokenIds);
   const raws = inputs.map((v, i) => tryParseUnits(v, tokens[i]?.decimals ?? 0) || '0');
@@ -340,6 +356,50 @@ function StableAdd({ pool, tokens, onDone }) {
   const supply = toBigInt(pool.sharesTotalSupply);
   const sharePct = toBigInt(shares) > 0n ? (Number(shares) / Number(supply + toBigInt(shares))) * 100 : 0;
   const insufficient = insufficientLabel(raws, spendable, tokens);
+
+  const setAmount = (index, text) => {
+    if (mode !== 'balanced') {
+      setInputs(inputs.map((v, j) => (j === index ? text : v)));
+      return;
+    }
+    const raw = tryParseUnits(text, tokens[index]?.decimals ?? 0);
+    setInputs(
+      pool.tokenIds.map((_, j) => {
+        if (j === index) return text;
+        if (!raw || toBigInt(raw) === 0n) return '';
+        return trimDecimals(formatUnits(pairedAmount(pool, index, j, raw), tokens[j]?.decimals ?? 0));
+      })
+    );
+  };
+
+  const setMax = (index) => {
+    if (mode !== 'balanced') {
+      setAmount(index, trimDecimals(formatUnits(spendable[index].toString(), tokens[index]?.decimals ?? 0)));
+      return;
+    }
+    // Largest balanced deposit the wallet can cover.
+    let amount = spendable[index];
+    pool.tokenIds.forEach((_, j) => {
+      if (j === index) return;
+      if (toBigInt(pairedAmount(pool, index, j, amount.toString())) > spendable[j]) {
+        amount = toBigInt(pairedAmount(pool, j, index, spendable[j].toString()));
+      }
+    });
+    setAmount(index, trimDecimals(formatUnits(amount.toString(), tokens[index]?.decimals ?? 0)));
+  };
+
+  // What goes in vs. what the LP shares are worth: the gap is the pool's imbalance fee.
+  const usdOf = (amounts) => amounts.reduce((sum, raw, i) => sum + toNumber(raw, tokens[i]?.decimals ?? 0) * priceOf(prices, pool.tokenIds[i]), 0);
+  const depositUsd = usdOf(raws);
+  const lpUsd = supply > 0n && toBigInt(shares) > 0n ? (Number(shares) / Number(supply)) * usdOf(pool.amounts) : 0;
+  const imbalancePct = depositUsd > 0 && lpUsd > 0 ? Math.max(0, (1 - lpUsd / depositUsd) * 100) : null;
+  const filled = raws.map((r, i) => (toBigInt(r) > 0n ? tokens[i]?.symbol : null)).filter(Boolean);
+  const singleSided = filled.length === 1 && pool.tokenIds.length > 1;
+
+  const poolUsd = usdOf(pool.amounts);
+  const limitUsd = capacity.data || null;
+  const remainingUsd = limitUsd ? Math.max(0, limitUsd - poolUsd) : null;
+  const overCapacity = remainingUsd !== null && depositUsd > remainingUsd;
 
   const submit = async () => {
     if (!accountId) return connect();
@@ -366,20 +426,74 @@ function StableAdd({ pool, tokens, onDone }) {
 
   return (
     <div className="liq-form">
-      <p className="liq-hint">Any ratio works — deposit one token or several. Balanced deposits get the best share price.</p>
+      <div className="segmented segmented--full">
+        {DEPOSIT_MODES.map((m) => (
+          <button
+            key={m.key}
+            type="button"
+            className={mode === m.key ? 'active' : ''}
+            onClick={() => {
+              setMode(m.key);
+              setInputs(pool.tokenIds.map(() => ''));
+            }}
+          >
+            {m.label}
+          </button>
+        ))}
+      </div>
+      <p className="liq-hint">
+        {mode === 'balanced'
+          ? 'All tokens at the current pool ratio — the other amounts fill in automatically. Lowest fee.'
+          : 'Any mix, including a single token. The pool charges a small imbalance fee for uneven deposits.'}
+      </p>
       {pool.tokenIds.map((id, i) => (
         <AmountField
           key={id}
           token={tokens[i]}
           value={inputs[i]}
-          onChange={(text) => setInputs(inputs.map((v, j) => (j === i ? text : v)))}
+          onChange={(text) => setAmount(i, text)}
           spendable={spendable[i]}
-          onMax={() => setInputs(inputs.map((v, j) => (j === i ? trimDecimals(formatUnits(spendable[i].toString(), tokens[i]?.decimals ?? 0)) : v)))}
+          onMax={() => setMax(i)}
           note={id === CONTRACTS.wrapNear ? 'NEAR auto-wraps' : null}
         />
       ))}
+      {limitUsd && (
+        <div className="pool-capacity">
+          <div className="pool-capacity__head">
+            <span>Pool capacity</span>
+            <b>
+              {formatUsd(poolUsd)} / {formatUsd(limitUsd)}
+            </b>
+          </div>
+          <div className="pool-capacity__bar">
+            <span style={{ width: `${Math.min(100, (poolUsd / limitUsd) * 100)}%` }} />
+          </div>
+          <div className="pool-capacity__foot muted small">
+            <span>{formatPercent((poolUsd / limitUsd) * 100, 1)} used</span>
+            <span className={overCapacity ? 'down' : 'up'}>{formatUsd(remainingUsd)} remaining</span>
+          </div>
+        </div>
+      )}
       {any && (
         <dl className="kv">
+          <div>
+            <dt>Deposit</dt>
+            <dd>{singleSided ? `${filled[0]} only (single-token)` : filled.join(' + ')}</dd>
+          </div>
+          {depositUsd > 0 && (
+            <div>
+              <dt>You put in → LP worth</dt>
+              <dd>
+                {formatUsd(depositUsd)} → {prediction.loading || !lpUsd ? <Spinner size={12} /> : formatUsd(lpUsd)}
+              </dd>
+            </div>
+          )}
+          {imbalancePct !== null && (
+            <div>
+              <dt>Imbalance fee</dt>
+              <dd className={imbalancePct > IMBALANCE_WARN_PCT ? 'warn' : ''}>{formatPercent(imbalancePct, 3)}</dd>
+            </div>
+          )}
           <div>
             <dt>Share of pool</dt>
             <dd>{prediction.loading ? <Spinner size={12} /> : formatPercent(sharePct, 4)}</dd>
@@ -396,10 +510,33 @@ function StableAdd({ pool, tokens, onDone }) {
           </div>
         </dl>
       )}
+      {overCapacity && (
+        <div className="notice notice--error">
+          This deposit ({formatUsd(depositUsd)}) is more than the {formatUsd(remainingUsd)} the pool can still take. Reduce the amount.
+        </div>
+      )}
+      {singleSided && (
+        <p className="liq-hint">
+          You&apos;re adding only {filled[0]}. This pool accepts that: you receive LP shares for its value, and the pool charges a
+          small imbalance fee for tipping its balance. Add both tokens near the pool ratio to pay less.
+        </p>
+      )}
+      {imbalancePct !== null && imbalancePct > IMBALANCE_WARN_PCT && (
+        <div className="notice notice--warn">
+          This deposit is far from the pool&apos;s balance and costs about {formatPercent(imbalancePct, 2)}. Smaller or more balanced
+          amounts cost less.
+        </div>
+      )}
       {prediction.error && any && <div className="notice notice--error">{prediction.error.message}</div>}
       <SubmitButton
-        label={!accountId ? 'Connect wallet' : !any ? 'Enter an amount' : insufficient || 'Add liquidity'}
-        disabled={accountId && (!any || Boolean(insufficient) || Boolean(prediction.error))}
+        label={
+          !accountId
+            ? 'Connect wallet'
+            : !any
+              ? 'Enter an amount'
+              : insufficient || (overCapacity ? 'Over pool capacity' : singleSided ? `Add liquidity (${filled[0]} only)` : 'Add liquidity')
+        }
+        disabled={accountId && (!any || Boolean(insufficient) || overCapacity || Boolean(prediction.error))}
         submitting={submitting}
         onClick={submit}
       />

@@ -170,6 +170,16 @@ export async function getDeposits(accountId) {
   return Object.fromEntries(Object.entries(deposits).filter(([, amount]) => toBigInt(amount) > 0n));
 }
 
+/**
+ * USD TVL cap of an ALMM (degen) pool, or null when it has none. The exchange refuses
+ * deposits that would push the pool past it (app.rhea.finance shows it as "Pool capacity").
+ */
+export async function getDegenPoolLimit(poolId) {
+  const limit = await view(CONTRACTS.exchange, 'get_pool_limit_by_pool_id', { pool_id: Number(poolId) }).catch(() => null);
+  const usd = Number(limit?.DegenPoolLimit?.Current?.tvl_limit);
+  return Number.isFinite(usd) && usd > 0 ? usd : null;
+}
+
 /** Exchange "lost & found": tokens a withdrawal couldn't deliver (e.g. no storage on the token). */
 export async function getLostFound(accountId) {
   const tokens = (await view(CONTRACTS.exchange, 'list_lostfound_tokens', { account_id: accountId }, { fresh: true })) || {};

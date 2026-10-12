@@ -13,7 +13,7 @@ import {
   wrapNearTx
 } from './tx.js';
 import { toBigInt } from './format.js';
-import { buildDclSwapTransactions, getDclQuote } from './dclRouter.js';
+import { buildDclSwapTransactions, dclNeighbors, getDclQuote } from './dclRouter.js';
 
 const QUOTE_TIMEOUT_MS = 8_000;
 
@@ -33,9 +33,70 @@ export async function getSwapQuote(params) {
     try {
       return await getDclQuote(params);
     } catch {
-      throw routerError;
+      try {
+        return await getHybridQuote(params);
+      } catch {
+        throw routerError;
+      }
     }
   }
+}
+
+/**
+ * Two swaps through a bridge token, for tokens that only trade in CLMM pools the
+ * SmartRouter skips while the other side only has liquidity the router does see.
+ * E.g. NEAR -> DIARHEA: SmartRouter NEAR -> RHEA, then CLMM RHEA -> DIARHEA.
+ * Leg 2 is quoted on leg 1's guaranteed minimum; it is re-quoted on the amount
+ * actually received before it is signed (see quoteHybridSecondLeg).
+ */
+async function getHybridQuote({ tokenIn, tokenOut, amountIn, slippage, user, signal }) {
+  const inId = contractOf(tokenIn);
+  const outId = contractOf(tokenOut);
+  const [bridgesToOut, bridgesFromIn] = await Promise.all([dclNeighbors(outId), dclNeighbors(inId)]);
+
+  const attempts = [
+    // router tokenIn -> bridge, CLMM bridge -> tokenOut
+    ...bridgesToOut
+      .filter((mid) => mid !== inId)
+      .map(async (mid) => {
+        const bridge = { id: mid };
+        const first = await getSmartRouterQuote({ tokenIn, tokenOut: bridge, amountIn, slippage, user, signal });
+        const second = await getDclQuote({ tokenIn: bridge, tokenOut, amountIn: first.minAmountOut, slippage, user });
+        return { mid, legs: [first, second] };
+      }),
+    // CLMM tokenIn -> bridge, router bridge -> tokenOut
+    ...bridgesFromIn
+      .filter((mid) => mid !== outId)
+      .map(async (mid) => {
+        const bridge = { id: mid };
+        const first = await getDclQuote({ tokenIn, tokenOut: bridge, amountIn, slippage, user });
+        const second = await getSmartRouterQuote({ tokenIn: bridge, tokenOut, amountIn: first.minAmountOut, slippage, user, signal });
+        return { mid, legs: [first, second] };
+      })
+  ];
+  const routes = (await Promise.allSettled(attempts)).filter((r) => r.status === 'fulfilled').map((r) => r.value);
+  if (!routes.length) throw new Error('No route found for this pair.');
+  const best = routes.reduce((a, b) => (toBigInt(b.legs[1].amountOut) > toBigInt(a.legs[1].amountOut) ? b : a));
+  const [first, second] = best.legs;
+  return {
+    amountIn,
+    amountOut: second.amountOut,
+    minAmountOut: second.minAmountOut,
+    dexs: [...new Set([...first.dexs, ...second.dexs])],
+    routeTokens: [inId, best.mid, outId],
+    hybrid: { mid: best.mid, legs: [first, second] },
+    user: user || null,
+    fetchedAt: Date.now()
+  };
+}
+
+/** Re-quote a combined route's second swap for the bridge amount actually received. */
+export async function quoteHybridSecondLeg({ quote, tokenOut, amountIn, slippage, user }) {
+  const bridge = { id: quote.hybrid.mid };
+  const viaRouter = Boolean(quote.hybrid.legs[1].msg);
+  return viaRouter
+    ? getSmartRouterQuote({ tokenIn: bridge, tokenOut, amountIn, slippage, user })
+    : getDclQuote({ tokenIn: bridge, tokenOut, amountIn, slippage, user });
 }
 
 async function getSmartRouterQuote({ tokenIn, tokenOut, amountIn, slippage, user, signal }) {
@@ -96,6 +157,7 @@ async function getSmartRouterQuote({ tokenIn, tokenOut, amountIn, slippage, user
  */
 export async function buildSwapTransactions({ tokenIn, tokenOut, quote, accountId }) {
   if (quote?.user !== accountId) throw new Error('Quote was created for another account. Refresh the quote.');
+  if (quote.hybrid) throw new Error('Combined routes are executed one leg at a time.');
   if (quote.dcl) return buildDclSwapTransactions({ tokenIn, tokenOut, quote, accountId });
   if (!quote.msg || !quote.signature) throw new Error('Quote is not executable. Refresh the quote.');
 

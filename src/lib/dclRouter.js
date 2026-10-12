@@ -23,6 +23,12 @@ async function dclPoolsWith(token) {
   return list.filter((p) => p.isDcl && p.tokenIds.includes(token));
 }
 
+/** Tokens paired with `token` in CLMM pools that hold liquidity, deepest first. */
+export async function dclNeighbors(token, limit = 3) {
+  const pools = (await dclPoolsWith(token)).filter((p) => p.tvl > 0).sort((a, b) => b.tvl - a.tvl);
+  return [...new Set(pools.map((p) => otherToken(p, token)))].slice(0, limit);
+}
+
 /** Candidate paths (arrays of pool ids), deepest liquidity first. */
 async function findPaths(tokenIn, tokenOut) {
   const [poolsIn, poolsOut] = await Promise.all([dclPoolsWith(tokenIn), dclPoolsWith(tokenOut)]);

@@ -7,7 +7,8 @@ import RecentTrades from '../components/RecentTrades.jsx';
 import { defaultChartSide } from '../lib/intear.js';
 import { Spinner, TokenIcon } from '../components/ui.jsx';
 import { getCachedToken, getToken, getTokens, getWhitelistedTokens, priceOf } from '../lib/tokens.js';
-import { buildSwapTransactions, getSwapQuote } from '../lib/swap.js';
+import { buildSwapTransactions, getSwapQuote, quoteHybridSecondLeg } from '../lib/swap.js';
+import { view } from '../lib/rpc.js';
 import { getAggregatorBalances } from '../lib/rhea.js';
 import { buildAggregatorWithdrawTransactions } from '../lib/liquidity.js';
 import { functionCall, transaction, ensureStorageTx, wrapNearTx } from '../lib/tx.js';
@@ -346,8 +347,55 @@ export default function Swap() {
     setAmount(formatUnits(raw.toString(), tokenIn.decimals));
   };
 
+  /**
+   * Combined route (e.g. NEAR -> RHEA via the router, RHEA -> DIARHEA via CLMM): two wallet
+   * requests. Step 2 spends exactly the bridge tokens step 1 delivered, never tokens the
+   * user already held.
+   */
+  const submitHybrid = async (route) => {
+    const bridge = { id: route.hybrid.mid };
+    const bridgeSymbol = (await getToken(route.hybrid.mid).catch(() => null))?.symbol || route.hybrid.mid;
+    const balanceOf = async () => toBigInt((await view(route.hybrid.mid, 'ft_balance_of', { account_id: accountId }, { fresh: true })) || '0');
+    const before = await balanceOf();
+    const first = await execute(() => buildSwapTransactions({ tokenIn, tokenOut: bridge, quote: route.hybrid.legs[0], accountId }), {
+      pending: `Step 1 of 2: ${tokenIn.symbol} → ${bridgeSymbol}`,
+      success: `Step 1 done — received ${bridgeSymbol}`
+    });
+    if (!first) return false;
+    return execute(
+      async () => {
+        const received = (await balanceOf()) - before;
+        if (received <= 0n) throw new Error(`No ${bridgeSymbol} arrived from step 1, so step 2 was not sent.`);
+        const second = await quoteHybridSecondLeg({ quote: route, tokenOut, amountIn: received.toString(), slippage, user: accountId });
+        return buildSwapTransactions({ tokenIn: bridge, tokenOut, quote: second, accountId });
+      },
+      { pending: `Step 2 of 2: ${bridgeSymbol} → ${tokenOut.symbol}`, success: 'Swap executed' }
+    );
+  };
+
   const submit = async () => {
     if (!accountId) return connect();
+    if (!wrapMode && quote?.hybrid) {
+      setSubmitting(true);
+      // Fresh, user-bound quote before step 1.
+      const route =
+        quote.user === accountId && Date.now() - quote.fetchedAt <= QUOTE_MAX_AGE_MS && !stale
+          ? quote
+          : await getSwapQuote({ tokenIn, tokenOut, amountIn: typedRaw, slippage, user: accountId }).catch(() => null);
+      if (route?.hybrid) {
+        const ok = await submitHybrid(route);
+        setSubmitting(false);
+        setSwapCount((n) => n + 1);
+        if (ok) {
+          setAmount('');
+          setQuote(null);
+        }
+        refreshTokenBalances([tokenIn.id, tokenOut.id, route.hybrid.mid]);
+        return undefined;
+      }
+      // A direct route turned up meanwhile: use the normal one-step swap below.
+      if (route) setQuote(route);
+    }
     setSubmitting(true);
     const result = await execute(
       async () => {
@@ -363,7 +411,7 @@ export default function Swap() {
         }
         // Always execute a fresh, user-bound quote.
         let executable = quote;
-        if (!executable || executable.user !== accountId || Date.now() - executable.fetchedAt > QUOTE_MAX_AGE_MS || stale) {
+        if (!executable || executable.hybrid || executable.user !== accountId || Date.now() - executable.fetchedAt > QUOTE_MAX_AGE_MS || stale) {
           executable = await getSwapQuote({ tokenIn, tokenOut, amountIn: typedRaw, slippage, user: accountId });
           setQuote(executable);
         }
@@ -507,12 +555,20 @@ export default function Swap() {
                     <dd className="route">
                       {tokenIn.symbol} → {tokenOut.symbol}
                       <small>
-                        {quote.dexs.join(' + ')}
+                        {quote.hybrid
+                          ? `Rhea router (${quote.hybrid.legs[0].dexs.join(' + ')}) → ${quote.hybrid.legs[1].dexs.join(' + ')}`
+                          : quote.dexs.join(' + ')}
                         {viaSymbols.length > 0 && ` · via ${viaSymbols.join(', ')}`}
                       </small>
                     </dd>
                   </div>
                 </dl>
+                {quote.hybrid && (
+                  <p className="hint">
+                    This pair needs two swaps through {viaSymbols.join(', ') || 'a bridge token'}: you&apos;ll confirm twice in your wallet. The
+                    second swap uses exactly what the first one delivered.
+                  </p>
+                )}
               </div>
             )}
           </div>

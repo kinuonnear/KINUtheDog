@@ -5550,3 +5550,39 @@ a.dt-row:hover {
   font-size: 11.5px;
   opacity: 0.85;
 }
+
+/* ALMM pool capacity (tvl cap) */
+.pool-capacity {
+  margin: 12px 0 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.pool-capacity__head,
+.pool-capacity__foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pool-capacity__head span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.pool-capacity__bar {
+  height: 6px;
+  margin: 10px 0 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-3);
+}
+
+.pool-capacity__bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--mint);
+}
