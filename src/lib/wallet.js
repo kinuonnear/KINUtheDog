@@ -11,6 +11,15 @@ import { describeFailure, failureOf } from './txErrors.js';
 
 const PENDING_REDIRECT_KEY = 'kinu.pendingRedirect';
 
+/**
+ * Inside the Meteor mobile app's browser, popups are blocked, so the web module can't sign in.
+ * The app injects a flag and a React Native bridge; there the in-app module talks to Meteor
+ * directly instead.
+ */
+const inMeteorApp = () =>
+  typeof window !== 'undefined' &&
+  Boolean(window.__is_running_in_meteor_wallet_app__ || /meteor/i.test(navigator.userAgent || '') || window.ReactNativeWebView);
+
 let selectorPromise = null;
 let modal = null;
 let toNajAction = null;
@@ -18,7 +27,7 @@ let toNajAction = null;
 async function loadWalletModules() {
   const [core, meteor, intear, here, myNear, modalUi] = await Promise.all([
     import('@near-wallet-selector/core'),
-    import('@near-wallet-selector/meteor-wallet'),
+    inMeteorApp() ? import('@near-wallet-selector/meteor-wallet-app') : import('@near-wallet-selector/meteor-wallet'),
     import('@near-wallet-selector/intear-wallet'),
     import('@near-wallet-selector/here-wallet'),
     import('@near-wallet-selector/my-near-wallet'),
@@ -34,7 +43,7 @@ export function getSelector() {
       const selector = await core.setupWalletSelector({
         network: NETWORK_ID,
         modules: [
-          meteor.setupMeteorWallet(),
+          meteor.setupMeteorWalletApp ? meteor.setupMeteorWalletApp({ contractId: CONTRACTS.signIn }) : meteor.setupMeteorWallet(),
           intear.setupIntearWallet(),
           here.setupHereWallet(),
           myNear.setupMyNearWallet()
