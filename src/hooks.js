@@ -2,10 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 /**
  * Run an async loader whenever `deps` change. Stale responses are ignored.
- * `reload()` re-runs it keeping current data visible (silent refresh).
+ * `reload()` re-runs it keeping current data visible (silent refresh) and resolves when done.
+ * `updatedAt` is when the data last loaded successfully (ms).
  */
 export function useAsync(loader, deps, { enabled = true, refreshMs = 0 } = {}) {
-  const [state, setState] = useState({ data: undefined, error: null, loading: enabled });
+  const [state, setState] = useState({ data: undefined, error: null, loading: enabled, updatedAt: null });
   const runId = useRef(0);
   const loaderRef = useRef(loader);
   loaderRef.current = loader;
@@ -13,13 +14,13 @@ export function useAsync(loader, deps, { enabled = true, refreshMs = 0 } = {}) {
   const run = useCallback(
     async (silent) => {
       const id = ++runId.current;
-      if (!silent) setState((s) => ({ data: s.data, error: null, loading: true }));
+      if (!silent) setState((s) => ({ ...s, error: null, loading: true }));
       try {
         const data = await loaderRef.current();
-        if (id === runId.current) setState({ data, error: null, loading: false });
+        if (id === runId.current) setState({ data, error: null, loading: false, updatedAt: Date.now() });
       } catch (error) {
         if (id === runId.current) {
-          setState((s) => ({ data: silent ? s.data : undefined, error, loading: false }));
+          setState((s) => ({ ...s, data: silent ? s.data : undefined, error, loading: false }));
         }
       }
     },
@@ -29,7 +30,7 @@ export function useAsync(loader, deps, { enabled = true, refreshMs = 0 } = {}) {
   useEffect(() => {
     if (!enabled) {
       runId.current += 1;
-      setState({ data: undefined, error: null, loading: false });
+      setState({ data: undefined, error: null, loading: false, updatedAt: null });
       return undefined;
     }
     run(false);

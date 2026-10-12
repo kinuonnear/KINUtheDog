@@ -18,6 +18,7 @@ import { CONTRACTS, ENDPOINTS, NATIVE_NEAR } from '../config.js';
 import { CopyButton, EmptyState, ErrorNotice, PairIcons, Skeleton, Stat, Tabs, TokenIcon } from '../components/ui.jsx';
 
 const LIVE_POOL_MS = 4_000;
+const LIVE_FEES_MS = 15_000; // your positions' claimable fees
 
 /** Pool page on app.rhea.finance, for users who want the original UI. */
 function rheaPoolUrl(pool) {
@@ -45,7 +46,7 @@ function ClassicPool({ poolId, initialTab }) {
       return { shares, staked: stakes[String(poolId)] || '0' };
     },
     [poolId, accountId],
-    { enabled: Boolean(accountId) }
+    { enabled: Boolean(accountId), refreshMs: LIVE_FEES_MS }
   );
 
   if (poolQuery.error && !pool) {
@@ -439,6 +440,8 @@ function DclWorkspace({ poolId, pool, x, y, reserves, positions, onAdd, onDone }
                   onDone={onDone}
                   chartKey={chartKey}
                   onToggleChart={toggleChart}
+                  updatedAt={positions.updatedAt}
+                  onRefresh={positions.reload}
                 />
               ))}
             {panel === 'composition' && (

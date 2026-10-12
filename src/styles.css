@@ -4728,6 +4728,33 @@ a.trades__row:hover {
   font-size: 14px;
 }
 
+.fee-refresh {
+  display: inline-grid;
+  margin-left: 6px;
+  vertical-align: middle;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.fee-refresh:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--faint);
+}
+
+.lp-board__bar .fee-updated {
+  color: var(--faint);
+  font-size: 10px;
+}
+
 .lp-board__title {
   display: inline-flex;
   align-items: center;

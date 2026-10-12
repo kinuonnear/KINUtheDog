@@ -1,7 +1,7 @@
 // CLMM positions for one pool, Meteora-style: one row per deposit (lib/lpPositions.js),
 // each with Claim fees, Add (to the same bins), Remove, Rebalance and its range on the chart.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../state.jsx';
 import { Link, poolPath } from '../router.jsx';
 import { buildDclClaimTransactions, buildDclRemoveTransactions, pointToPrice } from '../lib/dclLiquidity.js';
@@ -351,6 +351,17 @@ function RangeTrack({ positions }) {
   );
 }
 
+/** "updated 8s ago", ticking. */
+function UpdatedAgo({ at }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  const s = Math.max(0, Math.round((now - at) / 1000));
+  return <small className="fee-updated">updated {s < 60 ? `${s}s` : `${Math.floor(s / 60)}m`} ago</small>;
+}
+
 /** Name of a deposit group: "Position 2", or a fallback while / when the history is missing. */
 export function depositTitle(group, loading) {
   if (group.number) return `Position ${group.number}`;
@@ -457,8 +468,14 @@ function PositionRow({ poolId, group, x, y, pool, loading, onDone, onChart, onTo
  * `deposits` comes from useDepositGroups; `chartKey` is the deposit shown on the chart and
  * `onToggleChart(group)` switches it.
  */
-export function DclGroupCard({ poolId, positions, deposits, x, y, pool, onDone, onNew, chartKey, onToggleChart }) {
+export function DclGroupCard({ poolId, positions, deposits, x, y, pool, onDone, onNew, chartKey, onToggleChart, updatedAt, onRefresh }) {
   const { prices } = useApp();
+  const [refreshing, setRefreshing] = useState(false);
+  const refresh = async () => {
+    setRefreshing(true);
+    await onRefresh();
+    setRefreshing(false);
+  };
   const { groups, loading } = deposits;
   const summary = summarizeDclGroup(positions, x, y, prices);
   const earning = groups.filter((g) => g.positions.some((p) => p.inRange)).length;
@@ -468,7 +485,15 @@ export function DclGroupCard({ poolId, positions, deposits, x, y, pool, onDone, 
       <div className="lp-board__bar">
         <div>
           <span>Claimable fees</span>
-          <strong className={summary.hasFees ? 'up' : ''}>{formatUsd(summary.feeUsd)}</strong>
+          <strong className={summary.hasFees ? 'up' : ''}>
+            {formatUsd(summary.feeUsd)}
+            {onRefresh && (
+              <button type="button" className="fee-refresh" onClick={refresh} disabled={refreshing} title="Refresh fees now" aria-label="Refresh fees now">
+                {refreshing ? <Spinner size={10} /> : '↻'}
+              </button>
+            )}
+          </strong>
+          {updatedAt && <UpdatedAgo at={updatedAt} />}
         </div>
         <div>
           <span>Positions earning</span>
