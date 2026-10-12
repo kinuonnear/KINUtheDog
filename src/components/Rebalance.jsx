@@ -79,7 +79,7 @@ function RebalanceModal({ all, x, y, onClose, onDone }) {
   return (
     <Modal
       title="Rebalance position"
-      subtitle={`${x.symbol} / ${y.symbol} · ${all.length} position${all.length === 1 ? '' : 's'}${
+      subtitle={`${x.symbol} / ${y.symbol} · ${all.length} bin${all.length === 1 ? '' : 's'}${
         outOfRange.length ? ` · ${outOfRange.length} out of range — not earning fees` : ' · all in range'
       }`}
       onClose={onClose}

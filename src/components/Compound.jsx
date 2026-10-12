@@ -51,16 +51,16 @@ function CompoundModal({ positions, x, y, onClose, onDone }) {
           <span className="eyebrow">Add fees to</span>
           <div className="segmented segmented--full">
             <button type="button" className={mode === 'shape' ? 'active' : ''} onClick={() => setMode('shape')}>
-              All positions · keep my shape
+              All bins · keep my shape
             </button>
             <button type="button" className={mode === 'earning' ? 'active' : ''} onClick={() => setMode('earning')}>
-              Earning positions only
+              Earning bins only
             </button>
           </div>
           <small className="muted">
             {mode === 'shape'
-              ? 'Fees are pooled: positions in range take both tokens, the rest of each token goes to positions on its side of the price.'
-              : 'Only positions in range get fees, in their token ratio. The rest stays in your wallet.'}
+              ? 'Fees are pooled: bins in range take both tokens, the rest of each token goes to the bins on its side of the price.'
+              : 'Only bins in range get fees, in their token ratio. The rest stays in your wallet.'}
           </small>
         </div>
         <dl className="kv">
@@ -76,7 +76,7 @@ function CompoundModal({ positions, x, y, onClose, onDone }) {
             <dd>
               <Pair ax={n(plan.totalX, x)} ay={n(plan.totalY, y)} x={x} y={y} />
               <small className="muted">
-                {formatUsd(usd(plan.totalX, plan.totalY))} into {plan.items.length} position{plan.items.length === 1 ? '' : 's'}
+                {formatUsd(usd(plan.totalX, plan.totalY))} into {plan.items.length} bin{plan.items.length === 1 ? '' : 's'}
               </small>
             </dd>
           </div>
@@ -98,8 +98,8 @@ function CompoundModal({ positions, x, y, onClose, onDone }) {
           {submitting ? 'Confirm in wallet…' : plan.items.length ? 'Compound' : 'Nothing to compound'}
         </button>
         <p className="hint">
-          One wallet request: claim fees, deposit them and add them to your existing positions. Positions outside the range
-          start earning again when the price returns to them.
+          One wallet request: claim fees, deposit them and add them to your position. Bins outside the price start earning
+          again when the price returns to them.
         </p>
       </div>
     </Modal>

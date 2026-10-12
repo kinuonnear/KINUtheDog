@@ -89,7 +89,7 @@ export function DclRemoveModal({ positions, x, y, onClose, onDone }) {
   };
 
   return (
-    <Modal title="Remove liquidity" subtitle={`${x.symbol} / ${y.symbol} · ${positions.length} position${positions.length === 1 ? '' : 's'}`} onClose={onClose}>
+    <Modal title="Remove liquidity" subtitle={`${x.symbol} / ${y.symbol} · your position · ${positions.length} bin${positions.length === 1 ? '' : 's'}`} onClose={onClose}>
       <div className="liq-form">
         <div className="range-block">
           <div className="range-block__value">{percent}%</div>
@@ -375,10 +375,10 @@ export function DclGroupCard({ poolId, positions, x, y, pool, onDone, onAdd, onC
           <strong className={summary.hasFees ? 'up' : ''}>{formatUsd(summary.feeUsd)}</strong>
         </div>
         <div>
-          <span>Positions</span>
+          <span>Bins in range</span>
           <strong>
             {inRange.length}
-            <small>/{positions.length} in range</small>
+            <small>/{positions.length}</small>
           </strong>
         </div>
         <div>
@@ -411,7 +411,7 @@ export function DclGroupCard({ poolId, positions, x, y, pool, onDone, onAdd, onC
               {summary.fullRange ? 'Full range' : `${formatChartPrice(summary.minPrice)} – ${formatChartPrice(summary.maxPrice)}`}
             </strong>
             <small>
-              {y.symbol} per {x.symbol} · {positions.length} position{positions.length === 1 ? '' : 's'}
+              {y.symbol} per {x.symbol} · 1 position · {positions.length} bin{positions.length === 1 ? '' : 's'}
             </small>
             <RangeTrack positions={positions} />
             {onToggleChart && (
@@ -443,7 +443,7 @@ export function DclGroupCard({ poolId, positions, x, y, pool, onDone, onAdd, onC
           <div className="lp-board__cell" data-label="Active share">
             <strong className={inRange.length ? 'up' : 'warn'}>{activeShare !== null ? `${activeShare.toFixed(2)}%` : '—'}</strong>
             <span className={`range-badge ${summary.inRange ? 'range-badge--in' : ''}`}>
-              {summary.inRange ? `${inRange.length} of ${positions.length} earning` : 'Not earning'}
+              {summary.inRange ? `${inRange.length} of ${positions.length} bins earning` : 'Not earning'}
             </span>
             <small className="muted">of active pool liquidity</small>
             <RebalanceButton positions={positions} x={x} y={y} onDone={onDone} className="button button--outline button--sm" />

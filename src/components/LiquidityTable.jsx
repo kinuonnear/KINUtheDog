@@ -210,7 +210,7 @@ export default function LiquidityTable({ classicRows, dclRows, depositUsd, readO
                       </strong>
                       <small>
                         <span className="kind kind--clmm">CLMM</span>
-                        {formatPercent(Number(g.poolId.split('|')[2]) / 10000, 2)} · {g.positions.length} pos
+                        {formatPercent(Number(g.poolId.split('|')[2]) / 10000, 2)} · {g.positions.length} bin{g.positions.length === 1 ? '' : 's'}
                       </small>
                     </span>
                   </Link>

@@ -410,7 +410,8 @@ function DclWorkspace({ poolId, pool, x, y, reserves, positions, onAdd, onDone }
         <section className="card bottom-panel">
           <Tabs
             tabs={[
-              { key: 'liquidity', label: 'Your liquidity', count: accountId ? positions.data?.length ?? 0 : undefined },
+              // One position per pair for the user; its CLMM bins are details inside it.
+              { key: 'liquidity', label: 'Your liquidity', count: accountId ? (positions.data?.length ? 1 : 0) : undefined },
               { key: 'composition', label: 'Pool composition' },
               { key: 'trades', label: 'Transactions' }
             ]}
