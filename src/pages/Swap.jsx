@@ -5,9 +5,10 @@ import { navigate, useLocation } from '../router.jsx';
 import TokenPicker from '../components/TokenPicker.jsx';
 import RecentTrades from '../components/RecentTrades.jsx';
 import { defaultChartSide } from '../lib/intear.js';
-import { Spinner, TokenIcon } from '../components/ui.jsx';
+import { Modal, Spinner, TokenIcon } from '../components/ui.jsx';
 import { getCachedToken, getToken, getTokens, getWhitelistedTokens, priceOf } from '../lib/tokens.js';
-import { buildSwapTransactions, getSwapQuote, quoteHybridSecondLeg } from '../lib/swap.js';
+import { buildSwapTransactions, getSwapQuote, quoteHybridSecondLeg, selectRoute } from '../lib/swap.js';
+import { estimateNetworkFee } from '../lib/gasEstimate.js';
 import { view } from '../lib/rpc.js';
 import { getAggregatorBalances } from '../lib/rhea.js';
 import { buildAggregatorWithdrawTransactions } from '../lib/liquidity.js';
@@ -102,6 +103,60 @@ function UnverifiedTokenWarning({ tokens }) {
     </div>
   );
 }
+
+/**
+ * Transactions a quote will need, for the fee estimate when no wallet is connected
+ * (storage registrations can't be known without an account).
+ */
+function sketchSwapTransactions(quote, tokenIn, tokenOut) {
+  const call = (receiverId, methodName, args, gas) => ({ receiverId, actions: [{ type: 'FunctionCall', params: { methodName, args, gas, deposit: '0' } }] });
+  const legs = quote.hybrid ? quote.hybrid.legs : [quote];
+  const txs = [];
+  if (tokenIn.native) txs.push(call(CONTRACTS.wrapNear, 'near_deposit', {}, '10000000000000'));
+  legs.forEach((leg) => {
+    txs.push(
+      leg.dcl
+        ? call('token', 'ft_transfer_call', { receiver_id: CONTRACTS.dcl, msg: '{"Swap":{}}' }, '180000000000000')
+        : call('token', 'ft_transfer_call', { receiver_id: CONTRACTS.aggregator, msg: '' }, '300000000000000')
+    );
+  });
+  if (tokenOut.native && legs[legs.length - 1].dcl) txs.push(call(CONTRACTS.wrapNear, 'near_withdraw', {}, '50000000000000'));
+  return txs;
+}
+
+/** Every route that was quoted, its output and the gap to the best one. */
+function RoutePicker({ quote, tokenOut, onPick, onClose }) {
+  return (
+    <Modal title="Select route" subtitle="All routes are quoted live on Rhea. The best output is selected by default." onClose={onClose}>
+      <div className="route-list">
+        {quote.compared.map((r) => (
+          <button
+            key={r.source}
+            type="button"
+            className={`route-option ${r.chosen ? 'route-option--active' : ''}`}
+            onClick={() => {
+              onPick(r.source);
+              onClose();
+            }}
+          >
+            <span className="route-option__name">
+              <strong>{r.source}</strong>
+              <small className="muted">{(r.dexs || []).join(' + ')}</small>
+            </span>
+            <span className="route-option__out">
+              <strong>
+                {formatAmount(toNumber(r.amountOut, tokenOut.decimals), { compactAbove: 1e12 })} {tokenOut.symbol}
+              </strong>
+              {r.best ? <em className="badge badge--best">Best</em> : <em className="badge badge--gap">-{r.gapPct < 0.01 ? '<0.01' : r.gapPct.toFixed(2)}%</em>}
+            </span>
+          </button>
+        ))}
+      </div>
+    </Modal>
+  );
+}
+
+const QUICK_PERCENTS = [25, 50, 80, 100];
 
 function isWrapPair(a, b) {
   return (
@@ -218,6 +273,11 @@ export default function Swap() {
   const [quoting, setQuoting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [swapCount, setSwapCount] = useState(0); // re-checks the swap router after each swap
+  // Route the user picked (null = always the best). Survives quote refreshes for the same pair.
+  const [routeSource, setRouteSource] = useState(null);
+  const routeSourceRef = useRef(null);
+  routeSourceRef.current = routeSource;
+  const [showRoutes, setShowRoutes] = useState(false);
   const [invert, setInvert] = useState(false);
   const [chartSide, setChartSide] = useState(null);
 
@@ -278,7 +338,10 @@ export default function Swap() {
       }
       if (!silent) setQuoting(true);
       try {
-        const q = await getSwapQuote({ tokenIn, tokenOut, amountIn: amountRaw, slippage, user: accountId || undefined });
+        const q = selectRoute(
+          await getSwapQuote({ tokenIn, tokenOut, amountIn: amountRaw, slippage, user: accountId || undefined }),
+          routeSourceRef.current
+        );
         if (id !== quoteRun.current) return null;
         setQuote(q);
         setQuoteError('');
@@ -296,6 +359,10 @@ export default function Swap() {
   );
 
   useEffect(() => {
+    setRouteSource(null);
+  }, [tokenIn.id, tokenOut.id]);
+
+  useEffect(() => {
     requestQuote();
     const timer = setInterval(() => document.visibilityState === 'visible' && requestQuote({ silent: true }), QUOTE_REFRESH_MS);
     return () => clearInterval(timer);
@@ -309,7 +376,11 @@ export default function Swap() {
   const priceOut = priceOf(prices, tokenOut.id);
   const usdIn = amountInNum * priceIn;
   const usdOut = amountOutNum * priceOut;
-  const impact = usdIn > 0 && usdOut > 0 && !wrapMode ? Math.max(0, (1 - usdOut / usdIn) * 100) : null;
+  // Measured on the route itself (trade rate vs. a tiny trade's rate); USD prices only as a fallback,
+  // since price lists can lag for small tokens.
+  const measuredImpact = !wrapMode && Number.isFinite(quote?.priceImpact) ? quote.priceImpact : null;
+  const impact =
+    measuredImpact ?? (usdIn > 0 && usdOut > 0 && !wrapMode ? Math.max(0, (1 - usdOut / usdIn) * 100) : null);
   const rate = amountInNum > 0 && amountOutNum > 0 ? amountOutNum / amountInNum : null;
   const stale = amount !== debouncedAmount;
 
@@ -347,6 +418,28 @@ export default function Swap() {
     setAmount(formatUnits(raw.toString(), tokenIn.decimals));
   };
 
+  // Network fee: from the real transactions when a wallet is connected (includes storage),
+  // otherwise from the route shape.
+  const fee = useAsync(
+    async () => {
+      if (!quote || quote.wrap) return null;
+      let txs;
+      if (accountId && quote.user === accountId) {
+        txs = quote.hybrid
+          ? [
+              ...(await buildSwapTransactions({ tokenIn, tokenOut: { id: quote.hybrid.mid }, quote: quote.hybrid.legs[0], accountId })),
+              ...sketchSwapTransactions(quote.hybrid.legs[1], { id: quote.hybrid.mid }, tokenOut)
+            ]
+          : await buildSwapTransactions({ tokenIn, tokenOut, quote, accountId });
+      } else {
+        txs = sketchSwapTransactions(quote, tokenIn, tokenOut);
+      }
+      return estimateNetworkFee(txs);
+    },
+    [quote?.fetchedAt, quote?.source, accountId],
+    { enabled: Boolean(quote) && !wrapMode }
+  );
+
   /**
    * Combined route (e.g. NEAR -> RHEA via the router, RHEA -> DIARHEA via CLMM): two wallet
    * requests. Step 2 spends exactly the bridge tokens step 1 delivered, never tokens the
@@ -381,7 +474,9 @@ export default function Swap() {
       const route =
         quote.user === accountId && Date.now() - quote.fetchedAt <= QUOTE_MAX_AGE_MS && !stale
           ? quote
-          : await getSwapQuote({ tokenIn, tokenOut, amountIn: typedRaw, slippage, user: accountId }).catch(() => null);
+          : await getSwapQuote({ tokenIn, tokenOut, amountIn: typedRaw, slippage, user: accountId })
+              .then((q) => selectRoute(q, routeSource))
+              .catch(() => null);
       if (route?.hybrid) {
         const ok = await submitHybrid(route);
         setSubmitting(false);
@@ -412,7 +507,7 @@ export default function Swap() {
         // Always execute a fresh, user-bound quote.
         let executable = quote;
         if (!executable || executable.hybrid || executable.user !== accountId || Date.now() - executable.fetchedAt > QUOTE_MAX_AGE_MS || stale) {
-          executable = await getSwapQuote({ tokenIn, tokenOut, amountIn: typedRaw, slippage, user: accountId });
+          executable = selectRoute(await getSwapQuote({ tokenIn, tokenOut, amountIn: typedRaw, slippage, user: accountId }), routeSource);
           setQuote(executable);
         }
         return buildSwapTransactions({ tokenIn, tokenOut, quote: executable, accountId });
@@ -479,6 +574,15 @@ export default function Swap() {
               </div>
             </div>
 
+            {accountId && (
+              <div className="quick-amounts">
+                {QUICK_PERCENTS.map((p) => (
+                  <button key={p} type="button" onClick={() => setFraction(p / 100)}>
+                    {p}%
+                  </button>
+                ))}
+              </div>
+            )}
             <TokenField
               label="You pay"
               token={tokenIn}
@@ -487,8 +591,6 @@ export default function Swap() {
               onPickToken={() => setPicker('in')}
               balance={balanceInRaw !== null ? toNumber(balanceInRaw, tokenIn.decimals) : null}
               usd={usdIn}
-              onHalf={accountId ? () => setFraction(0.5) : undefined}
-              onMax={accountId ? () => setFraction(1) : undefined}
             />
 
             <div className="swap-flip-wrap">
@@ -542,7 +644,7 @@ export default function Swap() {
                   </div>
                   {impact !== null && (
                     <div>
-                      <dt>Price impact (est.)</dt>
+                      <dt>{measuredImpact !== null ? 'Price impact' : 'Price impact (est.)'}</dt>
                       <dd className={impact > 5 ? 'down' : impact > 2 ? 'warn' : ''}>{formatPercent(impact)}</dd>
                     </div>
                   )}
@@ -562,6 +664,41 @@ export default function Swap() {
                       </small>
                     </dd>
                   </div>
+                  {quote.compared?.length > 0 && (
+                    <div>
+                      <dt>Route provider</dt>
+                      <dd>
+                        <button
+                          type="button"
+                          className="route-chip"
+                          onClick={() => setShowRoutes(true)}
+                          disabled={quote.compared.length < 2}
+                          title={quote.compared.length < 2 ? 'Only one route found for this pair' : 'Compare routes'}
+                        >
+                          {quote.source}
+                          {quote.source === quote.bestSource ? <em className="badge badge--best">Best</em> : <em className="badge badge--gap">Not best</em>}
+                          {quote.compared.length > 1 && <span aria-hidden>▾</span>}
+                        </button>
+                      </dd>
+                    </div>
+                  )}
+                  {!wrapMode && (
+                    <div>
+                      <dt>Network fee</dt>
+                      <dd title={fee.data ? `Up to ${fee.data.maxFeeNear.toFixed(4)} NEAR if every call used all its gas; unused gas is refunded.` : undefined}>
+                        {fee.data ? (
+                          <>
+                            ≈ {fee.data.feeNear.toFixed(5)} NEAR
+                            {fee.data.storageNear > 0 && <small className="muted"> + {formatAmount(fee.data.storageNear)} NEAR storage (one-time)</small>}
+                          </>
+                        ) : fee.loading ? (
+                          <Spinner size={12} />
+                        ) : (
+                          '—'
+                        )}
+                      </dd>
+                    </div>
+                  )}
                 </dl>
                 {quote.hybrid && (
                   <p className="hint">
@@ -574,13 +711,25 @@ export default function Swap() {
           </div>
 
           <p className="fine-print">
-            Quotes come from Rhea&apos;s SmartRouter, with direct Rhea CLMM routing for pairs it doesn&apos;t cover.
+            Every swap is quoted on Rhea&apos;s SmartRouter and on direct Rhea CLMM pools; the larger output wins.
             Every transaction is reviewed and signed in your own wallet — KINU never holds your keys or funds.
           </p>
 
           <RecentTrades token={chartToken} />
         </div>
       </div>
+
+      {showRoutes && quote?.compared?.length > 1 && (
+        <RoutePicker
+          quote={quote}
+          tokenOut={tokenOut}
+          onPick={(src) => {
+            setRouteSource(src === quote.bestSource ? null : src);
+            setQuote(selectRoute(quote, src));
+          }}
+          onClose={() => setShowRoutes(false)}
+        />
+      )}
 
       {picker && (
         <TokenPicker

@@ -21,25 +21,89 @@ const contractOf = (token) => token.contract || token.id;
 
 /**
  * Best quote for `amountIn` (raw units) of tokenIn -> tokenOut.
- * Uses Rhea's SmartRouter first and falls back to direct DCL routing for
- * pairs the router doesn't cover (community CLMM pools such as KINU/NINU).
- * Pass `user` to get an executable, user-bound quote.
+ * Rhea's SmartRouter and direct CLMM routing are quoted side by side and the
+ * larger output wins: on the same CLMM pools the direct route skips the
+ * aggregator's protocol fee, while the router also reaches AMM / stable pools
+ * and can split large trades. If neither has a path, a two-step route through
+ * a bridge token is tried. Pass `user` to get an executable, user-bound quote.
  */
 export async function getSwapQuote(params) {
-  try {
-    return await getSmartRouterQuote(params);
-  } catch (routerError) {
-    if (params.signal?.aborted) throw routerError;
+  const [router, clmm] = await Promise.allSettled([getSmartRouterQuote(params), getDclQuote(params)]);
+  if (params.signal?.aborted) throw router.reason || new DOMException('Aborted', 'AbortError');
+
+  const candidates = [
+    router.status === 'fulfilled' && { source: 'SmartRouter', quote: router.value },
+    clmm.status === 'fulfilled' && { source: 'Rhea CLMM (direct)', quote: clmm.value }
+  ].filter(Boolean);
+
+  if (!candidates.length) {
     try {
-      return await getDclQuote(params);
+      candidates.push({ source: 'Bridge route', quote: await getHybridQuote(params) });
     } catch {
-      try {
-        return await getHybridQuote(params);
-      } catch {
-        throw routerError;
-      }
+      throw router.status === 'rejected' ? router.reason : new Error('No route found for this pair.');
     }
   }
+
+  // Every candidate stays executable so the user can pick one; each gets its own measured impact.
+  await Promise.all(
+    candidates.map(async (c) => {
+      c.quote.priceImpact = await measurePriceImpact(c.quote, params).catch(() => null);
+    })
+  );
+  const best = candidates.reduce((a, b) => (toBigInt(b.quote.amountOut) > toBigInt(a.quote.amountOut) ? b : a));
+  return selectRoute({ ...best.quote, routes: candidates, bestSource: best.source }, best.source);
+}
+
+/**
+ * The quote for one route of a multi-route result (falls back to the best one), carrying the
+ * full route list along. `compared` marks the selected route; `gapPct` is how far each route
+ * is below the best.
+ */
+export function selectRoute(quote, source) {
+  if (!quote?.routes) return quote;
+  const pick = quote.routes.find((r) => r.source === source) || quote.routes.find((r) => r.source === quote.bestSource);
+  const bestOut = Number(quote.routes.find((r) => r.source === quote.bestSource).quote.amountOut);
+  return {
+    ...pick.quote,
+    routes: quote.routes,
+    bestSource: quote.bestSource,
+    source: pick.source,
+    compared: quote.routes.map((r) => ({
+      source: r.source,
+      amountOut: r.quote.amountOut,
+      chosen: r.source === pick.source,
+      best: r.source === quote.bestSource,
+      gapPct: bestOut > 0 ? (1 - Number(r.quote.amountOut) / bestOut) * 100 : 0,
+      dexs: r.quote.dexs,
+      routeTokens: r.quote.routeTokens
+    }))
+  };
+}
+
+/**
+ * Price impact of this trade size on its own route: the rate for amountIn against the
+ * rate the same route gives for a tiny amount. Independent of (possibly stale) USD prices.
+ */
+async function measurePriceImpact(quote, { tokenIn, tokenOut, amountIn }) {
+  const small = toBigInt(amountIn) / 1000n;
+  if (small === 0n || quote.hybrid) return null;
+  let refOut = null;
+  if (quote.dcl) {
+    const result = await view(CONTRACTS.dcl, 'quote', {
+      pool_ids: quote.dcl.poolIds,
+      input_token: contractOf(tokenIn),
+      output_token: contractOf(tokenOut),
+      input_amount: small.toString(),
+      tag: 'kinu'
+    });
+    refOut = result?.amount;
+  } else if (quote.msg) {
+    refOut = (await getSmartRouterQuote({ tokenIn, tokenOut, amountIn: small.toString(), slippage: 0.5 })).amountOut;
+  }
+  if (!refOut || toBigInt(refOut) === 0n) return null;
+  const spot = Number(refOut) / Number(small);
+  const executed = Number(quote.amountOut) / Number(amountIn);
+  return Math.max(0, (1 - executed / spot) * 100);
 }
 
 /**
