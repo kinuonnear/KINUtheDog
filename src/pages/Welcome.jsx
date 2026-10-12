@@ -1,4 +1,4 @@
-// kinuthedog.site welcome page: the original KINU site (video hero, tokenomics, lore,
+// kinudefi.com welcome page: the original KINU site (video hero, tokenomics, lore,
 // culture, community) with the KINU Terminal added — LAUNCH APP opens the platform.
 
 import { useEffect, useRef } from 'react';

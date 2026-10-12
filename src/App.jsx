@@ -131,7 +131,7 @@ export default function App() {
       );
   }
 
-  // The welcome page (kinuthedog.site) is a full-screen landing with its own nav.
+  // The welcome page (kinudefi.com) is a full-screen landing with its own nav.
   if (route.name === 'home') {
     return (
       <>
