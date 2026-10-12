@@ -20,13 +20,27 @@ const inMeteorApp = () =>
   typeof window !== 'undefined' &&
   Boolean(window.__is_running_in_meteor_wallet_app__ || /meteor/i.test(navigator.userAgent || '') || window.ReactNativeWebView);
 
+// Set when the user presses Connect inside the Meteor app; cleared on Disconnect.
+const METEOR_APP_CONNECTED_KEY = 'kinu.meteorAppConnected';
+
+function meteorAppConnected(value) {
+  try {
+    if (value === true) localStorage.setItem(METEOR_APP_CONNECTED_KEY, '1');
+    else if (value === false) localStorage.removeItem(METEOR_APP_CONNECTED_KEY);
+    return localStorage.getItem(METEOR_APP_CONNECTED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Instant-link modules (Meteor in-app) sign in by themselves on page load. The user should
- * choose to connect, so the module is offered in the modal like any other wallet instead.
+ * Instant-link modules (Meteor in-app) sign in by themselves on every page load. The app
+ * keeps no session, so that is how a connection survives a refresh — but the user should
+ * choose to connect first: it only runs once they pressed Connect, until they disconnect.
  */
 const withoutAutoConnect = (factory) => async (...args) => {
   const module = await factory(...args);
-  return module && { ...module, metadata: { ...module.metadata, runOnStartup: false } };
+  return module && { ...module, metadata: { ...module.metadata, runOnStartup: meteorAppConnected() } };
 };
 
 let selectorPromise = null;
@@ -86,6 +100,7 @@ export async function openWalletModal() {
   if (inMeteorApp() && selector.store.getState().modules.some((m) => m.id === 'meteor-wallet-app')) {
     const wallet = await selector.wallet('meteor-wallet-app');
     await wallet.signIn({ contractId: CONTRACTS.signIn, accounts: [] });
+    meteorAppConnected(true);
     return;
   }
   modal?.show();
@@ -94,6 +109,7 @@ export async function openWalletModal() {
 export async function signOut() {
   const selector = await getSelector();
   const wallet = await selector.wallet();
+  meteorAppConnected(false);
   await wallet.signOut();
 }
 
