@@ -2,13 +2,43 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createChart, CandlestickSeries, HistogramSeries } from 'lightweight-charts';
 import { useAsync, useLocalStorage } from '../hooks.js';
 import { fetchOhlc, fetchTokenInfo, intearTokenId, RESOLUTIONS } from '../lib/intear.js';
-import { formatChartPrice, formatPercent, formatUsd } from '../lib/format.js';
+import { formatChartPrice, formatPercent, formatUsd, shortAccount } from '../lib/format.js';
+import { CONTRACTS, ENDPOINTS, NATIVE_NEAR } from '../config.js';
+import { Link } from '../router.jsx';
 import { attachDrawings, DrawingToolbar, useDrawingKeys } from './chart/DrawingTools.jsx';
-import { Spinner, TokenIcon } from './ui.jsx';
+import { CopyButton, Spinner, TokenIcon } from './ui.jsx';
 
 const UP = '#b8ff3d';
 const DOWN = '#ff5d6c';
 const LIVE_REFRESH_MS = 15_000;
+
+/** The charted token's contract: copy, explorer and KINU token page. Native NEAR has none. */
+function TokenContract({ token }) {
+  if (!token) return null;
+  const native = token.id === NATIVE_NEAR.id;
+  return (
+    <div className="chart-top__ca">
+      <span>{native ? 'Native token' : 'Contract'}</span>
+      {native ? (
+        <div className="chart-top__ca-row">
+          <code>NEAR</code>
+          <small className="muted">swaps as {CONTRACTS.wrapNear}</small>
+        </div>
+      ) : (
+        <div className="chart-top__ca-row">
+          <code title={token.id}>{shortAccount(token.id, 14, 10)}</code>
+          <CopyButton text={token.id} />
+          <a href={`${ENDPOINTS.explorer}/address/${token.id}`} target="_blank" rel="noopener noreferrer" title="Open in NearBlocks">
+            NearBlocks ↗
+          </a>
+          <Link to={`/token/${encodeURIComponent(token.id)}`} title="Token page on KINU">
+            Info
+          </Link>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /** USD price chart in the style of the Intear DEX terminal. `side` picks which token of the pair is charted. */
 export default function PriceChart({ tokenIn, tokenOut, side, onSideChange }) {
@@ -195,6 +225,8 @@ export default function PriceChart({ tokenIn, tokenOut, side, onSideChange }) {
           </div>
         </div>
 
+        <TokenContract token={token} />
+
         <div className="chart-top__stats">
           <div>
             <span>MCap</span>
@@ -208,12 +240,10 @@ export default function PriceChart({ tokenIn, tokenOut, side, onSideChange }) {
             <span>Vol 24h</span>
             <strong>{info.data ? formatUsd(info.data.volume24hUsd) : '—'}</strong>
           </div>
-          {info.data?.holders ? (
-            <div>
-              <span>Holders</span>
-              <strong>{info.data.holders.toLocaleString()}</strong>
-            </div>
-          ) : null}
+          <div>
+            <span>Holders</span>
+            <strong>{info.data?.holders ? info.data.holders.toLocaleString() : '—'}</strong>
+          </div>
         </div>
       </div>
 

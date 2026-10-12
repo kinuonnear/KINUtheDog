@@ -2449,29 +2449,95 @@ a.pool-row:hover + .pool-row {
 }
 
 .chart-top__stats {
-  display: flex;
-  gap: 22px;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(96px, auto));
+  gap: 8px;
 }
 
 .chart-top__stats > div {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
+  padding: 9px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--surface-2);
 }
 
 .chart-top__stats span {
-  color: var(--faint);
+  color: var(--muted);
   font-family: var(--mono);
   font-size: 10px;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .chart-top__stats strong {
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Contract of the charted token, between the price and the stats */
+.chart-top__ca {
+  flex: 1 1 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  padding: 9px 14px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 12px;
+}
+
+.chart-top__ca > span {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.chart-top__ca-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  font-size: 12px;
+}
+
+.chart-top__ca-row code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
   font-family: var(--mono);
   font-size: 13px;
-  font-weight: 500;
+}
+
+.chart-top__ca-row .link-button,
+.chart-top__ca-row a {
+  flex: none;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.chart-top__ca-row a:hover,
+.chart-top__ca-row .link-button:hover {
+  text-decoration: underline;
+}
+
+.chart-top__ca-row small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .chart-toolbar {
@@ -2617,7 +2683,12 @@ a.trades__row:hover {
   }
 
   .chart-top__stats {
-    gap: 14px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .chart-top__ca {
+    flex-basis: 100%;
   }
 }
 
@@ -3610,10 +3681,18 @@ a.trades__row:hover {
   padding-top: 20px;
 }
 
+@media (min-width: 1081px) {
+  /* Room on the left of the chart; the swap column takes the extra width. */
+  .main--full .page--swap {
+    padding-left: 24px;
+  }
+}
+
 /* Two columns only on wide screens: below 1081px the stacked layout in the Responsive block applies. */
 @media (min-width: 1081px) {
   .main--full .swap-layout {
-    grid-template-columns: minmax(0, 1fr) 420px;
+    grid-template-columns: minmax(0, 1fr) 480px;
+    gap: 24px;
   }
 
   .main--full .swap-layout--solo {
