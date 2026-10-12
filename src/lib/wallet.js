@@ -7,6 +7,7 @@ import '@near-wallet-selector/modal-ui/styles.css';
 import { CONTRACTS, NETWORK_ID } from '../config.js';
 import { mergeTransactions } from './tx.js';
 import { assertSafeTransactions } from './txGuard.js';
+import { describeFailure, failureOf } from './txErrors.js';
 
 let selectorPromise = null;
 let modal = null;
@@ -87,10 +88,10 @@ export async function sendTransactions(transactions) {
   });
 
   const list = Array.isArray(outcomes) ? outcomes : outcomes ? [outcomes] : [];
-  const failure = list.find((o) => o?.status && typeof o.status === 'object' && 'Failure' in o.status);
-  if (failure) {
-    const reason = JSON.stringify(failure.status.Failure).slice(0, 240);
-    throw new Error(`Transaction failed on-chain: ${reason}`);
+  // A receipt can fail inside a transaction that reports success (e.g. a refunded deposit).
+  for (const outcome of list) {
+    const failed = failureOf(outcome);
+    if (failed) throw new Error(describeFailure(failed));
   }
   return list;
 }

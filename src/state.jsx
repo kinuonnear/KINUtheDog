@@ -11,6 +11,7 @@ import {
 } from './lib/wallet.js';
 import { getAllBalances, getFtBalance, getPrices } from './lib/tokens.js';
 import { clearViewCache } from './lib/rpc.js';
+import { explainRecentFailure, GENERIC_RECEIPT_FAILURE } from './lib/txErrors.js';
 import { useLocalStorage } from './hooks.js';
 import { DEFAULT_SLIPPAGE, ENDPOINTS } from './config.js';
 
@@ -182,8 +183,16 @@ export function AppProvider({ children }) {
       } catch (error) {
         dismissToast(pendingId);
         const message = error?.message || String(error);
-        if (/reject|cancel|denied|closed/i.test(message)) {
+        if (/reject|cancel|denied|closed/i.test(message) && !GENERIC_RECEIPT_FAILURE.test(message)) {
           toast('warning', 'Request cancelled', 'Nothing was sent.');
+        } else if (GENERIC_RECEIPT_FAILURE.test(message) && !/ran out of gas|failed:/.test(message)) {
+          // The wallet only says "a receipt failed": read the reason from the chain.
+          const checkingId = toast('error', 'Transaction failed', 'One step failed on-chain — checking why…', { timeout: 0 });
+          explainRecentFailure(accountId).then((reason) => {
+            dismissToast(checkingId);
+            toast('error', 'Transaction failed', reason || message, { timeout: 15000 });
+            refreshBalances();
+          });
         } else {
           toast('error', 'Transaction failed', message, { timeout: 12000 });
         }

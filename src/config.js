@@ -35,6 +35,9 @@ export const GAS = {
   storageDeposit: '50000000000000',
   nearDeposit: '50000000000000',
   ftTransferCall: '180000000000000',
+  // Depositing into the CLMM contract (ft_transfer_call msg "Deposit") burns ~260-410 TGas on
+  // mainnet; 180 TGas always ran out and 400 TGas often did. Unused gas is refunded.
+  dclDeposit: '600000000000000',
   aggregatorSwap: '600000000000000',
   aggregatorTokenStorage: '30000000000000',
   aggregatorWithdraw: '300000000000000', // same as app.rhea.finance (withdraw + callbacks)

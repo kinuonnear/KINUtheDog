@@ -181,8 +181,8 @@ export async function buildDclAddTransactions({
     txs.push(wrapNearTx(wrapTotal.toString()));
   }
 
-  if (toBigInt(amountX) > 0n) txs.push(ftTransferCallTx(pool.token_x, DCL, amountX, '"Deposit"'));
-  if (toBigInt(amountY) > 0n) txs.push(ftTransferCallTx(pool.token_y, DCL, amountY, '"Deposit"'));
+  if (toBigInt(amountX) > 0n) txs.push(ftTransferCallTx(pool.token_x, DCL, amountX, '"Deposit"', GAS.dclDeposit));
+  if (toBigInt(amountY) > 0n) txs.push(ftTransferCallTx(pool.token_y, DCL, amountY, '"Deposit"', GAS.dclDeposit));
 
   const { minX, minY } = minAmountsInBand({ left, right, current: pool.current_point, amountX, amountY, slippage });
   txs.push(
@@ -386,8 +386,8 @@ export async function buildDclBinsTransactions({ pool, plan, slippage, accountId
     txs.push(await ensureStorageTx(CONTRACTS.wrapNear, accountId));
     txs.push(wrapNearTx(wrapTotal.toString()));
   }
-  if (toBigInt(totalX) > 0n) txs.push(ftTransferCallTx(pool.token_x, DCL, totalX, '"Deposit"'));
-  if (toBigInt(totalY) > 0n) txs.push(ftTransferCallTx(pool.token_y, DCL, totalY, '"Deposit"'));
+  if (toBigInt(totalX) > 0n) txs.push(ftTransferCallTx(pool.token_x, DCL, totalX, '"Deposit"', GAS.dclDeposit));
+  if (toBigInt(totalY) > 0n) txs.push(ftTransferCallTx(pool.token_y, DCL, totalY, '"Deposit"', GAS.dclDeposit));
   for (let i = 0; i < infos.length; i += BATCH_SIZE) {
     txs.push(
       transaction(DCL, [

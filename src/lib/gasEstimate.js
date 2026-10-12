@@ -15,7 +15,8 @@ const UNKNOWN_SHARE = 0.35; // of attached gas, for calls without a measurement
 function typicalTGas(receiverId, methodName, args = {}) {
   if (methodName === 'ft_transfer_call') {
     if (args.receiver_id === CONTRACTS.aggregator) return 77; // SmartRouter swap
-    if (args.receiver_id === CONTRACTS.dcl) return /Swap/.test(args.msg || '') ? 32 : 30; // direct CLMM swap / deposit
+    // direct CLMM swap ~32 TGas; a CLMM "Deposit" burns ~260-410 TGas (median ~400)
+    if (args.receiver_id === CONTRACTS.dcl) return /Swap/.test(args.msg || '') ? 32 : 400;
     if (args.receiver_id === CONTRACTS.exchange) return 18;
     return null;
   }
