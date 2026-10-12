@@ -353,7 +353,7 @@ function RangeTrack({ positions }) {
  * for all of the pool's positions (range, liquidity, claimable fees, active
  * share, actions). The row expands to the liquidity distribution.
  */
-export function DclGroupCard({ poolId, positions, x, y, pool, onDone, onAdd }) {
+export function DclGroupCard({ poolId, positions, x, y, pool, onDone, onAdd, onChart = false, onToggleChart }) {
   const { prices } = useApp();
   const [open, setOpen] = useState(false);
   const summary = summarizeDclGroup(positions, x, y, prices);
@@ -395,7 +395,14 @@ export function DclGroupCard({ poolId, positions, x, y, pool, onDone, onAdd }) {
           <span>Active share</span>
           <span>Actions</span>
         </div>
-        <div className="lp-board__row">
+        <div
+          className={`lp-board__row ${onToggleChart ? 'lp-board__row--clickable' : ''} ${onChart ? 'lp-board__row--on-chart' : ''}`}
+          onClick={(e) => {
+            // Buttons and links in the row keep their own actions.
+            if (onToggleChart && !e.target.closest('button, a, input')) onToggleChart();
+          }}
+          title={onToggleChart ? (onChart ? 'Hide your range on the chart' : 'Show your range on the chart') : undefined}
+        >
           <div className="lp-board__range" data-label="Price range">
             <strong className="mono">
               {summary.fullRange ? 'Full range' : `${formatChartPrice(summary.minPrice)} – ${formatChartPrice(summary.maxPrice)}`}
@@ -404,6 +411,11 @@ export function DclGroupCard({ poolId, positions, x, y, pool, onDone, onAdd }) {
               {y.symbol} per {x.symbol} · {positions.length} position{positions.length === 1 ? '' : 's'}
             </small>
             <RangeTrack positions={positions} />
+            {onToggleChart && (
+              <button type="button" className={`chart-toggle ${onChart ? 'chart-toggle--on' : ''}`} onClick={onToggleChart} aria-pressed={onChart}>
+                {onChart ? '◉ Shown on chart' : '◎ Show on chart'}
+              </button>
+            )}
           </div>
           <div className="lp-board__cell" data-label="Your liquidity">
             <strong>{formatUsd(summary.usd)}</strong>

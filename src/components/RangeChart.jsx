@@ -63,7 +63,63 @@ function IndicatorMenu({ active, toggle }) {
  * @param onDrag(side, price)   'min' | 'max', pair units
  * @param bins                  { left, right, pointDelta } points, for bin lines
  */
-export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPrice, fullRange, onDrag, bins }) {
+const SKY = '94,200,255';
+
+/** Your positions: one band per bin (bright when earning), plus dashed min / max lines with labels. */
+function paintMine(ctx, mine, toY, width, height, cur, f) {
+  const clampY = (v) => Math.min(height, Math.max(0, v));
+  ctx.save();
+  mine.forEach((m) => {
+    const a = toY(m.max);
+    const b = toY(m.min);
+    if (a === null && b === null) return;
+    const top = clampY(Math.min(a ?? 0, b ?? height));
+    const bottom = clampY(Math.max(a ?? 0, b ?? height));
+    if (bottom - top < 0.5) return;
+    ctx.fillStyle = m.inRange ? `rgba(${SKY},0.16)` : `rgba(${SKY},0.06)`;
+    ctx.fillRect(0, top, width, bottom - top);
+    ctx.strokeStyle = `rgba(${SKY},${m.inRange ? 0.45 : 0.2})`;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(0.5, Math.round(top) + 0.5, width - 1, Math.max(0, Math.round(bottom - top) - 1));
+  });
+  const lo = Math.min(...mine.map((m) => m.min));
+  const hi = Math.max(...mine.map((m) => m.max));
+  ctx.font = '600 11px JetBrains Mono, ui-monospace, monospace';
+  ctx.textBaseline = 'middle';
+  [
+    [hi, 'Your max'],
+    [lo, 'Your min']
+  ].forEach(([price, label]) => {
+    const raw = toY(price);
+    const off = raw === null || raw < 0 || raw > height;
+    const yy = raw === null ? (price > cur ? 8 : height - 8) : Math.min(height - 8, Math.max(8, raw));
+    if (!off) {
+      ctx.strokeStyle = `rgb(${SKY})`;
+      ctx.setLineDash([6, 4]);
+      ctx.beginPath();
+      ctx.moveTo(0, Math.round(yy) + 0.5);
+      ctx.lineTo(width, Math.round(yy) + 0.5);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    const change = cur ? `${price >= cur ? '+' : ''}${((price / cur - 1) * 100).toFixed(2)}%` : '';
+    const text = `${off ? (price > cur ? '▲ ' : '▼ ') : ''}${label} ${formatChartPrice(price * f)} (${change})`;
+    const w = ctx.measureText(text).width + 14;
+    ctx.fillStyle = `rgba(${SKY},0.92)`;
+    // Labels sit in the middle so they clear the legend (top-left) and the Min/Max tags (right).
+    const left = Math.round(Math.max(8, Math.min(width * 0.34, width - w - 120)));
+    ctx.fillRect(left, yy - 10, w, 20);
+    ctx.fillStyle = '#04121a';
+    ctx.fillText(text, left + 7, yy);
+  });
+  ctx.restore();
+}
+
+/**
+ * mine: the user's own positions to show on the chart, [{ min, max, inRange }] in pair price
+ * (null to hide). The price scale widens to fit them.
+ */
+export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPrice, fullRange, onDrag, bins, mine = null }) {
   const [resolution, setResolution] = useLocalStorage('kinu.range.resolution', '60');
   const [unit, setUnit] = useLocalStorage('kinu.range.unit', 'pair'); // 'pair' | 'usd'
   const [chartType, setChartType] = useLocalStorage('kinu.range.type', 'candles');
@@ -114,11 +170,18 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
     return out;
   }, [showBins, bins, fullRange, x.decimals, y.decimals]);
 
-  live.current = { minPrice, maxPrice, currentPrice, fullRange, onDrag, usdFactor, drawings, selected, hidden, tool, magnet, binPrices, setDrawings, setSelected, setTool };
+  live.current = { minPrice, maxPrice, currentPrice, fullRange, onDrag, usdFactor, drawings, selected, hidden, tool, magnet, binPrices, mine, setDrawings, setSelected, setTool };
 
   useEffect(() => {
     paintRef.current?.();
   }, [minPrice, maxPrice, fullRange, drawings, selected, hidden, binPrices, currentPrice]);
+
+  // Showing / hiding your positions re-fits the price scale around them.
+  const mineKey = mine ? mine.map((m) => `${m.min}:${m.max}`).join(',') : '';
+  useEffect(() => {
+    chartApi.current?.chart.priceScale('right').applyOptions({ autoScale: true });
+    paintRef.current?.();
+  }, [mineKey]);
 
   // The pool price refreshes every few seconds: move the dashed price line in place instead
   // of rebuilding the chart (which would reset the user's zoom and scroll).
@@ -157,8 +220,16 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
       const res = original();
       const { minPrice: lo, maxPrice: hi, currentPrice: cur, fullRange: full, usdFactor: f } = live.current;
       if (!res || full) return res;
-      const minValue = lo > cur / 20 ? Math.min(res.priceRange.minValue, lo * f) : res.priceRange.minValue;
-      const maxValue = hi < cur * 20 ? Math.max(res.priceRange.maxValue, hi * f) : res.priceRange.maxValue;
+      let minValue = lo > cur / 20 ? Math.min(res.priceRange.minValue, lo * f) : res.priceRange.minValue;
+      let maxValue = hi < cur * 20 ? Math.max(res.priceRange.maxValue, hi * f) : res.priceRange.maxValue;
+      // Your positions (when shown) are kept in view, within a sane distance of the price.
+      const own = live.current.mine;
+      if (own?.length) {
+        const ownLo = Math.min(...own.map((m) => m.min));
+        const ownHi = Math.max(...own.map((m) => m.max));
+        if (ownLo > cur / 50) minValue = Math.min(minValue, ownLo * f);
+        if (ownHi < cur * 50) maxValue = Math.max(maxValue, ownHi * f);
+      }
       return { ...res, priceRange: { minValue, maxValue } };
     };
     const priceFormat = { type: 'custom', formatter: formatChartPrice, minMove: 1e-12 };
@@ -324,6 +395,7 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
         });
         ctx.restore();
       }
+      if (live.current.mine?.length) paintMine(ctx, live.current.mine, (p) => main.priceToCoordinate(p * f), width, height, cur, f);
     };
     paintRef.current = paint;
 

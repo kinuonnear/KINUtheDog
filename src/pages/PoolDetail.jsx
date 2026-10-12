@@ -330,6 +330,23 @@ function DclWorkspace({ poolId, pool, x, y, reserves, positions, onAdd, onDone }
   const gridRef = useRef(null);
   useDockedColumns(gridRef);
   const [panel, setPanel] = useState(accountId ? 'liquidity' : 'composition');
+  // Click a position row to show your own range(s) on the chart.
+  const [mineOnChart, setMineOnChart] = useState(false);
+  const mine =
+    mineOnChart && positions.data?.length
+      ? positions.data.map((p) => ({
+          min: dclPointToPrice(p.leftPoint, x.decimals, y.decimals),
+          max: dclPointToPrice(p.rightPoint, x.decimals, y.decimals),
+          inRange: p.inRange
+        }))
+      : null;
+  const toggleMineOnChart = () => {
+    setMineOnChart((on) => {
+      // On narrow screens the chart sits above the table: bring it into view.
+      if (!on) mainRef.current?.querySelector('.split-top')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      return !on;
+    });
+  };
 
   // Resizable split between the chart and the bottom panel (desktop).
   const mainRef = useRef(null);
@@ -371,6 +388,7 @@ function DclWorkspace({ poolId, pool, x, y, reserves, positions, onAdd, onDone }
             maxPrice={rangeState.maxPrice}
             fullRange={rangeState.full}
             onDrag={onDrag}
+            mine={mine}
           />
         </Suspense>
         </div>
@@ -408,7 +426,17 @@ function DclWorkspace({ poolId, pool, x, y, reserves, positions, onAdd, onDone }
               ) : !positions.data?.length ? (
                 <p className="muted">No concentrated positions in this pool yet. Create one with the form.</p>
               ) : (
-                <DclGroupCard poolId={poolId} positions={positions.data} x={x} y={y} pool={pool} onAdd={onAdd} onDone={onDone} />
+                <DclGroupCard
+                  poolId={poolId}
+                  positions={positions.data}
+                  x={x}
+                  y={y}
+                  pool={pool}
+                  onAdd={onAdd}
+                  onDone={onDone}
+                  onChart={mineOnChart}
+                  onToggleChart={toggleMineOnChart}
+                />
               ))}
             {panel === 'composition' && (
               <div className="reserves">
