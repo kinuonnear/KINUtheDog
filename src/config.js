@@ -14,7 +14,7 @@ export const CONTRACTS = {
   aggregator: 'aggregatedex.near',
   wrapNear: 'wrap.near',
   // Contract used as the wallet sign-in target
-  signIn: 'kinu.nearlytrade.near'
+  signIn: 'kinu-3.nearlytrade.near'
 };
 
 export const ENDPOINTS = {
@@ -84,10 +84,9 @@ export const NATIVE_NEAR = {
 // Tokens pinned at the top of the token picker.
 export const PINNED_TOKENS = [
   'near',
-  'kinu.nearlytrade.near',
+  'kinu-3.nearlytrade.near',
   'token.rhealab.near',
   '17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1',
   'usdt.tether-token.near',
-  'ninu-4.nearlytrade.near',
   'wrap.near'
 ];

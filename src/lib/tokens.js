@@ -7,7 +7,7 @@ import { CONTRACTS, ENDPOINTS, NATIVE_NEAR, NEAR_ICON, WNEAR_ICON } from '../con
 import { view, viewAccount } from './rpc.js';
 import { toBigInt } from './format.js';
 
-const META_STORAGE_KEY = 'kinu.meta.v6';
+const META_STORAGE_KEY = 'kinu.meta.v7';
 
 // Tokens whose metadata has no icon on-chain; same artwork Rhea Finance ships for them.
 const ICON_OVERRIDES = {

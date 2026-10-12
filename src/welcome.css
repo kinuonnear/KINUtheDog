@@ -365,3 +365,18 @@
 .welcome .about__art figcaption{position:absolute;z-index:2;left:34px;bottom:30px;display:flex;flex-direction:column;gap:8px}
 .welcome .about__art figcaption strong{font-size:clamp(24px,3vw,40px);font-weight:1000;letter-spacing:-.04em;line-height:1}
 @media(max-width:860px){.welcome .about{grid-template-columns:1fr}.welcome .about__art figcaption{left:22px;bottom:20px}}
+
+/* ---- KINU × RHEA pair card ---- */
+.welcome .pair{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"head actions" "stats stats";align-items:center;gap:24px 28px;padding:28px 32px;border:1px solid #4a6a1c;border-radius:22px;background:radial-gradient(circle at 10% 50%,#b8ff3d14,transparent 45%),linear-gradient(120deg,#121821,#171e29)}
+.welcome .pair__head{grid-area:head;display:flex;align-items:center;gap:16px}
+.welcome .pair__logos{display:flex;align-items:center;gap:8px;color:#8a96a8;font-weight:900}
+.welcome .pair__logos img{width:52px;height:52px;border-radius:50%}
+.welcome .pair__logos b{display:grid;place-items:center;width:52px;height:52px;border-radius:50%;background:#1d2531;border:1px solid #2a3442;color:#e6edf5;font-size:12px;letter-spacing:.06em}
+.welcome .pair h3{margin:0;font-size:26px;white-space:nowrap;letter-spacing:-.03em}
+.welcome .pair__meta{color:#8a96a8;font-size:13px;font-weight:800}
+.welcome .pair__stats{grid-area:stats;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin:0;padding-top:22px;border-top:1px solid #1f2733}
+.welcome .pair__stats dt{color:#7b8799;font-size:11px;font-weight:900;letter-spacing:.1em;text-transform:uppercase}
+.welcome .pair__stats dd{margin:6px 0 0;font-size:22px;font-weight:900;color:#e6edf5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.welcome .pair__actions{grid-area:actions;display:flex;gap:10px;flex-wrap:wrap}
+@media(max-width:900px){.welcome .pair{grid-template-columns:1fr;grid-template-areas:"head" "stats" "actions"}}
+@media(max-width:620px){.welcome .pair{padding:22px}.welcome .pair__stats{grid-template-columns:repeat(2,minmax(0,1fr))}}

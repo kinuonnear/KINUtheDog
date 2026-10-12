@@ -1,19 +1,25 @@
-// kinudefi.com welcome page: the original KINU site (video hero, tokenomics, lore,
-// culture, community) with the KINU Terminal added — LAUNCH APP opens the platform.
+// kinudefi.com welcome page: KINU × RHEA — the KINU token (paired with RHEA on Rhea Finance)
+// and the KINU Terminal. LAUNCH APP opens the platform.
 
 import { useEffect, useRef } from 'react';
 import { useApp } from '../state.jsx';
-import { Link } from '../router.jsx';
+import { Link, poolPath } from '../router.jsx';
 import { useAsync } from '../hooks.js';
 import { fetchTokenInfo } from '../lib/intear.js';
-import { formatPrice, formatUsd } from '../lib/format.js';
+import { getPoolStats } from '../lib/rhea.js';
+import { formatAmount, formatPrice, formatUsd } from '../lib/format.js';
 import '../welcome.css';
 
-const KINU = 'kinu.nearlytrade.near';
+const KINU = 'kinu-3.nearlytrade.near';
+const RHEA = 'token.rhealab.near';
+const KINU_RHEA_POOL = `${KINU}|${RHEA}|10000`; // Rhea CLMM, 1% fee — created at launch on Nearly
 const X_URL = 'https://x.com/KINUonNEAR';
-const NEARLY_URL = 'https://nearly.trade/kinu.nearlytrade.near';
-const CHART_URL = 'https://dexscreener.com/near/refv2-kinu.nearlytrade.near:ninu-4.nearlytrade.near:10000';
+const NEARLY_URL = `https://nearly.trade/${KINU}`;
+const CHART_URL = `https://dexscreener.com/near/refv2-${KINU}:${RHEA}:10000`;
+const BUY_PATH = `/swap?from=${RHEA}&to=${KINU}`;
+const POOL_PATH = poolPath(KINU_RHEA_POOL);
 const APP_PATH = '/app'; // the platform's home page
+const LOGO = '/site/kinu-logo-256.png';
 
 const ext = { target: '_blank', rel: 'noopener noreferrer' };
 
@@ -47,7 +53,8 @@ const PLATFORM = [
 const FACTS = [
   ['Token', '$KINU · 1B supply'],
   ['Network', 'NEAR Protocol'],
-  ['Trades on', 'Nearly · Rhea Finance'],
+  ['Paired with', 'RHEA · Rhea Finance CLMM, 1% fee'],
+  ['Launched on', 'Nearly'],
   ['Terminal', 'Swap · Smart LP · Pools · Portfolio'],
   ['Custody', 'None — you sign every transaction']
 ];
@@ -134,6 +141,9 @@ export default function Welcome() {
   // Live market data for the stats bar (Intear indexer: price, 24h change, supply, volume, holders).
   const market = useAsync(() => fetchTokenInfo(KINU), [], { refreshMs: 60_000 });
   const stats = market.data || (market.error ? {} : null);
+  const pool = useAsync(() => getPoolStats(KINU_RHEA_POOL), [], { refreshMs: 60_000 });
+  const price = stats?.price ?? kinuPrice;
+  const rheaPrice = prices?.get(RHEA)?.price;
 
   return (
     <div className="welcome">
@@ -141,13 +151,14 @@ export default function Welcome() {
         <nav>
           <a className="logo" href="#top">
             <div className="logo-mark">
-              <img src="/site/kinu-mascot.png" alt="KINU" />
+              <img src={LOGO} alt="KINU" />
             </div>
             <div>
               K<span>I</span>NU
             </div>
           </a>
           <div className="navlinks">
+            <a href="#rhea">KINU × RHEA</a>
             <a href="#platform">Platform</a>
             <a href="#about">About</a>
             <a href="#token">Token</a>
@@ -176,30 +187,30 @@ export default function Welcome() {
             <div className="hero-content">
               <div className="hero-copy">
                 <div className="kicker">
-                  <i className="dot" /> NEAR DOG PACK · DEFI TERMINAL
+                  <i className="dot" /> KINU × RHEA · DEFI TERMINAL ON NEAR
                 </div>
                 <h1>
                   <span className="gradient">KINU</span>
                 </h1>
                 <div className="hero-tag">
-                  THE DOG
+                  THE DOG THAT
                   <br />
-                  <span>THAT FOLLOWED.</span>
+                  <span>FOLLOWS THE FLOW.</span>
                 </div>
                 <div className="hero-promise">
                   KINU-built <b>Swap</b> &amp; <b>Liquidity</b> — made simple with <b>Smart LP</b>.
                 </div>
                 <p>
-                  A community dog on NEAR — <strong>now with its own terminal.</strong> Best-price swaps, simple liquidity and
-                  honest PnL, powered by Rhea Finance.
+                  A community dog on NEAR, <strong>paired with RHEA</strong> — with its own terminal for best-price swaps, simple
+                  liquidity and honest PnL on Rhea Finance.
                 </p>
                 <div className="cta">
                   <Link className="btn primary" to={APP_PATH}>
                     LAUNCH APP ↗
                   </Link>
-                  <a className="btn app" href={NEARLY_URL} {...ext}>
+                  <Link className="btn app" to={BUY_PATH}>
                     BUY $KINU ↗
-                  </a>
+                  </Link>
                   <a className="btn" href="#platform">
                     EXPLORE ↓
                   </a>
@@ -245,6 +256,56 @@ export default function Welcome() {
           <span>Open source</span>
         </div>
 
+        <section id="rhea">
+          <div className="section-head">
+            <div>
+              <div className="eyebrow">KINU × RHEA</div>
+              <h2>The dog follows the flow.</h2>
+            </div>
+            <p>
+              RHEA is where liquidity flows on NEAR — so that is where KINU lives. $KINU trades in one main pool: KINU/RHEA on
+              Rhea Finance.
+            </p>
+          </div>
+          <div className="pair">
+            <div className="pair__head">
+              <div className="pair__logos">
+                <img src={LOGO} alt="KINU" />
+                <span>×</span>
+                <b>RHEA</b>
+              </div>
+              <div>
+                <h3>KINU / RHEA</h3>
+                <span className="pair__meta">Rhea CLMM · 1% fee</span>
+              </div>
+            </div>
+            <dl className="pair__stats">
+              {[
+                ['Price', price ? formatPrice(price) : null],
+                ['In RHEA', price && rheaPrice ? `${formatAmount(price / rheaPrice)} RHEA` : prices ? '—' : null],
+                ['Pool TVL', pool.data ? formatUsd(pool.data.tvl) : pool.loading ? null : '—'],
+                ['24h volume', pool.data ? formatUsd(pool.data.volume24h) : pool.loading ? null : '—']
+              ].map(([label, value]) => (
+                <div key={label}>
+                  <dt>{label}</dt>
+                  <dd>{value ?? <i className="stats-bar__skeleton" />}</dd>
+                </div>
+              ))}
+            </dl>
+            <div className="pair__actions">
+              <Link className="btn primary" to={BUY_PATH}>
+                BUY WITH RHEA ↗
+              </Link>
+              <Link className="btn app" to={POOL_PATH}>
+                ADD LIQUIDITY ↗
+              </Link>
+              <a className="btn" href={CHART_URL} {...ext}>
+                CHART ↗
+              </a>
+            </div>
+          </div>
+        </section>
+
         <section id="platform">
           <div className="section-head">
             <div>
@@ -285,7 +346,7 @@ export default function Welcome() {
               <div className="eyebrow">TOKENOMICS</div>
               <h2>Simple. Clear. KINU.</h2>
             </div>
-            <p>No complicated math on the page. Just the supply and the allocation exactly as stated.</p>
+            <p>No complicated math on the page. A fair launch: the whole supply went into the KINU/RHEA pool.</p>
           </div>
           <div className="token-wrap">
             <div className="token-top">
@@ -298,23 +359,25 @@ export default function Welcome() {
               </div>
               <div className="allocations">
                 <div className="alloc-card">
-                  <small>CREATOR</small>
-                  <strong>20%</strong>
-                  <p>Creator allocation.</p>
+                  <small>IN THE POOL AT LAUNCH</small>
+                  <strong>100%</strong>
+                  <p>Fair launch on Nearly — every token started in the pool.</p>
                 </div>
                 <div className="alloc-card">
-                  <small>BUYBACK &amp; BURN</small>
-                  <strong>20%</strong>
-                  <p>Buyback &amp; burn allocation.</p>
+                  <small>PAIRED WITH</small>
+                  <strong>RHEA</strong>
+                  <p>One main pool on Rhea Finance CLMM.</p>
                 </div>
                 <div className="alloc-card">
-                  <small>HOLDERS</small>
-                  <strong>60%</strong>
-                  <p>Community and holders.</p>
+                  <small>POOL FEE</small>
+                  <strong>1%</strong>
+                  <p>Earned by liquidity providers on every trade.</p>
                 </div>
               </div>
             </div>
-            <p className="token-note">Network: NEAR · Name: KINU · Symbol: $KINU</p>
+            <p className="token-note">
+              Network: NEAR · Name: KINU · Symbol: $KINU · Contract: <span className="mono-id">{KINU}</span>
+            </p>
           </div>
         </section>
 
@@ -340,6 +403,10 @@ export default function Welcome() {
                 <strong>So the pack built its own terminal.</strong> Best-price routing, Smart LP setup and honest PnL — open to
                 everyone on NEAR, and non-custodial from the first click.
               </p>
+              <p>
+                <strong>Then KINU followed the flow.</strong> Relaunched as a fair launch paired with RHEA, so the token lives
+                where the terminal does: on Rhea Finance liquidity.
+              </p>
             </div>
             <div className="about__facts">
               <div className="eyebrow">KINU AT A GLANCE</div>
@@ -357,7 +424,7 @@ export default function Welcome() {
             <img src="/site/kinu-guardian.jpg" alt="KINU under the NEAR moon" loading="lazy" />
             <figcaption>
               <span className="eyebrow">THE PACK</span>
-              <strong>Two dogs. One NEAR. One terminal.</strong>
+              <strong>One dog. One flow. One terminal.</strong>
             </figcaption>
           </figure>
         </section>
@@ -402,7 +469,7 @@ export default function Welcome() {
             <div>
               <div className="eyebrow">THE PACK TRADES HERE</div>
               <div className="closing-banner__title">
-                TWO DOGS. ONE NEAR.
+                ONE DOG. ONE FLOW.
                 <br />
                 <em>ONE TERMINAL.</em>
               </div>
@@ -441,13 +508,13 @@ export default function Welcome() {
             <div className="site-footer__brand">
               <a className="logo" href="#top">
                 <div className="logo-mark">
-                  <img src="/site/kinu-mascot.png" alt="" />
+                  <img src={LOGO} alt="" />
                 </div>
                 <div>
                   K<span>I</span>NU
                 </div>
               </a>
-              <p>The Dog That Followed. KINU-built Swap &amp; Liquidity on NEAR, made simple with Smart LP.</p>
+              <p>KINU × RHEA — the dog that follows the flow. KINU-built Swap &amp; Liquidity on NEAR, made simple with Smart LP.</p>
             </div>
             <div>
               <h4>Platform</h4>
@@ -471,9 +538,9 @@ export default function Welcome() {
             </div>
             <div>
               <h4>Token</h4>
-              <span>Supply 1B $KINU</span>
-              <span>20% Creator · 20% Buyback &amp; Burn</span>
-              <span>60% Holders</span>
+              <span>Supply 1B $KINU · fair launch</span>
+              <Link to={POOL_PATH}>KINU / RHEA pool · 1% fee</Link>
+              <Link to={BUY_PATH}>Buy $KINU with RHEA</Link>
               <span className="mono-id">{KINU}</span>
             </div>
           </div>

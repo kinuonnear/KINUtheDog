@@ -10,9 +10,8 @@ import { PoolRow, PoolRowsSkeleton, usePoolTokens } from './Pools.jsx';
 
 const TICKER_TOKENS = [
   NATIVE_NEAR.id,
-  'kinu.nearlytrade.near',
+  'kinu-3.nearlytrade.near',
   'token.rhealab.near',
-  'ninu-4.nearlytrade.near',
   'meta-pool.near',
   'nbtc.bridge.near'
 ];

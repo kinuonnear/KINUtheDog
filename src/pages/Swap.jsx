@@ -304,8 +304,10 @@ export default function Swap() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Fill in the default output token's icon — unless the URL picked another token,
+  // whose lookup this one could otherwise finish after and overwrite.
   useEffect(() => {
-    if (!tokenOut.icon) getToken(tokenOut.id).then((t) => t && setTokenOut(t));
+    if (!tokenOut.icon && !search.get('to')) getToken(tokenOut.id).then((t) => t && setTokenOut(t));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
