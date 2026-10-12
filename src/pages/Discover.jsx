@@ -13,9 +13,11 @@ import { bestToLp, filterRadar, getPoolRadar, hotPairs, LP_MIN_TVL, RADAR_TYPES,
 import { NATIVE_NEAR } from '../config.js';
 import { NewLaunches } from './NewOnRhea.jsx';
 import { usePoolTokens } from './Pools.jsx';
+import LiveFeed from '../components/LiveFeed.jsx';
 
 const TABS = [
   { key: 'trending', label: 'Trending' },
+  { key: 'feed', label: 'Live feed' },
   { key: 'hot', label: 'Hot pairs' },
   { key: 'gainers', label: 'Gainers' },
   { key: 'lp', label: 'Best to LP' },
@@ -28,6 +30,7 @@ const MIN_GAINER_LIQUIDITY = 10_000;
 // [before, highlighted word, after]
 const TITLES = {
   trending: ['Trending on ', 'Rhea', ''],
+  feed: ['Live ', 'feed', ''],
   hot: ['Hot pairs on ', 'Rhea', ''],
   gainers: ['Top gainers on ', 'Rhea', ''],
   lp: ['Best pools ', 'to', ' LP'],
@@ -37,6 +40,7 @@ const TITLES = {
 
 const INTROS = {
   trending: 'Tokens with the most trading volume across Rhea pools in the last 24 hours. NEAR and stablecoins are left out.',
+  feed: 'Every swap on Rhea as it happens. Follow traders to see their moves first.',
   hot: 'The pairs traded most right now, over the last hour, 6 hours or day.',
   gainers: 'Biggest 24h moves among actively traded Rhea tokens with at least $10K liquidity.',
   lp: `Pools that paid their liquidity providers the most fees per dollar (TVL ≥ $${LP_MIN_TVL / 1000}K), with how much the price moved.`,
@@ -412,7 +416,9 @@ export default function Discover({ defaultTab = 'trending' }) {
       </div>
 
       <div className="disc-body">
-        {tab === 'new' ? (
+        {tab === 'feed' ? (
+          <LiveFeed />
+        ) : tab === 'new' ? (
           <NewLaunches />
         ) : tab === 'watchlist' ? (
           <Watchlist />
@@ -426,8 +432,10 @@ export default function Discover({ defaultTab = 'trending' }) {
       </div>
       {tab !== 'new' && (
         <p className="muted small">
-          {POOL_TABS.has(tab)
-            ? `Data: Rhea pools and GeckoTerminal, among the most active pools on Rhea. 1H and 6H fees are estimated from window volume at each pool's fee rate. Past fees do not promise future fees, and a concentrated range stops earning when the price leaves it. Not a recommendation.`
+          {tab === 'feed'
+            ? 'Data: Intear trade feed of Rhea pools. Market cap at the trade is estimated from its price and the circulating supply. Not a recommendation.'
+            : POOL_TABS.has(tab)
+            ?`Data: Rhea pools and GeckoTerminal, among the most active pools on Rhea. 1H and 6H fees are estimated from window volume at each pool's fee rate. Past fees do not promise future fees, and a concentrated range stops earning when the price leaves it. Not a recommendation.`
             : 'Data: Rhea pools and Intear. Not a recommendation — always check the contract before you buy.'}
         </p>
       )}

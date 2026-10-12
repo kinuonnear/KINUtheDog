@@ -6629,6 +6629,51 @@ a.dt-row:hover {
 .disc-row__actions .disc-star { width: 34px; height: 34px; justify-content: center; border: 1px solid var(--border-strong); border-radius: 9px; font-size: 16px; }
 .disc-row--in { animation: disc-rise 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 
+/* Discover: Live feed */
+.feed { padding: 4px 0; overflow: hidden; }
+.feed-row { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 12px 18px; border-top: 1px solid var(--border); }
+.feed-row:first-child { border-top: 0; }
+.feed-row:hover { background: var(--surface-2); }
+.feed-row--in { animation: feed-in 0.45s ease-out both; }
+.feed-row__icon { display: inline-flex; }
+.feed-row__main { display: grid; gap: 3px; min-width: 0; }
+.feed-row__line { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-family: var(--mono); font-size: 13px; }
+.feed-row__line b { color: var(--text); font-variant-numeric: tabular-nums; }
+.feed-row__trader { overflow: hidden; max-width: 220px; color: var(--mint); font-weight: 600; text-decoration: none; text-overflow: ellipsis; white-space: nowrap; }
+.feed-row__trader:hover { text-decoration: underline; }
+.feed-row__token { color: var(--text); font-weight: 700; text-decoration: none; }
+.feed-row__token:hover { color: var(--accent); }
+.feed-row__sub { color: var(--muted); font-size: 11px; }
+.feed-row__sub a { color: var(--muted); }
+.feed-row__sub a:hover { color: var(--accent); }
+.feed-row__side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; font-size: 12px; }
+.feed-follow { padding: 0 2px; font-size: 15px; }
+.feed-row__ext { color: var(--muted); font-size: 11px; text-decoration: none; }
+.feed-row__ext:hover { color: var(--accent); }
+.feed-note { margin: -4px 0 12px; }
+.follow-bar { display: grid; gap: 10px; margin-bottom: 12px; }
+.follow-bar__form { display: flex; gap: 8px; max-width: 480px; }
+.follow-bar__form input { flex: 1; min-width: 0; height: 36px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface); color: var(--text); font: inherit; font-family: var(--mono); font-size: 13px; outline: 0; }
+.follow-bar__form input:focus { border-color: var(--accent); }
+.follow-bar__list { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.follow-chip { display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 4px 0 10px; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--surface); font-family: var(--mono); font-size: 12px; }
+.follow-chip a { color: var(--mint); text-decoration: none; }
+.follow-chip a:hover { text-decoration: underline; }
+.follow-chip button { width: 20px; height: 20px; border: 0; border-radius: 50%; background: none; color: var(--muted); font-size: 14px; line-height: 1; cursor: pointer; }
+.follow-chip button:hover { background: var(--surface-3); color: var(--text); }
+.follow-chip--idle { opacity: 0.6; }
+.feed-big { padding: 1px 7px; border: 1px solid var(--accent); border-radius: 999px; color: var(--accent); font-family: var(--font, inherit); font-size: 10px; font-style: normal; font-weight: 700; }
+.feed-count { margin-left: 6px; padding: 0 6px; border-radius: 999px; background: var(--accent); color: #0b0f14; font-size: 10px; font-style: normal; font-weight: 800; }
+.feed-live { display: inline-flex; align-items: center; gap: 6px; color: var(--accent); font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.feed-live i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: glance-pulse 1.8s ease-out infinite; }
+@keyframes feed-in { from { opacity: 0; background: rgba(184, 255, 61, 0.08); } to { opacity: 1; background: transparent; } }
+@media (prefers-reduced-motion: reduce) { .feed-row--in, .feed-live i { animation: none; } }
+@media (max-width: 640px) {
+  .feed-row { grid-template-columns: 30px minmax(0, 1fr); padding: 12px 14px; }
+  .feed-row__side { grid-column: 2; flex-direction: row; align-items: center; justify-content: space-between; }
+  .feed-row__trader { max-width: 140px; }
+}
+
 @keyframes disc-banner-pan { from { transform: scale(1); } to { transform: scale(1.035) translateX(-0.8%); } }
 @keyframes disc-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) {

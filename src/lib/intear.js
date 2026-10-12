@@ -72,15 +72,28 @@ export async function fetchTokenInfo(tokenId, signal) {
   };
 }
 
-/** Most recent trades of a token (newest first). */
-export async function fetchTrades({ tokenId, limit = 30, signal }) {
-  const params = new URLSearchParams({ token: tokenId, limit: String(limit) });
+const MIN_USD_STEPS = [10, 50, 100, 500, 1000, 10000];
+
+/**
+ * Most recent trades (newest first): of a token, of a trader, or of every token when neither is
+ * given. `side` ('buy' | 'sell') and `minUsd` filter on the server; `minUsd` needs a token or
+ * trader (the global feed only returns the latest ~50 trades).
+ */
+export async function fetchTrades({ tokenId, trader, side, minUsd, limit = 30, signal } = {}) {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (tokenId) params.set('token', tokenId);
+  if (trader) params.set('trader', trader);
+  if (side) params.set('side', side);
+  // The API only accepts some thresholds: round down to one of them (callers filter the rest).
+  const floor = [...MIN_USD_STEPS].reverse().find((v) => v <= (minUsd || 0));
+  if (floor && (tokenId || trader)) params.set('min_usd', String(floor));
   const json = await getJson(`${BASE}/trades?${params}`, signal);
   return (json?.trades || []).map((t) => ({
     id: t.id,
     time: Number(t.timestamp_millis),
     side: t.side === 'sell' ? 'sell' : 'buy',
     trader: t.trader,
+    token: t.token,
     poolId: t.pool_id,
     usd: Number(t.usd_value) || 0,
     amountRaw: String(t.amount || '0'),
