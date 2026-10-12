@@ -13,6 +13,7 @@ import {
   wrapNearTx
 } from './tx.js';
 import { toBigInt } from './format.js';
+import { getWhitelistedTokens } from './tokens.js';
 import { buildDclSwapTransactions, dclNeighbors, getDclQuote } from './dclRouter.js';
 
 const QUOTE_TIMEOUT_MS = 8_000;
@@ -28,31 +29,31 @@ const contractOf = (token) => token.contract || token.id;
  * a bridge token is tried. Pass `user` to get an executable, user-bound quote.
  */
 export async function getSwapQuote(params) {
-  const [router, clmm] = await Promise.allSettled([getSmartRouterQuote(params), getDclQuote(params)]);
+  const [router, clmm, bridge] = await Promise.allSettled([getSmartRouterQuote(params), getDclQuote(params), getHybridQuote(params)]);
   if (params.signal?.aborted) throw router.reason || new DOMException('Aborted', 'AbortError');
 
-  const candidates = [
+  const direct = [
     router.status === 'fulfilled' && { source: 'SmartRouter', quote: router.value },
     clmm.status === 'fulfilled' && { source: 'Rhea CLMM (direct)', quote: clmm.value }
   ].filter(Boolean);
+  const candidates = [...direct];
+  if (bridge.status === 'fulfilled') candidates.push({ source: 'Bridge route (2 steps)', quote: bridge.value });
+  if (!candidates.length) throw router.status === 'rejected' ? router.reason : new Error('No route found for this pair.');
 
-  if (!candidates.length) {
-    try {
-      candidates.push({ source: 'Bridge route', quote: await getHybridQuote(params) });
-    } catch {
-      throw router.status === 'rejected' ? router.reason : new Error('No route found for this pair.');
-    }
-  }
-
-  // Every candidate stays executable so the user can pick one; each gets its own measured impact.
-  await Promise.all(
-    candidates.map(async (c) => {
-      c.quote.priceImpact = await measurePriceImpact(c.quote, params).catch(() => null);
-    })
-  );
-  const best = candidates.reduce((a, b) => (toBigInt(b.quote.amountOut) > toBigInt(a.quote.amountOut) ? b : a));
+  // Every candidate stays executable so the user can pick one.
+  const top = (list) => list.reduce((a, b) => (toBigInt(b.quote.amountOut) > toBigInt(a.quote.amountOut) ? b : a));
+  let best = direct.length ? top(direct) : candidates[0];
+  // A two-step route needs a second signature and more gas: it only wins by a clear margin.
+  const twoStep = candidates.find((c) => c.quote.hybrid);
+  if (twoStep && twoStep !== best && Number(twoStep.quote.amountOut) > Number(best.quote.amountOut) * (1 + BRIDGE_MIN_GAIN)) best = twoStep;
+  // Impact is measured for the chosen route only (keeps router requests within its rate limit);
+  // other routes are measured if the user picks them.
+  best.quote.priceImpact = await measurePriceImpact(best.quote, params).catch(() => null);
   return selectRoute({ ...best.quote, routes: candidates, bestSource: best.source }, best.source);
 }
+
+/** Extra output a two-step route must offer over the best one-step route to be chosen. */
+const BRIDGE_MIN_GAIN = 0.005;
 
 /**
  * The quote for one route of a multi-route result (falls back to the best one), carrying the
@@ -85,8 +86,18 @@ export function selectRoute(quote, source) {
  * rate the same route gives for a tiny amount. Independent of (possibly stale) USD prices.
  */
 async function measurePriceImpact(quote, { tokenIn, tokenOut, amountIn }) {
+  if (quote.hybrid) {
+    // Two swaps: impacts compound.
+    const bridge = { id: quote.hybrid.mid };
+    const [first, second] = quote.hybrid.legs;
+    const [a, b] = await Promise.all([
+      measurePriceImpact(first, { tokenIn, tokenOut: bridge, amountIn: first.amountIn }),
+      measurePriceImpact(second, { tokenIn: bridge, tokenOut, amountIn: second.amountIn })
+    ]);
+    return a === null || b === null ? null : (1 - (1 - a / 100) * (1 - b / 100)) * 100;
+  }
   const small = toBigInt(amountIn) / 1000n;
-  if (small === 0n || quote.hybrid) return null;
+  if (small === 0n) return null;
   let refOut = null;
   if (quote.dcl) {
     const result = await view(CONTRACTS.dcl, 'quote', {
@@ -116,7 +127,13 @@ async function measurePriceImpact(quote, { tokenIn, tokenOut, amountIn }) {
 async function getHybridQuote({ tokenIn, tokenOut, amountIn, slippage, user, signal }) {
   const inId = contractOf(tokenIn);
   const outId = contractOf(tokenOut);
-  const [bridgesToOut, bridgesFromIn] = await Promise.all([dclNeighbors(outId), dclNeighbors(inId)]);
+  // The bridge's other leg goes through the SmartRouter, so the bridge must be a token the
+  // router trades (Rhea-whitelisted); the deepest such CLMM partner is used — one per side,
+  // which keeps router requests within its rate limit.
+  const [listed, nearOut, nearIn] = await Promise.all([getWhitelistedTokens().catch(() => []), dclNeighbors(outId, 6), dclNeighbors(inId, 6)]);
+  const routable = new Set([...listed, CONTRACTS.wrapNear]);
+  const bridgesToOut = nearOut.filter((m) => routable.has(m)).slice(0, 1);
+  const bridgesFromIn = nearIn.filter((m) => routable.has(m)).slice(0, 1);
 
   const attempts = [
     // router tokenIn -> bridge, CLMM bridge -> tokenOut
@@ -163,6 +180,27 @@ export async function quoteHybridSecondLeg({ quote, tokenOut, amountIn, slippage
     : getDclQuote({ tokenIn: bridge, tokenOut, amountIn, slippage, user });
 }
 
+// The SmartRouter rate-limits after a handful of quick requests (it then answers with an
+// HTML page), so identical requests within a few seconds share one response.
+const ROUTER_CACHE_MS = 5_000;
+const routerCache = new Map(); // url -> { at, promise }
+
+function fetchRouter(url, signal) {
+  const hit = routerCache.get(url);
+  if (hit && Date.now() - hit.at < ROUTER_CACHE_MS) return hit.promise;
+  const promise = fetch(url, { signal }).then(async (response) => {
+    const text = await response.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new Error(response.status === 429 || text.includes('<html') ? 'SmartRouter is busy — retrying shortly.' : `SmartRouter HTTP ${response.status}`);
+    }
+  });
+  routerCache.set(url, { at: Date.now(), promise });
+  promise.catch(() => routerCache.delete(url));
+  return promise;
+}
+
 async function getSmartRouterQuote({ tokenIn, tokenOut, amountIn, slippage, user, signal }) {
   const params = new URLSearchParams({
     amountIn,
@@ -181,11 +219,7 @@ async function getSmartRouterQuote({ tokenIn, tokenOut, amountIn, slippage, user
   signal?.addEventListener('abort', () => controller.abort());
 
   try {
-    const response = await fetch(`${ENDPOINTS.smartRouter}/swapMultiDexPath?${params}`, {
-      signal: controller.signal
-    });
-    if (!response.ok) throw new Error(`SmartRouter HTTP ${response.status}`);
-    const json = await response.json();
+    const json = await fetchRouter(`${ENDPOINTS.smartRouter}/swapMultiDexPath?${params}`, controller.signal);
     if (json?.result_code !== 0 || !json.result_data) {
       throw new Error(json?.result_message || 'No route found for this pair.');
     }

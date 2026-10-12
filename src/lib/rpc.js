@@ -75,7 +75,9 @@ export async function rpc(method, params) {
             json.error.data?.toString?.() || json.error.message || 'RPC error'
           );
           error.rpc = json.error;
-          error.retryable = false;
+          // Rate limits / shut-down endpoints come back as JSON errors (code -429):
+          // move on to the next endpoint. Contract errors are final.
+          error.retryable = json.error.code === -429 || /rate limit|deprecated|discontinued/i.test(json.error.message || '');
           throw error;
         }
         preferred = index;

@@ -9,6 +9,7 @@ import { Modal, Spinner, TokenIcon } from '../components/ui.jsx';
 import { getCachedToken, getToken, getTokens, getWhitelistedTokens, priceOf } from '../lib/tokens.js';
 import { buildSwapTransactions, getSwapQuote, quoteHybridSecondLeg, selectRoute } from '../lib/swap.js';
 import { estimateNetworkFee } from '../lib/gasEstimate.js';
+import { warmDclGraph } from '../lib/dclRouter.js';
 import { view } from '../lib/rpc.js';
 import { getAggregatorBalances } from '../lib/rhea.js';
 import { buildAggregatorWithdrawTransactions } from '../lib/liquidity.js';
@@ -147,7 +148,15 @@ function RoutePicker({ quote, tokenOut, onPick, onClose }) {
               <strong>
                 {formatAmount(toNumber(r.amountOut, tokenOut.decimals), { compactAbove: 1e12 })} {tokenOut.symbol}
               </strong>
-              {r.best ? <em className="badge badge--best">Best</em> : <em className="badge badge--gap">-{r.gapPct < 0.01 ? '<0.01' : r.gapPct.toFixed(2)}%</em>}
+              {r.best ? (
+                <em className="badge badge--best">Best</em>
+              ) : r.gapPct < 0 ? (
+                <em className="badge badge--gap" title="Pays a little more, but needs two wallet confirmations and more gas">
+                  +{Math.abs(r.gapPct).toFixed(2)}% · 2 steps
+                </em>
+              ) : (
+                <em className="badge badge--gap">-{r.gapPct < 0.01 ? '<0.01' : r.gapPct.toFixed(2)}%</em>
+              )}
             </span>
           </button>
         ))}
@@ -361,6 +370,11 @@ export default function Swap() {
   useEffect(() => {
     setRouteSource(null);
   }, [tokenIn.id, tokenOut.id]);
+
+  // Load the CLMM pool set in the background so the first quote doesn't wait for it.
+  useEffect(() => {
+    warmDclGraph();
+  }, []);
 
   useEffect(() => {
     requestQuote();

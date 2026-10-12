@@ -19,7 +19,8 @@ export const CONTRACTS = {
 
 export const ENDPOINTS = {
   // Ordered by preference; the RPC client fails over automatically.
-  rpc: ['https://free.rpc.fastnear.com', 'https://rpc.mainnet.near.org'],
+  // (rpc.mainnet.near.org is shut down and refuses every request.)
+  rpc: ['https://free.rpc.fastnear.com', 'https://near.drpc.org', 'https://rpc.intea.rs'],
   rheaApi: 'https://api.rhea.finance',
   rheaIndexer: 'https://indexer.ref.finance',
   smartRouter: 'https://smartx.rhea.finance',

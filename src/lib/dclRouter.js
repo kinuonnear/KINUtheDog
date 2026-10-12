@@ -1,8 +1,13 @@
 // Direct routing through Rhea concentrated-liquidity (DCL) pools.
 // Rhea's SmartRouter skips many community CLMM pools (e.g. KINU/NINU), while
-// app.rhea.finance can still swap them directly on dclv2.ref-labs.near.
-// This module finds 1- and 2-hop DCL paths, quotes them on-chain and builds
-// the same ft_transfer_call { Swap: { pool_ids, … } } the Rhea app sends.
+// they can still be swapped directly on dclv2.ref-labs.near.
+//
+// The whole pool set is loaded from the contract (list_pools, cached), and
+// 1-, 2- and 3-hop paths are searched locally over pools that have liquidity
+// at the current price — e.g. NEAR -> QTC -> RHEA -> DIARHEA. Candidates are
+// quoted on-chain; the ranking per pair is cached so quote refreshes only
+// re-check the leaders. Execution is the same ft_transfer_call
+// { Swap: { pool_ids, … } } the Rhea app sends.
 
 import { CONTRACTS, DEPOSIT, GAS } from '../config.js';
 import { view } from './rpc.js';
@@ -10,73 +15,143 @@ import { searchPools } from './rhea.js';
 import { ensureStorageTx, ftTransferCallTx, functionCall, transaction, wrapNearTx } from './tx.js';
 import { applySlippage, toBigInt } from './format.js';
 
-const MAX_CANDIDATES = 8;
+const POOL_PAGE = 500;
+const POOLS_TTL_MS = 120_000;
+const MAX_TWO_HOP = 24; // multi-hop candidates quoted on a fresh search (best-connected tokens first)
+const MAX_THREE_HOP = 24;
+const RANK_TTL_MS = 180_000;
+const RANK_KEEP = 5; // leaders re-quoted on refresh
 
 const contractOf = (token) => token.contract || token.id;
 
-function otherToken(pool, token) {
-  return pool.tokenIds[0] === token ? pool.tokenIds[1] : pool.tokenIds[0];
+let graphPromise = null;
+let graphAt = 0;
+
+/** { byToken: Map<token, pool[]>, degree: Map<token, n> } over running pools with liquidity. */
+function loadGraph() {
+  if (!graphPromise || Date.now() - graphAt > POOLS_TTL_MS) {
+    graphAt = Date.now();
+    graphPromise = (async () => {
+      const pools = [];
+      for (let from = 0; ; from += POOL_PAGE) {
+        const page = (await view(CONTRACTS.dcl, 'list_pools', { from_index: from, limit: POOL_PAGE })) || [];
+        pools.push(...page);
+        if (page.length < POOL_PAGE) break;
+      }
+      const byToken = new Map();
+      pools
+        .filter((p) => p.state === 'Running' && p.liquidity !== '0')
+        .forEach((p) => {
+          [p.token_x, p.token_y].forEach((t) => {
+            if (!byToken.has(t)) byToken.set(t, []);
+            byToken.get(t).push(p);
+          });
+        });
+      return byToken;
+    })().catch((error) => {
+      graphPromise = null;
+      throw error;
+    });
+  }
+  return graphPromise;
 }
 
-async function dclPoolsWith(token) {
-  const { list } = await searchPools({ type: 'dcl', tokenList: token, hideLow: false, limit: 60 });
-  return list.filter((p) => p.isDcl && p.tokenIds.includes(token));
+/** Start loading the pool set early (e.g. when the swap page opens) so the first quote is fast. */
+export function warmDclGraph() {
+  loadGraph().catch(() => {});
 }
 
-/** Tokens paired with `token` in CLMM pools that hold liquidity, deepest first. */
-export async function dclNeighbors(token, limit = 3) {
-  const pools = (await dclPoolsWith(token)).filter((p) => p.tvl > 0).sort((a, b) => b.tvl - a.tvl);
-  return [...new Set(pools.map((p) => otherToken(p, token)))].slice(0, limit);
+const other = (pool, token) => (pool.token_x === token ? pool.token_y : pool.token_x);
+
+/**
+ * Bridge candidates: tokens paired with `token` in CLMM pools that are live right now,
+ * deepest pool (USD TVL from Rhea's API) first.
+ */
+export async function dclNeighbors(token, limit = 1) {
+  const [byToken, { list }] = await Promise.all([loadGraph(), searchPools({ type: 'dcl', tokenList: token, hideLow: false, limit: 60 })]);
+  const live = new Set((byToken.get(token) || []).map((p) => p.pool_id));
+  const mids = list
+    .filter((p) => live.has(p.id) && p.tvl > 0)
+    .sort((a, b) => b.tvl - a.tvl)
+    .map((p) => (p.tokenIds[0] === token ? p.tokenIds[1] : p.tokenIds[0]));
+  return [...new Set(mids)].slice(0, limit);
 }
 
-/** Candidate paths (arrays of pool ids), deepest liquidity first. */
+/** Candidate paths: all 1- and 2-hop paths, plus 3-hop paths through the best-connected tokens. */
 async function findPaths(tokenIn, tokenOut) {
-  const [poolsIn, poolsOut] = await Promise.all([dclPoolsWith(tokenIn), dclPoolsWith(tokenOut)]);
-  const candidates = [];
-
-  poolsIn
-    .filter((p) => p.tokenIds.includes(tokenOut))
-    .forEach((p) => candidates.push({ poolIds: [p.id], tokens: [tokenIn, tokenOut], depth: p.tvl }));
-
-  poolsIn.forEach((a) => {
-    const mid = otherToken(a, tokenIn);
-    if (mid === tokenOut) return;
-    poolsOut
-      .filter((b) => b.tokenIds.includes(mid))
-      .forEach((b) =>
-        candidates.push({ poolIds: [a.id, b.id], tokens: [tokenIn, mid, tokenOut], depth: Math.min(a.tvl, b.tvl) })
-      );
+  const byToken = await loadGraph();
+  const degree = (t) => byToken.get(t)?.length || 0;
+  const poolsIn = byToken.get(tokenIn) || [];
+  const outNeighbors = new Map(); // mid -> pools(mid, tokenOut)
+  (byToken.get(tokenOut) || []).forEach((p) => {
+    const mid = other(p, tokenOut);
+    if (!outNeighbors.has(mid)) outNeighbors.set(mid, []);
+    outNeighbors.get(mid).push(p);
   });
 
-  return candidates.sort((x, y) => y.depth - x.depth).slice(0, MAX_CANDIDATES);
+  const paths = [];
+  const twoHop = [];
+  const threeHop = [];
+  poolsIn.forEach((a) => {
+    const m1 = other(a, tokenIn);
+    if (m1 === tokenOut) {
+      paths.push({ poolIds: [a.pool_id], tokens: [tokenIn, tokenOut] });
+      return;
+    }
+    (outNeighbors.get(m1) || []).forEach((b) => twoHop.push({ poolIds: [a.pool_id, b.pool_id], tokens: [tokenIn, m1, tokenOut], hub: degree(m1) }));
+    (byToken.get(m1) || []).forEach((b) => {
+      const m2 = other(b, m1);
+      if (m2 === tokenIn || m2 === tokenOut || b === a) return;
+      (outNeighbors.get(m2) || []).forEach((c) =>
+        threeHop.push({ poolIds: [a.pool_id, b.pool_id, c.pool_id], tokens: [tokenIn, m1, m2, tokenOut], hub: degree(m1) + degree(m2) })
+      );
+    });
+  });
+  twoHop.sort((x, y) => y.hub - x.hub);
+  threeHop.sort((x, y) => y.hub - x.hub);
+  return [...paths, ...twoHop.slice(0, MAX_TWO_HOP), ...threeHop.slice(0, MAX_THREE_HOP)];
+}
+
+const rankings = new Map(); // "in|out" -> { at, paths }
+
+async function quotePath(path, inId, outId, amountIn) {
+  try {
+    const result = await view(CONTRACTS.dcl, 'quote', {
+      pool_ids: path.poolIds,
+      input_token: inId,
+      output_token: outId,
+      input_amount: amountIn,
+      tag: 'kinu'
+    });
+    return { ...path, amountOut: String(result?.amount ?? '0') };
+  } catch {
+    return { ...path, amountOut: '0' };
+  }
+}
+
+/** Working paths for a pair, best first: cached leaders, or a full search when stale / dried up. */
+async function rankedQuotes(inId, outId, amountIn) {
+  const key = `${inId}|${outId}`;
+  const ranked = rankings.get(key);
+  const byOut = (a, b) => (toBigInt(b.amountOut) > toBigInt(a.amountOut) ? 1 : -1);
+  if (ranked && Date.now() - ranked.at <= RANK_TTL_MS) {
+    const quotes = (await Promise.all(ranked.paths.map((p) => quotePath(p, inId, outId, amountIn)))).filter((q) => toBigInt(q.amountOut) > 0n);
+    if (quotes.length) return quotes.sort(byOut);
+  }
+  const paths = await findPaths(inId, outId);
+  const quotes = (await Promise.all(paths.map((p) => quotePath(p, inId, outId, amountIn)))).filter((q) => toBigInt(q.amountOut) > 0n).sort(byOut);
+  if (quotes.length) rankings.set(key, { at: Date.now(), paths: quotes.slice(0, RANK_KEEP) });
+  else rankings.delete(key);
+  return quotes;
 }
 
 /** Best DCL route for amountIn (raw); returns a quote object or throws. */
 export async function getDclQuote({ tokenIn, tokenOut, amountIn, slippage, user }) {
   const inId = contractOf(tokenIn);
   const outId = contractOf(tokenOut);
-  const paths = await findPaths(inId, outId);
-  if (!paths.length) throw new Error('No liquidity route found for this pair.');
-
-  const quotes = await Promise.all(
-    paths.map(async (path) => {
-      try {
-        const result = await view(CONTRACTS.dcl, 'quote', {
-          pool_ids: path.poolIds,
-          input_token: inId,
-          output_token: outId,
-          input_amount: amountIn,
-          tag: 'kinu'
-        });
-        return { ...path, amountOut: String(result?.amount ?? '0') };
-      } catch {
-        return { ...path, amountOut: '0' };
-      }
-    })
-  );
-
-  const best = quotes.reduce((a, b) => (toBigInt(b.amountOut) > toBigInt(a.amountOut) ? b : a));
-  if (toBigInt(best.amountOut) === 0n) throw new Error('No liquidity route found for this pair.');
+  const working = await rankedQuotes(inId, outId, amountIn);
+  if (!working.length) throw new Error('No liquidity route found for this pair.');
+  const best = working[0];
 
   return {
     amountIn,
