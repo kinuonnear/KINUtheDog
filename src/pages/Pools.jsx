@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../state.jsx';
 import { useAsync, useDebounced, useLocalStorage } from '../hooks.js';
 import { Link, navigate, poolPath, useLocation } from '../router.jsx';
-import { POOL_TYPES, searchPools } from '../lib/rhea.js';
+import { getClassicPositions, getDclPositions, POOL_TYPES, searchPools } from '../lib/rhea.js';
 import { asPoolToken, getCachedToken, getTokens, priceOf } from '../lib/tokens.js';
 import { getTokenInfoCached, isQuoteToken } from '../lib/intear.js';
 import { ESTIMATED_WINDOWS, fetchWindowVolumes, WINDOWS } from '../lib/gecko.js';
@@ -83,6 +83,12 @@ const VIEWS = [
 const TOP_MIN_TVL = 5_000; // ignore dust pools in Top Performers
 const TOP_CANDIDATES = 60; // most active pools (24h volume) considered for Top Performers
 const TOP_WINDOWS = new Set(['h6', 'h12', 'h24']); // Top Performers rank by fees over 6–24h
+
+/** Ids of the pools where the account provides liquidity (CLMM positions, AMM / stable shares incl. farmed). */
+async function getMyPoolIds(accountId) {
+  const [dcl, classic] = await Promise.all([getDclPositions(accountId).catch(() => []), getClassicPositions(accountId).catch(() => [])]);
+  return [...new Set([...dcl.map((p) => p.poolId), ...classic.map((c) => String(c.pool.id))])];
+}
 
 function matchesCategory(pool, category) {
   switch (category) {
@@ -319,9 +325,13 @@ function RheaGlance({ ready, totals }) {
 
 export default function Pools() {
   const [showCreate, setShowCreate] = useState(false);
-  const { prices } = useApp();
+  const { prices, accountId, connect } = useApp();
   const { search } = useLocation();
-  const [view, setView] = useState('all');
+  const [view, setView] = useState(() => (search.get('view') === 'mine' ? 'mine' : 'all'));
+  // "My positions": pools where the connected wallet has liquidity.
+  const mine = useAsync(() => getMyPoolIds(accountId), [accountId], { enabled: Boolean(accountId), refreshMs: 120_000 });
+  const mineIds = mine.data || [];
+  const mineKey = mineIds.join(',');
   const [category, setCategory] = useState('all');
   const tab = POOL_TYPES.find((t) => t.key === category) || POOL_TYPES[0];
   const [windowKey, setWindowKey] = useLocalStorage('kinu.pools.window', 'h24');
@@ -367,13 +377,17 @@ export default function Pools() {
         if (!favorites.length) return Promise.resolve({ list: [], total: 0 });
         return searchPools({ poolIds: favorites.join(','), hideLow: false, limit: favorites.length });
       }
+      if (view === 'mine') {
+        if (!mineIds.length) return Promise.resolve({ list: [], total: 0 });
+        return searchPools({ poolIds: mineKey, hideLow: false, limit: mineIds.length });
+      }
       if (view === 'top') {
         // The most actively traded pools are the fee leaders; rank them by window fees below.
         return searchPools({ type: tab.type, labels: tab.labels || '', sort: 'volume_24h', order: 'desc', limit, hideLow: true });
       }
       return searchPools({ type: tab.type, labels: tab.labels || '', sort: apiSort, order, limit, offset: 0, hideLow: q ? false : hideLow });
     },
-    [view, category, apiSort, order, limit, hideLow, Boolean(q), view === 'favorites' ? favKey : ''],
+    [view, category, apiSort, order, limit, hideLow, Boolean(q), view === 'favorites' ? favKey : view === 'mine' ? mineKey : ''],
     { refreshMs: 60_000 }
   );
 
@@ -382,7 +396,7 @@ export default function Pools() {
   // Rows before window stats: search / category / Top Performers candidate filtering.
   const baseRows = useMemo(() => {
     let list = result.data?.list || [];
-    if (view === 'favorites') list = list.filter((p) => matchesCategory(p, category));
+    if (view === 'favorites' || view === 'mine') list = list.filter((p) => matchesCategory(p, category));
     if (view === 'top') list = list.filter((p) => p.tvl >= TOP_MIN_TVL);
     if (q) {
       list = list
@@ -399,7 +413,7 @@ export default function Pools() {
     const statValue = (p, field) => stats[p.id]?.[field] ?? -1;
     if (view === 'top') {
       list = [...list].sort((a, b) => statValue(b, 'fees') - statValue(a, 'fees')).slice(0, PAGE_SIZE * pages);
-    } else if (!apiSortable || view === 'favorites') {
+    } else if (!apiSortable || view === 'favorites' || view === 'mine') {
       const value = (p) =>
         sort === 'fees' ? statValue(p, 'fees') : sort === 'volume' ? statValue(p, 'volume') : sort === 'apy' ? p.apy + p.farmApy : p.tvl;
       list = [...list].sort((a, b) => (order === 'desc' ? value(b) - value(a) : value(a) - value(b)));
@@ -464,6 +478,15 @@ export default function Pools() {
               {t.key === 'all' ? 'All types' : t.label}
             </button>
           ))}
+          <button
+            type="button"
+            className={`my-positions-chip ${view === 'mine' ? 'active' : ''}`}
+            onClick={() => (accountId ? setView((v) => (v === 'mine' ? 'all' : 'mine')) : connect())}
+            title={accountId ? 'Pools where you provide liquidity' : 'Connect your wallet to see your positions'}
+          >
+            <span aria-hidden>◎</span> My positions
+            {accountId && mine.data && <em>{mineIds.length}</em>}
+          </button>
         </div>
         <div className="toolbar__right">
           <div className="segmented window-picker" role="radiogroup" aria-label="Time window">
@@ -504,7 +527,9 @@ export default function Pools() {
           ? `Pools that earned the most fees in the last ${windowLabel} (TVL ≥ ${formatUsd(TOP_MIN_TVL)}).`
           : view === 'favorites'
             ? 'Pools you starred. Tap ☆ on any row to add it here.'
-            : tab.hint}
+            : view === 'mine'
+              ? 'Pools where you provide liquidity. Open one to see and manage your positions.'
+              : tab.hint}
         {ESTIMATED_WINDOWS.has(windowKey) && (
           <span className="muted small"> · ≈ {windowLabel} values are estimated from the exact 1H / 6H / 24H data.</span>
         )}
@@ -559,6 +584,10 @@ export default function Pools() {
             <div className="pool-table__empty">
               {view === 'favorites' && !favorites.length ? (
                 'No favorites yet — star a pool with ☆ to pin it here.'
+              ) : view === 'mine' && (mine.loading || !mine.data) && accountId ? (
+                'Loading your positions…'
+              ) : view === 'mine' && !q ? (
+                'No liquidity positions yet — pick a pool and add liquidity to see it here.'
               ) : q ? (
                 <>
                   No pools match “{query}”.{' '}

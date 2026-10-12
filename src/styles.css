@@ -5196,6 +5196,38 @@ a.trades__row:hover {
   color: var(--accent);
 }
 
+.category-chips .my-positions-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 10px;
+  border-color: rgba(184, 255, 61, 0.45);
+  color: var(--accent);
+}
+
+.category-chips .my-positions-chip em {
+  min-width: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #0b0f14;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 18px;
+  text-align: center;
+}
+
+.category-chips .my-positions-chip.active {
+  background: var(--accent);
+  color: #0b0f14;
+}
+
+.category-chips .my-positions-chip.active em {
+  background: #0b0f14;
+  color: var(--accent);
+}
+
 .discover-table {
   padding: 0;
   overflow: hidden;
