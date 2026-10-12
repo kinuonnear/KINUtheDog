@@ -81,6 +81,9 @@ export const NATIVE_NEAR = {
   native: true
 };
 
+// The official $KINU (relaunched 2026-10-12, paired with RHEA). kinu / kinu-2 are not official.
+export const KINU_TOKEN = 'kinu-3.nearlytrade.near';
+
 // Tokens pinned at the top of the token picker.
 export const PINNED_TOKENS = [
   'near',

@@ -6283,3 +6283,69 @@ a.dt-row:hover {
   .docs-terms > div { grid-template-columns: 1fr; gap: 4px; }
   .docs-pager a { min-width: 0; flex: 1; }
 }
+
+/* Rebalance */
+.rebalance-button { color: var(--warn); border-color: rgba(255, 181, 71, 0.4); }
+.rebalance-button:hover { border-color: var(--warn); }
+.lp-board__cell .rebalance-button { margin-top: 6px; justify-self: start; }
+.rebalance { display: grid; gap: 16px; min-height: 0; overflow-y: auto; margin: 0 -6px; padding: 0 6px; }
+.rebalance__field { display: grid; gap: 8px; }
+.rebalance__loading { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+.rebalance__steps { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; counter-reset: step; }
+.rebalance__steps li { display: grid; gap: 4px; padding: 12px 14px 12px 44px; position: relative; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); font-size: 13px; }
+.rebalance__steps li::before { counter-increment: step; content: counter(step); position: absolute; left: 14px; top: 12px; display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-size: 11px; font-weight: 700; }
+.rebalance__amounts { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+.rebalance__amounts span { display: inline-flex; align-items: center; gap: 6px; }
+
+/* ==========================================================================
+   Token page & New on Rhea
+   ========================================================================== */
+.flags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.flag { font-style: normal; font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 999px; white-space: nowrap; background: var(--surface-3); color: var(--muted); }
+.flag--good { background: var(--accent-soft); color: var(--accent); }
+.flag--warn { background: rgba(255, 181, 71, 0.12); color: var(--warn); }
+.flag--bad { background: var(--danger-soft); color: var(--danger); }
+.flag--info { background: rgba(94, 200, 255, 0.12); color: var(--sky); }
+.token-page { display: grid; gap: 16px; }
+.token-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+.token-head__id { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.token-head h1 { margin: 0; font-size: clamp(22px, 3vw, 30px); font-weight: 800; }
+.token-head__ca { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 4px; }
+.token-head__ca code { font-family: var(--mono); font-size: 12px; color: var(--muted); word-break: break-all; }
+.token-head__actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.token-grid { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; align-items: start; }
+.token-main { display: grid; gap: 16px; min-width: 0; }
+.token-chart { min-height: 420px; padding: 12px; }
+.token-side { display: grid; gap: 16px; }
+.token-side h2 { margin: 0 0 12px; font-size: 16px; font-weight: 700; }
+.token-pools .pool-table { margin: 0 -8px; }
+.new-page__filters { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.new-page__filters .check { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; cursor: pointer; }
+.new-page__risk { margin-bottom: 16px; }
+.new-table { padding: 6px 0; overflow: hidden; }
+.new-row { display: grid; grid-template-columns: minmax(220px, 2.2fr) repeat(7, minmax(70px, 1fr)) 80px; align-items: center; gap: 12px; padding: 12px 20px; border-top: 1px solid var(--border); font-size: 13px; cursor: pointer; }
+.new-row:first-child { border-top: 0; }
+.new-row:hover:not(.new-row--head) { background: var(--surface-2); }
+.new-row--head { cursor: default; color: var(--faint); font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
+.new-row__token { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.new-row__token > span { display: grid; min-width: 0; }
+.new-row__token small { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.new-row__buy { text-align: right; }
+.new-table__empty { padding: 16px 20px; }
+@media (max-width: 1100px) {
+  .token-grid { grid-template-columns: 1fr; }
+  .new-row { grid-template-columns: 1fr 1fr 1fr; }
+  .new-row--head { display: none; }
+  .new-row__token { grid-column: 1 / -1; }
+  .new-row > span[data-label]::before { content: attr(data-label); display: block; color: var(--faint); font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .new-row__buy { grid-column: 1 / -1; text-align: left; }
+}
+
+.token-pools__list { display: grid; gap: 2px; margin: 0 -10px; }
+.token-pool { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: var(--radius-sm); color: var(--text); }
+.token-pool:hover { background: var(--surface-2); }
+.token-pool__pair, .token-pool__nums { display: grid; gap: 2px; min-width: 0; }
+.token-pool__pair { flex: 1; }
+.token-pool__pair strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.token-pool__nums { text-align: right; }
+.token-pool small { color: var(--muted); font-size: 12px; }

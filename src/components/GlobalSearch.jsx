@@ -97,7 +97,7 @@ export default function GlobalSearch() {
     setQuery('');
     inputRef.current?.blur();
     if (item.kind === 'pool') navigate(poolPath(item.pool.id));
-    else navigate(item.token.id === NATIVE_NEAR.id ? '/swap' : `/swap?from=near&to=${encodeURIComponent(item.token.id)}`);
+    else navigate(item.token.id === NATIVE_NEAR.id ? '/swap' : `/token/${encodeURIComponent(item.token.id)}`);
   };
 
   const onKeyDown = (event) => {

@@ -138,6 +138,38 @@ const DOCS = [
     )
   },
   {
+    group: 'Trading',
+    slug: 'new-tokens',
+    title: 'New on Rhea & token pages',
+    summary: 'Discover new tokens and check them before you buy.',
+    body: (
+      <>
+        <p>
+          <Link to="/new">New on Rhea</Link> lists the newest tokens launched on Nearly — each one opens a Rhea CLMM pool — with
+          age, price, FDV, liquidity, 24h volume and holders, refreshed every minute.
+        </p>
+        <Terms
+          items={[
+            ['Official $KINU', 'The token is the official KINU contract.'],
+            ['Not the official $KINU / Uses the … name', 'A token copying the name of KINU or a major token. Treat it as a likely impersonation.'],
+            ['Name used before', 'Another recent launch uses the same symbol.'],
+            ['Under 24h old', 'Launched less than a day ago.'],
+            ['Thin liquidity', 'Under $500 of NEAR/RHEA in the pool — what sellers can actually receive. Selling can move the price a lot.'],
+            ['Few holders', 'Fewer than 10 holders.']
+          ]}
+        />
+        <p>
+          Every token has its own page at <code>kinudefi.com/token/&lt;contract&gt;</code> with its chart, recent trades, Rhea
+          pools, launch details and flags — plus Buy / Sell and a link to share. Searching a token in the top bar opens it.
+        </p>
+        <Note kind="warn" title="Flags are facts, not ratings">
+          A listing is not an endorsement. New tokens are extremely risky — check the contract and never invest more than you
+          can lose.
+        </Note>
+      </>
+    )
+  },
+  {
     group: 'Liquidity',
     slug: 'smart-lp',
     title: 'Smart LP setup',
@@ -183,6 +215,23 @@ const DOCS = [
         <p>
           Earned fees show as <strong>Claimable fees</strong> and can be claimed any time. <strong>Withdraw</strong> removes
           your liquidity; any unclaimed fees are paid out with it.
+        </p>
+        <h3>Rebalance when you’re out of range</h3>
+        <p>
+          When the price leaves your range, the position shows <strong>Out of range</strong> and stops earning. Press{' '}
+          <strong>⟲ Rebalance</strong> (Portfolio → Liquidity, or the pool page) to move it back around the current price in{' '}
+          <strong>one wallet request</strong>:
+        </p>
+        <Steps
+          items={[
+            <>Withdraw the out-of-range positions — tokens and earned fees go to your wallet.</>,
+            <>Swap the share the new range needs into the other token (best route, one step).</>,
+            <>Open the new range — same width or ±5% / ±10% / ±25% — with the strategy you pick.</>
+          ]}
+        />
+        <p>
+          Amounts are sized from minimums, so a small remainder may stay in your wallet. If the swap would move the pool price
+          more than your slippage, or the pool can’t fill it, the terminal stops before anything is signed and tells you why.
         </p>
         <Note kind="warn" title="Impermanent loss">
           Providing liquidity can be worth less than simply holding the two tokens when prices move. Fees can make up for it

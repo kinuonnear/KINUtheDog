@@ -37,7 +37,9 @@ const ROUTES = [
   { name: 'create', pattern: /^\/create-pool$/ },
   { name: 'portfolio', pattern: /^\/portfolio$/ },
   { name: 'security', pattern: /^\/security$/ },
-  { name: 'docs', pattern: /^\/docs(?:\/([^/]+))?$/ }
+  { name: 'docs', pattern: /^\/docs(?:\/([^/]+))?$/ },
+  { name: 'new', pattern: /^\/new$/ },
+  { name: 'token', pattern: /^\/token\/([^/]+)$/ }
 ];
 
 export function matchRoute(pathname) {

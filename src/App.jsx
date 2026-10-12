@@ -15,18 +15,21 @@ import Portfolio from './pages/Portfolio.jsx';
 import CreatePool from './pages/CreatePool.jsx';
 import Security from './pages/Security.jsx';
 import Docs from './pages/Docs.jsx';
+import NewOnRhea from './pages/NewOnRhea.jsx';
+import Token from './pages/Token.jsx';
 
 const NAV = [
   { to: '/app', label: 'Home', match: ['app'] },
   { to: '/swap', label: 'Swap', match: ['swap'] },
   { to: '/pools', label: 'Pools', match: ['pools', 'pool'] },
+  { to: '/new', label: 'New', match: ['new', 'token'] },
   { to: '/portfolio', label: 'Portfolio', match: ['portfolio'] },
   { to: '/docs', label: 'Docs', match: ['docs'] }
 ];
 
 // Trading screens use the full window width (like Meteora / Intear). CLMM pool
 // pages are an app-style workspace that fills the viewport, so they have no footer.
-const FULL_WIDTH_ROUTES = new Set(['app', 'pool', 'pools', 'swap', 'portfolio']);
+const FULL_WIDTH_ROUTES = new Set(['app', 'pool', 'pools', 'swap', 'portfolio', 'new', 'token']);
 
 const TITLES = {
   home: 'KINU × RHEA — The Dog That Follows the Flow',
@@ -37,6 +40,8 @@ const TITLES = {
   portfolio: 'Portfolio · KINU',
   create: 'Create pool · KINU',
   security: 'Security & transparency · KINU',
+  new: 'New on Rhea · KINU',
+  token: 'Token · KINU',
   notfound: 'Not found · KINU'
 };
 
@@ -96,8 +101,8 @@ export default function App() {
   const appView = route.name === 'pool' && route.params[0]?.includes('|');
 
   useEffect(() => {
-    // Docs pages set their own title per article.
-    if (route.name !== 'docs') document.title = TITLES[route.name] || TITLES.home;
+    // Docs and token pages set their own title.
+    if (route.name !== 'docs' && route.name !== 'token') document.title = TITLES[route.name] || TITLES.home;
   }, [route.name]);
 
   let page;
@@ -125,6 +130,12 @@ export default function App() {
       break;
     case 'docs':
       page = <Docs slug={route.params[0]} />;
+      break;
+    case 'new':
+      page = <NewOnRhea />;
+      break;
+    case 'token':
+      page = <Token key={route.params[0]} id={route.params[0]} />;
       break;
     default:
       page = (
