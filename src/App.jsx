@@ -7,6 +7,7 @@ import { ENDPOINTS } from './config.js';
 import { EmptyState, Toasts } from './components/ui.jsx';
 import GlobalSearch from './components/GlobalSearch.jsx';
 import Welcome from './pages/Welcome.jsx';
+import Home from './pages/Home.jsx';
 import Swap from './pages/Swap.jsx';
 import Pools from './pages/Pools.jsx';
 import PoolDetail from './pages/PoolDetail.jsx';
@@ -14,6 +15,7 @@ import Portfolio from './pages/Portfolio.jsx';
 import CreatePool from './pages/CreatePool.jsx';
 
 const NAV = [
+  { to: '/app', label: 'Home', match: ['app'] },
   { to: '/swap', label: 'Swap', match: ['swap'] },
   { to: '/pools', label: 'Pools', match: ['pools', 'pool'] },
   { to: '/portfolio', label: 'Portfolio', match: ['portfolio'] }
@@ -21,10 +23,11 @@ const NAV = [
 
 // Trading screens use the full window width (like Meteora / Intear). CLMM pool
 // pages are an app-style workspace that fills the viewport, so they have no footer.
-const FULL_WIDTH_ROUTES = new Set(['home', 'pool', 'pools', 'swap', 'portfolio']);
+const FULL_WIDTH_ROUTES = new Set(['app', 'pool', 'pools', 'swap', 'portfolio']);
 
 const TITLES = {
   home: 'KINU — The Dog That Followed · DeFi terminal on NEAR',
+  app: 'KINU Terminal — DeFi on NEAR',
   swap: 'Swap · KINU',
   pools: 'Pools · KINU',
   pool: 'Pool · KINU',
@@ -94,6 +97,9 @@ export default function App() {
 
   let page;
   switch (route.name) {
+    case 'app':
+      page = <Home />;
+      break;
     case 'swap':
       page = <Swap />;
       break;
@@ -138,7 +144,7 @@ export default function App() {
   return (
     <div className={`shell ${appView ? 'shell--app' : ''}`}>
       <header className="topbar">
-        <Link to="/" className="brand" aria-label="KINU home">
+        <Link to="/app" className="brand" aria-label="KINU Terminal home">
           <img src="/kinu-logo.png" alt="KINU" />
         </Link>
         <nav className="nav">
@@ -160,7 +166,7 @@ export default function App() {
 
       {!appView && (
       <footer className="footer">
-        <span>KINU · two dogs, one NEAR</span>
+        <Link to="/">KINU · two dogs, one NEAR</Link>
         <span>
           Liquidity &amp; routing by{' '}
           <a href={ENDPOINTS.rheaApp} target="_blank" rel="noopener noreferrer">

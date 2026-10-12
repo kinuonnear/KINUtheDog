@@ -30,6 +30,7 @@ export function useLocation() {
 
 const ROUTES = [
   { name: 'home', pattern: /^\/$/ },
+  { name: 'app', pattern: /^\/app$/ },
   { name: 'swap', pattern: /^\/swap$/ },
   { name: 'pools', pattern: /^\/pools$/ },
   { name: 'pool', pattern: /^\/pools\/([^/]+)$/ },

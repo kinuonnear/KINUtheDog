@@ -22,7 +22,7 @@
 .welcome .btn.app:hover{background:#0b2420}
 .welcome .hero{padding:28px 0 74px}
 .welcome .hero-card{position:relative;min-height:620px;border:1px solid #1d4752;border-radius:28px;overflow:hidden;background:#02060a;box-shadow:0 30px 100px #0008}
-.welcome .hero-bg{position:absolute;inset:0;background-image:linear-gradient(90deg,#02060a 0%,#02060a33 42%,#02060a05 70%),linear-gradient(0deg,#02060acc 0%,transparent 45%),url('/site/kinu-banner.jpg');background-size:cover;background-position:center}
+.welcome .hero-bg{position:absolute;inset:0;background-image:linear-gradient(90deg,#02060a 0%,#02060a33 42%,#02060a05 70%),linear-gradient(0deg,#02060acc 0%,transparent 45%);background-size:cover;background-position:center}
 .welcome .hero-content{position:relative;z-index:2;min-height:620px;display:flex;align-items:flex-end;padding:42px}
 .welcome .hero-copy{max-width:610px}
 .welcome .kicker{display:inline-flex;align-items:center;gap:9px;border:1px solid #24584d;background:#06110eee;padding:8px 12px;border-radius:999px;color:#c4eee7;font-size:11px;font-weight:950;letter-spacing:.16em;text-transform:uppercase}
@@ -292,3 +292,76 @@
 .welcome .link--app{border-color:var(--teal);color:var(--teal)}
 @media(max-width:1080px){.welcome .platform-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){.welcome .platform-grid{grid-template-columns:1fr}.welcome .platform-launch{padding:24px}}
+
+/* ---- Professional pass: tighter rhythm, live stats, trust row, structured footer ---- */
+.welcome nav{position:sticky;top:0}
+.welcome .hero{padding:24px 0 18px}
+.welcome section{padding:76px 0}
+.welcome .section-head{margin-bottom:26px}
+.welcome .hero-promise{margin:16px 0 0;font-size:clamp(17px,1.6vw,21px);font-weight:800;line-height:1.35;color:#dff7f2;letter-spacing:-.01em;max-width:560px}
+.welcome .hero-promise b{color:var(--teal);font-weight:950}
+.welcome .hero p{margin:12px 0 0;font-size:16px}
+.welcome .cta{margin-top:24px}
+.welcome .hero-chip--price{display:inline-flex;align-items:center;gap:7px;font-size:11px;padding:9px 13px}
+.welcome .stats-bar{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--line);border-radius:18px;background:linear-gradient(145deg,#09131be8,#050d13dd);overflow:hidden}
+.welcome .stats-bar__item{display:flex;flex-direction:column;gap:6px;padding:20px 24px}
+.welcome .stats-bar__item+.stats-bar__item{border-left:1px solid var(--line)}
+.welcome .stats-bar__item span{color:#78939c;font-size:10px;font-weight:950;letter-spacing:.16em;text-transform:uppercase}
+.welcome .stats-bar__item strong{display:flex;align-items:baseline;gap:8px;font-size:22px;font-weight:900;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.welcome .stats-bar__item em{font-style:normal;font-size:12px;font-weight:800}
+.welcome .stats-bar__item em.up{color:var(--teal)}
+.welcome .stats-bar__item em.down{color:#ff6b81}
+.welcome .stats-bar__skeleton{display:inline-block;width:90px;height:20px;border-radius:6px;background:linear-gradient(90deg,#0f1f27,#15303a,#0f1f27);background-size:200% 100%;animation:welcome-shimmer 1.4s linear infinite}
+@keyframes welcome-shimmer{to{background-position:-200% 0}}
+.welcome .trust-row{display:flex;justify-content:center;flex-wrap:wrap;gap:8px 14px;padding:22px 0 0;color:#6f8890;font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase}
+.welcome .trust-row span+span:before{content:"•";color:#2b685c;margin-right:14px}
+.welcome .feature__num{display:inline-block;margin-bottom:14px;color:var(--teal);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;font-weight:800;letter-spacing:.12em}
+.welcome .link--muted{color:#6f8890;border-style:dashed}
+.welcome .site-footer{padding:56px 0 30px}
+.welcome .site-footer__grid{display:grid;grid-template-columns:1.5fr repeat(3,minmax(0,1fr));gap:32px}
+.welcome .site-footer__grid>div{display:flex;flex-direction:column;gap:10px;font-size:13px;color:#8aa2aa}
+.welcome .site-footer__grid h4{margin:0 0 4px;color:var(--white);font-size:12px;font-weight:950;letter-spacing:.14em;text-transform:uppercase}
+.welcome .site-footer__grid a:hover{color:var(--teal)}
+.welcome .site-footer__brand p{margin:6px 0 0;max-width:320px;line-height:1.6}
+.welcome .site-footer .mono-id{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#5f7880;word-break:break-all}
+.welcome .site-footer__legal{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-top:40px;padding-top:22px;border-top:1px solid #102b35;color:#5f7880;font-size:12px;line-height:1.6}
+@media(max-width:860px){.welcome .stats-bar{grid-template-columns:repeat(2,minmax(0,1fr))}.welcome .stats-bar__item:nth-child(3){border-left:0}.welcome .stats-bar__item:nth-child(n+3){border-top:1px solid var(--line)}.welcome .site-footer__grid{grid-template-columns:1fr 1fr}.welcome .site-footer__brand{grid-column:1/-1}}
+@media(max-width:520px){.welcome section{padding:56px 0}.welcome .stats-bar__item{padding:16px}.welcome .stats-bar__item strong{font-size:18px}.welcome .trust-row{gap:6px 14px;font-size:10px}.welcome .trust-row span+span:before{display:none}.welcome .trust-row{justify-content:flex-start}.welcome .site-footer__grid{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.welcome .stats-bar__skeleton{animation:none}}
+
+/* ---- Why KINU (replaces the culture section) ---- */
+.welcome .why-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.welcome .why-card{padding:26px;border:1px solid var(--line);border-radius:20px;background:linear-gradient(145deg,#09131be8,#050d13dd)}
+.welcome .why-card__num{display:inline-block;margin-bottom:16px;color:var(--teal);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;font-weight:800;letter-spacing:.12em}
+.welcome .why-card h3{margin:0 0 10px;font-size:19px;letter-spacing:-.02em}
+.welcome .why-card p{margin:0;color:var(--muted);font-size:14px;line-height:1.65}
+.welcome .steps{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,2.2fr);align-items:center;gap:28px;margin-top:18px;padding:28px 32px;border:1px solid var(--line);border-radius:22px;background:#071119}
+.welcome .steps__head h3{margin:8px 0 0;font-size:24px;letter-spacing:-.03em}
+.welcome .steps__list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin:0;padding:0;list-style:none}
+.welcome .steps__list li{display:flex;gap:12px}
+.welcome .steps__list b{display:grid;flex:none;place-items:center;width:30px;height:30px;border-radius:50%;background:#0b2420;border:1px solid #24584d;color:var(--teal);font-size:13px}
+.welcome .steps__list h4{margin:4px 0;font-size:15px}
+.welcome .steps__list p{margin:0;color:var(--muted);font-size:13px;line-height:1.55}
+.welcome .closing-banner{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-top:18px;padding:38px;border:1px solid var(--line);border-radius:22px;background:radial-gradient(circle at 80% 50%,#0b4c4055,transparent 40%),linear-gradient(120deg,#07121a,#0a1d24)}
+.welcome .closing-banner__title{margin-top:10px;font-size:clamp(34px,5vw,64px);line-height:.95;letter-spacing:-.06em;font-weight:1000}
+.welcome .closing-banner__title em{color:var(--teal);font-style:normal}
+@media(max-width:1080px){.welcome .why-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.welcome .steps{grid-template-columns:1fr}}
+@media(max-width:620px){.welcome .why-grid,.welcome .steps__list{grid-template-columns:1fr}.welcome .steps,.welcome .closing-banner{padding:24px}}
+
+/* ---- About KINU (replaces the lore section and gallery) ---- */
+.welcome .about{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:14px}
+.welcome .about__story,.welcome .about__facts{padding:30px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(145deg,#09151ddd,#050e14dd)}
+.welcome .about__story p{margin:0;color:#c6d7dc;font-size:17px;line-height:1.7}
+.welcome .about__story p+p{margin-top:14px}
+.welcome .about__story strong{color:var(--white)}
+.welcome .about__facts dl{margin:14px 0 0}
+.welcome .about__facts dl>div{display:flex;justify-content:space-between;gap:16px;padding:13px 0;border-bottom:1px solid #12303a}
+.welcome .about__facts dl>div:last-child{border-bottom:0}
+.welcome .about__facts dt{color:#78939c;font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+.welcome .about__facts dd{margin:0;color:var(--white);font-size:14px;font-weight:800;text-align:right}
+.welcome .about__art{position:relative;margin:14px 0 0;height:min(36vw,440px);min-height:260px;overflow:hidden;border:1px solid var(--line);border-radius:22px;background:#020605}
+.welcome .about__art img{width:100%;height:100%;object-fit:cover;object-position:center 40%;display:block;filter:saturate(.95) contrast(1.04)}
+.welcome .about__art:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#020605d9 0%,#02060566 40%,transparent 70%),linear-gradient(0deg,#020605b3,transparent 50%);pointer-events:none}
+.welcome .about__art figcaption{position:absolute;z-index:2;left:34px;bottom:30px;display:flex;flex-direction:column;gap:8px}
+.welcome .about__art figcaption strong{font-size:clamp(24px,3vw,40px);font-weight:1000;letter-spacing:-.04em;line-height:1}
+@media(max-width:860px){.welcome .about{grid-template-columns:1fr}.welcome .about__art figcaption{left:22px;bottom:20px}}
