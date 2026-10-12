@@ -20,7 +20,7 @@ const NAV = [
 
 // Trading screens use the full window width (like Meteora / Intear). CLMM pool
 // pages are an app-style workspace that fills the viewport, so they have no footer.
-const FULL_WIDTH_ROUTES = new Set(['pool', 'pools', 'swap', 'portfolio']);
+const FULL_WIDTH_ROUTES = new Set(['home', 'pool', 'pools', 'swap', 'portfolio']);
 
 const TITLES = {
   home: 'KINU — DeFi terminal on NEAR',

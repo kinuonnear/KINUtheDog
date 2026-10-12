@@ -73,17 +73,21 @@ export default function Home() {
         <div className="hero__content">
           <span className="eyebrow eyebrow--glow">KINU · DeFi terminal on NEAR</span>
           <h1>
-            Trade, earn and track
+            Swap at the best price.
             <br />
-            <em>with Rhea liquidity.</em>
+            <em>Set up LP the smart way.</em>
           </h1>
           <p>
-            Best-price swaps routed across every Rhea pool, one-click liquidity, and a live portfolio of your tokens and
-            LP positions. Non-custodial: every action is signed in your own wallet.
+            Every swap compares Rhea&apos;s SmartRouter with direct CLMM routes up to three hops and takes the best output.
+            Smart LP setup lets you draw your range on the chart, pick a strategy or zap in with one token — then track
+            fees and PnL live. Non-custodial: you sign every action in your own wallet.
           </p>
           <div className="hero__actions">
             <Link to="/swap" className="button button--primary button--lg">
               Start trading
+            </Link>
+            <Link to="/pools" className="button button--outline button--lg">
+              Smart LP setup
             </Link>
             {accountId ? (
               <Link to="/portfolio" className="button button--ghost button--lg">
@@ -114,24 +118,69 @@ export default function Home() {
 
       <Ticker />
 
-      <section className="features">
+      <section className="features features--four">
         <Link to="/swap" className="feature card">
           <span className="feature__icon">⇄</span>
           <h3>Swap aggregator</h3>
-          <p>Rhea SmartRouter splits your trade across AMM, stable and concentrated pools for the best output.</p>
+          <p>
+            Rhea SmartRouter and direct CLMM routes up to three hops, quoted side by side — the best output wins. Real price
+            impact, gas estimate and a route picker.
+          </p>
           <span className="feature__cta">Swap now →</span>
+        </Link>
+        <Link to="/pools" className="feature card feature--highlight">
+          <span className="feature__icon">◇</span>
+          <h3>Smart LP setup</h3>
+          <p>
+            Drag your price range on the chart, choose Spot, Curve or Bid-Ask, and see the pool&apos;s depth as you shape it — or
+            zap in with a single token.
+          </p>
+          <span className="feature__cta">Set up a position →</span>
         </Link>
         <Link to="/pools" className="feature card">
           <span className="feature__icon">≋</span>
           <h3>Liquidity</h3>
-          <p>Browse thousands of pools by TVL, volume and APR. Add or remove liquidity in a single flow.</p>
+          <p>AMM, CLMM, ALMM, Stable and Farm pools with fees by 1–24h windows and top performers. Add or remove in one flow.</p>
           <span className="feature__cta">Explore pools →</span>
         </Link>
         <Link to="/portfolio" className="feature card">
           <span className="feature__icon">◔</span>
-          <h3>Portfolio</h3>
-          <p>Net worth across wallet tokens, LP positions, CLMM ranges, farm stakes and Rhea deposits.</p>
+          <h3>Portfolio &amp; PnL</h3>
+          <p>Token PnL from your real buys and sells, LP PnL with fees and win rate, and the history of every closed position.</p>
           <span className="feature__cta">Open portfolio →</span>
+        </Link>
+      </section>
+
+      <section className="lp-steps card">
+        <div className="lp-steps__head">
+          <span className="eyebrow eyebrow--glow">Smart LP setup</span>
+          <h2>Concentrated liquidity in three steps</h2>
+        </div>
+        <ol className="lp-steps__list">
+          <li>
+            <b>1</b>
+            <div>
+              <h4>Pick a pool</h4>
+              <p>Filter by AMM, CLMM, ALMM, Stable or Farm and sort by fees earned over the last hours.</p>
+            </div>
+          </li>
+          <li>
+            <b>2</b>
+            <div>
+              <h4>Shape your range</h4>
+              <p>Drag Min / Max on the chart or type prices. Spot, Curve or Bid-Ask spreads your liquidity into bins.</p>
+            </div>
+          </li>
+          <li>
+            <b>3</b>
+            <div>
+              <h4>Deposit &amp; track</h4>
+              <p>Add both tokens or zap in with one. Claim fees, add or remove in place, and follow PnL per position.</p>
+            </div>
+          </li>
+        </ol>
+        <Link to="/pools" className="button button--primary">
+          Start an LP position
         </Link>
       </section>
 
