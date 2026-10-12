@@ -31,7 +31,7 @@ const PROTOCOL_METHODS = {
     'claim_lostfound',
     'add_simple_pool'
   ],
-  [CONTRACTS.dcl]: ['storage_deposit', 'add_liquidity', 'batch_add_liquidity', 'remove_liquidity', 'batch_remove_liquidity', 'withdraw_asset', 'create_pool'],
+  [CONTRACTS.dcl]: ['storage_deposit', 'add_liquidity', 'batch_add_liquidity', 'remove_liquidity', 'batch_remove_liquidity', 'append_liquidity', 'withdraw_asset', 'create_pool'],
   [CONTRACTS.aggregator]: ['tokens_storage_deposit', 'withdraw'],
   [CONTRACTS.wrapNear]: ['near_deposit', 'near_withdraw', 'storage_deposit', 'ft_transfer_call']
 };

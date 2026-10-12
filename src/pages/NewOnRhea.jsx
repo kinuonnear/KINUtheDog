@@ -11,6 +11,7 @@ import { formatAge } from '../lib/lpHistory.js';
 import { formatPrice, formatUsd } from '../lib/format.js';
 import { NATIVE_NEAR, PINNED_TOKENS } from '../config.js';
 import { FlagList } from './Token.jsx';
+import WatchStar from '../components/WatchStar.jsx';
 
 const QUOTES = [
   ['all', 'All'],
@@ -34,7 +35,8 @@ function useKnownSymbols() {
   return known.data;
 }
 
-export default function NewOnRhea() {
+/** The New launches tab of Discover: filters, risk notice and the launch table. */
+export function NewLaunches() {
   const [quote, setQuote] = useState('all');
   const [hideThin, setHideThin] = useState(false);
   const launches = useAsync(() => getRecentLaunches({ limit: 80 }), [], { refreshMs: 60_000 });
@@ -54,14 +56,8 @@ export default function NewOnRhea() {
   }, [launches.data, quote, hideThin, knownSymbols]);
 
   return (
-    <div className="page new-page">
-      <header className="page-head page-head--split">
-        <div>
-          <span className="eyebrow">Discover</span>
-          <h1>New on Rhea</h1>
-          <p>The newest tokens with a Rhea pool, launched on Nearly. Live every minute, with the facts that matter before you buy.</p>
-        </div>
-        <div className="new-page__filters">
+    <>
+      <div className="new-page__filters new-page__filters--bar">
           <div className="segmented">
             {QUOTES.map(([key, label]) => (
               <button key={key} type="button" className={quote === key ? 'active' : ''} onClick={() => setQuote(key)}>
@@ -72,8 +68,7 @@ export default function NewOnRhea() {
           <label className="check">
             <input type="checkbox" checked={hideThin} onChange={(e) => setHideThin(e.target.checked)} /> Hide thin liquidity
           </label>
-        </div>
-      </header>
+      </div>
 
       <div className="notice notice--warn new-page__risk">
         New tokens are extremely risky. Anyone can launch a token with any name — a listing here is not an endorsement.
@@ -108,6 +103,7 @@ export default function NewOnRhea() {
             : rows.map((l) => (
                 <div className="new-row" key={l.id} onClick={() => navigate(`/token/${encodeURIComponent(l.id)}`)} role="link" tabIndex={0}>
                   <span className="new-row__token">
+                    <WatchStar id={l.id} />
                     <TokenIcon token={{ symbol: l.symbol, icon: l.icon }} size={32} />
                     <span>
                       <strong>{l.symbol}</strong>
@@ -139,6 +135,6 @@ export default function NewOnRhea() {
         </section>
       )}
       <p className="muted small">Data: Nearly launch records and Rhea pools. Flags are on-chain facts, not ratings. *Liquidity = the NEAR/RHEA side of the pool.</p>
-    </div>
+    </>
   );
 }

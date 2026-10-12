@@ -420,3 +420,89 @@ export function planBinsByBudget({ bins, budgetX, budgetY }) {
     needsY: unitY > 0
   };
 }
+
+/* ------------------------------------------------------------------ */
+/* Auto-compound                                                       */
+/* ------------------------------------------------------------------ */
+
+const raw = (n) => (n > 0 ? BigInt(Math.floor(n)) : 0n);
+
+/**
+ * How much of each position's unclaimed fees can go back into that same position at the
+ * current price. In range, fees are used in the position's X/Y ratio; above the price only X
+ * fits, below it only Y. Whatever doesn't fit stays in the wallet after the claim.
+ * Returns { items: [{ position, amountX, amountY }], totalX, totalY, feeX, feeY } (raw BigInt).
+ */
+export function planCompound(positions) {
+  let totalX = 0n;
+  let totalY = 0n;
+  let feeX = 0n;
+  let feeY = 0n;
+  const items = [];
+  positions.forEach((p) => {
+    const fx = toBigInt(p.unclaimedFeeX);
+    const fy = toBigInt(p.unclaimedFeeY);
+    feeX += fx;
+    feeY += fy;
+    if (fx <= 0n && fy <= 0n) return;
+    const { leftPoint: left, rightPoint: right, currentPoint: cur } = p;
+    let ax = 0n;
+    let ay = 0n;
+    if (cur < left) ax = fx;
+    else if (cur >= right) ay = fy;
+    else {
+      const ux = dclAmountX(1e24, cur, right);
+      const uy = dclAmountY(1e24, left, cur);
+      const l = Math.min(ux > 0 ? Number(fx) / ux : Infinity, uy > 0 ? Number(fy) / uy : Infinity);
+      if (Number.isFinite(l) && l > 0) {
+        ax = raw(l * ux);
+        ay = raw(l * uy);
+        if (ax > fx) ax = fx;
+        if (ay > fy) ay = fy;
+      }
+    }
+    if (ax <= 0n && ay <= 0n) return;
+    items.push({ position: p, amountX: ax, amountY: ay });
+    totalX += ax;
+    totalY += ay;
+  });
+  return { items, totalX, totalY, feeX, feeY };
+}
+
+/**
+ * One wallet request: claim every position's fees (they arrive in the wallet), deposit the
+ * part that fits back into the CLMM contract, and append it to the same positions.
+ */
+export async function buildDclCompoundTransactions({ positions, slippage, accountId }) {
+  const withFees = positions.filter((p) => toBigInt(p.unclaimedFeeX) > 0n || toBigInt(p.unclaimedFeeY) > 0n);
+  const plan = planCompound(withFees);
+  if (!plan.items.length) throw new Error('No fees can be compounded into these positions right now.');
+  const { tokenX, tokenY } = withFees[0];
+
+  const txs = await tokenStorageTxs(withFees[0], accountId);
+  withFees.forEach((p) => {
+    txs.push(transaction(DCL, [functionCall('remove_liquidity', { lpt_id: p.id, amount: '0', min_amount_x: '0', min_amount_y: '0' }, DCL_REMOVE_GAS)]));
+  });
+  if (plan.totalX > 0n) txs.push(ftTransferCallTx(tokenX, DCL, plan.totalX.toString(), '"Deposit"', GAS.dclDeposit));
+  if (plan.totalY > 0n) txs.push(ftTransferCallTx(tokenY, DCL, plan.totalY.toString(), '"Deposit"', GAS.dclDeposit));
+  plan.items.forEach(({ position: p, amountX, amountY }) => {
+    const { minX, minY } = minAmountsInBand({
+      left: p.leftPoint,
+      right: p.rightPoint,
+      current: p.currentPoint,
+      amountX: amountX.toString(),
+      amountY: amountY.toString(),
+      slippage
+    });
+    txs.push(
+      transaction(DCL, [
+        functionCall(
+          'append_liquidity',
+          { lpt_id: p.id, amount_x: amountX.toString(), amount_y: amountY.toString(), min_amount_x: minX, min_amount_y: minY },
+          DCL_ADD_GAS
+        )
+      ])
+    );
+  });
+  return txs.filter(Boolean);
+}

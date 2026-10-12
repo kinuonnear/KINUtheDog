@@ -10,6 +10,7 @@ import { formatAmount, formatChartPrice, formatUsd, toNumber } from '../lib/form
 import { dclAmountX, dclAmountY } from '../lib/rhea.js';
 import { Modal, Spinner, TokenIcon } from './ui.jsx';
 import RebalanceButton from './Rebalance.jsx';
+import CompoundButton from './Compound.jsx';
 
 /** Summary numbers for a set of positions in one pool. */
 export function summarizeDclGroup(positions, x, y, prices) {
@@ -214,6 +215,7 @@ export function DclActions({ poolId, positions, x, y, onDone, onAdd, readOnly, s
   return (
     <div className={`lp-actions ${stacked ? 'lp-actions--stack' : ''}`}>
       <RebalanceButton positions={positions} x={x} y={y} onDone={onDone} />
+      <CompoundButton positions={positions} x={x} y={y} onDone={onDone} />
       <button type="button" className="button button--outline button--sm" disabled={!summary.hasFees || claiming} onClick={claim}>
         {claiming ? <Spinner size={12} /> : stacked ? `Claim fees${summary.hasFees ? ` · ${formatUsd(summary.feeUsd)}` : ''}` : 'Claim'}
       </button>
@@ -384,6 +386,7 @@ export function DclGroupCard({ poolId, positions, x, y, pool, onDone, onAdd, onC
           <strong>{formatUsd(summary.usd)}</strong>
         </div>
         <span className="lp-board__spacer" />
+        <CompoundButton positions={positions} x={x} y={y} onDone={onDone} />
         <DclActions poolId={poolId} positions={positions} x={x} y={y} onDone={onDone} claimOnly />
       </div>
 

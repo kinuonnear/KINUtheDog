@@ -39,6 +39,7 @@ const ROUTES = [
   { name: 'security', pattern: /^\/security$/ },
   { name: 'docs', pattern: /^\/docs(?:\/([^/]+))?$/ },
   { name: 'new', pattern: /^\/new$/ },
+  { name: 'discover', pattern: /^\/discover$/ },
   { name: 'token', pattern: /^\/token\/([^/]+)$/ }
 ];
 

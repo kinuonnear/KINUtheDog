@@ -5,6 +5,7 @@ import { lazy, Suspense, useEffect, useMemo } from 'react';
 import { useAsync } from '../hooks.js';
 import { Link, poolPath } from '../router.jsx';
 import RecentTrades from '../components/RecentTrades.jsx';
+import WatchStar from '../components/WatchStar.jsx';
 import { CopyButton, EmptyState, PairIcons, Spinner, TokenIcon } from '../components/ui.jsx';
 import { formatPercent, formatUsd } from '../lib/format.js';
 import { getToken, getWhitelistedTokens } from '../lib/tokens.js';
@@ -87,6 +88,7 @@ export default function Token({ id }) {
           <Link className="button button--outline" to={`/swap?from=${encodeURIComponent(id)}&to=${NATIVE_NEAR.id}`}>
             Sell
           </Link>
+          <WatchStar id={id} label />
           <CopyButton text={`https://kinudefi.com/token/${id}`} label="Copy link" />
         </div>
       </header>

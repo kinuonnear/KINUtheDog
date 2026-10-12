@@ -14,6 +14,7 @@ import { AvgCell, rowPnl, SoldTokens, TokenPnlSummary, useTokenPnl } from '../co
 import { fetchTokenInfo } from '../lib/intear.js';
 import { tokenShareCard } from '../lib/shareCard.js';
 import ShareButton from '../components/ShareCard.jsx';
+import DustSweeper from '../components/DustSweeper.jsx';
 import { EmptyState, ErrorNotice, Skeleton, Spinner, Stat, Tabs, TokenIcon } from '../components/ui.jsx';
 
 const DUST_USD = 0.01;
@@ -109,7 +110,7 @@ export default function Portfolio() {
         const token = meta(id);
         const amount = toNumber(raw, token.decimals);
         const price = priceOf(prices, id);
-        return { id, token, amount, price, usd: amount * price };
+        return { id, token, raw: String(raw), amount, price, usd: amount * price };
       })
       .filter((r) => r.amount > 0)
       .sort((a, b) => b.usd - a.usd || b.amount - a.amount);
@@ -280,6 +281,11 @@ export default function Portfolio() {
         <>
           <section className="card allocation-card">
             <TokenPnlSummary pnl={tokenPnl} rows={visibleTokens} />
+            {ownPortfolio && (
+              <div className="sweep-bar">
+                <DustSweeper rows={model.walletRows} onDone={data.reload} />
+              </div>
+            )}
             {allocation.length > 0 && (
               <div className="allocation">
                 <div className="allocation__bar">
