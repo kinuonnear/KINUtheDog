@@ -404,7 +404,12 @@ export default function DclCreatePosition({ pool, x, y, rangeState, onDone }) {
   // Price the amounts were entered at: the pool price refreshes every few seconds and the
   // paired amount follows it, so show how far it has moved since.
   const anchorRef = useRef(null);
+  const [, setAccepted] = useState(0); // re-render after "Accept new price"
   const priceDrift = anchorRef.current === null ? 0 : (Math.pow(1.0001, current - anchorRef.current) - 1) * 100;
+  const acceptPrice = () => {
+    anchorRef.current = current;
+    setAccepted((n) => n + 1);
+  };
 
   // Zap amounts are typed in the Zap box: anchor the drift there too.
   useEffect(() => {
@@ -504,14 +509,20 @@ export default function DclCreatePosition({ pool, x, y, rangeState, onDone }) {
   };
 
   const strategyInfo = STRATEGIES.find((s) => s.key === strategy);
+  // Price moved since the amounts were entered: within slippage the user may accept it;
+  // beyond slippage the deposit would be refused, so acceptance is required first.
+  const driftShown = (zapMode ? toBigInt(zapRaw) > 0n : hasAmount) && Math.abs(priceDrift) >= 0.05;
+  const mustAccept = driftShown && Math.abs(priceDrift) > Number(slippage);
+
   let label = 'Create position';
   if (!accountId) label = 'Connect wallet';
   else if (!hasAmount) label = 'Enter an amount';
   else if (short) label = short;
   else if (zapMode && zapQuote.error) label = 'No route for this zap';
   else if (zapMode && zapStale) label = 'Finding best split…';
+  else if (mustAccept) label = 'Price moved — accept new price';
   else if (zapMode) label = `Zap in ${zapToken.symbol}`;
-  const blocked = zapMode && (Boolean(zapQuote.error) || zapStale || !zapQuote.data);
+  const blocked = (zapMode && (Boolean(zapQuote.error) || zapStale || !zapQuote.data)) || mustAccept;
 
   return (
     <div className="create-pos">
@@ -682,11 +693,17 @@ export default function DclCreatePosition({ pool, x, y, rangeState, onDone }) {
       <div className="live-price">
         <span className="live-price__dot" aria-hidden />
         Live pool price · updates every few seconds
-        {(zapMode ? toBigInt(zapRaw) > 0n : hasAmount) && Math.abs(priceDrift) >= 0.05 && (
-          <b className={Math.abs(priceDrift) > Number(slippage) ? 'down' : 'warn'}>
-            {priceDrift > 0 ? '+' : ''}
-            {priceDrift.toFixed(2)}% since you entered amounts{zapMode ? '' : ' — paired amount updated'}
-          </b>
+        {driftShown && (
+          <>
+            <b className={mustAccept ? 'down' : 'warn'}>
+              {priceDrift > 0 ? '+' : ''}
+              {priceDrift.toFixed(2)}% since you entered amounts{zapMode ? '' : ' — paired amount updated'}
+              {mustAccept ? ` — beyond your ${slippage}% slippage` : ''}
+            </b>
+            <button type="button" className={`accept-price ${mustAccept ? 'accept-price--required' : ''}`} onClick={acceptPrice}>
+              {mustAccept ? 'Accept new price' : 'Accept'}
+            </button>
+          </>
         )}
       </div>
       <button
