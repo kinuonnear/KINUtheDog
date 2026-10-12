@@ -6285,8 +6285,8 @@ a.dt-row:hover {
 }
 
 /* Rebalance */
-.rebalance-button { color: var(--warn); border-color: rgba(255, 181, 71, 0.4); }
-.rebalance-button:hover { border-color: var(--warn); }
+.rebalance-button--alert { color: var(--warn); border-color: rgba(255, 181, 71, 0.4); }
+.rebalance-button--alert:hover { border-color: var(--warn); }
 .lp-board__cell .rebalance-button { margin-top: 6px; justify-self: start; }
 .rebalance { display: grid; gap: 16px; min-height: 0; overflow-y: auto; margin: 0 -6px; padding: 0 6px; }
 .rebalance__field { display: grid; gap: 8px; }

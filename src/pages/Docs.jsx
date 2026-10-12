@@ -216,15 +216,17 @@ const DOCS = [
           Earned fees show as <strong>Claimable fees</strong> and can be claimed any time. <strong>Withdraw</strong> removes
           your liquidity; any unclaimed fees are paid out with it.
         </p>
-        <h3>Rebalance when you’re out of range</h3>
+        <h3>Rebalance your range</h3>
         <p>
           When the price leaves your range, the position shows <strong>Out of range</strong> and stops earning. Press{' '}
-          <strong>⟲ Rebalance</strong> (Portfolio → Liquidity, or the pool page) to move it back around the current price in{' '}
+          <strong>⟲ Rebalance</strong> (Portfolio → Liquidity, or the pool page) to move your <strong>whole range</strong> —
+          every bin — back around the current price, or choose <strong>Out of range only</strong> to move just the bins that
+          stopped earning. You can also re-centre a range that is still earning. It all happens in{' '}
           <strong>one wallet request</strong>:
         </p>
         <Steps
           items={[
-            <>Withdraw the out-of-range positions — tokens and earned fees go to your wallet.</>,
+            <>Withdraw the positions you chose — tokens and earned fees go to your wallet.</>,
             <>Swap the share the new range needs into the other token (best route, one step).</>,
             <>Open the new range — same width or ±5% / ±10% / ±25% — with the strategy you pick.</>
           ]}
