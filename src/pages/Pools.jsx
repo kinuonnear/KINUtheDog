@@ -256,6 +256,67 @@ function DiscoverRow({ rank, pool, tokens, prices, info, stat, estimated, favori
   );
 }
 
+/** Pool types in the TVL split of the header card (labels from rhea.poolKindLabel). */
+const GLANCE_TYPES = [
+  { key: 'clmm', label: 'CLMM' },
+  { key: 'amm', label: 'AMM' },
+  { key: 'stable', label: 'Stable' },
+  { key: 'almm', label: 'ALMM' }
+];
+
+/** Header card: Rhea-wide numbers, TVL by pool type and today's top fee earner. */
+function RheaGlance({ ready, totals }) {
+  const skeleton = <Skeleton width={80} height={20} />;
+  const top = totals.topFees;
+  const metrics = [
+    { label: 'Total value locked', value: formatUsd(totals.tvl) },
+    { label: '24h volume', value: formatUsd(totals.volume), hint: totals.tvl > 0 && `${((totals.volume / totals.tvl) * 100).toFixed(0)}% of TVL traded` },
+    { label: '24h fees to LPs', value: formatUsd(totals.fees), accent: true },
+    { label: 'Avg. daily yield', value: totals.tvl > 0 ? formatPercent((totals.fees / totals.tvl) * 100, 3) : '—', hint: `${totals.pools.toLocaleString()} active pools` }
+  ];
+  return (
+    <section className="glance card" aria-label="Rhea at a glance, last 24 hours">
+      {metrics.map((m) => (
+        <div className="glance__metric" key={m.label}>
+          <span>{m.label}</span>
+          <strong className={m.accent ? 'up' : ''}>{ready ? m.value : skeleton}</strong>
+          {ready && m.hint && <small>{m.hint}</small>}
+        </div>
+      ))}
+      <div className="glance__split">
+        <span className="glance__label">
+          TVL by pool type
+          <span className="glance__live">
+            <i /> Live · 24h
+          </span>
+        </span>
+        <div className="glance__bar" aria-hidden="true">
+          {ready &&
+            totals.byType.map((t) => (
+              <i key={t.key} className={`glance__seg glance__seg--${t.key}`} style={{ width: `${totals.tvl > 0 ? (t.tvl / totals.tvl) * 100 : 0}%` }} />
+            ))}
+        </div>
+        <div className="glance__legend">
+          {totals.byType.map((t) => (
+            <span key={t.key}>
+              <i className={`glance__dot glance__seg--${t.key}`} />
+              {t.label} <b>{ready && totals.tvl > 0 ? `${((t.tvl / totals.tvl) * 100).toFixed(0)}%` : '—'}</b>
+            </span>
+          ))}
+        </div>
+        {ready && top && (
+          <Link to={poolPath(top.id)} className="glance__top">
+            <span>Most fees today</span>
+            <strong>{top.symbols.join(' / ')}</strong>
+            <b className="up">{formatUsd(top.feeVolume24h)}</b>
+            <em aria-hidden="true">→</em>
+          </Link>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export default function Pools() {
   const [showCreate, setShowCreate] = useState(false);
   const { prices } = useApp();
@@ -284,10 +345,14 @@ export default function Pools() {
   const overview = useAsync(() => searchPools({ limit: 300, hideLow: true }), [], { refreshMs: 120_000 });
   const totals = useMemo(() => {
     const list = overview.data?.list || [];
+    const byType = GLANCE_TYPES.map((t) => ({ ...t, tvl: list.filter((p) => p.label === t.label).reduce((s, p) => s + p.tvl, 0) }));
     return {
       tvl: list.reduce((s, p) => s + p.tvl, 0),
       volume: list.reduce((s, p) => s + p.volume24h, 0),
-      fees: list.reduce((s, p) => s + p.feeVolume24h, 0)
+      fees: list.reduce((s, p) => s + p.feeVolume24h, 0),
+      pools: overview.data?.total || list.length,
+      byType,
+      topFees: list.reduce((best, p) => (!best || p.feeVolume24h > best.feeVolume24h ? p : best), null)
     };
   }, [overview.data]);
 
@@ -378,20 +443,7 @@ export default function Pools() {
             + Create pool
           </button>
         </div>
-        <div className="discover-head__stats">
-          <div>
-            <span>Total value locked</span>
-            <strong>{overview.data ? formatUsd(totals.tvl) : <Skeleton width={90} height={22} />}</strong>
-          </div>
-          <div>
-            <span>24h volume</span>
-            <strong>{overview.data ? formatUsd(totals.volume) : <Skeleton width={90} height={22} />}</strong>
-          </div>
-          <div>
-            <span>24h fees</span>
-            <strong>{overview.data ? formatUsd(totals.fees) : <Skeleton width={90} height={22} />}</strong>
-          </div>
-        </div>
+        <RheaGlance ready={Boolean(overview.data)} totals={totals} />
       </header>
 
       <nav className="view-tabs" aria-label="Pool views">
