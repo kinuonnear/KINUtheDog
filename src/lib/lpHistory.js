@@ -165,7 +165,15 @@ export function loadDclEvents(account) {
   if (inflight.has(account)) return inflight.get(account);
   const job = (async () => {
     const cache = readCache(account);
-    const { fresh, complete } = await listNewTxs(account, cache);
+    let listed;
+    try {
+      listed = await listNewTxs(account, cache);
+    } catch (error) {
+      // The index is busy: what was cached is still right, only possibly not the newest.
+      if (cache.events.length) return { events: cache.events, complete: cache.complete, stale: true };
+      throw error;
+    }
+    const { fresh, complete } = listed;
     const toFetch = fresh.filter((t) => t.relevant).map((t) => t.hash);
     const events = [];
     for (let i = 0; i < toFetch.length; i += TX_BATCH * 3) {

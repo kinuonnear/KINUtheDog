@@ -8,6 +8,7 @@ import { view } from '../lib/rpc.js';
 import { amountsForShares, isStableKind } from '../lib/liquidity.js';
 import { AmmLiquidity, DclLiquidity, StableLiquidity } from '../components/Liquidity.jsx';
 import { DclGroupCard } from '../components/DclPositions.jsx';
+import { useDepositGroups } from '../lib/lpPositions.js';
 import { useDclRange } from '../components/DclCreatePosition.jsx';
 import { fetchTrades } from '../lib/intear.js';
 
@@ -330,22 +331,22 @@ function DclWorkspace({ poolId, pool, x, y, reserves, positions, onAdd, onDone }
   const gridRef = useRef(null);
   useDockedColumns(gridRef);
   const [panel, setPanel] = useState(accountId ? 'liquidity' : 'composition');
-  // Click a position row to show your own range(s) on the chart.
-  const [mineOnChart, setMineOnChart] = useState(false);
-  const mine =
-    mineOnChart && positions.data?.length
-      ? positions.data.map((p) => ({
-          min: dclPointToPrice(p.leftPoint, x.decimals, y.decimals),
-          max: dclPointToPrice(p.rightPoint, x.decimals, y.decimals),
-          inRange: p.inRange
-        }))
-      : null;
-  const toggleMineOnChart = () => {
-    setMineOnChart((on) => {
-      // On narrow screens the chart sits above the table: bring it into view.
-      if (!on) mainRef.current?.querySelector('.split-top')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      return !on;
-    });
+  // One position per deposit (Meteora-style); click one to show its range on the chart.
+  const deposits = useDepositGroups(accountId, positions.data);
+  const [chartKey, setChartKey] = useState(null);
+  const chartGroup = deposits.groups.find((g) => g.key === chartKey);
+  const mine = chartGroup
+    ? chartGroup.positions.map((p) => ({
+        min: dclPointToPrice(p.leftPoint, x.decimals, y.decimals),
+        max: dclPointToPrice(p.rightPoint, x.decimals, y.decimals),
+        inRange: p.inRange
+      }))
+    : null;
+  const toggleChart = (group) => {
+    const on = chartKey !== group.key;
+    // On narrow screens the chart sits above the table: bring it into view.
+    if (on) mainRef.current?.querySelector('.split-top')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    setChartKey(on ? group.key : null);
   };
 
   // Resizable split between the chart and the bottom panel (desktop).
@@ -410,8 +411,8 @@ function DclWorkspace({ poolId, pool, x, y, reserves, positions, onAdd, onDone }
         <section className="card bottom-panel">
           <Tabs
             tabs={[
-              // One position per pair for the user; its CLMM bins are details inside it.
-              { key: 'liquidity', label: 'Your liquidity', count: accountId ? (positions.data?.length ? 1 : 0) : undefined },
+              // One position per deposit; its CLMM bins are details inside it.
+              { key: 'liquidity', label: 'Your liquidity', count: accountId ? deposits.groups.length : undefined },
               { key: 'composition', label: 'Pool composition' },
               { key: 'trades', label: 'Transactions' }
             ]}
@@ -430,13 +431,14 @@ function DclWorkspace({ poolId, pool, x, y, reserves, positions, onAdd, onDone }
                 <DclGroupCard
                   poolId={poolId}
                   positions={positions.data}
+                  deposits={deposits}
                   x={x}
                   y={y}
                   pool={pool}
-                  onAdd={onAdd}
+                  onNew={onAdd}
                   onDone={onDone}
-                  onChart={mineOnChart}
-                  onToggleChart={toggleMineOnChart}
+                  chartKey={chartKey}
+                  onToggleChart={toggleChart}
                 />
               ))}
             {panel === 'composition' && (

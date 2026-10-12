@@ -497,6 +497,86 @@ export function planCompound(positions, { mode = 'shape' } = {}) {
   return { items, totalX, totalY, feeX, feeY };
 }
 
+/* ------------------------------------------------------------------ */
+/* Add to a position                                                   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Add to an existing position (a deposit's bins) and keep its shape: every bin grows by
+ * the same factor k, so it takes k × the tokens it holds now. `inX` / `inY` (raw) is what
+ * the user offers of each token; the scarcer side decides k.
+ * Returns { items: [{ position, amountX, amountY }], totalX, totalY } (raw BigInt).
+ */
+export function planAppend(positions, { inX = 0n, inY = 0n }) {
+  const live = positions.filter((p) => Number(p.liquidity) > 0);
+  const holdX = live.reduce((s, p) => s + p.amountX, 0);
+  const holdY = live.reduce((s, p) => s + p.amountY, 0);
+  const limits = [];
+  if (holdX > 0) limits.push(Number(inX) / holdX);
+  if (holdY > 0) limits.push(Number(inY) / holdY);
+  const k = limits.length ? Math.max(0, Math.min(...limits)) : 0;
+  const items = [];
+  let totalX = 0n;
+  let totalY = 0n;
+  live.forEach((p) => {
+    const ax = raw(p.amountX * k * 0.9999);
+    const ay = raw(p.amountY * k * 0.9999);
+    if (ax <= 0n && ay <= 0n) return;
+    items.push({ position: p, amountX: ax, amountY: ay });
+    totalX += ax;
+    totalY += ay;
+  });
+  if (totalX > toBigInt(inX) || totalY > toBigInt(inY)) return { items: [], totalX: 0n, totalY: 0n };
+  return { items, totalX, totalY };
+}
+
+/** The other token's amount (raw) that keeps the shape when adding `amount` of `side`. */
+export function appendCounterpart(positions, side, amount) {
+  const holdX = positions.reduce((s, p) => s + p.amountX, 0);
+  const holdY = positions.reduce((s, p) => s + p.amountY, 0);
+  const [from, to] = side === 'x' ? [holdX, holdY] : [holdY, holdX];
+  if (!(from > 0)) return 0n;
+  return raw((Number(amount) * to) / from);
+}
+
+function appendTx(p, amountX, amountY, slippage) {
+  const { minX, minY } = minAmountsInBand({
+    left: p.leftPoint,
+    right: p.rightPoint,
+    current: p.currentPoint,
+    amountX: amountX.toString(),
+    amountY: amountY.toString(),
+    slippage
+  });
+  return transaction(DCL, [
+    functionCall(
+      'append_liquidity',
+      { lpt_id: p.id, amount_x: amountX.toString(), amount_y: amountY.toString(), min_amount_x: minX, min_amount_y: minY },
+      DCL_ADD_GAS
+    )
+  ]);
+}
+
+/**
+ * One wallet request: deposit the planned amounts (wrapping NEAR first if needed) and
+ * append them to the position's bins. The bins keep their ids, so it stays one position.
+ */
+export async function buildDclAppendTransactions({ positions, inX, inY, slippage, accountId, wrapX = '0', wrapY = '0' }) {
+  const plan = planAppend(positions, { inX: toBigInt(inX), inY: toBigInt(inY) });
+  if (!plan.items.length) throw new Error('Enter an amount.');
+  const { tokenX, tokenY } = positions[0];
+  const txs = await tokenStorageTxs(positions[0], accountId);
+  const wrapTotal = (plan.totalX > 0n ? toBigInt(wrapX) : 0n) + (plan.totalY > 0n ? toBigInt(wrapY) : 0n);
+  if (wrapTotal > 0n) {
+    txs.push(await ensureStorageTx(CONTRACTS.wrapNear, accountId));
+    txs.push(wrapNearTx(wrapTotal.toString()));
+  }
+  if (plan.totalX > 0n) txs.push(ftTransferCallTx(tokenX, DCL, plan.totalX.toString(), '"Deposit"', GAS.dclDeposit));
+  if (plan.totalY > 0n) txs.push(ftTransferCallTx(tokenY, DCL, plan.totalY.toString(), '"Deposit"', GAS.dclDeposit));
+  plan.items.forEach(({ position, amountX, amountY }) => txs.push(appendTx(position, amountX, amountY, slippage)));
+  return txs.filter(Boolean);
+}
+
 /**
  * One wallet request: claim every position's fees (they arrive in the wallet), deposit the
  * part that fits back into the CLMM contract, and append it to the same positions.
@@ -513,24 +593,6 @@ export async function buildDclCompoundTransactions({ positions, slippage, accoun
   });
   if (plan.totalX > 0n) txs.push(ftTransferCallTx(tokenX, DCL, plan.totalX.toString(), '"Deposit"', GAS.dclDeposit));
   if (plan.totalY > 0n) txs.push(ftTransferCallTx(tokenY, DCL, plan.totalY.toString(), '"Deposit"', GAS.dclDeposit));
-  plan.items.forEach(({ position: p, amountX, amountY }) => {
-    const { minX, minY } = minAmountsInBand({
-      left: p.leftPoint,
-      right: p.rightPoint,
-      current: p.currentPoint,
-      amountX: amountX.toString(),
-      amountY: amountY.toString(),
-      slippage
-    });
-    txs.push(
-      transaction(DCL, [
-        functionCall(
-          'append_liquidity',
-          { lpt_id: p.id, amount_x: amountX.toString(), amount_y: amountY.toString(), min_amount_x: minX, min_amount_y: minY },
-          DCL_ADD_GAS
-        )
-      ])
-    );
-  });
+  plan.items.forEach(({ position, amountX, amountY }) => txs.push(appendTx(position, amountX, amountY, slippage)));
   return txs.filter(Boolean);
 }

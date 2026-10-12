@@ -114,6 +114,7 @@ export function useLpHistory(account, dclRows, prices) {
 
   return {
     model,
+    events: raw.data?.events || null,
     loading: raw.loading && !raw.data,
     error: raw.error,
     reload: raw.reload

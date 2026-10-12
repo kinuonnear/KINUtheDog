@@ -9,19 +9,24 @@ import { searchPools } from '../lib/rhea.js';
 import { buildDclClaimTransactions } from '../lib/dclLiquidity.js';
 import { formatAmount, formatPercent, formatUsd } from '../lib/format.js';
 import { formatAge } from '../lib/lpHistory.js';
-import { pointToPrice } from '../lib/dclLiquidity.js';
-import { DclActions, RangeText, summarizeDclGroup } from './DclPositions.jsx';
+import { DclActions, depositTitle, RangeText, summarizeDclGroup } from './DclPositions.jsx';
+import RebalanceButton from './Rebalance.jsx';
+import { groupDeposits } from '../lib/lpPositions.js';
 import { PnlValue } from './LpPnl.jsx';
 import { EmptyState, PairIcons, Spinner, Stat } from './ui.jsx';
 
-/** Group CLMM positions by pool. `positions` carry x / y token metadata. */
-function groupDcl(positions, prices) {
+/** Group CLMM positions by pool, then by deposit. `positions` carry x / y token metadata. */
+function groupDcl(positions, prices, events) {
   const groups = new Map();
   positions.forEach((p) => {
     if (!groups.has(p.poolId)) groups.set(p.poolId, { poolId: p.poolId, x: p.x, y: p.y, positions: [] });
     groups.get(p.poolId).positions.push(p);
   });
-  return [...groups.values()].map((g) => ({ ...g, summary: summarizeDclGroup(g.positions, g.x, g.y, prices) }));
+  return [...groups.values()].map((g) => ({
+    ...g,
+    summary: summarizeDclGroup(g.positions, g.x, g.y, prices),
+    deposits: groupDeposits(g.positions, events)
+  }));
 }
 
 /** Age / invested / fees / PnL of a set of CLMM positions from the event history. */
@@ -103,7 +108,8 @@ export default function LiquidityTable({ classicRows, dclRows, depositUsd, readO
       return next;
     });
 
-  const dclGroups = useMemo(() => groupDcl(dclRows, prices).sort((a, b) => b.summary.usd - a.summary.usd), [dclRows, prices]);
+  const events = history?.events || null;
+  const dclGroups = useMemo(() => groupDcl(dclRows, prices, events).sort((a, b) => b.summary.usd - a.summary.usd), [dclRows, prices, events]);
   const poolIds = [...classicRows.map((r) => r.pool.id), ...dclGroups.map((g) => g.poolId)];
   const stats = useAsync(
     async () => {
@@ -210,7 +216,7 @@ export default function LiquidityTable({ classicRows, dclRows, depositUsd, readO
                       </strong>
                       <small>
                         <span className="kind kind--clmm">CLMM</span>
-                        {formatPercent(Number(g.poolId.split('|')[2]) / 10000, 2)} · {g.positions.length} bin{g.positions.length === 1 ? '' : 's'}
+                        {formatPercent(Number(g.poolId.split('|')[2]) / 10000, 2)} · {g.deposits.length} position{g.deposits.length === 1 ? '' : 's'}
                       </small>
                     </span>
                   </Link>
@@ -232,29 +238,34 @@ export default function LiquidityTable({ classicRows, dclRows, depositUsd, readO
                 </span>
               </div>
               {isOpen &&
-                g.positions.map((pos) => {
-                  const pp = perf([pos], open);
-                  const lo = pointToPrice(pos.leftPoint, g.x.decimals, g.y.decimals);
-                  const hi = pointToPrice(pos.rightPoint, g.x.decimals, g.y.decimals);
+                g.deposits.map((d) => {
+                  const dp = perf(d.positions, open);
+                  const ds = summarizeDclGroup(d.positions, g.x, g.y, prices);
+                  const title = depositTitle(d, histLoading);
                   return (
-                    <div className="lp-row lp-row--sub" key={pos.id}>
+                    <div className="lp-row lp-row--sub" key={d.key}>
                       <span className="lp-row__pool lp-sub__id">
-                        <span className={`dot ${pos.inRange ? 'dot--in' : 'dot--out'}`} />#{pos.id.split('#')[1]}
+                        <span className={`dot ${ds.inRange ? 'dot--in' : 'dot--out'}`} />
+                        {title}
+                        <small className="muted">
+                          {' '}
+                          · {d.positions.length} bin{d.positions.length === 1 ? '' : 's'}
+                        </small>
                       </span>
-                      <AgeCell p={pp} loading={histLoading} />
+                      <AgeCell p={dp} loading={histLoading} />
                       <span className="lp-row__range" data-label="Price range">
-                        <b className="mono">
-                          {formatAmount(lo)} – {formatAmount(hi)}
-                        </b>
+                        <RangeText summary={ds} x={g.x} y={g.y} />
                       </span>
                       <PerfCells
-                        p={pp}
+                        p={dp}
                         loading={histLoading}
-                        value={pos.usd}
-                        amounts={`${formatAmount(pos.ax)} ${g.x.symbol} + ${formatAmount(pos.ay)} ${g.y.symbol}`}
+                        value={ds.usd}
+                        amounts={`${formatAmount(ds.amountX)} ${g.x.symbol} + ${formatAmount(ds.amountY)} ${g.y.symbol}`}
                       />
                       <span />
-                      <span />
+                      <span className="lp-row__actions">
+                        {!readOnly && <RebalanceButton positions={d.positions} title={title} x={g.x} y={g.y} onDone={onDone} />}
+                      </span>
                     </div>
                   );
                 })}

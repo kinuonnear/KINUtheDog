@@ -1,5 +1,6 @@
-// Rebalance button + modal for CLMM positions that left their range (lib/rebalance.js):
-// withdraw → swap the needed share → reopen around the current price, in one request.
+// Rebalance button + modal for one CLMM position (a deposit's bins, lib/rebalance.js):
+// withdraw all of it → swap the needed share → reopen around the current price as a new
+// position, in one wallet request.
 
 import { useState } from 'react';
 import { useApp } from '../state.jsx';
@@ -39,12 +40,9 @@ function Amounts({ ax, ay, x, y }) {
 
 const isFullRange = (p) => p.leftPoint <= -790000 && p.rightPoint >= 790000;
 
-function RebalanceModal({ all, x, y, onClose, onDone }) {
+function RebalanceModal({ positions, title, x, y, onClose, onDone }) {
   const { accountId, slippage, execute } = useApp();
-  const outOfRange = all.filter((p) => !p.inRange);
-  // Default: the whole shape (every bin) moves; optionally only the bins that left the range.
-  const [scope, setScope] = useState('all');
-  const positions = scope === 'out' && outOfRange.length ? outOfRange : all;
+  const outOfRange = positions.filter((p) => !p.inRange);
   const [width, setWidth] = useState('same');
   const [strategy, setStrategy] = useState('spot');
   const [submitting, setSubmitting] = useState(false);
@@ -79,26 +77,13 @@ function RebalanceModal({ all, x, y, onClose, onDone }) {
   return (
     <Modal
       title="Rebalance position"
-      subtitle={`${x.symbol} / ${y.symbol} · ${all.length} bin${all.length === 1 ? '' : 's'}${
+      subtitle={`${x.symbol} / ${y.symbol} · ${title} · ${positions.length} bin${positions.length === 1 ? '' : 's'}${
         outOfRange.length ? ` · ${outOfRange.length} out of range — not earning fees` : ' · all in range'
       }`}
       onClose={onClose}
       width={520}
     >
       <div className="liq-form rebalance">
-        {outOfRange.length > 0 && outOfRange.length < all.length && (
-          <div className="rebalance__field">
-            <span className="eyebrow">Rebalance</span>
-            <div className="segmented segmented--full">
-              <button type="button" className={scope === 'all' ? 'active' : ''} onClick={() => setScope('all')}>
-                Whole range · {all.length} bins
-              </button>
-              <button type="button" className={scope === 'out' ? 'active' : ''} onClick={() => setScope('out')}>
-                Out of range only · {outOfRange.length}
-              </button>
-            </div>
-          </div>
-        )}
         <dl className="kv">
           <div>
             <dt>Current range</dt>
@@ -164,7 +149,7 @@ function RebalanceModal({ all, x, y, onClose, onDone }) {
               )}
             </li>
             <li>
-              <strong>Open the new range</strong>
+              <strong>Open as a new position</strong>
               <RangeLine left={q.range.left} right={q.range.right} x={x} y={y} />
               <Amounts ax={q.plan.totalX / 10 ** x.decimals} ay={q.plan.totalY / 10 ** y.decimals} x={x} y={y} />
             </li>
@@ -190,10 +175,10 @@ function RebalanceModal({ all, x, y, onClose, onDone }) {
 }
 
 /**
- * Rebalance for a pool's CLMM positions (full-range ones excluded): re-centre the whole range,
- * or only the bins that left it. Highlighted when some positions are out of range.
+ * Rebalance one position (full-range bins excluded): the whole position moves to a new range
+ * around the price and becomes a new position. Highlighted when some bins are out of range.
  */
-export default function RebalanceButton({ positions, x, y, onDone, className = 'button button--outline button--sm' }) {
+export default function RebalanceButton({ positions, title = 'your position', x, y, onDone, className = 'button button--outline button--sm' }) {
   const [open, setOpen] = useState(false);
   const ranged = positions.filter((p) => !isFullRange(p));
   if (!ranged.length) return null;
@@ -208,7 +193,7 @@ export default function RebalanceButton({ positions, x, y, onDone, className = '
       >
         ⟲ Rebalance
       </button>
-      {open && <RebalanceModal all={ranged} x={x} y={y} onClose={() => setOpen(false)} onDone={onDone} />}
+      {open && <RebalanceModal positions={ranged} title={title} x={x} y={y} onClose={() => setOpen(false)} onDone={onDone} />}
     </>
   );
 }

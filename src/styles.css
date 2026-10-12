@@ -4728,6 +4728,25 @@ a.trades__row:hover {
   font-size: 14px;
 }
 
+.lp-board__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.lp-board__title small {
+  color: var(--faint);
+  font-weight: 400;
+}
+
+.lp-board__table > .lp-board__row + .lp-board__row,
+.lp-board__detail + .lp-board__row {
+  border-top: 1px solid var(--border);
+}
+
 .lp-board__range small {
   color: var(--faint);
   font-size: 11px;

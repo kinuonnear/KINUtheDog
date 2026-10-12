@@ -51,7 +51,7 @@ const cleanDecimal = (value) => {
 };
 
 /** Spendable raw balance per token. wNEAR also counts native NEAR (wrapped automatically). */
-function useSpendable(tokenIds) {
+export function useSpendable(tokenIds) {
   const { balances, nearBalance } = useApp();
   return useMemo(() => {
     let native = 0n;
@@ -64,14 +64,14 @@ function useSpendable(tokenIds) {
 }
 
 /** Raw NEAR to wrap so the wNEAR side of a deposit is covered. */
-function useWrapAmount(tokenIds, raws) {
+export function useWrapAmount(tokenIds, raws) {
   const { balances } = useApp();
   const index = tokenIds.indexOf(CONTRACTS.wrapNear);
   if (index < 0 || !raws[index]) return '0';
   return maxBig(0n, toBigInt(raws[index]) - toBigInt(balances[CONTRACTS.wrapNear] || '0')).toString();
 }
 
-function AmountField({ token, value, onChange, spendable, onMax, disabled, note }) {
+export function AmountField({ token, value, onChange, spendable, onMax, disabled, note }) {
   const { accountId } = useApp();
   return (
     <div className={`swap-field ${disabled ? 'swap-field--disabled' : ''}`}>

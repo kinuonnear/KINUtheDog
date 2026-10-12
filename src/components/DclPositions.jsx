@@ -1,5 +1,5 @@
-// Grouped CLMM positions for one pool, with the same actions as the
-// "Your Liquidity" panel on app.rhea.finance/poolV2: Claim fees, Add, Remove.
+// CLMM positions for one pool, Meteora-style: one row per deposit (lib/lpPositions.js),
+// each with Claim fees, Add (to the same bins), Remove, Rebalance and its range on the chart.
 
 import { useMemo, useState } from 'react';
 import { useApp } from '../state.jsx';
@@ -11,6 +11,8 @@ import { dclAmountX, dclAmountY } from '../lib/rhea.js';
 import { Modal, Spinner, TokenIcon } from './ui.jsx';
 import RebalanceButton from './Rebalance.jsx';
 import CompoundButton from './Compound.jsx';
+import AddToPositionModal from './AddToPosition.jsx';
+import { formatAge } from '../lib/lpHistory.js';
 
 /** Summary numbers for a set of positions in one pool. */
 export function summarizeDclGroup(positions, x, y, prices) {
@@ -214,7 +216,6 @@ export function DclActions({ poolId, positions, x, y, onDone, onAdd, readOnly, s
 
   return (
     <div className={`lp-actions ${stacked ? 'lp-actions--stack' : ''}`}>
-      <RebalanceButton positions={positions} x={x} y={y} onDone={onDone} />
       <CompoundButton positions={positions} x={x} y={y} onDone={onDone} />
       <button type="button" className="button button--outline button--sm" disabled={!summary.hasFees || claiming} onClick={claim}>
         {claiming ? <Spinner size={12} /> : stacked ? `Claim fees${summary.hasFees ? ` · ${formatUsd(summary.feeUsd)}` : ''}` : 'Claim'}
@@ -350,22 +351,117 @@ function RangeTrack({ positions }) {
   );
 }
 
-/**
- * "Your liquidity" on the CLMM pool page: a summary bar and one combined row
- * for all of the pool's positions (range, liquidity, claimable fees, active
- * share, actions). The row expands to the liquidity distribution.
- */
-export function DclGroupCard({ poolId, positions, x, y, pool, onDone, onAdd, onChart = false, onToggleChart }) {
+/** Name of a deposit group: "Position 2", or a fallback while / when the history is missing. */
+export function depositTitle(group, loading) {
+  if (group.number) return `Position ${group.number}`;
+  return loading ? 'Your position' : 'Other bins';
+}
+
+/** One deposit (Meteora-style position): range, liquidity, fees, earning state and actions. */
+function PositionRow({ poolId, group, x, y, pool, loading, onDone, onChart, onToggleChart }) {
   const { prices } = useApp();
   const [open, setOpen] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const { positions } = group;
   const summary = summarizeDclGroup(positions, x, y, prices);
   const inRange = positions.filter((p) => p.inRange);
-  const activeL = inRange.reduce((s2, p) => s2 + Number(p.liquidity), 0);
+  const activeL = inRange.reduce((s, p) => s + Number(p.liquidity), 0);
   const poolL = Number(pool?.liquidity || 0);
   const activeShare = poolL > 0 ? (activeL / poolL) * 100 : null;
   const feeShare = summary.usd > 0 ? (summary.feeUsd / summary.usd) * 100 : 0;
   const px = priceOf(prices, x.id);
   const py = priceOf(prices, y.id);
+  const title = depositTitle(group, loading);
+  const toggleChart = onToggleChart ? () => onToggleChart(group) : null;
+
+  return (
+    <>
+      <div
+        className={`lp-board__row ${toggleChart ? 'lp-board__row--clickable' : ''} ${onChart ? 'lp-board__row--on-chart' : ''}`}
+        onClick={(e) => {
+          // Buttons and links in the row keep their own actions.
+          if (toggleChart && !e.target.closest('button, a, input')) toggleChart();
+        }}
+        title={toggleChart ? (onChart ? 'Hide this range on the chart' : 'Show this range on the chart') : undefined}
+      >
+        <div className="lp-board__range" data-label="Price range">
+          <span className="lp-board__title">
+            <span className={`dot ${summary.inRange ? 'dot--in' : 'dot--out'}`} />
+            {title}
+            {group.openedAt && <small>{formatAge(Date.now() - group.openedAt)} ago</small>}
+            {loading && !group.number && <Spinner size={10} />}
+          </span>
+          <strong className="mono">
+            {summary.fullRange ? 'Full range' : `${formatChartPrice(summary.minPrice)} – ${formatChartPrice(summary.maxPrice)}`}
+          </strong>
+          <small>
+            {y.symbol} per {x.symbol} · {positions.length} bin{positions.length === 1 ? '' : 's'}
+          </small>
+          <RangeTrack positions={positions} />
+          {toggleChart && (
+            <button type="button" className={`chart-toggle ${onChart ? 'chart-toggle--on' : ''}`} onClick={toggleChart} aria-pressed={onChart}>
+              {onChart ? '◉ Shown on chart' : '◎ Show on chart'}
+            </button>
+          )}
+        </div>
+        <div className="lp-board__cell" data-label="Your liquidity">
+          <strong>{formatUsd(summary.usd)}</strong>
+          <span>
+            <TokenIcon token={x} size={14} /> {formatAmount(summary.amountX)}
+          </span>
+          <span>
+            <TokenIcon token={y} size={14} /> {formatAmount(summary.amountY)}
+          </span>
+        </div>
+        <div className="lp-board__cell" data-label="Claimable fees">
+          <strong>
+            {formatUsd(summary.feeUsd)} <em className="pill">{feeShare.toFixed(2)}%</em>
+          </strong>
+          <span>
+            <TokenIcon token={x} size={14} /> {formatAmount(summary.feeX)} <small>({formatUsd(summary.feeX * px)})</small>
+          </span>
+          <span>
+            <TokenIcon token={y} size={14} /> {formatAmount(summary.feeY)} <small>({formatUsd(summary.feeY * py)})</small>
+          </span>
+        </div>
+        <div className="lp-board__cell" data-label="Active share">
+          <strong className={inRange.length ? 'up' : 'warn'}>{activeShare !== null ? `${activeShare.toFixed(2)}%` : '—'}</strong>
+          <span className={`range-badge ${summary.inRange ? 'range-badge--in' : ''}`}>
+            {summary.inRange ? `${inRange.length} of ${positions.length} bins earning` : 'Not earning'}
+          </span>
+          <small className="muted">of active pool liquidity</small>
+          <RebalanceButton positions={positions} x={x} y={y} title={title} onDone={onDone} className="button button--outline button--sm" />
+        </div>
+        <div className="lp-board__actions" data-label="Actions">
+          <DclActions poolId={poolId} positions={positions} x={x} y={y} onDone={onDone} onAdd={() => setAdding(true)} icons />
+          <button type="button" className={`icon-action icon-action--more ${open ? 'open' : ''}`} onClick={() => setOpen((v) => !v)} title="Liquidity distribution" aria-expanded={open}>
+            <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+              <path d="M3 5l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </div>
+      </div>
+      {open && (
+        <div className="lp-board__detail">
+          <PositionDistribution positions={positions} x={x} y={y} />
+        </div>
+      )}
+      {adding && <AddToPositionModal positions={positions} x={x} y={y} title={title} onClose={() => setAdding(false)} onDone={onDone} />}
+    </>
+  );
+}
+
+/**
+ * "Your liquidity" on the CLMM pool page, Meteora-style: a summary bar for the pool and one
+ * row per deposit (lib/lpPositions.js), each with its own range, fees and actions.
+ * `deposits` comes from useDepositGroups; `chartKey` is the deposit shown on the chart and
+ * `onToggleChart(group)` switches it.
+ */
+export function DclGroupCard({ poolId, positions, deposits, x, y, pool, onDone, onNew, chartKey, onToggleChart }) {
+  const { prices } = useApp();
+  const { groups, loading } = deposits;
+  const summary = summarizeDclGroup(positions, x, y, prices);
+  const earning = groups.filter((g) => g.positions.some((p) => p.inRange)).length;
 
   return (
     <div className="lp-board">
@@ -375,10 +471,10 @@ export function DclGroupCard({ poolId, positions, x, y, pool, onDone, onAdd, onC
           <strong className={summary.hasFees ? 'up' : ''}>{formatUsd(summary.feeUsd)}</strong>
         </div>
         <div>
-          <span>Bins in range</span>
+          <span>Positions earning</span>
           <strong>
-            {inRange.length}
-            <small>/{positions.length}</small>
+            {earning}
+            <small>/{groups.length}</small>
           </strong>
         </div>
         <div>
@@ -388,80 +484,35 @@ export function DclGroupCard({ poolId, positions, x, y, pool, onDone, onAdd, onC
         <span className="lp-board__spacer" />
         <CompoundButton positions={positions} x={x} y={y} onDone={onDone} />
         <DclActions poolId={poolId} positions={positions} x={x} y={y} onDone={onDone} claimOnly />
+        {onNew && (
+          <button type="button" className="button button--outline button--sm" onClick={onNew} title="Open another position with its own range">
+            + New position
+          </button>
+        )}
       </div>
 
       <div className="lp-board__table">
         <div className="lp-board__row lp-board__row--head">
-          <span>Price range</span>
+          <span>Position · price range</span>
           <span>Your liquidity</span>
           <span>Claimable fees</span>
           <span>Active share</span>
           <span>Actions</span>
         </div>
-        <div
-          className={`lp-board__row ${onToggleChart ? 'lp-board__row--clickable' : ''} ${onChart ? 'lp-board__row--on-chart' : ''}`}
-          onClick={(e) => {
-            // Buttons and links in the row keep their own actions.
-            if (onToggleChart && !e.target.closest('button, a, input')) onToggleChart();
-          }}
-          title={onToggleChart ? (onChart ? 'Hide your range on the chart' : 'Show your range on the chart') : undefined}
-        >
-          <div className="lp-board__range" data-label="Price range">
-            <strong className="mono">
-              {summary.fullRange ? 'Full range' : `${formatChartPrice(summary.minPrice)} – ${formatChartPrice(summary.maxPrice)}`}
-            </strong>
-            <small>
-              {y.symbol} per {x.symbol} · 1 position · {positions.length} bin{positions.length === 1 ? '' : 's'}
-            </small>
-            <RangeTrack positions={positions} />
-            {onToggleChart && (
-              <button type="button" className={`chart-toggle ${onChart ? 'chart-toggle--on' : ''}`} onClick={onToggleChart} aria-pressed={onChart}>
-                {onChart ? '◉ Shown on chart' : '◎ Show on chart'}
-              </button>
-            )}
-          </div>
-          <div className="lp-board__cell" data-label="Your liquidity">
-            <strong>{formatUsd(summary.usd)}</strong>
-            <span>
-              <TokenIcon token={x} size={14} /> {formatAmount(summary.amountX)}
-            </span>
-            <span>
-              <TokenIcon token={y} size={14} /> {formatAmount(summary.amountY)}
-            </span>
-          </div>
-          <div className="lp-board__cell" data-label="Claimable fees">
-            <strong>
-              {formatUsd(summary.feeUsd)} <em className="pill">{feeShare.toFixed(2)}%</em>
-            </strong>
-            <span>
-              <TokenIcon token={x} size={14} /> {formatAmount(summary.feeX)} <small>({formatUsd(summary.feeX * px)})</small>
-            </span>
-            <span>
-              <TokenIcon token={y} size={14} /> {formatAmount(summary.feeY)} <small>({formatUsd(summary.feeY * py)})</small>
-            </span>
-          </div>
-          <div className="lp-board__cell" data-label="Active share">
-            <strong className={inRange.length ? 'up' : 'warn'}>{activeShare !== null ? `${activeShare.toFixed(2)}%` : '—'}</strong>
-            <span className={`range-badge ${summary.inRange ? 'range-badge--in' : ''}`}>
-              {summary.inRange ? `${inRange.length} of ${positions.length} bins earning` : 'Not earning'}
-            </span>
-            <small className="muted">of active pool liquidity</small>
-            <RebalanceButton positions={positions} x={x} y={y} onDone={onDone} className="button button--outline button--sm" />
-          </div>
-          <div className="lp-board__actions" data-label="Actions">
-            <DclActions poolId={poolId} positions={positions} x={x} y={y} onDone={onDone} onAdd={onAdd} icons />
-            <button type="button" className={`icon-action icon-action--more ${open ? 'open' : ''}`} onClick={() => setOpen((v) => !v)} title="Liquidity distribution" aria-expanded={open}>
-              <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
-                <path d="M3 5l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-          </div>
-        </div>
-        {open && (
-          <div className="lp-board__detail">
-            <PositionDistribution positions={positions} x={x} y={y} />
-          </div>
-        )}
+        {groups.map((g) => (
+          <PositionRow
+            key={g.key}
+            poolId={poolId}
+            group={g}
+            x={x}
+            y={y}
+            pool={pool}
+            loading={loading}
+            onDone={onDone}
+            onChart={chartKey === g.key}
+            onToggleChart={onToggleChart}
+          />
+        ))}
       </div>
     </div>
   );
