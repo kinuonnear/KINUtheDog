@@ -1,0 +1,294 @@
+/* kinuthedog.site welcome page — original site styles, scoped to .welcome (generated). */
+.welcome{--bg:#02060a;--panel:#071019;--panel2:#0a151e;--line:#17333e;--teal:#31f1d1;--cyan:#86fff1;--white:#f4fffd;--muted:#91a7b0;--pink:#ff79bd;--gold:#ffc76b}
+.welcome, .welcome *{box-sizing:border-box}
+.welcome{scroll-behavior:smooth}
+.welcome{margin:0;background:radial-gradient(900px 600px at 80% -10%,#06465b55,transparent 65%),radial-gradient(700px 600px at 0 40%,#1b0d3b33,transparent 65%),var(--bg);color:var(--white);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;overflow-x:hidden}
+.welcome:before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.045;background-image:linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px);background-size:64px 64px;mask-image:linear-gradient(to bottom,#000,transparent 78%)}
+.welcome a{text-decoration:none;color:inherit}
+.welcome .container{width:min(1200px,calc(100% - 36px));margin:auto}
+.welcome nav{height:78px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #132c35;position:relative;z-index:20;backdrop-filter:blur(16px);background:#02060acc}
+.welcome .logo{display:flex;align-items:center;gap:10px;font-size:22px;font-weight:950;letter-spacing:.18em}
+.welcome .logo-mark{width:32px;height:32px;border-radius:50%;overflow:hidden;border:1px solid #2d8e84;box-shadow:0 0 25px #35f2d033}
+.welcome .logo-mark img{width:100%;height:100%;object-fit:cover}
+.welcome .logo span{color:var(--teal)}
+.welcome .navlinks{display:flex;gap:28px;color:var(--muted);font-size:14px;font-weight:800}
+.welcome .navlinks a:hover{color:var(--teal)}
+.welcome .navbtn{border:1px solid #2b685c;padding:11px 16px;border-radius:10px;color:var(--teal);font-weight:900;background:#071310aa}
+.welcome .navbtn:hover{background:#0d2520}
+.welcome .navactions{display:flex;align-items:center;gap:10px}
+.welcome .navbtn--app{background:var(--teal);color:#04100d;border-color:var(--teal);box-shadow:0 0 24px #35f2d033}
+.welcome .navbtn--app:hover{background:#5ff7dd}
+.welcome .btn.app{border-color:var(--teal);color:var(--teal);box-shadow:0 0 22px #35f2d022}
+.welcome .btn.app:hover{background:#0b2420}
+.welcome .hero{padding:28px 0 74px}
+.welcome .hero-card{position:relative;min-height:620px;border:1px solid #1d4752;border-radius:28px;overflow:hidden;background:#02060a;box-shadow:0 30px 100px #0008}
+.welcome .hero-bg{position:absolute;inset:0;background-image:linear-gradient(90deg,#02060a 0%,#02060a33 42%,#02060a05 70%),linear-gradient(0deg,#02060acc 0%,transparent 45%),url('/site/kinu-banner.jpg');background-size:cover;background-position:center}
+.welcome .hero-content{position:relative;z-index:2;min-height:620px;display:flex;align-items:flex-end;padding:42px}
+.welcome .hero-copy{max-width:610px}
+.welcome .kicker{display:inline-flex;align-items:center;gap:9px;border:1px solid #24584d;background:#06110eee;padding:8px 12px;border-radius:999px;color:#c4eee7;font-size:11px;font-weight:950;letter-spacing:.16em;text-transform:uppercase}
+.welcome .dot{width:7px;height:7px;border-radius:50%;background:var(--teal);box-shadow:0 0 16px var(--teal)}
+.welcome .hero h1{font-size:clamp(58px,8vw,105px);line-height:.84;letter-spacing:-.08em;margin:20px 0 12px}
+.welcome .gradient{background:linear-gradient(105deg,#fff,#d7fff8 40%,var(--teal));-webkit-background-clip:text;background-clip:text;color:transparent}
+.welcome .hero-tag{font-size:clamp(25px,3vw,43px);font-weight:950;line-height:.98;letter-spacing:-.05em}
+.welcome .hero-tag span{color:var(--teal)}
+.welcome .hero p{font-size:17px;line-height:1.65;color:#c0d0d5;max-width:580px;margin:20px 0}
+.welcome .hero p strong{color:var(--white)}
+.welcome .cta{display:flex;gap:11px;flex-wrap:wrap;margin-top:20px}
+.welcome .btn{padding:13px 18px;border-radius:11px;border:1px solid #31515a;background:#071219e8;font-weight:950;transition:.2s}
+.welcome .btn:hover{transform:translateY(-2px);border-color:var(--teal)}
+.welcome .btn.primary{background:var(--teal);color:#04100d;border-color:var(--teal);box-shadow:0 0 35px #35f2d033}
+.welcome .socials{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}
+.welcome .social{border:1px solid #24414a;background:#071019dd;padding:8px 11px;border-radius:9px;color:#b4c6cb;font-size:11px;font-weight:850}
+.welcome .social:hover{color:var(--teal);border-color:#3b8275}
+.welcome .hero-strip{position:absolute;right:24px;bottom:24px;z-index:3;display:flex;gap:8px}
+.welcome .hero-chip{padding:8px 11px;border:1px solid #ffffff22;background:#02060acc;border-radius:999px;font-size:10px;font-weight:900;letter-spacing:.1em;color:#d7e8e5}
+.welcome section{padding:96px 0;border-top:1px solid #102b35}
+.welcome .section-head{display:flex;justify-content:space-between;gap:30px;align-items:end;margin-bottom:30px}
+.welcome .eyebrow{color:var(--teal);font-size:10px;font-weight:950;letter-spacing:.22em;text-transform:uppercase}
+.welcome .section-head h2{font-size:clamp(38px,5vw,65px);letter-spacing:-.06em;margin:10px 0 0}
+.welcome .section-head p{max-width:470px;color:var(--muted);line-height:1.7;margin:0}
+.welcome .token-wrap{border:1px solid var(--line);border-radius:24px;background:linear-gradient(145deg,#09131be8,#050d13dd);padding:28px}
+.welcome .token-top{display:grid;grid-template-columns:.85fr 2fr;gap:20px;align-items:center}
+.welcome .supply-label{color:#78939c;text-transform:uppercase;letter-spacing:.15em;font-size:11px;font-weight:900}
+.welcome .supply{font-size:clamp(58px,9vw,105px);line-height:.9;font-weight:1000;letter-spacing:-.08em;background:linear-gradient(100deg,#fff,var(--teal));-webkit-background-clip:text;background-clip:text;color:transparent}
+.welcome .supply-unit{font-size:20px;font-weight:950;color:#dffdf7;margin-left:7px}
+.welcome .allocations{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.welcome .alloc-card{border:1px solid var(--line);background:#071119;border-radius:17px;padding:24px;position:relative;overflow:hidden}
+.welcome .alloc-card:before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:var(--teal);box-shadow:0 0 18px #39f5d066}
+.welcome .alloc-card:nth-child(2):before{background:var(--gold)}
+.welcome .alloc-card:nth-child(3):before{background:#9d8cff}
+.welcome .alloc-card small{display:block;color:#78929c;font-size:10px;font-weight:950;letter-spacing:.14em}
+.welcome .alloc-card strong{display:block;font-size:38px;margin-top:8px}
+.welcome .alloc-card p{color:var(--muted);font-size:13px;line-height:1.55;margin-bottom:0}
+.welcome .token-note{color:var(--muted);font-size:13px;line-height:1.7;margin:18px 0 0}
+.welcome .lore{display:grid;grid-template-columns:1.08fr .92fr;gap:18px}
+.welcome .panel{border:1px solid var(--line);background:linear-gradient(145deg,#09151ddd,#050e14dd);border-radius:22px;padding:32px}
+.welcome .story p{font-size:19px;line-height:1.7;color:#c6d7dc;margin:0}
+.welcome .story p+p{margin-top:15px}
+.welcome .quote{font-size:clamp(42px,5vw,70px);font-weight:1000;line-height:.92;letter-spacing:-.06em}
+.welcome .quote span{color:var(--teal)}
+.welcome .quote-sub{color:var(--muted);line-height:1.7;margin-top:22px}
+.welcome .lore-art{margin-top:18px;border:1px solid var(--line);border-radius:22px;overflow:hidden;height:310px;background:#02060a}
+.welcome .lore-art img{width:100%;height:100%;object-fit:cover;object-position:center}
+.welcome .culture-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.welcome .feature{padding:34px;border:1px solid var(--line);border-radius:22px;background:#071119}
+.welcome .feature h3{font-size:28px;margin:0 0 12px}
+.welcome .feature p{color:var(--muted);line-height:1.75;margin:0}
+.welcome .culture-banner{margin-top:18px;border:1px solid var(--line);border-radius:22px;padding:38px;background:radial-gradient(circle at 70% 50%,#0b4c4055,transparent 38%),linear-gradient(120deg,#07121a,#0a1d24);overflow:hidden;position:relative}
+.welcome .culture-banner:after{content:"🐾";position:absolute;right:7%;bottom:-45px;font-size:210px;opacity:.08}
+.welcome .culture-big{font-size:clamp(45px,7vw,92px);line-height:.9;letter-spacing:-.07em;font-weight:1000}
+.welcome .culture-big em{color:var(--teal);font-style:normal}
+.welcome .community{text-align:center;padding-bottom:120px}
+.welcome .community h2{font-size:clamp(50px,8vw,102px);letter-spacing:-.075em;margin:14px 0}
+.welcome .community p{color:var(--muted);font-size:18px}
+.welcome .community-box{border:1px solid var(--line);border-radius:24px;padding:48px 24px;background:radial-gradient(circle at center,#0c3c3350,transparent 60%),#061019}
+.welcome .links{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:20px}
+.welcome .link{padding:12px 16px;border:1px solid #31515a;border-radius:10px;color:#d7e8e5;font-weight:900;font-size:13px}
+.welcome .link:hover{border-color:var(--teal);color:var(--teal)}
+.welcome footer{border-top:1px solid #102b35;padding:35px 0;color:#667f86;font-size:12px}
+.welcome .footerline{display:flex;justify-content:space-between;gap:20px}
+.welcome .footerline strong{color:var(--white)}
+@media(max-width:860px){.welcome .navlinks{display:none}
+.welcome .hero-card,.welcome .hero-content{min-height:650px}
+.welcome .hero-bg{background-position:58% center}
+.welcome .hero-content{padding:28px;align-items:flex-end;background:linear-gradient(0deg,#02060aee 0%,#02060a66 55%,transparent)}
+.welcome .hero-strip{display:none}
+.welcome .section-head{display:block}
+.welcome .section-head p{margin-top:18px}
+.welcome .token-top,.welcome .lore,.welcome .culture-grid,.welcome .allocations{grid-template-columns:1fr}
+.welcome .lore-art{height:240px}
+.welcome .footerline{display:block}
+.welcome .footerline div+div{margin-top:10px}
+}
+@media(max-width:520px){.welcome .container{width:min(100% - 24px,1200px)}
+.welcome nav{height:70px}
+.welcome .navbtn{padding:9px 12px;font-size:12px}
+.welcome .navactions .navbtn:not(.navbtn--app){display:none}
+.welcome .hero{padding-top:12px}
+.welcome .hero-card{border-radius:20px;min-height:680px}
+.welcome .hero-content{min-height:680px;padding:22px}
+.welcome .hero-bg{background-position:60% center}
+.welcome .hero h1{font-size:64px}
+.welcome .hero p{font-size:15px}
+.welcome .social{font-size:10px}
+.welcome .token-wrap,.welcome .panel,.welcome .feature,.welcome .culture-banner{padding:22px}
+.welcome .community-box{padding:38px 18px}
+}
+.welcome .hero-card{isolation:isolate}
+.welcome .hero-bg{
+  overflow:hidden;
+  background:#020605;
+}
+.welcome .hero-video,.welcome .hero-image-fallback,.welcome .hero-bg-shade{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+}
+.welcome .hero-video{
+  object-fit:cover;
+  object-position:center;
+  z-index:0;
+  transform:scale(1.035);
+  filter:saturate(.92) contrast(1.04);
+  transition:transform 1.8s cubic-bezier(.16,1,.3,1),filter 1s ease;
+}
+.welcome .hero-image-fallback{
+  z-index:1;
+  background:url('/site/kinu-guardian.jpg') center/cover no-repeat;
+}
+.welcome .hero-bg-shade{
+  z-index:2;
+  background:
+    linear-gradient(90deg,#020605f2 0%,#020605aa 34%,#02060522 70%,#02060545 100%),
+    linear-gradient(0deg,#020605d8 0%,transparent 46%,#0206052a 100%);
+}
+.welcome .hero-content{z-index:3}
+.welcome .hero-card:hover .hero-video{transform:scale(1.055)}
+.welcome .cinematic-gallery{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:18px;
+  margin-top:28px;
+}
+.welcome .cinematic-gallery figure{
+  position:relative;
+  margin:0;
+  height:min(42vw,520px);
+  min-height:300px;
+  overflow:hidden;
+  border:1px solid var(--line);
+  border-radius:22px;
+  background:#020605;
+  box-shadow:0 30px 90px #0008;
+}
+.welcome .cinematic-gallery img{
+  width:100%;height:100%;object-fit:cover;
+  display:block;
+  filter:saturate(.9) contrast(1.05);
+  transform:scale(1.025);
+  transition:transform 1.4s cubic-bezier(.16,1,.3,1),filter 1s ease;
+}
+.welcome .cinematic-gallery figure:hover img{
+  transform:scale(1.07);
+  filter:saturate(1.02) contrast(1.06);
+}
+.welcome .cinematic-gallery figure:after{
+  content:"";
+  position:absolute;inset:0;
+  background:linear-gradient(0deg,#020605d0,transparent 45%);
+  pointer-events:none;
+}
+.welcome .cinematic-gallery figcaption{
+  position:absolute;
+  z-index:2;
+  left:20px;bottom:18px;
+  color:#dffff8;
+  font-size:10px;
+  font-weight:950;
+  letter-spacing:.22em;
+}
+@media(max-width:860px){.welcome .cinematic-gallery{grid-template-columns:1fr}
+.welcome .cinematic-gallery figure{height:420px}
+.welcome .hero-video{object-position:58% center}
+
+}
+@media(max-width:520px){.welcome .cinematic-gallery figure{height:320px;min-height:260px}
+
+}
+.welcome .hero-bg{
+  position:absolute;
+  inset:0;
+  overflow:hidden;
+  z-index:0;
+  background:#020605;
+}
+.welcome .hero-video{
+  position:absolute !important;
+  inset:0;
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  object-position:center;
+  z-index:2 !important;
+  opacity:1;
+  visibility:visible;
+  pointer-events:none;
+  background:#020605;
+  transform:scale(1.035);
+  filter:saturate(.92) contrast(1.04);
+}
+.welcome .hero-image-fallback{
+  position:absolute;
+  inset:0;
+  z-index:1 !important;
+  background:url('/site/kinu-guardian.jpg') center/cover no-repeat;
+  opacity:1;
+}
+.welcome .hero-bg-shade{
+  position:absolute;
+  inset:0;
+  z-index:3 !important;
+  pointer-events:none;
+  background:
+    linear-gradient(90deg,#020605f2 0%,#020605aa 34%,#02060522 70%,#02060545 100%),
+    linear-gradient(0deg,#020605d8 0%,transparent 46%,#0206052a 100%);
+}
+.welcome .hero-content{
+  position:relative;
+  z-index:4 !important;
+}
+.welcome .hero-card:hover .hero-video{
+  transform:scale(1.055);
+}
+.welcome .hero-video.video-fallback{
+  opacity:0;
+}
+.welcome .logo-mark{
+  overflow:hidden;
+  display:grid;
+  place-items:center;
+}
+.welcome .logo-mark img{
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+.welcome .logo-mark.logo-fallback{
+  background:radial-gradient(circle at 35% 30%,#22e8ae,#073d2d 58%,#020605);
+  box-shadow:0 0 18px #00e89a35 inset;
+}
+.welcome .logo-mark.logo-fallback:after{
+  content:"K";
+  color:#f2fff9;
+  font-weight:950;
+  font-size:18px;
+  line-height:1;
+}
+.welcome .lore-art img{
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+
+
+
+/* ---- Additions for the KINU Terminal (hand-written; same visual language as the site) ---- */
+.welcome{min-height:100vh}
+.welcome .hero-chip--price{color:var(--teal);border-color:#2b685c}
+.welcome .platform-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.welcome .platform-card{display:flex;flex-direction:column;gap:10px;padding:26px;border:1px solid var(--line);border-radius:20px;background:linear-gradient(145deg,#09131be8,#050d13dd);transition:.2s}
+.welcome .platform-card:hover{transform:translateY(-3px);border-color:#2b685c;box-shadow:0 18px 60px #35f2d014}
+.welcome .platform-card__icon{display:grid;place-items:center;width:42px;height:42px;border-radius:12px;background:#0b2420;border:1px solid #24584d;color:var(--teal);font-size:20px}
+.welcome .platform-card h3{margin:4px 0 0;font-size:21px;letter-spacing:-.02em}
+.welcome .platform-card p{margin:0;color:var(--muted);font-size:14px;line-height:1.65}
+.welcome .platform-card__cta{margin-top:auto;padding-top:6px;color:var(--teal);font-size:13px;font-weight:900}
+.welcome .platform-launch{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-top:18px;padding:30px 34px;border:1px solid var(--line);border-radius:22px;background:radial-gradient(circle at 85% 50%,#0b4c4055,transparent 40%),linear-gradient(120deg,#07121a,#0a1d24)}
+.welcome .platform-launch__title{font-size:clamp(28px,3.4vw,44px);font-weight:1000;line-height:1;letter-spacing:-.05em;margin-top:8px}
+.welcome .platform-launch__title em{color:var(--teal);font-style:normal}
+.welcome .link--app{border-color:var(--teal);color:var(--teal)}
+@media(max-width:1080px){.welcome .platform-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.welcome .platform-grid{grid-template-columns:1fr}.welcome .platform-launch{padding:24px}}

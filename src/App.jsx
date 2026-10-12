@@ -6,7 +6,7 @@ import { formatAmount, shortAccount, toNumber } from './lib/format.js';
 import { ENDPOINTS } from './config.js';
 import { EmptyState, Toasts } from './components/ui.jsx';
 import GlobalSearch from './components/GlobalSearch.jsx';
-import Home from './pages/Home.jsx';
+import Welcome from './pages/Welcome.jsx';
 import Swap from './pages/Swap.jsx';
 import Pools from './pages/Pools.jsx';
 import PoolDetail from './pages/PoolDetail.jsx';
@@ -24,7 +24,7 @@ const NAV = [
 const FULL_WIDTH_ROUTES = new Set(['home', 'pool', 'pools', 'swap', 'portfolio']);
 
 const TITLES = {
-  home: 'KINU — DeFi terminal on NEAR',
+  home: 'KINU — The Dog That Followed · DeFi terminal on NEAR',
   swap: 'Swap · KINU',
   pools: 'Pools · KINU',
   pool: 'Pool · KINU',
@@ -94,9 +94,6 @@ export default function App() {
 
   let page;
   switch (route.name) {
-    case 'home':
-      page = <Home />;
-      break;
     case 'swap':
       page = <Swap />;
       break;
@@ -126,6 +123,16 @@ export default function App() {
           />
         </div>
       );
+  }
+
+  // The welcome page (kinuthedog.site) is a full-screen landing with its own nav.
+  if (route.name === 'home') {
+    return (
+      <>
+        <Welcome />
+        <Toasts />
+      </>
+    );
   }
 
   return (
