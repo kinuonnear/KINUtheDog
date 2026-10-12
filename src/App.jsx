@@ -11,6 +11,7 @@ import Swap from './pages/Swap.jsx';
 import Pools from './pages/Pools.jsx';
 import PoolDetail from './pages/PoolDetail.jsx';
 import Portfolio from './pages/Portfolio.jsx';
+import CreatePool from './pages/CreatePool.jsx';
 
 const NAV = [
   { to: '/swap', label: 'Swap', match: ['swap'] },
@@ -28,6 +29,7 @@ const TITLES = {
   pools: 'Pools · KINU',
   pool: 'Pool · KINU',
   portfolio: 'Portfolio · KINU',
+  create: 'Create pool · KINU',
   notfound: 'Not found · KINU'
 };
 
@@ -106,6 +108,9 @@ export default function App() {
       break;
     case 'portfolio':
       page = <Portfolio />;
+      break;
+    case 'create':
+      page = <CreatePool />;
       break;
     default:
       page = (

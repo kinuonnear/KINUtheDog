@@ -6,7 +6,7 @@
 //   - only FunctionCall actions (no NEAR transfers, key changes or deploys)
 //   - per contract, only the methods KINU uses
 //   - tokens may only be sent (ft_transfer_call) to Rhea's contracts
-//   - storage is only ever bought for the signer
+//   - storage is only ever bought for the signer (or for Rhea's contracts on a new token)
 //   - attached NEAR is capped, except when wrapping NEAR (the amount the user typed)
 
 import { CONTRACTS } from '../config.js';
@@ -16,8 +16,17 @@ const MAX_FEE_DEPOSIT = 2n * ONE_NEAR; // storage / registration costs stay far 
 
 /** Contracts KINU talks to directly, and the methods it calls on each. */
 const PROTOCOL_METHODS = {
-  [CONTRACTS.exchange]: ['storage_deposit', 'register_tokens', 'add_liquidity', 'add_stable_liquidity', 'remove_liquidity', 'withdraw', 'claim_lostfound'],
-  [CONTRACTS.dcl]: ['storage_deposit', 'add_liquidity', 'batch_add_liquidity', 'remove_liquidity', 'batch_remove_liquidity', 'withdraw_asset'],
+  [CONTRACTS.exchange]: [
+    'storage_deposit',
+    'register_tokens',
+    'add_liquidity',
+    'add_stable_liquidity',
+    'remove_liquidity',
+    'withdraw',
+    'claim_lostfound',
+    'add_simple_pool'
+  ],
+  [CONTRACTS.dcl]: ['storage_deposit', 'add_liquidity', 'batch_add_liquidity', 'remove_liquidity', 'batch_remove_liquidity', 'withdraw_asset', 'create_pool'],
   [CONTRACTS.aggregator]: ['tokens_storage_deposit', 'withdraw'],
   [CONTRACTS.wrapNear]: ['near_deposit', 'near_withdraw', 'storage_deposit', 'ft_transfer_call']
 };
@@ -52,7 +61,9 @@ export function assertSafeTransactions(transactions, signerId) {
       if (methodName === 'ft_transfer_call' && !TOKEN_DESTINATIONS.has(args.receiver_id)) {
         refuse(tx, `tokens would be sent to "${args.receiver_id}", which is not a Rhea contract`);
       }
-      if (methodName === 'storage_deposit' && args.account_id && args.account_id !== signerId) {
+      // Storage is bought for the signer — or, when a token is new to Rhea, for Rhea's own
+      // contracts so they can hold it (needed before a pool with that token can be used).
+      if (methodName === 'storage_deposit' && args.account_id && args.account_id !== signerId && !TOKEN_DESTINATIONS.has(args.account_id)) {
         refuse(tx, `storage would be bought for "${args.account_id}" instead of you`);
       }
       if (methodName === 'tokens_storage_deposit' && args.user !== signerId) {

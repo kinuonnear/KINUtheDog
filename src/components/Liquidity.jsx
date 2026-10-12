@@ -567,6 +567,9 @@ export function DclLiquidity({ pool, x, y, rangeState, onDone }) {
   const { accountId, execute } = useApp();
   const assets = useAsync(() => getDclAssets(accountId), [accountId], { enabled: Boolean(accountId) });
   const parked = Object.entries(assets.data || {}).filter(([id]) => id === pool.token_x || id === pool.token_y);
+  // Some CLMM pools only accept liquidity from listed accounts (e.g. solvers): same rule
+  // app.rhea.finance applies ("Whitelist Only").
+  const restricted = Array.isArray(pool.whitelist) && pool.whitelist.length > 0 && !pool.whitelist.includes(accountId);
 
   const withdrawParked = async () => {
     const ok = await execute(() => buildDclWithdrawTransactions({ tokenIds: parked.map(([id]) => id), accountId }), {
@@ -595,16 +598,30 @@ export function DclLiquidity({ pool, x, y, rangeState, onDone }) {
           </button>
         </div>
       )}
-      <DclCreatePosition
-        pool={pool}
-        x={x}
-        y={y}
-        rangeState={rangeState}
-        onDone={() => {
-          assets.reload();
-          onDone();
-        }}
-      />
+      {restricted ? (
+        <div className="whitelist-only">
+          <strong>Whitelist only</strong>
+          <p>
+            This pool only accepts liquidity from {pool.whitelist.length} approved account{pool.whitelist.length === 1 ? '' : 's'} (set on
+            the Rhea contract). You can still swap through it, but deposits from other wallets would be rejected.
+          </p>
+          <small className="muted">{pool.whitelist.join(' · ')}</small>
+          <button type="button" className="button button--ghost button--block" disabled>
+            Whitelist only
+          </button>
+        </div>
+      ) : (
+        <DclCreatePosition
+          pool={pool}
+          x={x}
+          y={y}
+          rangeState={rangeState}
+          onDone={() => {
+            assets.reload();
+            onDone();
+          }}
+        />
+      )}
     </>
   );
 }

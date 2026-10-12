@@ -8,6 +8,7 @@ import { getTokenInfoCached, isQuoteToken } from '../lib/intear.js';
 import { ESTIMATED_WINDOWS, fetchWindowVolumes, WINDOWS } from '../lib/gecko.js';
 import { formatChartPrice, formatPercent, formatUsd } from '../lib/format.js';
 import { ErrorNotice, PairIcons, Skeleton } from '../components/ui.jsx';
+import { CreatePoolChooser } from './CreatePool.jsx';
 
 const PAGE_SIZE = 25;
 
@@ -256,6 +257,7 @@ function DiscoverRow({ rank, pool, tokens, prices, info, stat, estimated, favori
 }
 
 export default function Pools() {
+  const [showCreate, setShowCreate] = useState(false);
   const { prices } = useApp();
   const { search } = useLocation();
   const [view, setView] = useState('all');
@@ -366,11 +368,15 @@ export default function Pools() {
 
   return (
     <div className="page page--discover">
+      {showCreate && <CreatePoolChooser onClose={() => setShowCreate(false)} />}
       <header className="discover-head">
         <div>
           <span className="eyebrow">Rhea Finance · NEAR</span>
           <h1>Liquidity pools</h1>
           <p>Live TVL, volume, fees and APR for every Rhea pool. Provide liquidity to earn trading fees.</p>
+          <button type="button" className="button button--primary create-pool-button" onClick={() => setShowCreate(true)}>
+            + Create pool
+          </button>
         </div>
         <div className="discover-head__stats">
           <div>
