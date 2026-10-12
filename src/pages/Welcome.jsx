@@ -436,7 +436,7 @@ export default function Welcome() {
                   swaps what the new range needs and reopens it around the current price — all in one request.
                 </p>
                 <ul>
-                  <li>Same width or ±5 / 10 / 25%, any strategy</li>
+                  <li>Same width or ±5 / 10 / 25 / 50%, any strategy</li>
                   <li>Every step shown before you sign</li>
                   <li>Stops safely if the pool can’t fill it</li>
                 </ul>

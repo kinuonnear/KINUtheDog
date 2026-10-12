@@ -18,7 +18,8 @@ export const REBALANCE_WIDTHS = [
   { key: 'same', label: 'Same width' },
   { key: '5', label: '±5%', pct: 5 },
   { key: '10', label: '±10%', pct: 10 },
-  { key: '25', label: '±25%', pct: 25 }
+  { key: '25', label: '±25%', pct: 25 },
+  { key: '50', label: '±50%', pct: 50 }
 ];
 
 /** Withdraw from these positions is all that the rebalance can spend (raw, after slippage). */

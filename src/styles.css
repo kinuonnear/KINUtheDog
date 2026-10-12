@@ -3610,12 +3610,15 @@ a.trades__row:hover {
   padding-top: 20px;
 }
 
-.main--full .swap-layout {
-  grid-template-columns: minmax(0, 1fr) 420px;
-}
+/* Two columns only on wide screens: below 1081px the stacked layout in the Responsive block applies. */
+@media (min-width: 1081px) {
+  .main--full .swap-layout {
+    grid-template-columns: minmax(0, 1fr) 420px;
+  }
 
-.main--full .swap-layout--solo {
-  grid-template-columns: minmax(0, 460px);
+  .main--full .swap-layout--solo {
+    grid-template-columns: minmax(0, 460px);
+  }
 }
 
 /* Global search */

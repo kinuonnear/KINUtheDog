@@ -228,7 +228,7 @@ const DOCS = [
           items={[
             <>Withdraw the positions you chose — tokens and earned fees go to your wallet.</>,
             <>Swap the share the new range needs into the other token (best route, one step).</>,
-            <>Open the new range — same width or ±5% / ±10% / ±25% — with the strategy you pick.</>
+            <>Open the new range — same width or ±5% / ±10% / ±25% / ±50% — with the strategy you pick.</>
           ]}
         />
         <p>
