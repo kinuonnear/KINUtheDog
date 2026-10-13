@@ -2261,13 +2261,6 @@ a.pool-row:hover + .pool-row {
     text-align: center;
     white-space: nowrap;
   }
-}
-
-@media (max-width: 420px) {
-  .nav__link {
-    padding: 7px 4px;
-    font-size: 13px;
-  }
 
   .brand {
     margin-right: auto;
@@ -2401,6 +2394,13 @@ a.pool-row:hover + .pool-row {
 
   .portfolio-gate {
     padding: 26px;
+  }
+}
+
+@media (max-width: 420px) {
+  .nav__link {
+    padding: 7px 4px;
+    font-size: 13px;
   }
 }
 
@@ -3686,6 +3686,13 @@ a.trades__row:hover {
    ========================================================================== */
 .topbar {
   padding: 0 20px;
+}
+
+/* Phones: the wrapped top bar gets room above it and on the sides (the rule above would zero it). */
+@media (max-width: 720px) {
+  .topbar {
+    padding: 14px 18px 10px;
+  }
 }
 
 .main--full {
