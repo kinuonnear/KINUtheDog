@@ -124,9 +124,11 @@ function DepthHistogram({ pool, x, y, rangeState, plan }) {
   const depth = useAsync(() => getMarketDepth(pool.pool_id), [pool.pool_id], { refreshMs: 60_000 });
   const svgRef = useRef(null);
   const { range, current, full, setEdge } = rangeState;
+  // While a handle is dragged: { side, x (percent under the pointer), win (frozen window) }.
+  const [dragging, setDragging] = useState(null);
 
   // Visible window in points: the range plus padding (bounded for full-range positions).
-  const windowPts = useMemo(() => {
+  const liveWindow = useMemo(() => {
     let lo = Math.min(range.left, current);
     let hi = Math.max(range.right, current);
     if (full || hi - lo > 120000) {
@@ -137,6 +139,8 @@ function DepthHistogram({ pool, x, y, rangeState, plan }) {
     const pad = Math.max((hi - lo) * 0.3, pool.point_delta * 6);
     return { lo: lo - pad, hi: hi + pad };
   }, [range.left, range.right, current, full, depth.data, pool.point_delta]);
+  // The scale stays put while dragging, so the handle stays under the pointer.
+  const windowPts = dragging?.win || liveWindow;
 
   const span = windowPts.hi - windowPts.lo;
   const toX = (pt) => ((pt - windowPts.lo) / span) * 100;
@@ -159,32 +163,65 @@ function DepthHistogram({ pool, x, y, rangeState, plan }) {
     return plan.bins.map((b) => ({ ...b, h: b.weight / max }));
   }, [plan]);
 
-  const drag = (side) => (event) => {
+  // Drag a handle (or press anywhere on the chart to move the nearest one there). The handle
+  // follows the pointer every frame; the range snaps to bins at most once per frame.
+  const startDrag = (event, forcedSide) => {
+    if (full || event.button > 0) return;
     event.preventDefault();
-    const el = event.currentTarget;
-    el.setPointerCapture(event.pointerId);
-    const move = (e) => {
-      const rect = svgRef.current.getBoundingClientRect();
-      const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
-      const point = alignPoint(windowPts.lo + ratio * span, pool.point_delta, 'round');
-      setEdge(side, { point });
+    const el = svgRef.current;
+    const win = windowPts;
+    const winSpan = win.hi - win.lo;
+    const ratioAt = (e) => {
+      const rect = el.getBoundingClientRect();
+      return Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
     };
+    const startRatio = ratioAt(event);
+    const side =
+      forcedSide ||
+      (Math.abs(startRatio * 100 - toX(range.left)) <= Math.abs(startRatio * 100 - toX(range.right)) ? 'min' : 'max');
+    let pending = null;
+    let frame = null;
+    let lastPoint = null;
+    const apply = () => {
+      frame = null;
+      if (pending === null) return;
+      const ratio = pending;
+      pending = null;
+      setDragging({ side, x: ratio * 100, win });
+      const point = alignPoint(win.lo + ratio * winSpan, pool.point_delta, 'round');
+      if (point !== lastPoint) {
+        lastPoint = point;
+        setEdge(side, { point });
+      }
+    };
+    const queue = (ratio) => {
+      pending = ratio;
+      if (frame === null) frame = requestAnimationFrame(apply);
+    };
+    const move = (e) => queue(ratioAt(e));
     const up = (e) => {
-      el.releasePointerCapture(e.pointerId);
+      if (frame !== null) cancelAnimationFrame(frame);
+      if (pending !== null) apply();
+      el.releasePointerCapture?.(e.pointerId);
       el.removeEventListener('pointermove', move);
       el.removeEventListener('pointerup', up);
+      el.removeEventListener('pointercancel', up);
+      setDragging(null);
     };
+    el.setPointerCapture?.(event.pointerId);
     el.addEventListener('pointermove', move);
     el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', up);
+    queue(startRatio);
   };
 
-  const leftX = Math.max(0, toX(range.left));
-  const rightX = Math.min(100, toX(range.right));
+  const leftX = dragging?.side === 'min' ? dragging.x : Math.max(0, toX(range.left));
+  const rightX = dragging?.side === 'max' ? dragging.x : Math.min(100, toX(range.right));
   const curX = toX(current);
 
   return (
     <div className="depth">
-      <div className="depth__chart" ref={svgRef}>
+      <div className={`depth__chart ${full ? '' : 'depth__chart--drag'} ${dragging ? 'depth__chart--dragging' : ''}`} ref={svgRef} onPointerDown={(e) => startDrag(e)}>
         {bars.map((b, i) => {
           const inRange = b.mid >= range.left && b.mid < range.right;
           return (
@@ -201,8 +238,26 @@ function DepthHistogram({ pool, x, y, rangeState, plan }) {
         </span>
         {!full && (
           <>
-            <button type="button" className="depth__handle" style={{ left: `${leftX}%` }} onPointerDown={drag('min')} aria-label="Drag min price" />
-            <button type="button" className="depth__handle" style={{ left: `${rightX}%` }} onPointerDown={drag('max')} aria-label="Drag max price" />
+            <button
+              type="button"
+              className={`depth__handle ${dragging?.side === 'min' ? 'depth__handle--active' : ''}`}
+              style={{ left: `${leftX}%` }}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                startDrag(e, 'min');
+              }}
+              aria-label="Drag min price"
+            />
+            <button
+              type="button"
+              className={`depth__handle ${dragging?.side === 'max' ? 'depth__handle--active' : ''}`}
+              style={{ left: `${rightX}%` }}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                startDrag(e, 'max');
+              }}
+              aria-label="Drag max price"
+            />
           </>
         )}
         {depth.loading && !depth.data && (

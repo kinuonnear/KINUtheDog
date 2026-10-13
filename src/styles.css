@@ -3446,12 +3446,26 @@ a.trades__row:hover {
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 18px;
-  margin-left: -9px;
+  z-index: 2;
+  width: 32px;
+  margin-left: -16px;
+  padding: 0;
   border: 0;
   background: transparent;
   cursor: ew-resize;
   touch-action: none;
+  will-change: left;
+}
+
+/* Press anywhere on the depth chart to move the nearest handle there. */
+.depth__chart--drag {
+  cursor: pointer;
+}
+
+.depth__chart--dragging,
+.depth__chart--dragging * {
+  cursor: ew-resize;
+  user-select: none;
 }
 
 .depth__handle::after {
@@ -3465,6 +3479,13 @@ a.trades__row:hover {
   border-radius: 4px;
   background: var(--accent);
   box-shadow: 0 0 0 2px var(--surface-2), 0 0 12px rgba(184, 255, 61, 0.5);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.depth__handle:hover::after,
+.depth__handle--active::after {
+  transform: scale(1.18, 1.2);
+  box-shadow: 0 0 0 2px var(--surface-2), 0 0 18px rgba(184, 255, 61, 0.85);
 }
 
 .depth__loading {
