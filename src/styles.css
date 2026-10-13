@@ -5098,6 +5098,7 @@ a.trades__row:hover {
 
 .lp-board__detail .pos-dist {
   max-width: 640px;
+  margin-inline: auto; /* centred under the row, not hugging the left edge */
 }
 
 .lp-board__detail .pos-dist__chart {
@@ -6652,7 +6653,7 @@ a.dt-row:hover {
 .lp-board__row--clickable { cursor: pointer; transition: background 0.15s ease, box-shadow 0.15s ease; }
 .lp-board__row--clickable:hover { background: rgba(94, 200, 255, 0.04); }
 .lp-board__row--on-chart { background: rgba(94, 200, 255, 0.06); box-shadow: inset 3px 0 0 var(--sky); }
-.chart-toggle { justify-self: start; margin-top: 6px; padding: 3px 9px; border-radius: 999px; border: 1px solid rgba(94, 200, 255, 0.35); background: transparent; color: var(--sky); font-size: 11px; font-weight: 700; cursor: pointer; }
+.chart-toggle { box-sizing: border-box; align-self: flex-start; justify-self: start; width: min(100%, 220px); margin-top: 6px; padding: 3px 9px; text-align: center; white-space: nowrap; border-radius: 999px; border: 1px solid rgba(94, 200, 255, 0.35); background: transparent; color: var(--sky); font-size: 11px; font-weight: 700; cursor: pointer; }
 .chart-toggle:hover { border-color: var(--sky); }
 .chart-toggle--on { background: rgba(94, 200, 255, 0.16); }
 
