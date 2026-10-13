@@ -681,7 +681,12 @@ export async function buildDclCompoundTransactions({ positions, slippage, accoun
     txs.push(transaction(DCL, [functionCall('remove_liquidity', { lpt_id: p.id, amount: '0', min_amount_x: '0', min_amount_y: '0' }, DCL_REMOVE_GAS)]));
   });
   const funded = await fundDeposits(accountId, { [tokenX]: plan.totalX, [tokenY]: plan.totalY });
-  txs.push(...(await depositTxs({ tokenX, tokenY, funded, wantX: plan.totalX, wantY: plan.totalY, wrapX: '0', wrapY: '0', accountId })));
+  // Since the CLMM upgrade of 2026-10-01 the contract pays wNEAR fees out as native NEAR: wrap
+  // the wNEAR side again before it is deposited back.
+  const wrapBack = (token, total) => (token === CONTRACTS.wrapNear ? total : 0n);
+  txs.push(
+    ...(await depositTxs({ tokenX, tokenY, funded, wantX: plan.totalX, wantY: plan.totalY, wrapX: wrapBack(tokenX, plan.totalX), wrapY: wrapBack(tokenY, plan.totalY), accountId }))
+  );
   appendItems(plan, funded[tokenX].usable, funded[tokenY].usable).forEach(({ position, amountX, amountY }) =>
     txs.push(appendTx(position, amountX, amountY, slippage))
   );

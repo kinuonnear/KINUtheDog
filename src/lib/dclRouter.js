@@ -199,7 +199,9 @@ export async function buildDclSwapTransactions({ tokenIn, tokenOut, quote, accou
       CONTRACTS.dcl,
       quote.amountIn,
       JSON.stringify({
-        Swap: { pool_ids: quote.dcl.poolIds, output_token: outId, min_output_amount: quote.contractMinOut ?? quote.minAmountOut }
+        // The contract unwraps a wNEAR output to native NEAR unless told not to. Keep it as wNEAR:
+        // later steps (a deposit, our own unwrap below) count on the wNEAR being there.
+        Swap: { pool_ids: quote.dcl.poolIds, output_token: outId, min_output_amount: quote.contractMinOut ?? quote.minAmountOut, skip_unwrap_near: true }
       }),
       GAS.ftTransferCall
     )

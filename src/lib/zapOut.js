@@ -2,17 +2,17 @@
 //   1. remove `percent` of the positions — both tokens and ALL unclaimed fees reach the wallet
 //      (Rhea settles a position's fees whenever its liquidity changes);
 //   2. swap the other token (liquidity share + its fees) into the chosen one;
-//   3. wNEAR kept on the chosen side is unwrapped to native NEAR.
+//   3. a kept wNEAR side already arrives as native NEAR (the contract unwraps it since 2026-10-01).
 // The swap spends only what is guaranteed to arrive: the removal's slippage minimums plus the
 // fees, after a taxed token's tax on the way out (lib/tokenTax.js). Any extra stays in the wallet.
 
-import { CONTRACTS, DEPOSIT, GAS, NATIVE_NEAR } from '../config.js';
+import { CONTRACTS, NATIVE_NEAR } from '../config.js';
 import { buildDclRemoveTransactions, freshPool, positionsAtPoint, removeMinsInBand } from './dclLiquidity.js';
 import { getDclQuote } from './dclRouter.js';
 import { oneStep } from './rebalance.js';
 import { buildSwapTransactions, getSwapQuote, measurePriceImpact } from './swap.js';
 import { afterTax, dclTax } from './tokenTax.js';
-import { functionCall, transaction } from './tx.js';
+import { ensureStorageTx, wrapNearTx } from './tx.js';
 import { toBigInt } from './format.js';
 
 // Above this share of the pool's active liquidity, removing it changes the pool too much for a
@@ -103,8 +103,9 @@ export async function quoteZapOut({ positions, percent, x, y, target, slippage, 
     outToken,
     sellToken,
     swap,
-    // wNEAR kept on the chosen side, unwrapped to native NEAR (the guaranteed part).
-    unwrap: native ? keep.min : 0n,
+    // Sold wNEAR must be wrapped again first: the contract pays wNEAR out as native NEAR (since its
+    // 2026-10-01 upgrade), which is also how a kept wNEAR side already reaches the wallet.
+    rewrap: sellToken.id === CONTRACTS.wrapNear ? amountIn : 0n,
     receiveMin: keep.min + toBigInt(swap?.quote.minAmountOut || '0'),
     receiveEst: keep.est + toBigInt(swap?.quote.amountOut || '0'),
     fees: { x: afterTax(feeX, taxX.out), y: afterTax(feeY, taxY.out) },
@@ -115,16 +116,17 @@ export async function quoteZapOut({ positions, percent, x, y, target, slippage, 
   };
 }
 
-/** Remove → swap → unwrap, in one wallet request. */
+/** Remove → (re-wrap sold NEAR) → swap, in one wallet request. */
 export async function buildZapOutTransactions({ zap, slippage, accountId }) {
   if (zap.user !== accountId) throw new Error('This quote is for another account. Refresh and try again.');
   const txs = await buildDclRemoveTransactions({ positions: zap.positions, percent: zap.percent, slippage, accountId });
+  if (zap.rewrap > 0n) {
+    txs.push(await ensureStorageTx(CONTRACTS.wrapNear, accountId));
+    txs.push(wrapNearTx(zap.rewrap.toString()));
+  }
   if (zap.swap) {
     const { tokenIn, tokenOut, quote } = zap.swap;
     txs.push(...(await buildSwapTransactions({ tokenIn, tokenOut, quote, accountId })));
   }
-  if (zap.unwrap > 0n) {
-    txs.push(transaction(CONTRACTS.wrapNear, [functionCall('near_withdraw', { amount: zap.unwrap.toString() }, GAS.nearDeposit, DEPOSIT.oneYocto)]));
-  }
-  return txs;
+  return txs.filter(Boolean);
 }

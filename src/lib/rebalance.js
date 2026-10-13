@@ -12,6 +12,7 @@ import { toBigInt } from './format.js';
 import { alignPoint, buildBins, buildDclBinsTransactions, buildDclRemoveTransactions, planBins, planBinsByBudget, removeMinsInBand } from './dclLiquidity.js';
 import { buildSwapTransactions, getSwapQuote, selectRoute } from './swap.js';
 import { valueShareX } from './zap.js';
+import { ensureStorageTx, wrapNearTx } from './tx.js';
 import { afterTax, dclTax } from './tokenTax.js';
 
 /** Price-width presets for the new range, as ± around the current price. */
@@ -135,10 +136,18 @@ export async function quoteRebalance({ positions, x, y, width, strategy, slippag
 export async function buildRebalanceTransactions({ rebalance, positions, slippage, accountId }) {
   if (rebalance.user !== accountId) throw new Error('This quote is for another account. Refresh and try again.');
   const txs = await buildDclRemoveTransactions({ positions, percent: 100, slippage, accountId });
+  // Since the CLMM upgrade of 2026-10-01 withdrawn wNEAR arrives as native NEAR: wrap it again so
+  // the swap and the new deposit find it.
+  const { tokenX, tokenY } = positions[0];
+  const rewrap = (tokenX === CONTRACTS.wrapNear ? toBigInt(rebalance.held.x) : 0n) + (tokenY === CONTRACTS.wrapNear ? toBigInt(rebalance.held.y) : 0n);
+  if (rewrap > 0n) {
+    txs.push(await ensureStorageTx(CONTRACTS.wrapNear, accountId));
+    txs.push(wrapNearTx(rewrap.toString()));
+  }
   if (rebalance.swap) {
     const { tokenIn, tokenOut, quote } = rebalance.swap;
     txs.push(...(await buildSwapTransactions({ tokenIn, tokenOut, quote, accountId })));
   }
   txs.push(...(await buildDclBinsTransactions({ pool: rebalance.pool, plan: rebalance.plan, slippage, accountId })));
-  return txs;
+  return txs.filter(Boolean);
 }
