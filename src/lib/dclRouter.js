@@ -17,7 +17,7 @@ import { applySlippage, toBigInt } from './format.js';
 import { afterTax, swapTax } from './tokenTax.js';
 
 const POOL_PAGE = 500;
-const POOLS_TTL_MS = 120_000;
+const POOLS_TTL_MS = 10 * 60_000;
 const MAX_TWO_HOP = 24; // multi-hop candidates quoted on a fresh search (best-connected tokens first)
 const MAX_THREE_HOP = 24;
 const RANK_TTL_MS = 180_000;
@@ -28,28 +28,80 @@ const contractOf = (token) => token.contract || token.id;
 let graphPromise = null;
 let graphAt = 0;
 
-/** { byToken: Map<token, pool[]>, degree: Map<token, n> } over running pools with liquidity. */
+// The routable pool set changes slowly, and loading it is the heaviest read KINU makes (every CLMM
+// pool, ~11 large list_pools pages). It is kept 10 minutes, in memory and — as compact pool ids —
+// in sessionStorage, so reloads and new tabs don't download it again.
+const GRAPH_KEY = 'kinu.dclGraph.v1';
+
+function readGraphCache() {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(GRAPH_KEY) || 'null');
+    if (saved && Date.now() - saved.at < POOLS_TTL_MS && Array.isArray(saved.ids)) return saved;
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+function writeGraphCache(at, ids) {
+  try {
+    sessionStorage.setItem(GRAPH_KEY, JSON.stringify({ at, ids }));
+  } catch {
+    // storage full or unavailable: the in-memory copy still serves this page
+  }
+}
+
+/** Running pools with liquidity at the current price (no whitelist), as pool ids. */
+async function fetchRoutablePoolIds() {
+  const ids = [];
+  for (let from = 0; ; from += POOL_PAGE) {
+    const page = (await view(CONTRACTS.dcl, 'list_pools', { from_index: from, limit: POOL_PAGE })) || [];
+    page
+      // Whitelist-only pools (e.g. NEAR Intents solver pools) quote like any pool — quotes are
+      // view calls — but reject swaps from other accounts (E407), so they never join a route.
+      .filter((p) => p.state === 'Running' && p.liquidity !== '0' && !(Array.isArray(p.whitelist) && p.whitelist.length > 0))
+      .forEach((p) => ids.push(p.pool_id));
+    if (page.length < POOL_PAGE) break;
+  }
+  return ids;
+}
+
+/**
+ * After liquidity goes into a pool: if the cached pool set doesn't route through it yet (e.g. the
+ * first liquidity of a new pool), drop the cache so the next quote picks it up.
+ */
+export async function refreshDclGraphFor(poolId) {
+  const graph = graphPromise ? await graphPromise.catch(() => null) : null;
+  const [tokenX] = String(poolId).split('|');
+  if (graph && graph.get(tokenX)?.some((p) => p.pool_id === poolId)) return;
+  graphPromise = null;
+  try {
+    sessionStorage.removeItem(GRAPH_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+/** Map<token, pool[]> over routable pools; a pool is { pool_id, token_x, token_y }. */
 function loadGraph() {
   if (!graphPromise || Date.now() - graphAt > POOLS_TTL_MS) {
-    graphAt = Date.now();
+    const cached = readGraphCache();
+    graphAt = cached ? cached.at : Date.now();
     graphPromise = (async () => {
-      const pools = [];
-      for (let from = 0; ; from += POOL_PAGE) {
-        const page = (await view(CONTRACTS.dcl, 'list_pools', { from_index: from, limit: POOL_PAGE })) || [];
-        pools.push(...page);
-        if (page.length < POOL_PAGE) break;
+      let ids = cached?.ids;
+      if (!ids) {
+        ids = await fetchRoutablePoolIds();
+        writeGraphCache(graphAt, ids);
       }
       const byToken = new Map();
-      pools
-        // Whitelist-only pools (e.g. NEAR Intents solver pools) quote like any pool — quotes are
-        // view calls — but reject swaps from other accounts (E407), so they never join a route.
-        .filter((p) => p.state === 'Running' && p.liquidity !== '0' && !(Array.isArray(p.whitelist) && p.whitelist.length > 0))
-        .forEach((p) => {
-          [p.token_x, p.token_y].forEach((t) => {
-            if (!byToken.has(t)) byToken.set(t, []);
-            byToken.get(t).push(p);
-          });
+      ids.forEach((pool_id) => {
+        const [token_x, token_y] = pool_id.split('|');
+        const p = { pool_id, token_x, token_y };
+        [token_x, token_y].forEach((t) => {
+          if (!byToken.has(t)) byToken.set(t, []);
+          byToken.get(t).push(p);
         });
+      });
       return byToken;
     })().catch((error) => {
       graphPromise = null;

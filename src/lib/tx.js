@@ -12,11 +12,20 @@ export function transaction(receiverId, actions) {
   return { receiverId, actions };
 }
 
+// A registration practically never goes away, so a "registered" answer is reused for a while
+// (unregistered ones are always asked again: they are about to change).
+const REGISTERED_TTL_MS = 10 * 60_000;
+const registered = new Map(); // "token|account" -> timestamp
+
 /** Whether `accountId` is registered (NEP-145) on a token contract. */
 export async function isStorageRegistered(tokenContract, accountId) {
+  const key = `${tokenContract}|${accountId}`;
+  if (Date.now() - (registered.get(key) || 0) < REGISTERED_TTL_MS) return true;
   try {
     const balance = await view(tokenContract, 'storage_balance_of', { account_id: accountId }, { fresh: true });
-    return balance !== null && balance !== undefined;
+    const ok = balance !== null && balance !== undefined;
+    if (ok) registered.set(key, Date.now());
+    return ok;
   } catch {
     // Some legacy tokens don't implement NEP-145: treat as registered.
     return true;

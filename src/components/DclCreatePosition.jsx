@@ -27,6 +27,7 @@ import { CONTRACTS, NEAR_GAS_RESERVE } from '../config.js';
 import { Spinner, TokenIcon } from './ui.jsx';
 import { SlippagePicker } from './Slippage.jsx';
 import TaxNote from './TaxNote.jsx';
+import { refreshDclGraphFor } from '../lib/dclRouter.js';
 import { buildZapTransactions, quoteZap } from '../lib/zap.js';
 import { defaultZapToken, useZapQuote, useZapSpendable, ZapBreakdown, ZapInput } from './ZapIn.jsx';
 
@@ -526,6 +527,7 @@ export default function DclCreatePosition({ pool, x, y, rangeState, onDone }) {
     if (ok) {
       setInputs({ x: '', y: '' });
       setZapText('');
+      refreshDclGraphFor(pool.pool_id); // a new pool's first liquidity makes it routable
       onDone?.();
     }
   };
