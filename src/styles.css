@@ -2240,12 +2240,25 @@ a.pool-row:hover + .pool-row {
   .nav {
     order: 3;
     width: 100%;
+    gap: 2px;
     justify-content: space-between;
   }
 
+  /* All six links fit on one row (Docs used to fall off the right edge). */
   .nav__link {
-    flex: 1;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 8px 6px;
+    font-size: 14px;
     text-align: center;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 420px) {
+  .nav__link {
+    padding: 7px 4px;
+    font-size: 13px;
   }
 
   .brand {

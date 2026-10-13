@@ -430,15 +430,6 @@ export default function Discover({ defaultTab = 'trending' }) {
           <Trending gainers={tab === 'gainers'} />
         )}
       </div>
-      {tab !== 'new' && (
-        <p className="muted small">
-          {tab === 'feed'
-            ? 'Data: Intear trade feed of Rhea pools. Market cap at the trade is estimated from its price and the circulating supply. Not a recommendation.'
-            : POOL_TABS.has(tab)
-            ?`Data: Rhea pools and GeckoTerminal, among the most active pools on Rhea. 1H and 6H fees are estimated from window volume at each pool's fee rate. Past fees do not promise future fees, and a concentrated range stops earning when the price leaves it. Not a recommendation.`
-            : 'Data: Rhea pools and Intear. Not a recommendation — always check the contract before you buy.'}
-        </p>
-      )}
     </div>
   );
 }
