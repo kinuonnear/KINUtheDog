@@ -10,6 +10,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createChart, CandlestickSeries, HistogramSeries, LineSeries } from 'lightweight-charts';
 import { useAsync, useClickOutside, useLocalStorage } from '../hooks.js';
 import { fetchOhlc, fetchPairOhlc, fetchTokenInfo, intearTokenId, RESOLUTIONS } from '../lib/intear.js';
+import { fetchPoolOhlc } from '../lib/gecko.js';
 import { bollinger, ema, INDICATORS, sma } from '../lib/indicators.js';
 import { pointToPrice } from '../lib/dclLiquidity.js';
 import { formatChartPrice, formatPercent, formatUsd } from '../lib/format.js';
@@ -147,12 +148,43 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
   const yId = intearTokenId(y);
 
   const info = useAsync(() => fetchTokenInfo(xId), [xId], { refreshMs: 30_000 });
-  const candles = useAsync(
-    () => (unit === 'usd' ? fetchOhlc({ tokenId: xId, resolution, countBack: 300 }) : fetchPairOhlc({ tokenX: xId, tokenY: yId, resolution, countBack: 300 })),
-    [xId, yId, resolution, unit],
+  // 'pool': this pool's own trades (GeckoTerminal); 'market': the token's price across pools (Intear).
+  // A pool with no trades yet falls back to the market candles.
+  const [source, setSource] = useLocalStorage('kinu.range.source', 'pool');
+  const marketCandles = () =>
+    unit === 'usd' ? fetchOhlc({ tokenId: xId, resolution, countBack: 300 }) : fetchPairOhlc({ tokenX: xId, tokenY: yId, resolution, countBack: 300 });
+  const loaded = useAsync(
+    async () => {
+      if (source === 'pool' && poolId) {
+        const usd = unit === 'usd';
+        const [pool, xInfo] = await Promise.all([
+          fetchPoolOhlc({ poolId, tokenId: x.id, resolution, usd, countBack: 300 }).catch(() => null),
+          usd ? null : fetchTokenInfo(xId).catch(() => null)
+        ]);
+        if (pool?.trades > 0) {
+          // In pair view Gecko reports volume in the other token: shown in USD at its current price.
+          const lastPair = pool.candles[pool.candles.length - 1]?.close;
+          const yUsd = !usd && xInfo?.price && lastPair ? xInfo.price / lastPair : null;
+          const data = usd ? pool.candles : pool.candles.map((c) => ({ ...c, volume: yUsd ? c.volume * yUsd : 0 }));
+          return { from: 'pool', data };
+        }
+        return { from: 'market', fallback: pool ? 'empty' : 'error', data: await marketCandles() };
+      }
+      return { from: 'market', data: await marketCandles() };
+    },
+    [xId, yId, resolution, unit, source, poolId],
     { refreshMs: 60_000 }
   );
+  const candles = { ...loaded, data: loaded.data?.data };
+  const fromPool = loaded.data?.from === 'pool';
   const noHistory = candles.data && candles.data.length < 2;
+  // This pool's price against the market candles' latest close (%), e.g. -2.7 = pool below market.
+  // Pair view only: the USD view converts the pool price with that same close.
+  const lastClose = !noHistory ? candles.data?.[candles.data.length - 1]?.close : null;
+  const poolGap = !fromPool && unit !== 'usd' && lastClose && currentPrice ? (currentPrice / lastClose - 1) * 100 : null;
+  // The user's chart view, carried across rebuilds of the same pair / resolution / unit / source.
+  const viewRef = useRef(null);
+  const viewKey = `${xId}|${yId}|${resolution}|${unit}|${loaded.data?.from}`;
 
   // Pair -> display units. In USD mode the range is shown as token X's USD price.
   const usdFactor = useMemo(() => {
@@ -184,12 +216,21 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
     paintRef.current?.();
   }, [mineKey]);
 
-  // The pool price refreshes every few seconds: move the dashed price line in place instead
-  // of rebuilding the chart (which would reset the user's zoom and scroll).
-  const priceLineRef = useRef(null);
+  // Pool candles: the latest bar follows the pool's on-chain price between refreshes (a pool's
+  // price only moves when it trades, so this is the bar the next trade data will confirm).
+  const liveBarRef = useRef(null); // { series, bar, line }
   useEffect(() => {
-    if (currentPrice) priceLineRef.current?.applyOptions({ price: currentPrice * usdFactor });
-  }, [currentPrice, usdFactor]);
+    const bar0 = liveBarRef.current;
+    if (!bar0 || !fromPool || unit !== 'pair' || !currentPrice) return;
+    const t = Math.floor(Date.now() / 1000 / step) * step;
+    const prev = bar0.bar;
+    const bar =
+      t > prev.time
+        ? { time: t, open: prev.close, high: Math.max(prev.close, currentPrice), low: Math.min(prev.close, currentPrice), close: currentPrice }
+        : { ...prev, high: Math.max(prev.high, currentPrice), low: Math.min(prev.low, currentPrice), close: currentPrice };
+    bar0.series.update(bar0.line ? { time: bar.time, value: bar.close } : { time: bar.time, open: bar.open, high: bar.high, low: bar.low, close: bar.close });
+    bar0.bar = bar;
+  }, [currentPrice, fromPool, unit, step]);
 
   useDrawingKeys(live, pendingRef, paintRef);
 
@@ -199,7 +240,19 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
     const canvas = canvasRef.current;
     if (!container || !overlay || !canvas || !candles.data || !live.current.currentPrice) return undefined;
     const startPrice = live.current.currentPrice * live.current.usdFactor;
-    const data = noHistory ? placeholderCandles(startPrice, step) : candles.data;
+    let data = noHistory ? placeholderCandles(startPrice, step) : candles.data;
+    // Pool candles price each trade at its execution rate (fee and impact included); the latest
+    // bar closes at the pool's actual on-chain price, so candles and the price line agree.
+    if (fromPool && unit === 'pair' && !noHistory) {
+      const last = data[data.length - 1];
+      const now = Math.floor(Date.now() / 1000 / step) * step;
+      const cp = live.current.currentPrice;
+      const tail =
+        now > last.time
+          ? [last, { time: now, open: last.close, high: Math.max(last.close, cp), low: Math.min(last.close, cp), close: cp, volume: 0 }]
+          : [{ ...last, high: Math.max(last.high, cp), low: Math.min(last.low, cp), close: cp }];
+      data = [...data.slice(0, -1), ...tail];
+    }
 
     const chart = createChart(container, {
       autoSize: true,
@@ -237,14 +290,15 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
     const priceFormat = { type: 'custom', formatter: formatChartPrice, minMove: 1e-12 };
     const main =
       chartType === 'line'
-        ? chart.addSeries(LineSeries, { color: UP, lineWidth: 2, priceLineVisible: false, lastValueVisible: true, priceFormat, autoscaleInfoProvider })
+        ? chart.addSeries(LineSeries, { color: UP, lineWidth: 2, priceLineVisible: true, priceLineStyle: 2, lastValueVisible: true, priceFormat, autoscaleInfoProvider })
         : chart.addSeries(CandlestickSeries, {
             upColor: UP,
             downColor: DOWN,
             borderVisible: false,
             wickUpColor: UP,
             wickDownColor: DOWN,
-            priceLineVisible: false,
+            priceLineVisible: true,
+            priceLineStyle: 2,
             lastValueVisible: true,
             priceFormat,
             autoscaleInfoProvider
@@ -255,13 +309,10 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
         : data.map(({ time, open, high, low, close }) => ({ time, open, high, low, close }))
     );
 
-    if (!noHistory) {
-      const high = Math.max(...data.map((c) => c.high));
-      const low = Math.min(...data.map((c) => c.low));
-      main.createPriceLine({ price: high, color: 'rgba(231,240,233,0.35)', lineWidth: 1, lineStyle: 1, axisLabelVisible: true, title: 'High' });
-      main.createPriceLine({ price: low, color: 'rgba(231,240,233,0.35)', lineWidth: 1, lineStyle: 1, axisLabelVisible: true, title: 'Low' });
-    }
-    priceLineRef.current = main.createPriceLine({ price: startPrice, color: 'rgba(255,255,255,0.55)', lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: '' });
+    liveBarRef.current = noHistory ? null : { series: main, bar: data[data.length - 1], line: chartType === 'line' };
+    // No separate pool-price line: the series' own last-price line runs from the latest candle to
+    // its axis label (on pool candles that is the live pool price; on market candles the legend
+    // notes how far this pool is from it).
 
     if (indicators.includes('volume')) {
       const vol = chart.addSeries(HistogramSeries, { priceFormat: { type: 'volume' }, priceScaleId: 'volume', lastValueVisible: false, priceLineVisible: false });
@@ -287,11 +338,38 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
       chart.addSeries(LineSeries, { ...lineOpts('rgba(61,220,151,0.45)'), lineStyle: 2 }).setData(bb.middle);
       chart.addSeries(LineSeries, lineOpts('rgba(61,220,151,0.8)')).setData(bb.lower);
     }
-    chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, data.length - 140), to: data.length + 8 });
-
     // --- time <-> x helpers (drawings live in { time, price } space) -------------
     const times = data.map((c) => c.time);
     const lastIdx = times.length - 1;
+
+    // Candles refresh every minute and rebuild the chart: keep the user's zoom, scroll and
+    // price scale. The same bars stay in view; a view that followed the latest bar keeps following.
+    const saved = viewRef.current;
+    if (saved && saved.key === viewKey && saved.range) {
+      const firstAt = times.indexOf(saved.firstTime);
+      let shift = firstAt >= 0 ? firstAt : (saved.firstTime - times[0]) / step;
+      if (saved.atEnd) shift += lastIdx - (saved.lastIdx + shift);
+      chart.timeScale().setVisibleLogicalRange({ from: saved.range.from + shift, to: saved.range.to + shift });
+      if (saved.price) {
+        chart.priceScale('right').applyOptions({ autoScale: false });
+        chart.priceScale('right').setVisibleRange(saved.price);
+      }
+    } else {
+      // At least 60 bar slots, so a short history (e.g. a new pool) doesn't stretch into huge bars.
+      chart.timeScale().setVisibleLogicalRange({ from: Math.min(Math.max(0, data.length - 140), data.length - 60), to: data.length + 8 });
+    }
+    const saveView = () => {
+      const range = chart.timeScale().getVisibleLogicalRange();
+      const scale = chart.priceScale('right');
+      viewRef.current = {
+        key: viewKey,
+        range: range ? { from: range.from, to: range.to } : null,
+        firstTime: times[0],
+        lastIdx,
+        atEnd: Boolean(range && range.to >= lastIdx),
+        price: scale.options().autoScale ? null : scale.getVisibleRange()
+      };
+    };
     const logicalOf = (t) => {
       if (t <= times[0]) return (t - times[0]) / step;
       if (t >= times[lastIdx]) return lastIdx + (t - times[lastIdx]) / step;
@@ -503,6 +581,8 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
 
     chartApi.current = { chart, canvas };
     return () => {
+      saveView();
+      liveBarRef.current = null;
       disposed = true;
       if (frame !== null) cancelAnimationFrame(frame);
       paintRef.current = null;
@@ -518,7 +598,7 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
     // eslint-disable-next-line react-hooks/exhaustive-deps
     // Rebuilt when the data or the display changes — not on every pool price tick.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [candles.data, noHistory, Boolean(currentPrice), chartType, indicators.join(','), unit, step]);
+  }, [candles.data, noHistory, Boolean(currentPrice), chartType, indicators.join(','), unit, step, fromPool]);
 
   const screenshot = () => {
     const api = chartApi.current;
@@ -556,7 +636,12 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
 
   const toggleIndicator = (key) => setIndicators((list) => (list.includes(key) ? list.filter((k) => k !== key) : [...list, key]));
   const activeTool = TOOLS.find((t) => t.key === tool);
-  const last = candles.data?.[candles.data.length - 1];
+  const lastBar = candles.data?.[candles.data.length - 1];
+  // Pool candles close at the live pool price (see the chart build).
+  const last =
+    lastBar && fromPool && unit === 'pair' && currentPrice
+      ? { ...lastBar, high: Math.max(lastBar.high, currentPrice), low: Math.min(lastBar.low, currentPrice), close: currentPrice }
+      : lastBar;
   const shown = legend || last;
   const shownChange = shown && shown.open ? ((shown.close - shown.open) / shown.open) * 100 : null;
   const quoteLabel = unit === 'usd' ? 'USD' : y.symbol;
@@ -608,6 +693,14 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
           <ToolIcon kind={chartType === 'candles' ? 'candles' : 'line'} />
         </button>
         <span className="ctool-sep" />
+        <div className="segmented segmented--tight" title="Candles from this pool's trades, or the token's market price across pools">
+          <button type="button" className={source === 'pool' ? 'active' : ''} onClick={() => setSource('pool')}>
+            Pool
+          </button>
+          <button type="button" className={source === 'market' ? 'active' : ''} onClick={() => setSource('market')}>
+            Market
+          </button>
+        </div>
         <div className="segmented segmented--tight">
           <button type="button" className={unit === 'pair' ? 'active' : ''} onClick={() => setUnit('pair')}>
             Price
@@ -673,8 +766,19 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
           </div>
           <div className="pro-chart__legend">
             <span>
-              {x.symbol}/{quoteLabel} · {RESOLUTIONS.find((r) => r.key === resolution)?.label} · Intear
+              {x.symbol}/{quoteLabel} · {RESOLUTIONS.find((r) => r.key === resolution)?.label} ·{' '}
+              {fromPool ? 'this pool (GeckoTerminal)' : 'market price (Intear)'}
             </span>
+            {source === 'pool' && loaded.data?.fallback && (
+              <span className="pro-chart__gap">
+                {loaded.data.fallback === 'empty' ? 'No trades in this pool yet' : 'Pool history unavailable right now'} — showing market price
+              </span>
+            )}
+            {poolGap !== null && Math.abs(poolGap) >= 0.5 && (
+              <span className="pro-chart__gap" title="Candles show the token's market price across pools; the dashed line is this pool's own price.">
+                This pool {Math.abs(poolGap).toFixed(2)}% {poolGap < 0 ? 'below' : 'above'} market
+              </span>
+            )}
             {shown && (
               <span>
                 O <b>{formatChartPrice(shown.open)}</b> H <b>{formatChartPrice(shown.high)}</b> L <b>{formatChartPrice(shown.low)}</b> C{' '}

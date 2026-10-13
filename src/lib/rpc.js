@@ -40,6 +40,8 @@ async function postJson(url, body) {
     if (!response.ok) {
       const error = new Error(`RPC HTTP ${response.status}`);
       error.retryable = response.status === 429 || response.status >= 500;
+      error.rateLimited = response.status === 429;
+      error.retryAfter = Number(response.headers.get('Retry-After')) || 0;
       throw error;
     }
     return await response.json();
@@ -142,13 +144,36 @@ export function startAutoRpc() {
   }, 60_000);
 }
 
+/* ------------------------------------------------------------------ */
+/* Rate-limit cooldown: rest an endpoint that said "too many requests"  */
+/* ------------------------------------------------------------------ */
+
+const COOLDOWN_MS = 60_000;
+const cooldownUntil = new Map(); // endpoint index -> timestamp
+
+function coolDown(index, retryAfterSec) {
+  const ms = retryAfterSec > 0 ? Math.min(retryAfterSec * 1000, 5 * 60_000) : COOLDOWN_MS;
+  cooldownUntil.set(index, Date.now() + ms);
+}
+
+/** Endpoint order for one call: the preferred first, resting endpoints last (still a fallback). */
+function endpointOrder(count) {
+  const now = Date.now();
+  const order = Array.from({ length: count }, (_, i) => (preferred + i) % count);
+  const ready = order.filter((i) => !(cooldownUntil.get(i) > now));
+  const resting = order.filter((i) => cooldownUntil.get(i) > now);
+  return [...ready, ...resting];
+}
+
 export async function rpc(method, params) {
   await acquire();
   try {
     const endpoints = ENDPOINTS.rpc;
     let lastError;
+    // Each endpoint gets two tries; endpoints resting after a rate limit come last.
+    const order = endpointOrder(endpoints.length);
     for (let attempt = 0; attempt < endpoints.length * 2; attempt += 1) {
-      const index = (preferred + attempt) % endpoints.length;
+      const index = order[attempt % order.length];
       try {
         const json = await postJson(endpoints[index], {
           jsonrpc: '2.0',
@@ -164,6 +189,7 @@ export async function rpc(method, params) {
           // Rate limits / shut-down endpoints come back as JSON errors (code -429):
           // move on to the next endpoint. Contract errors are final.
           error.retryable = json.error.code === -429 || /rate limit|deprecated|discontinued/i.test(json.error.message || '');
+          error.rateLimited = json.error.code === -429 || /rate limit/i.test(json.error.message || '');
           throw error;
         }
         preferred = index;
@@ -171,7 +197,9 @@ export async function rpc(method, params) {
       } catch (error) {
         lastError = error;
         if (!error.retryable) throw error;
-        await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+        if (error.rateLimited) coolDown(index, error.retryAfter);
+        // Moving on to a fresh endpoint needs no wait; a second round over the same ones backs off.
+        if (attempt + 1 >= endpoints.length || !error.rateLimited) await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
       }
     }
     throw lastError;

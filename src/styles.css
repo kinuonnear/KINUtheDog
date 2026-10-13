@@ -4433,6 +4433,16 @@ a.trades__row:hover {
   font-style: normal;
 }
 
+.pro-chart__legend .pro-chart__gap {
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 1px 6px;
+  border: 1px dashed rgba(231, 240, 233, 0.35);
+  border-radius: 4px;
+  color: #e7f0e9;
+  pointer-events: auto;
+}
+
 .pro-chart__hint {
   position: absolute;
   top: 8px;
