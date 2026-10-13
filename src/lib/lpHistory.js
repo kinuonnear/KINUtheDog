@@ -10,6 +10,7 @@
 // the time of each event.
 //
 //   NearBlocks  -> list of the account's transactions to the DCL contract
+//                  (FastNEAR's account index when NearBlocks is rate-limited)
 //   FastNEAR    -> the receipts (and event logs) of those transactions
 //
 // Parsed events are cached in localStorage per account: transactions never
@@ -64,8 +65,57 @@ function writeCache(account, cache) {
 
 const LIQUIDITY_METHOD = /liquidity/;
 
-/** New successful liquidity transactions (newest first) not in `seen`. */
+const FASTNEAR_ACCOUNT = 'https://tx.main.fastnear.com/v0/account';
+const FALLBACK_PAGES = 2; // 400 most recent signed transactions
+
+/**
+ * Fallback when NearBlocks is rate-limited: the account's recent signed transactions from
+ * FastNEAR. That list carries no receiver or method, so every new one is read (fetchEvents
+ * keeps only DCL liquidity events); it never claims the history is complete.
+ */
+async function listViaFastnear(account, cache) {
+  const seen = new Set(cache.seen);
+  const fresh = [];
+  let resume = null;
+  for (let page = 0; page < FALLBACK_PAGES; page += 1) {
+    const json = await fetchJson(
+      FASTNEAR_ACCOUNT,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ account_id: account, is_signer: true, limit: 200, desc: true, ...(resume ? { resume_token: resume } : {}) })
+      },
+      { retries: 1, backoff: 2_000 }
+    );
+    const txs = json.account_txs || [];
+    let caughtUp = false;
+    for (const t of txs) {
+      if (seen.has(t.transaction_hash)) {
+        caughtUp = true;
+        break;
+      }
+      fresh.push({ hash: t.transaction_hash, relevant: t.is_success !== false });
+    }
+    if (caughtUp || !json.resume_token || txs.length < 200) break;
+    resume = json.resume_token;
+  }
+  return { fresh, complete: cache.complete };
+}
+
+/** New successful liquidity transactions (newest first) not in `seen`; FastNEAR if NearBlocks is busy. */
 async function listNewTxs(account, cache) {
+  try {
+    return await listViaNearblocks(account, cache);
+  } catch (error) {
+    try {
+      return await listViaFastnear(account, cache);
+    } catch {
+      throw error;
+    }
+  }
+}
+
+async function listViaNearblocks(account, cache) {
   const seen = new Set(cache.seen);
   const fresh = [];
   let cursor = '';
@@ -77,7 +127,8 @@ async function listNewTxs(account, cache) {
       per_page: String(PAGE_SIZE)
     });
     if (cursor) params.set('cursor', cursor);
-    const json = await fetchJson(`${NEARBLOCKS}/account/${encodeURIComponent(account)}/txns-only?${params}`);
+    // One quick retry: if NearBlocks stays busy, FastNEAR takes over (listNewTxs).
+    const json = await fetchJson(`${NEARBLOCKS}/account/${encodeURIComponent(account)}/txns-only?${params}`, undefined, { retries: 1, backoff: 3_000 });
     const txns = json.txns || [];
     for (const t of txns) {
       if (seen.has(t.transaction_hash)) {

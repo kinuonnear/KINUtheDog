@@ -13,6 +13,8 @@ import RebalanceButton from './Rebalance.jsx';
 import CompoundButton from './Compound.jsx';
 import AddToPositionModal from './AddToPosition.jsx';
 import { formatAge } from '../lib/lpHistory.js';
+import { dclTax } from '../lib/tokenTax.js';
+import { useAsync } from '../hooks.js';
 
 /** Summary numbers for a set of positions in one pool. */
 export function summarizeDclGroup(positions, x, y, prices) {
@@ -480,6 +482,25 @@ export function DclGroupCard({ poolId, positions, deposits, x, y, pool, onDone, 
   const summary = summarizeDclGroup(positions, x, y, prices);
   const earning = groups.filter((g) => g.positions.some((p) => p.inRange)).length;
 
+  // Fees already claimed in this pool (Claim, Compound, Remove and Add all pay them out), from
+  // the account's liquidity events, after a taxed token's tax on the way out; valued at today's prices.
+  const taxes = useAsync(() => Promise.all([dclTax(x.id), dclTax(y.id)]), [x.id, y.id]);
+  const claimed = useMemo(() => {
+    if (!deposits.events) return null;
+    let fx = 0;
+    let fy = 0;
+    deposits.events.forEach((e) => {
+      if (e.pool !== poolId) return;
+      fx += toNumber(e.feeX || '0', x.decimals);
+      fy += toNumber(e.feeY || '0', y.decimals);
+    });
+    const [tx, ty] = taxes.data || [];
+    fx *= 1 - (tx?.out || 0) / 10_000;
+    fy *= 1 - (ty?.out || 0) / 10_000;
+    return { fx, fy, usd: fx * priceOf(prices, x.id) + fy * priceOf(prices, y.id) };
+  }, [deposits.events, poolId, x.id, y.id, x.decimals, y.decimals, taxes.data, prices]);
+  const claimedTitle = claimed ? `${formatAmount(claimed.fx)} ${x.symbol} + ${formatAmount(claimed.fy)} ${y.symbol} claimed (at today's prices)` : undefined;
+
   return (
     <div className="lp-board">
       <div className="lp-board__bar">
@@ -500,9 +521,9 @@ export function DclGroupCard({ poolId, positions, deposits, x, y, pool, onDone, 
             <small>/{groups.length}</small>
           </strong>
         </div>
-        <div>
-          <span>Liquidity</span>
-          <strong>{formatUsd(summary.usd)}</strong>
+        <div title={claimedTitle}>
+          <span>Claimed fees</span>
+          <strong>{claimed ? formatUsd(claimed.usd) : '—'}</strong>
         </div>
         <span className="lp-board__spacer" />
         <CompoundButton positions={positions} x={x} y={y} onDone={onDone} />

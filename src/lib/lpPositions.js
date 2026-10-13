@@ -102,5 +102,5 @@ export function useDepositGroups(accountId, positions) {
     return () => clearTimeout(timer);
   }, [missing, tries, ids]);
 
-  return { groups, loading: !history.events && !history.error, error: history.error };
+  return { groups, events: history.events, loading: !history.events && !history.error, error: history.error };
 }

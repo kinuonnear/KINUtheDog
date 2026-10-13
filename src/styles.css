@@ -4833,8 +4833,9 @@ a.trades__row:hover {
 
 .lp-board__bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 22px;
+  gap: 8px 22px;
   padding: 10px 14px;
   background: var(--surface-2);
   border-bottom: 1px solid var(--border);
@@ -4844,6 +4845,7 @@ a.trades__row:hover {
   display: flex;
   align-items: baseline;
   gap: 8px;
+  white-space: nowrap; /* a stat moves to the next row rather than breaking its label */
 }
 
 .lp-board__bar > div + div {
@@ -7011,4 +7013,36 @@ a.dt-row:hover {
   display: block;
   font-size: 11px;
   text-align: right;
+}
+
+/* Create position panel width: dragged with the handle between the columns (desktop). */
+@media (min-width: 1081px) {
+  .pool-grid--wide.pool-grid--resizable,
+  .terminal .pool-grid--wide.pool-grid--resizable {
+    grid-template-columns: minmax(0, 1fr) 8px var(--side-w, clamp(440px, 32vw, 500px));
+    column-gap: 2px;
+  }
+}
+
+.side-splitter {
+  display: grid;
+  place-items: center;
+  cursor: col-resize;
+  touch-action: none;
+  outline: none;
+}
+
+.side-splitter span {
+  width: 4px;
+  height: 44px;
+  border-radius: 999px;
+  background: var(--border-strong);
+  transition: background 0.15s, height 0.15s;
+}
+
+.side-splitter:hover span,
+.side-splitter:focus-visible span,
+.side-splitter:active span {
+  height: 72px;
+  background: var(--accent);
 }

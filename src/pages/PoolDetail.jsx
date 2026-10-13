@@ -291,6 +291,12 @@ const DOCK_TOP = 76;
 // Share of the left column given to the chart (the rest is the data panel).
 const DEFAULT_SPLIT = 0.68;
 const MIN_SPLIT = 0.3;
+const MIN_CHART_PX = 340;
+const MIN_PANEL_PX = 150;
+// Create position panel width when dragged: the chart column keeps at least MIN_MAIN_PX.
+const MIN_SIDE_PX = 380;
+const MAX_SIDE_PX = 760;
+const MIN_MAIN_PX = 560;
 const MAX_SPLIT = 0.9; // px below the viewport top where the workspace docks (top bar + gap)
 
 /**
@@ -355,7 +361,12 @@ function DclWorkspace({ poolId, pool, x, y, reserves, positions, onAdd, onDone }
   const desktop = useMediaQuery('(min-width: 1081px)');
   const columnHeight = useElementHeight(mainRef);
   const [ratio, setRatio] = useLocalStorage('kinu.split.chart', DEFAULT_SPLIT);
-  const chartHeight = desktop && columnHeight ? Math.round(columnHeight * ratio) : undefined;
+  // The chart keeps a usable height on short screens (e.g. 100% zoom on a laptop): at least
+  // MIN_CHART_PX, while the panel below keeps MIN_PANEL_PX where the column allows both.
+  const chartHeight =
+    desktop && columnHeight
+      ? Math.round(Math.max(Math.min(MIN_CHART_PX, columnHeight - MIN_PANEL_PX), Math.min(columnHeight * ratio, columnHeight - MIN_PANEL_PX)))
+      : undefined;
   const startResize = (event) => {
     event.preventDefault();
     const handle = event.currentTarget;
@@ -375,8 +386,38 @@ function DclWorkspace({ poolId, pool, x, y, reserves, positions, onAdd, onDone }
     if (e.key === 'ArrowDown') setRatio((r) => Math.min(MAX_SPLIT, r + 0.04));
   };
 
+  // Resizable width of the Create position panel (desktop); null = the default width.
+  const [sideWidth, setSideWidth] = useLocalStorage('kinu.split.side', null);
+  const clampSide = (w) => {
+    const gridWidth = gridRef.current?.getBoundingClientRect().width || 1400;
+    return Math.round(Math.min(Math.max(MIN_SIDE_PX, w), Math.max(MIN_SIDE_PX, Math.min(MAX_SIDE_PX, gridWidth - MIN_MAIN_PX))));
+  };
+  const startSideResize = (event) => {
+    event.preventDefault();
+    const handle = event.currentTarget;
+    handle.setPointerCapture(event.pointerId);
+    const right = gridRef.current.getBoundingClientRect().right;
+    const move = (e) => setSideWidth(clampSide(right - e.clientX - handle.offsetWidth / 2));
+    const up = (e) => {
+      handle.releasePointerCapture(e.pointerId);
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', up);
+    };
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', up);
+  };
+  const nudgeSide = (e) => {
+    const current = sideWidth || gridRef.current?.lastElementChild?.getBoundingClientRect().width || 470;
+    if (e.key === 'ArrowLeft') setSideWidth(clampSide(current + 20));
+    if (e.key === 'ArrowRight') setSideWidth(clampSide(current - 20));
+  };
+
   return (
-    <div className="pool-grid pool-grid--wide" ref={gridRef}>
+    <div
+      className={`pool-grid pool-grid--wide ${desktop ? 'pool-grid--resizable' : ''}`}
+      ref={gridRef}
+      style={desktop && sideWidth ? { '--side-w': `${sideWidth}px` } : undefined}
+    >
       <div className={`pool-grid__main ${desktop ? 'pool-grid__main--split' : ''}`} ref={mainRef}>
         <div className="split-top" style={chartHeight ? { height: chartHeight } : undefined}>
         <Suspense fallback={<div className="card chart-card--loading"><Skeleton height={420} radius={16} /></div>}>
@@ -466,6 +507,21 @@ function DclWorkspace({ poolId, pool, x, y, reserves, positions, onAdd, onDone }
           </div>
         </section>
       </div>
+      {desktop && (
+        <div
+          className="side-splitter"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize the position panel"
+          tabIndex={0}
+          title="Drag to resize · double-click to reset"
+          onPointerDown={startSideResize}
+          onDoubleClick={() => setSideWidth(null)}
+          onKeyDown={nudgeSide}
+        >
+          <span />
+        </div>
+      )}
       <aside className="pool-grid__side">
         {/* Using the form brings its range back on the chart (and hides your position). */}
         <section className="card" id="new-position" onPointerDownCapture={() => setChartKey(null)} onFocusCapture={() => setChartKey(null)}>
