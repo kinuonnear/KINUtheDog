@@ -3,7 +3,8 @@
 //   Dual tokens — enter one side, the other follows the position's token mix.
 //   Zap in      — one token only: KINU swaps the share the position needs, then adds both
 //                 (lib/zap.js → quoteZapToPosition), all in one wallet request.
-// The pool price is polled while the modal is open and read again right before signing, so
+// The pool price follows the page's live read while the modal is open and is read again (no
+// cache) right before signing, so
 // the amounts and slippage limits always match the pool (a stale price makes the add fail).
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -21,7 +22,8 @@ import { defaultZapToken, useZapSpendable, ZapBreakdown, ZapInput } from './ZapI
 import { SlippagePicker } from './Slippage.jsx';
 
 const PERCENTS = [0.25, 0.5, 0.75, 1];
-const LIVE_MS = 3_000;
+// Same cadence and cache key as the pool page's own read, so an open modal adds no RPC calls.
+const LIVE_MS = 4_000;
 
 /** Pool price, live: flashes up / down when it moves, with the time since the last read. */
 function LivePrice({ point, updatedAt, x, y }) {
@@ -74,7 +76,7 @@ export default function AddToPositionModal({ positions: basePositions, x, y, tit
   const [editSlippage, setEditSlippage] = useState(false);
   // Live pool state: the position's token amounts follow the current price.
   const poolId = basePositions[0]?.poolId;
-  const live = useAsync(() => view(CONTRACTS.dcl, 'get_pool', { pool_id: poolId }, { fresh: true }), [poolId], { refreshMs: LIVE_MS });
+  const live = useAsync(() => view(CONTRACTS.dcl, 'get_pool', { pool_id: poolId }), [poolId], { refreshMs: LIVE_MS });
   const point = live.data?.current_point ?? basePositions[0]?.currentPoint;
   const positions = useMemo(() => positionsAtPoint(basePositions, point), [basePositions, point]);
   const [mode, setMode] = useState('dual');

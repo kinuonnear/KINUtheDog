@@ -21,6 +21,10 @@ export const ENDPOINTS = {
   // Ordered by preference; the RPC client fails over automatically.
   // (rpc.mainnet.near.org is shut down and refuses every request.)
   rpc: ['https://free.rpc.fastnear.com', 'https://near.drpc.org', 'https://rpc.intea.rs'],
+  // For the wallets (wallet-selector + their modules). Some modules only use the FIRST url, so it
+  // differs from the app's own: KINU's live reads can't use up the quota a wallet call needs.
+  // (rpc.intea.rs is last: it slows requests down without an API key.)
+  walletRpc: ['https://near.drpc.org', 'https://free.rpc.fastnear.com', 'https://rpc.intea.rs'],
   rheaApi: 'https://api.rhea.finance',
   rheaIndexer: 'https://indexer.ref.finance',
   smartRouter: 'https://smartx.rhea.finance',

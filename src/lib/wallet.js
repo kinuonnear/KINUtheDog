@@ -66,9 +66,9 @@ export function getSelector() {
     selectorPromise = loadWalletModules().then(async ({ core, meteor, intear, here, myNear, modalUi }) => {
       const selector = await core.setupWalletSelector({
         network: NETWORK_ID,
-        // Same RPC list as lib/rpc.js: the selector fails over too, so one rate-limited
-        // endpoint (e.g. FastNEAR answering -429) no longer fails a transaction.
-        fallbackRpcUrls: ENDPOINTS.rpc,
+        // The selector fails over across these, so one rate-limited endpoint no longer fails a
+        // transaction; the first one is also what wallet modules (e.g. Meteor) use on their own.
+        fallbackRpcUrls: ENDPOINTS.walletRpc,
         modules: [
           meteor.setupMeteorWalletApp
             ? withoutAutoConnect(meteor.setupMeteorWalletApp({ contractId: CONTRACTS.signIn }))
