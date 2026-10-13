@@ -268,16 +268,18 @@ export default function AddToPositionModal({ positions: basePositions, x, y, tit
             <small className="muted">Also used for swaps and other liquidity actions in this browser.</small>
           </div>
         )}
-        <button type="button" className="button button--primary button--block button--lg" disabled={disabled} onClick={submit}>
-          {submitting && <Spinner size={14} />}
-          {label}
-        </button>
         <p className="hint">
           {mode === 'dual'
             ? 'Same range, same shape: each bin grows by the same share, in the token mix it holds now.'
-            : 'Only one token? KINU swaps the share your position needs (best route) and adds both to the same bins — one wallet request. Deposits use each swap’s guaranteed minimum.'}{' '}
-          To use a different range, create a new position with the form.
+            : 'KINU swaps the share your position needs and adds both to the same bins, in one wallet request.'}
         </p>
+        {/* The action stays in view at the bottom of the modal; only the form above scrolls. */}
+        <div className="modal-actions">
+          <button type="button" className="button button--primary button--block button--lg" disabled={disabled} onClick={submit}>
+            {submitting && <Spinner size={14} />}
+            {label}
+          </button>
+        </div>
       </div>
     </Modal>
   );

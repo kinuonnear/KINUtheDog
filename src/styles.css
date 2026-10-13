@@ -827,10 +827,39 @@ p {
 
 .modal__head {
   display: flex;
+  flex: none;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 16px;
+}
+
+/* Long forms (Add to position with Zap, Rebalance…) scroll inside the modal instead of
+   spilling past its bottom edge. */
+.modal > .liq-form {
+  flex: 0 1 auto;
+  min-height: 0;
+  margin-right: -8px;
+  padding-right: 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-3) transparent;
+}
+
+/* Nothing in a scrolling form may shrink (buttons kept their height only by luck before). */
+.modal > .liq-form > * {
+  flex-shrink: 0;
+}
+
+/* Action bar pinned to the bottom of a scrolling modal form. */
+.modal-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin: 2px -8px 0 0;
+  padding: 14px 8px 2px 0;
+  background: linear-gradient(180deg, rgba(18, 24, 33, 0) 0%, var(--surface) 38%);
 }
 
 .modal__head h3 {
