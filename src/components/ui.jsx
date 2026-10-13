@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useApp } from '../state.jsx';
 
 export function TokenIcon({ token, size = 28 }) {
@@ -56,10 +57,13 @@ export function Modal({ title, subtitle, onClose, children, width = 440 }) {
     };
   }, [onClose]);
 
-  return (
+  // Rendered on <body>, not inside whatever opened it (e.g. a clickable position row): the row's
+  // tooltip doesn't show through, and clicks in the modal don't reach the row's handlers.
+  return createPortal(
     <div
       className="modal-backdrop"
       onMouseDown={(event) => event.target === event.currentTarget && onClose()}
+      onClick={(event) => event.stopPropagation()}
     >
       <div className="modal" style={{ maxWidth: width }} role="dialog" aria-modal="true" aria-label={title}>
         <div className="modal__head">
@@ -73,7 +77,8 @@ export function Modal({ title, subtitle, onClose, children, width = 440 }) {
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

@@ -17,6 +17,7 @@ import { dclTax } from '../lib/tokenTax.js';
 import { useAsync, useDebounced } from '../hooks.js';
 import { buildZapOutTransactions, quoteZapOut } from '../lib/zapOut.js';
 import { CONTRACTS } from '../config.js';
+import { SlippagePicker } from './Slippage.jsx';
 
 /** Summary numbers for a set of positions in one pool. */
 export function summarizeDclGroup(positions, x, y, prices) {
@@ -76,8 +77,9 @@ const ZAP_OUT_REFRESH_MS = 20_000;
 
 /** Remove a percentage of every position in the group (app.rhea.finance Remove modal). */
 export function DclRemoveModal({ positions, x, y, onClose, onDone }) {
-  const { accountId, slippage, execute, prices } = useApp();
+  const { accountId, slippage, setSlippage, execute, prices } = useApp();
   const [percent, setPercent] = useState(100);
+  const [editSlippage, setEditSlippage] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const summary = summarizeDclGroup(positions, x, y, prices);
   const share = percent / 100;
@@ -211,9 +213,19 @@ export function DclRemoveModal({ positions, x, y, onClose, onDone }) {
             )}
             <div>
               <dt>Max slippage</dt>
-              <dd>{slippage}%</dd>
+              <dd>
+                <button type="button" className="pill-button" onClick={() => setEditSlippage((v) => !v)} aria-expanded={editSlippage}>
+                  ⚙ {slippage}%
+                </button>
+              </dd>
             </div>
           </dl>
+          {editSlippage && (
+            <div className="add-pos__slippage">
+              <SlippagePicker slippage={slippage} setSlippage={setSlippage} />
+              <small className="muted">Also used for swaps and other liquidity actions in this browser.</small>
+            </div>
+          )}
           {mode === 'zap' && (
             <div className={`zap-out__receive ${refreshing ? 'zap-out__receive--busy' : ''}`}>
               <div className="zap-out__receive-head">
