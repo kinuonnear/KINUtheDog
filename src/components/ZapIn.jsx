@@ -87,7 +87,7 @@ export function ZapInput({ token, setToken, text, setText, spendable, x, y }) {
         {accountId && (
           <span className="zap-tools__balance">
             {formatRawAmount(spendable.toString(), token.decimals)}
-            {[0.25, 0.5, 1].map((f) => (
+            {[0.25, 0.5, 0.75, 1].map((f) => (
               <button
                 key={f}
                 type="button"

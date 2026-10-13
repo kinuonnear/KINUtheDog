@@ -6856,3 +6856,14 @@ a.dt-row:hover {
     animation: none;
   }
 }
+
+/* Add to position: mode switch and % buttons */
+.add-pos__mode {
+  margin-bottom: 4px;
+}
+
+.add-pos__pct button {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+}
