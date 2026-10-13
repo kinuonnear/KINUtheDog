@@ -2201,12 +2201,20 @@ a.pool-row:hover + .pool-row {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  /* Stacked order: swap form (and its note), then the chart, then recent trades. */
   .swap-layout .swap-column {
+    display: contents;
+  }
+
+  .swap-layout .swap-column > * {
     order: -1;
-    position: static;
     max-width: 520px;
     width: 100%;
     margin: 0 auto;
+  }
+
+  .swap-layout .swap-column > .trades-card {
+    order: 1;
   }
 
   .pool-grid__side {
