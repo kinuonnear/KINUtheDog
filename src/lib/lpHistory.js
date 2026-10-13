@@ -2,7 +2,9 @@
 //
 // Every add / remove on dclv2.ref-labs.near emits a NEP-297 event
 // (standard "dcl.ref"): `liquidity_added` carries the tokens paid in,
-// `liquidity_removed` the tokens refunded and the fees claimed. Replaying those
+// `liquidity_removed` the tokens refunded and the fees claimed, and `liquidity_append`
+// (adding to an existing position: Add to position, Compound) the tokens paid in plus the
+// fees the contract pays to the wallet at that moment. Replaying those
 // per position (lpt_id) gives open time, invested amount, withdrawals, claimed
 // fees and realized PnL; entry / exit values use Intear's hourly USD candles at
 // the time of each event.
@@ -22,7 +24,8 @@ const FASTNEAR_TX = 'https://tx.main.fastnear.com/v0/transactions';
 const PAGE_SIZE = 250;
 const MAX_PAGES = 8; // 2,000 most recent DCL transactions
 const TX_BATCH = 20; // FastNEAR limit per request
-const CACHE_PREFIX = 'kinu.lphist.v1.';
+// v2: liquidity_append events are kept too (v1 caches skipped them, so history is re-read once).
+const CACHE_PREFIX = 'kinu.lphist.v2.';
 const HOUR = 3_600_000;
 const DAY = 86_400_000;
 
@@ -42,6 +45,7 @@ async function fetchJson(url, init, { retries = 3, backoff = 6_000 } = {}) {
 
 function readCache(account) {
   try {
+    localStorage.removeItem(`kinu.lphist.v1.${account}`); // superseded by v2
     const raw = JSON.parse(localStorage.getItem(CACHE_PREFIX + account) || 'null');
     if (raw && Array.isArray(raw.events) && Array.isArray(raw.seen)) return raw;
   } catch {
@@ -119,7 +123,7 @@ async function fetchEvents(account, hashes) {
         } catch {
           return;
         }
-        if (e.standard !== 'dcl.ref' || (e.event !== 'liquidity_added' && e.event !== 'liquidity_removed')) return;
+        if (e.standard !== 'dcl.ref' || !['liquidity_added', 'liquidity_removed', 'liquidity_append'].includes(e.event)) return;
         (e.data || []).forEach((d, di) => {
           if (d.owner_id !== account) return;
           const base = {
@@ -132,6 +136,18 @@ async function fetchEvents(account, hashes) {
             right: d.right_point,
             cur: d.cur_amount
           };
+          if (e.event === 'liquidity_append') {
+            events.push({
+              ...base,
+              kind: 'append',
+              delta: d.added_amount,
+              x: d.paid_token_x,
+              y: d.paid_token_y,
+              feeX: d.claim_fee_token_x,
+              feeY: d.claim_fee_token_y
+            });
+            return;
+          }
           events.push(
             e.event === 'liquidity_added'
               ? {
@@ -284,6 +300,23 @@ export function buildHistory(events, meta, history, prices) {
       l.investedUsd += value;
       l.liquidity += big(e.delta);
       l.closedAt = null;
+      return;
+    }
+    if (e.kind === 'append') {
+      // More tokens in (new cost) and, at the same moment, the unclaimed fees paid to the wallet.
+      if (l.openedAt === null) l.complete = false; // opened before the loaded history
+      const value = usd(e.x, e.y);
+      const fees = usd(e.feeX, e.feeY);
+      l.costUsd += value;
+      l.investedUsd += value;
+      l.feesUsd += fees;
+      l.liquidity = big(e.cur) || l.liquidity + big(e.delta);
+      l.closedAt = null;
+      const day = Math.floor(e.ts / DAY) * DAY;
+      const row = days.get(day) || { time: day / 1000, pnl: 0, fees: 0 };
+      if (l.complete) row.pnl += fees;
+      row.fees += fees;
+      days.set(day, row);
       return;
     }
     // A removal before any add means the position predates the loaded history.

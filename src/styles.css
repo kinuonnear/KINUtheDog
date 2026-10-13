@@ -6988,3 +6988,9 @@ a.dt-row:hover {
 .live-price__slippage {
   margin-left: auto;
 }
+
+.add-pos__fees dd small {
+  display: block;
+  font-size: 11px;
+  text-align: right;
+}

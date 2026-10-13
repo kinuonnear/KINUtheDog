@@ -139,6 +139,11 @@ export default function AddToPositionModal({ positions: basePositions, x, y, tit
   const addedY = mode === 'zap' ? (zap.data && zapReady ? zap.data.append.totalY : 0n) : plan.totalY;
   const addedBins = mode === 'zap' ? (zapReady ? zap.data.append.items.length : 0) : plan.items.length;
   const usd = toNumber(addedX, x.decimals) * priceOf(prices, x.id) + toNumber(addedY, y.decimals) * priceOf(prices, y.id);
+  // Rhea settles a position's unclaimed fees whenever its liquidity changes: adding pays them out.
+  const feeUsd = basePositions.reduce(
+    (s, p) => s + toNumber(p.unclaimedFeeX || '0', x.decimals) * priceOf(prices, x.id) + toNumber(p.unclaimedFeeY || '0', y.decimals) * priceOf(prices, y.id),
+    0
+  );
 
   const submit = async () => {
     setSubmitting(true);
@@ -255,6 +260,14 @@ export default function AddToPositionModal({ positions: basePositions, x, y, tit
               {formatAmount(holdY / 10 ** y.decimals + toNumber(addedY, y.decimals))} {y.symbol}
             </dd>
           </div>
+          {feeUsd > 0 && (
+            <div className="add-pos__fees">
+              <dt>Unclaimed fees</dt>
+              <dd>
+                {formatUsd(feeUsd)} <small className="muted">paid to your wallet when you add</small>
+              </dd>
+            </div>
+          )}
           <div>
             <dt>Max slippage</dt>
             <dd>
