@@ -44,6 +44,7 @@ const withoutAutoConnect = (factory) => async (...args) => {
 };
 
 let selectorPromise = null;
+let selectorRef = null; // the loaded selector, for synchronous reads in tap handlers
 let modal = null;
 let toNajAction = null;
 
@@ -79,6 +80,7 @@ export function getSelector() {
         theme: 'dark',
         description: 'Connect a NEAR wallet to trade and manage liquidity on KINU.'
       });
+      selectorRef = selector;
       return selector;
     });
     selectorPromise.catch(() => {
@@ -86,6 +88,11 @@ export function getSelector() {
     });
   }
   return selectorPromise;
+}
+
+/** Id of the connected wallet module (e.g. "meteor-wallet"), read synchronously; null if unknown. */
+export function currentWalletId() {
+  return selectorRef?.store.getState().selectedWalletId || null;
 }
 
 export function activeAccountId(selector) {

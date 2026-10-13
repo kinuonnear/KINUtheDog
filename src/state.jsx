@@ -4,11 +4,13 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import {
   activeAccountId,
   consumeRedirectResult,
+  currentWalletId,
   getSelector,
   openWalletModal,
   sendTransactions,
   signOut
 } from './lib/wallet.js';
+import { armWalletPopup, disarmWalletPopup } from './lib/walletPopup.js';
 import { getAllBalances, getFtBalance, getPrices } from './lib/tokens.js';
 import { clearViewCache } from './lib/rpc.js';
 import { explainRecentFailure, GENERIC_RECEIPT_FAILURE } from './lib/txErrors.js';
@@ -167,6 +169,8 @@ export function AppProvider({ children }) {
         connect();
         return null;
       }
+      // iOS: open the wallet's window now, while the tap still counts (lib/walletPopup.js).
+      armWalletPopup(currentWalletId());
       const pendingId = toast('info', pending, 'Review and approve the request in your wallet.', { timeout: 0 });
       try {
         const txs = await buildTransactions();
@@ -198,6 +202,8 @@ export function AppProvider({ children }) {
         }
         console.error('[KINU] transaction', error);
         return null;
+      } finally {
+        disarmWalletPopup(); // closes it only if the wallet never used it
       }
     },
     [accountId, connect, dismissToast, refreshBalances, toast]
