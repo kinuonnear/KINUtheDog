@@ -4,7 +4,7 @@
 // Wallet packages are large, so they load in their own chunk after first paint.
 import '@near-wallet-selector/modal-ui/styles.css';
 
-import { CONTRACTS, NETWORK_ID } from '../config.js';
+import { CONTRACTS, ENDPOINTS, NETWORK_ID } from '../config.js';
 import { mergeTransactions } from './tx.js';
 import { assertSafeTransactions } from './txGuard.js';
 import { describeFailure, failureOf } from './txErrors.js';
@@ -66,6 +66,9 @@ export function getSelector() {
     selectorPromise = loadWalletModules().then(async ({ core, meteor, intear, here, myNear, modalUi }) => {
       const selector = await core.setupWalletSelector({
         network: NETWORK_ID,
+        // Same RPC list as lib/rpc.js: the selector fails over too, so one rate-limited
+        // endpoint (e.g. FastNEAR answering -429) no longer fails a transaction.
+        fallbackRpcUrls: ENDPOINTS.rpc,
         modules: [
           meteor.setupMeteorWalletApp
             ? withoutAutoConnect(meteor.setupMeteorWalletApp({ contractId: CONTRACTS.signIn }))
