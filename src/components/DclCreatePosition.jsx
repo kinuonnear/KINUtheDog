@@ -26,6 +26,7 @@ import { priceOf } from '../lib/tokens.js';
 import { CONTRACTS, NEAR_GAS_RESERVE } from '../config.js';
 import { Spinner, TokenIcon } from './ui.jsx';
 import { SlippagePicker } from './Slippage.jsx';
+import TaxNote from './TaxNote.jsx';
 import { buildZapTransactions, quoteZap } from '../lib/zap.js';
 import { defaultZapToken, useZapQuote, useZapSpendable, ZapBreakdown, ZapInput } from './ZapIn.jsx';
 
@@ -746,6 +747,8 @@ export default function DclCreatePosition({ pool, x, y, rangeState, onDone }) {
           </div>
         )}
       </dl>
+
+      <TaxNote tokens={[x, y]} />
 
       <div className="live-price">
         <span className="live-price__dot" aria-hidden />

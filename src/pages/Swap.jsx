@@ -10,6 +10,7 @@ import { getCachedToken, getToken, getTokens, getWhitelistedTokens, priceOf } fr
 import { buildSwapTransactions, getSwapQuote, quoteHybridSecondLeg, selectRoute } from '../lib/swap.js';
 import { estimateNetworkFee } from '../lib/gasEstimate.js';
 import { feeLabel } from '../lib/platformFee.js';
+import { bpsLabel } from '../lib/tokenTax.js';
 import { warmDclGraph } from '../lib/dclRouter.js';
 import { view } from '../lib/rpc.js';
 import { getAggregatorBalances } from '../lib/rhea.js';
@@ -633,6 +634,20 @@ export default function Swap() {
                     <div>
                       <dt>{measuredImpact !== null ? 'Price impact' : 'Price impact (est.)'}</dt>
                       <dd className={impact > 5 ? 'down' : impact > 2 ? 'warn' : ''}>{formatPercent(impact)}</dd>
+                    </div>
+                  )}
+                  {quote.tax && (
+                    <div>
+                      <dt>Token tax</dt>
+                      <dd>
+                        {[
+                          quote.tax.inBps > 0 && `${tokenIn.symbol} ${bpsLabel(quote.tax.inBps)}`,
+                          quote.tax.outBps > 0 && `${tokenOut.symbol} ${bpsLabel(quote.tax.outBps)}`
+                        ]
+                          .filter(Boolean)
+                          .join(' + ')}{' '}
+                        <small className="muted">set by the token · included above</small>
+                      </dd>
                     </div>
                   )}
                   <div>

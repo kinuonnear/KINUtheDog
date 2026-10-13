@@ -13,6 +13,7 @@ import { view } from './rpc.js';
 import { dclAmountX, dclAmountY, dclPositionAmounts } from './rhea.js';
 import { ensureStorageTx, ftTransferCallTx, functionCall, transaction, wrapNearTx } from './tx.js';
 import { toBigInt } from './format.js';
+import { afterTax, dclTax, grossUp } from './tokenTax.js';
 
 export const POINT_MIN = -800000;
 export const POINT_MAX = 800000;
@@ -149,6 +150,60 @@ async function dclStorageAction(accountId, newSlots) {
 }
 
 /**
+ * What the CLMM contract can spend for an add, per token. Tokens already in the user's CLMM
+ * balance (e.g. left over from an earlier deposit) are used first, so only the rest is deposited;
+ * a taxed token (lib/tokenTax.js) arrives short by its tax, so the add is sized to what arrives.
+ * The deposit never exceeds `want` — that is what the user offered from the wallet.
+ * @param want  { [tokenId]: raw BigInt } amounts the add would like to use
+ * @returns     { [tokenId]: { deposit, usable, bps } } (raw BigInt)
+ */
+export async function fundDeposits(accountId, want) {
+  const ids = Object.keys(want);
+  const [assets, taxes] = await Promise.all([getDclAssets(accountId), Promise.all(ids.map((id) => dclTax(id)))]);
+  const out = {};
+  ids.forEach((id, i) => {
+    const w = toBigInt(want[id]);
+    const bps = taxes[i].into;
+    const held = toBigInt(assets[id] || '0');
+    if (w <= 0n) {
+      out[id] = { deposit: 0n, usable: 0n, bps };
+      return;
+    }
+    const need = w > held ? w - held : 0n;
+    const deposit = need > 0n ? (bps ? (grossUp(need, bps) < w ? grossUp(need, bps) : w) : need) : 0n;
+    const usable = held + afterTax(deposit, bps);
+    out[id] = { deposit, usable: usable < w ? usable : w, bps };
+  });
+  return out;
+}
+
+/** Scale a raw amount by usable / total (BigInt); unchanged when everything is usable. */
+function shrink(amount, usable, total) {
+  const a = toBigInt(amount);
+  if (total <= 0n || usable >= total) return a;
+  return (a * usable) / total;
+}
+
+/** NEAR to wrap once the CLMM balance covers part of the wNEAR side (the wallet keeps the rest). */
+function wrapAfterFunding(wrap, want, deposit) {
+  const w = toBigInt(wrap) - (toBigInt(want) - deposit);
+  return w > 0n ? w : 0n;
+}
+
+/** Wrap + deposit transactions for a funded add (see fundDeposits). */
+async function depositTxs({ tokenX, tokenY, funded, wantX, wantY, wrapX, wrapY, accountId }) {
+  const txs = [];
+  const wrapTotal = wrapAfterFunding(wrapX, wantX, funded[tokenX].deposit) + wrapAfterFunding(wrapY, wantY, funded[tokenY].deposit);
+  if (wrapTotal > 0n) {
+    txs.push(await ensureStorageTx(CONTRACTS.wrapNear, accountId));
+    txs.push(wrapNearTx(wrapTotal.toString()));
+  }
+  if (funded[tokenX].deposit > 0n) txs.push(ftTransferCallTx(tokenX, DCL, funded[tokenX].deposit.toString(), '"Deposit"', GAS.dclDeposit));
+  if (funded[tokenY].deposit > 0n) txs.push(ftTransferCallTx(tokenY, DCL, funded[tokenY].deposit.toString(), '"Deposit"', GAS.dclDeposit));
+  return txs;
+}
+
+/**
  * @param pool       raw DCL get_pool() result
  * @param amountX/Y  raw amounts (strings); either may be "0" for single-sided ranges
  * @param wrapX/Y    raw yocto to wrap first when the token is wNEAR and the wallet holds native NEAR
@@ -157,15 +212,15 @@ export async function buildDclAddTransactions({
   pool,
   left,
   right,
-  amountX,
-  amountY,
+  amountX: wantX,
+  amountY: wantY,
   slippage,
   accountId,
   wrapX = '0',
   wrapY = '0'
 }) {
   if (!(left < right)) throw new Error('Min price must be lower than max price.');
-  if (toBigInt(amountX) <= 0n && toBigInt(amountY) <= 0n) throw new Error('Enter an amount.');
+  if (toBigInt(wantX) <= 0n && toBigInt(wantY) <= 0n) throw new Error('Enter an amount.');
 
   const txs = [];
   const storage = await dclStorageAction(accountId, 1);
@@ -175,14 +230,10 @@ export async function buildDclAddTransactions({
     txs.push(await ensureStorageTx(token, accountId));
   }
 
-  const wrapTotal = toBigInt(wrapX) + toBigInt(wrapY);
-  if (wrapTotal > 0n) {
-    txs.push(await ensureStorageTx(CONTRACTS.wrapNear, accountId));
-    txs.push(wrapNearTx(wrapTotal.toString()));
-  }
-
-  if (toBigInt(amountX) > 0n) txs.push(ftTransferCallTx(pool.token_x, DCL, amountX, '"Deposit"', GAS.dclDeposit));
-  if (toBigInt(amountY) > 0n) txs.push(ftTransferCallTx(pool.token_y, DCL, amountY, '"Deposit"', GAS.dclDeposit));
+  const funded = await fundDeposits(accountId, { [pool.token_x]: toBigInt(wantX), [pool.token_y]: toBigInt(wantY) });
+  txs.push(...(await depositTxs({ tokenX: pool.token_x, tokenY: pool.token_y, funded, wantX, wantY, wrapX, wrapY, accountId })));
+  const amountX = funded[pool.token_x].usable.toString();
+  const amountY = funded[pool.token_y].usable.toString();
 
   const { minX, minY } = minAmountsInBand({ left, right, current: pool.current_point, amountX, amountY, slippage });
   txs.push(
@@ -343,10 +394,38 @@ export function planBins({ bins, current, from, amount }) {
 
 /** Deposit and open every planned bin as its own position (batch_add_liquidity). */
 export async function buildDclBinsTransactions({ pool, plan, slippage, accountId, wrapX = '0', wrapY = '0' }) {
-  const infos = plan.bins
+  const bins = plan.bins
+    .map((b) => ({ ...b, rawX: toBigInt(floatToRaw(b.amountX)), rawY: toBigInt(floatToRaw(b.amountY)) }))
+    .filter((b) => b.rawX > 0n || b.rawY > 0n);
+  if (!bins.length) throw new Error('Enter an amount.');
+  if (bins.length === 1) {
+    const [only] = bins;
+    return buildDclAddTransactions({
+      pool,
+      left: only.left,
+      right: only.right,
+      amountX: only.rawX.toString(),
+      amountY: only.rawY.toString(),
+      slippage,
+      accountId,
+      wrapX,
+      wrapY
+    });
+  }
+
+  const totalX = bins.reduce((s, b) => s + b.rawX, 0n);
+  const totalY = bins.reduce((s, b) => s + b.rawY, 0n);
+  const txs = [];
+  const storage = await dclStorageAction(accountId, bins.length);
+  if (storage) txs.push(transaction(DCL, [storage]));
+  for (const token of [pool.token_x, pool.token_y]) txs.push(await ensureStorageTx(token, accountId));
+  // Every bin shrinks by the same share when less arrives than planned (token tax).
+  const funded = await fundDeposits(accountId, { [pool.token_x]: totalX, [pool.token_y]: totalY });
+  txs.push(...(await depositTxs({ tokenX: pool.token_x, tokenY: pool.token_y, funded, wantX: totalX, wantY: totalY, wrapX, wrapY, accountId })));
+  const infos = bins
     .map((b) => {
-      const amountX = floatToRaw(b.amountX);
-      const amountY = floatToRaw(b.amountY);
+      const amountX = shrink(b.rawX, funded[pool.token_x].usable, totalX).toString();
+      const amountY = shrink(b.rawY, funded[pool.token_y].usable, totalY).toString();
       const { minX, minY } = minAmountsInBand({ left: b.left, right: b.right, current: pool.current_point, amountX, amountY, slippage });
       return {
         pool_id: pool.pool_id,
@@ -359,35 +438,6 @@ export async function buildDclBinsTransactions({ pool, plan, slippage, accountId
       };
     })
     .filter((i) => toBigInt(i.amount_x) > 0n || toBigInt(i.amount_y) > 0n);
-  if (!infos.length) throw new Error('Enter an amount.');
-  if (infos.length === 1) {
-    const [only] = infos;
-    return buildDclAddTransactions({
-      pool,
-      left: only.left_point,
-      right: only.right_point,
-      amountX: only.amount_x,
-      amountY: only.amount_y,
-      slippage,
-      accountId,
-      wrapX,
-      wrapY
-    });
-  }
-
-  const totalX = infos.reduce((s, i) => s + toBigInt(i.amount_x), 0n).toString();
-  const totalY = infos.reduce((s, i) => s + toBigInt(i.amount_y), 0n).toString();
-  const txs = [];
-  const storage = await dclStorageAction(accountId, infos.length);
-  if (storage) txs.push(transaction(DCL, [storage]));
-  for (const token of [pool.token_x, pool.token_y]) txs.push(await ensureStorageTx(token, accountId));
-  const wrapTotal = toBigInt(wrapX) + toBigInt(wrapY);
-  if (wrapTotal > 0n) {
-    txs.push(await ensureStorageTx(CONTRACTS.wrapNear, accountId));
-    txs.push(wrapNearTx(wrapTotal.toString()));
-  }
-  if (toBigInt(totalX) > 0n) txs.push(ftTransferCallTx(pool.token_x, DCL, totalX, '"Deposit"', GAS.dclDeposit));
-  if (toBigInt(totalY) > 0n) txs.push(ftTransferCallTx(pool.token_y, DCL, totalY, '"Deposit"', GAS.dclDeposit));
   for (let i = 0; i < infos.length; i += BATCH_SIZE) {
     txs.push(
       transaction(DCL, [
@@ -582,15 +632,30 @@ export async function buildDclAppendTransactions({ positions, inX, inY, slippage
   if (!plan.items.length) throw new Error('Enter an amount.');
   const { tokenX, tokenY } = positions[0];
   const txs = await tokenStorageTxs(positions[0], accountId);
-  const wrapTotal = (plan.totalX > 0n ? toBigInt(wrapX) : 0n) + (plan.totalY > 0n ? toBigInt(wrapY) : 0n);
-  if (wrapTotal > 0n) {
-    txs.push(await ensureStorageTx(CONTRACTS.wrapNear, accountId));
-    txs.push(wrapNearTx(wrapTotal.toString()));
-  }
-  if (plan.totalX > 0n) txs.push(ftTransferCallTx(tokenX, DCL, plan.totalX.toString(), '"Deposit"', GAS.dclDeposit));
-  if (plan.totalY > 0n) txs.push(ftTransferCallTx(tokenY, DCL, plan.totalY.toString(), '"Deposit"', GAS.dclDeposit));
-  plan.items.forEach(({ position, amountX, amountY }) => txs.push(appendTx(position, amountX, amountY, slippage)));
+  const funded = await fundDeposits(accountId, { [tokenX]: plan.totalX, [tokenY]: plan.totalY });
+  txs.push(
+    ...(await depositTxs({
+      tokenX,
+      tokenY,
+      funded,
+      wantX: plan.totalX,
+      wantY: plan.totalY,
+      wrapX: plan.totalX > 0n ? wrapX : '0',
+      wrapY: plan.totalY > 0n ? wrapY : '0',
+      accountId
+    }))
+  );
+  appendItems(plan, funded[tokenX].usable, funded[tokenY].usable).forEach(({ position, amountX, amountY }) =>
+    txs.push(appendTx(position, amountX, amountY, slippage))
+  );
   return txs.filter(Boolean);
+}
+
+/** Append items scaled to what the contract can spend (every bin by the same share). */
+function appendItems(plan, usableX, usableY) {
+  return plan.items
+    .map((item) => ({ ...item, amountX: shrink(item.amountX, usableX, plan.totalX), amountY: shrink(item.amountY, usableY, plan.totalY) }))
+    .filter((item) => item.amountX > 0n || item.amountY > 0n);
 }
 
 /**
@@ -599,16 +664,26 @@ export async function buildDclAppendTransactions({ positions, inX, inY, slippage
  */
 export async function buildDclCompoundTransactions({ positions, slippage, accountId, mode = 'shape' }) {
   const withFees = positions.filter((p) => toBigInt(p.unclaimedFeeX) > 0n || toBigInt(p.unclaimedFeeY) > 0n);
-  const plan = planCompound(positions, { mode });
-  if (!plan.items.length) throw new Error('No fees can be compounded into these positions right now.');
+  if (!withFees.length) throw new Error('No fees can be compounded into these positions right now.');
   const { tokenX, tokenY } = withFees[0];
+  // Claimed fees reach the wallet after a taxed token's tax: plan with what actually arrives.
+  const [taxX, taxY] = await Promise.all([dclTax(tokenX), dclTax(tokenY)]);
+  const received = positions.map((p) => ({
+    ...p,
+    unclaimedFeeX: afterTax(p.unclaimedFeeX || '0', taxX.out).toString(),
+    unclaimedFeeY: afterTax(p.unclaimedFeeY || '0', taxY.out).toString()
+  }));
+  const plan = planCompound(received, { mode });
+  if (!plan.items.length) throw new Error('No fees can be compounded into these positions right now.');
 
   const txs = await tokenStorageTxs(withFees[0], accountId);
   withFees.forEach((p) => {
     txs.push(transaction(DCL, [functionCall('remove_liquidity', { lpt_id: p.id, amount: '0', min_amount_x: '0', min_amount_y: '0' }, DCL_REMOVE_GAS)]));
   });
-  if (plan.totalX > 0n) txs.push(ftTransferCallTx(tokenX, DCL, plan.totalX.toString(), '"Deposit"', GAS.dclDeposit));
-  if (plan.totalY > 0n) txs.push(ftTransferCallTx(tokenY, DCL, plan.totalY.toString(), '"Deposit"', GAS.dclDeposit));
-  plan.items.forEach(({ position, amountX, amountY }) => txs.push(appendTx(position, amountX, amountY, slippage)));
+  const funded = await fundDeposits(accountId, { [tokenX]: plan.totalX, [tokenY]: plan.totalY });
+  txs.push(...(await depositTxs({ tokenX, tokenY, funded, wantX: plan.totalX, wantY: plan.totalY, wrapX: '0', wrapY: '0', accountId })));
+  appendItems(plan, funded[tokenX].usable, funded[tokenY].usable).forEach(({ position, amountX, amountY }) =>
+    txs.push(appendTx(position, amountX, amountY, slippage))
+  );
   return txs.filter(Boolean);
 }

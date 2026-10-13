@@ -12,6 +12,7 @@ import { toBigInt } from './format.js';
 import { alignPoint, buildBins, buildDclBinsTransactions, buildDclRemoveTransactions, planBins, planBinsByBudget, removeMinsInBand } from './dclLiquidity.js';
 import { buildSwapTransactions, getSwapQuote, selectRoute } from './swap.js';
 import { valueShareX } from './zap.js';
+import { afterTax, dclTax } from './tokenTax.js';
 
 /** Price-width presets for the new range, as ± around the current price. */
 export const REBALANCE_WIDTHS = [
@@ -71,7 +72,10 @@ export async function quoteRebalance({ positions, x, y, width, strategy, slippag
   const bins = buildBins({ left: range.left, right: range.right, current, pointDelta: pool.point_delta, strategy });
   const unitPlan = planBins({ bins, current, from: 'x', amount: 0 });
 
-  const held = withdrawnAmounts(positions, slippage);
+  // Withdrawn tokens reach the wallet after a taxed token's tax (lib/tokenTax.js).
+  const [taxX, taxY] = await Promise.all([dclTax(positions[0].tokenX), dclTax(positions[0].tokenY)]);
+  const gross = withdrawnAmounts(positions, slippage);
+  const held = { x: afterTax(gross.x, taxX.out), y: afterTax(gross.y, taxY.out) };
   // Value in raw Y units: raw X × raw price at the current point.
   const rawPrice = Math.pow(1.0001, current);
   const valueX = Number(held.x) * rawPrice;

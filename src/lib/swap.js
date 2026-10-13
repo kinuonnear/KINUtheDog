@@ -16,6 +16,7 @@ import { toBigInt } from './format.js';
 import { getWhitelistedTokens } from './tokens.js';
 import { buildDclSwapTransactions, dclNeighbors, getDclQuote } from './dclRouter.js';
 import { platformFeeFor, withPlatformFee } from './platformFee.js';
+import { afterTax, swapTax } from './tokenTax.js';
 
 const QUOTE_TIMEOUT_MS = 8_000;
 
@@ -127,11 +128,13 @@ async function measurePriceImpact(quote, { tokenIn, tokenOut, amountIn }) {
     });
     refOut = result?.amount;
   } else if (quote.msg) {
-    refOut = (await getSmartRouterQuote({ tokenIn, tokenOut, amountIn: small.toString(), slippage: 0.5 })).amountOut;
+    const ref = await getSmartRouterQuote({ tokenIn, tokenOut, amountIn: small.toString(), slippage: 0.5 });
+    refOut = ref.tax?.grossOut ?? ref.amountOut;
   }
   if (!refOut || toBigInt(refOut) === 0n) return null;
+  // Compared before token tax on both sides: the tax is shown separately, not as impact.
   const spot = Number(refOut) / Number(small);
-  const executed = Number(quote.amountOut) / Number(amountIn);
+  const executed = Number(quote.tax?.grossOut ?? quote.amountOut) / Number(quote.tax?.netIn ?? amountIn);
   return Math.max(0, (1 - executed / spot) * 100);
 }
 
@@ -184,6 +187,7 @@ async function getHybridQuote({ tokenIn, tokenOut, amountIn, slippage, user, sig
     dexs: [...new Set([...first.dexs, ...second.dexs])],
     routeTokens: [inId, best.mid, outId],
     hybrid: { mid: best.mid, legs: [first, second] },
+    tax: first.tax?.inBps || second.tax?.outBps ? { inBps: first.tax?.inBps || 0, outBps: second.tax?.outBps || 0 } : null,
     user: user || null,
     fetchedAt: Date.now()
   };
@@ -219,12 +223,18 @@ function fetchRouter(url, signal) {
   return promise;
 }
 
+/**
+ * Taxed tokens (lib/tokenTax.js): the router prices the full input, but the pools only receive it
+ * after its tax and the output loses its own on the way out. The signed route's limit is widened
+ * by both taxes so it still holds; `amountOut` / `minAmountOut` are what reaches the wallet.
+ */
 async function getSmartRouterQuote({ tokenIn, tokenOut, amountIn, slippage, user, signal }) {
+  const { inBps, outBps } = await swapTax(contractOf(tokenIn), contractOf(tokenOut));
   const params = new URLSearchParams({
     amountIn,
     tokenIn: contractOf(tokenIn),
     tokenOut: contractOf(tokenOut),
-    slippage: String(Number(slippage) / 100),
+    slippage: String((Number(slippage) + (inBps + outBps) / 100) / 100),
     pathDeep: '3',
     chainId: '0',
     // Only unwrap to native NEAR when the user actually wants native NEAR out.
@@ -251,10 +261,12 @@ async function getSmartRouterQuote({ tokenIn, tokenOut, amountIn, slippage, user
     ) {
       throw new Error('SmartRouter returned a quote that does not match your swap. Refresh the quote.');
     }
+    const taxed = inBps || outBps;
     return {
       amountIn: String(data.amount_in),
-      amountOut: String(data.amount_out),
-      minAmountOut: String(data.min_amount_out),
+      amountOut: taxed ? afterTax(afterTax(data.amount_out, inBps), outBps).toString() : String(data.amount_out),
+      minAmountOut: taxed ? afterTax(data.min_amount_out, outBps).toString() : String(data.min_amount_out),
+      tax: taxed ? { inBps, outBps, grossOut: String(data.amount_out), netIn: String(data.amount_in) } : null,
       dexs: data.dexs || [],
       routeTokens: data.tokens || [contractOf(tokenIn), contractOf(tokenOut)],
       msg: data.msg,

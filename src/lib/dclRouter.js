@@ -14,6 +14,7 @@ import { view } from './rpc.js';
 import { searchPools } from './rhea.js';
 import { ensureStorageTx, ftTransferCallTx, functionCall, transaction, wrapNearTx } from './tx.js';
 import { applySlippage, toBigInt } from './format.js';
+import { afterTax, swapTax } from './tokenTax.js';
 
 const POOL_PAGE = 500;
 const POOLS_TTL_MS = 120_000;
@@ -145,18 +146,28 @@ async function rankedQuotes(inId, outId, amountIn) {
   return quotes;
 }
 
-/** Best DCL route for amountIn (raw); returns a quote object or throws. */
+/**
+ * Best DCL route for amountIn (raw); returns a quote object or throws.
+ * Taxed tokens (lib/tokenTax.js): the pools only receive the input after its tax, and the output
+ * loses its tax on the way out. The route is quoted on what arrives; `amountOut` / `minAmountOut`
+ * are what reaches the wallet, `contractMinOut` is the limit the contract checks before the tax.
+ */
 export async function getDclQuote({ tokenIn, tokenOut, amountIn, slippage, user }) {
   const inId = contractOf(tokenIn);
   const outId = contractOf(tokenOut);
-  const working = await rankedQuotes(inId, outId, amountIn);
+  const { inBps, outBps } = await swapTax(inId, outId);
+  const enters = afterTax(amountIn, inBps).toString();
+  const working = await rankedQuotes(inId, outId, enters);
   if (!working.length) throw new Error('No liquidity route found for this pair.');
   const best = working[0];
+  const contractMinOut = applySlippage(best.amountOut, slippage);
 
   return {
     amountIn,
-    amountOut: best.amountOut,
-    minAmountOut: applySlippage(best.amountOut, slippage),
+    amountOut: afterTax(best.amountOut, outBps).toString(),
+    minAmountOut: afterTax(contractMinOut, outBps).toString(),
+    contractMinOut,
+    tax: inBps || outBps ? { inBps, outBps, grossOut: best.amountOut, netIn: enters } : null,
     dexs: ['RheaCLMM'],
     routeTokens: best.tokens,
     dcl: { poolIds: best.poolIds },
@@ -181,7 +192,7 @@ export async function buildDclSwapTransactions({ tokenIn, tokenOut, quote, accou
       CONTRACTS.dcl,
       quote.amountIn,
       JSON.stringify({
-        Swap: { pool_ids: quote.dcl.poolIds, output_token: outId, min_output_amount: quote.minAmountOut }
+        Swap: { pool_ids: quote.dcl.poolIds, output_token: outId, min_output_amount: quote.contractMinOut ?? quote.minAmountOut }
       }),
       GAS.ftTransferCall
     )

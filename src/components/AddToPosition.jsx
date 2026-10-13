@@ -10,7 +10,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../state.jsx';
 import { useAsync, useDebounced } from '../hooks.js';
-import { appendCounterpart, buildDclAppendTransactions, freshPool, planAppend, pointToPrice, positionsAtPoint } from '../lib/dclLiquidity.js';
+import { appendCounterpart, buildDclAppendTransactions, freshPool, getDclAssets, planAppend, pointToPrice, positionsAtPoint } from '../lib/dclLiquidity.js';
 import { view } from '../lib/rpc.js';
 import { buildZapAppendTransactions, quoteZapToPosition } from '../lib/zap.js';
 import { priceOf } from '../lib/tokens.js';
@@ -20,8 +20,11 @@ import { Modal, Spinner } from './ui.jsx';
 import { AmountField, trimDecimals, useSpendable } from './Liquidity.jsx';
 import { defaultZapToken, useZapSpendable, ZapBreakdown, ZapInput } from './ZapIn.jsx';
 import { SlippagePicker } from './Slippage.jsx';
+import TaxNote from './TaxNote.jsx';
 
 const PERCENTS = [0.25, 0.5, 0.75, 1];
+
+const formatUnitsShort = (raw, decimals) => formatAmount(toNumber(raw, decimals));
 // Same cadence and cache key as the pool page's own read, so an open modal adds no RPC calls.
 const LIVE_MS = 4_000;
 
@@ -85,7 +88,13 @@ export default function AddToPositionModal({ positions: basePositions, x, y, tit
   const [zapText, setZapText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const tokenIds = useMemo(() => [x.id, y.id], [x.id, y.id]);
-  const [spendX, spendY] = useSpendable(tokenIds);
+  const [walletX, walletY] = useSpendable(tokenIds);
+  // Tokens parked in the CLMM balance (e.g. from an earlier deposit) are added first, untaxed.
+  const parked = useAsync(() => getDclAssets(accountId), [accountId], { enabled: Boolean(accountId) });
+  const parkedX = toBigInt(parked.data?.[x.id] || '0');
+  const parkedY = toBigInt(parked.data?.[y.id] || '0');
+  const spendX = walletX + parkedX;
+  const spendY = walletY + parkedY;
   const zapSpendable = useZapSpendable(zapToken);
   const holdX = positions.reduce((s, p) => s + p.amountX, 0);
   const holdY = positions.reduce((s, p) => s + p.amountY, 0);
@@ -224,7 +233,7 @@ export default function AddToPositionModal({ positions: basePositions, x, y, tit
               disabled={!needsX}
               spendable={spendX}
               onMax={() => pickDual(1)}
-              note={!needsX ? 'this range holds none right now' : undefined}
+              note={!needsX ? 'this range holds none right now' : parkedX > 0n ? `incl. ${formatUnitsShort(parkedX, x.decimals)} in Rhea` : undefined}
               onChange={(t) => setInput({ side: 'x', text: t })}
             />
             <AmountField
@@ -233,7 +242,7 @@ export default function AddToPositionModal({ positions: basePositions, x, y, tit
               disabled={!needsY}
               spendable={spendY}
               onMax={() => pickDual(1)}
-              note={!needsY ? 'this range holds none right now' : undefined}
+              note={!needsY ? 'this range holds none right now' : parkedY > 0n ? `incl. ${formatUnitsShort(parkedY, y.decimals)} in Rhea` : undefined}
               onChange={(t) => setInput({ side: 'y', text: t })}
             />
             {accountId && <PercentRow onPick={pickDual} />}
@@ -245,6 +254,7 @@ export default function AddToPositionModal({ positions: basePositions, x, y, tit
           </>
         )}
 
+        <TaxNote tokens={[x, y]} />
         <LivePrice point={point} updatedAt={live.updatedAt} x={x} y={y} />
         <dl className="kv">
           <div>
