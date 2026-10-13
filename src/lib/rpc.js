@@ -56,6 +56,92 @@ async function postJson(url, body) {
   }
 }
 
+/* ------------------------------------------------------------------ */
+/* Auto RPC: start on the endpoint that answers fastest from here      */
+/* ------------------------------------------------------------------ */
+
+const PROBE_TIMEOUT_MS = 4_000;
+const PROBE_EVERY_MS = 10 * 60_000;
+const PROBE_KEY = 'kinu.rpc.ranking';
+let probing = null;
+let lastProbe = 0;
+
+/**
+ * Time one small call per endpoint: a view_account query, the kind of read KINU makes most.
+ * (gas_price was flaky on load-balanced endpoints.) Failures and rate limits rank last.
+ */
+async function probeOnce() {
+  const endpoints = ENDPOINTS.rpc;
+  const times = await Promise.all(
+    endpoints.map(async (url, index) => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
+      const started = performance.now();
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            id: 'kinu-probe',
+            method: 'query',
+            params: { request_type: 'view_account', finality: 'final', account_id: 'wrap.near' }
+          }),
+          signal: controller.signal
+        });
+        const json = response.ok ? await response.json() : null;
+        return { index, ms: json?.result ? performance.now() - started : Infinity };
+      } catch {
+        return { index, ms: Infinity };
+      } finally {
+        clearTimeout(timer);
+      }
+    })
+  );
+  const best = times.filter((t) => Number.isFinite(t.ms)).sort((a, b) => a.ms - b.ms)[0];
+  if (best) preferred = best.index;
+  lastProbe = Date.now();
+  try {
+    sessionStorage.setItem(PROBE_KEY, JSON.stringify({ at: lastProbe, preferred, times: times.map((t) => Math.round(t.ms)) }));
+  } catch {
+    // storage unavailable: the ranking still applies to this page
+  }
+  return times;
+}
+
+/**
+ * Pick the fastest healthy endpoint for this visitor (reused for 10 minutes across reloads in
+ * this tab). Failover is unchanged: a rate-limited or failing endpoint still hands over to the
+ * next one. The wallets keep their own list (ENDPOINTS.walletRpc).
+ */
+export function autoSelectRpc({ force = false } = {}) {
+  if (probing) return probing;
+  if (!force) {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(PROBE_KEY) || 'null');
+      if (saved && Date.now() - saved.at < PROBE_EVERY_MS && Number.isInteger(saved.preferred) && saved.preferred < ENDPOINTS.rpc.length) {
+        preferred = saved.preferred;
+        lastProbe = saved.at;
+        return Promise.resolve(null);
+      }
+    } catch {
+      // ignore
+    }
+  }
+  probing = probeOnce().finally(() => {
+    probing = null;
+  });
+  return probing;
+}
+
+/** Re-rank every 10 minutes while the tab is visible. */
+export function startAutoRpc() {
+  autoSelectRpc().catch(() => {});
+  setInterval(() => {
+    if (document.visibilityState === 'visible' && Date.now() - lastProbe >= PROBE_EVERY_MS) autoSelectRpc({ force: true }).catch(() => {});
+  }, 60_000);
+}
+
 export async function rpc(method, params) {
   await acquire();
   try {
