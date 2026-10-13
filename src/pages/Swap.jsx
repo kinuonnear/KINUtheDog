@@ -25,6 +25,7 @@ import {
   tryParseUnits
 } from '../lib/format.js';
 import { CONTRACTS, DEPOSIT, NATIVE_NEAR, NEAR_GAS_RESERVE, PINNED_TOKENS } from '../config.js';
+import { SlippagePicker } from '../components/Slippage.jsx';
 
 const PriceChart = lazy(() => import('../components/PriceChart.jsx'));
 
@@ -176,7 +177,6 @@ function isWrapPair(a, b) {
 
 function SlippageSettings({ slippage, setSlippage }) {
   const [open, setOpen] = useState(false);
-  const [custom, setCustom] = useState('');
   const ref = useRef(null);
   useClickOutside(ref, () => setOpen(false), open);
 
@@ -188,37 +188,7 @@ function SlippageSettings({ slippage, setSlippage }) {
       {open && (
         <div className="popover">
           <span className="eyebrow">Max slippage</span>
-          <div className="segmented segmented--full">
-            {[0.1, 0.5, 1, 3].map((value) => (
-              <button
-                key={value}
-                type="button"
-                className={Number(slippage) === value ? 'active' : ''}
-                onClick={() => {
-                  setSlippage(value);
-                  setCustom('');
-                }}
-              >
-                {value}%
-              </button>
-            ))}
-          </div>
-          <label className="input-inline">
-            <input
-              inputMode="decimal"
-              placeholder="Custom"
-              value={custom}
-              onChange={(event) => {
-                const text = event.target.value.replace(',', '.');
-                if (!/^\d*\.?\d*$/.test(text)) return;
-                setCustom(text);
-                const n = Number(text);
-                if (n > 0 && n <= 50) setSlippage(n);
-              }}
-            />
-            <span>%</span>
-          </label>
-          {Number(slippage) > 5 && <p className="warning-text">High slippage: you may receive much less.</p>}
+          <SlippagePicker slippage={slippage} setSlippage={setSlippage} />
         </div>
       )}
     </div>

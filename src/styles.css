@@ -6867,3 +6867,95 @@ a.dt-row:hover {
   font-size: 12px;
   font-weight: 700;
 }
+
+/* Add to position: live pool price */
+.add-pos__live {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 13px;
+  transition: border-color 0.3s, background 0.3s;
+}
+
+.add-pos__live b {
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 15px;
+  transition: color 0.3s;
+}
+
+.add-pos__live small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.add-pos__live em {
+  margin-left: auto;
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.add-pos__live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: glance-pulse 1.8s ease-out infinite;
+}
+
+.add-pos__live--up {
+  border-color: rgba(184, 255, 61, 0.6);
+  background: rgba(184, 255, 61, 0.08);
+}
+
+.add-pos__live--up b {
+  color: var(--accent);
+}
+
+.add-pos__live--down {
+  border-color: rgba(255, 93, 108, 0.6);
+  background: rgba(255, 93, 108, 0.08);
+}
+
+.add-pos__live--down b {
+  color: var(--danger);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .add-pos__live-dot {
+    animation: none;
+  }
+}
+
+/* Max slippage picker (Swap settings, Add to position) */
+.slippage-picker {
+  display: grid;
+  gap: 8px;
+}
+
+.slippage-picker .input-inline--active {
+  border-color: var(--accent);
+}
+
+.add-pos__slippage {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+/* Create position: slippage button */
+.live-price__slippage {
+  margin-left: auto;
+}

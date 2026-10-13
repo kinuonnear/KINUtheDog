@@ -10,7 +10,7 @@
 
 import { CONTRACTS, GAS } from '../config.js';
 import { view } from './rpc.js';
-import { dclAmountX, dclAmountY } from './rhea.js';
+import { dclAmountX, dclAmountY, dclPositionAmounts } from './rhea.js';
 import { ensureStorageTx, ftTransferCallTx, functionCall, transaction, wrapNearTx } from './tx.js';
 import { toBigInt } from './format.js';
 
@@ -500,6 +500,22 @@ export function planCompound(positions, { mode = 'shape' } = {}) {
 /* ------------------------------------------------------------------ */
 /* Add to a position                                                   */
 /* ------------------------------------------------------------------ */
+
+/** The positions re-priced at a pool point: token amounts, in-range flag and current point. */
+export function positionsAtPoint(positions, currentPoint) {
+  if (!Number.isFinite(currentPoint)) return positions;
+  return positions.map((p) => {
+    const { x, y } = dclPositionAmounts({ liquidity: p.liquidity, leftPoint: p.leftPoint, rightPoint: p.rightPoint, currentPoint });
+    return { ...p, currentPoint, inRange: currentPoint >= p.leftPoint && currentPoint < p.rightPoint, amountX: x, amountY: y };
+  });
+}
+
+/** Live pool state straight from the contract (no cache), for the moment of signing. */
+export async function freshPool(poolId) {
+  const pool = await view(DCL, 'get_pool', { pool_id: poolId }, { fresh: true });
+  if (!pool) throw new Error('Pool could not be loaded. Try again.');
+  return pool;
+}
 
 /**
  * Add to an existing position (a deposit's bins) and keep its shape: every bin grows by

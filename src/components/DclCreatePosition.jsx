@@ -25,6 +25,7 @@ import { estimateNetworkFee } from '../lib/gasEstimate.js';
 import { priceOf } from '../lib/tokens.js';
 import { CONTRACTS, NEAR_GAS_RESERVE } from '../config.js';
 import { Spinner, TokenIcon } from './ui.jsx';
+import { SlippagePicker } from './Slippage.jsx';
 import { buildZapTransactions, quoteZap } from '../lib/zap.js';
 import { defaultZapToken, useZapQuote, useZapSpendable, ZapBreakdown, ZapInput } from './ZapIn.jsx';
 
@@ -352,7 +353,8 @@ function useSpendable(tokenIds) {
 }
 
 export default function DclCreatePosition({ pool, x, y, rangeState, onDone }) {
-  const { accountId, connect, slippage, execute, balances, prices } = useApp();
+  const { accountId, connect, slippage, setSlippage, execute, balances, prices } = useApp();
+  const [showSlippage, setShowSlippage] = useState(false);
   const [strategy, setStrategy] = useState('spot');
   const [inputs, setInputs] = useState({ x: '', y: '' });
   const [lastEdited, setLastEdited] = useState('x');
@@ -760,7 +762,23 @@ export default function DclCreatePosition({ pool, x, y, rangeState, onDone }) {
             </button>
           </>
         )}
+        <button
+          type="button"
+          className="pill-button live-price__slippage"
+          onClick={() => setShowSlippage((v) => !v)}
+          aria-expanded={showSlippage}
+          title="Max slippage"
+        >
+          ⚙ {slippage}%
+        </button>
       </div>
+      {showSlippage && (
+        <div className="add-pos__slippage">
+          <span className="eyebrow">Max slippage</span>
+          <SlippagePicker slippage={slippage} setSlippage={setSlippage} />
+          <small className="muted">Also used for swaps and other liquidity actions in this browser.</small>
+        </div>
+      )}
       <button
         type="button"
         className="button button--primary button--block button--lg"

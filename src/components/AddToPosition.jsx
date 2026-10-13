@@ -3,20 +3,59 @@
 //   Dual tokens — enter one side, the other follows the position's token mix.
 //   Zap in      — one token only: KINU swaps the share the position needs, then adds both
 //                 (lib/zap.js → quoteZapToPosition), all in one wallet request.
+// The pool price is polled while the modal is open and read again right before signing, so
+// the amounts and slippage limits always match the pool (a stale price makes the add fail).
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../state.jsx';
 import { useAsync, useDebounced } from '../hooks.js';
-import { appendCounterpart, buildDclAppendTransactions, planAppend } from '../lib/dclLiquidity.js';
+import { appendCounterpart, buildDclAppendTransactions, freshPool, planAppend, pointToPrice, positionsAtPoint } from '../lib/dclLiquidity.js';
+import { view } from '../lib/rpc.js';
 import { buildZapAppendTransactions, quoteZapToPosition } from '../lib/zap.js';
 import { priceOf } from '../lib/tokens.js';
-import { formatAmount, formatUnits, formatUsd, maxBig, toBigInt, toNumber, tryParseUnits } from '../lib/format.js';
+import { formatAmount, formatChartPrice, formatUnits, formatUsd, maxBig, toBigInt, toNumber, tryParseUnits } from '../lib/format.js';
 import { CONTRACTS } from '../config.js';
 import { Modal, Spinner } from './ui.jsx';
 import { AmountField, trimDecimals, useSpendable } from './Liquidity.jsx';
 import { defaultZapToken, useZapSpendable, ZapBreakdown, ZapInput } from './ZapIn.jsx';
+import { SlippagePicker } from './Slippage.jsx';
 
 const PERCENTS = [0.25, 0.5, 0.75, 1];
+const LIVE_MS = 3_000;
+
+/** Pool price, live: flashes up / down when it moves, with the time since the last read. */
+function LivePrice({ point, updatedAt, x, y }) {
+  const prev = useRef(point);
+  const [dir, setDir] = useState(null);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (point === undefined || prev.current === undefined || point === prev.current) {
+      prev.current = point;
+      return undefined;
+    }
+    setDir(point > prev.current ? 'up' : 'down');
+    prev.current = point;
+    const t = setTimeout(() => setDir(null), 900);
+    return () => clearTimeout(t);
+  }, [point]);
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  if (point === undefined) return null;
+  const age = updatedAt ? Math.max(0, Math.round((now - updatedAt) / 1000)) : null;
+  return (
+    <div className={`add-pos__live ${dir ? `add-pos__live--${dir}` : ''}`}>
+      <span className="add-pos__live-dot" />
+      <span>Pool price</span>
+      <b>{formatChartPrice(pointToPrice(point, x.decimals, y.decimals))}</b>
+      <small>
+        {y.symbol}/{x.symbol}
+      </small>
+      <em>LIVE{age !== null ? ` · ${age}s` : ''}</em>
+    </div>
+  );
+}
 
 function PercentRow({ onPick }) {
   return (
@@ -30,8 +69,14 @@ function PercentRow({ onPick }) {
   );
 }
 
-export default function AddToPositionModal({ positions, x, y, title, onClose, onDone }) {
-  const { accountId, slippage, execute, balances, prices } = useApp();
+export default function AddToPositionModal({ positions: basePositions, x, y, title, onClose, onDone }) {
+  const { accountId, slippage, setSlippage, execute, balances, prices } = useApp();
+  const [editSlippage, setEditSlippage] = useState(false);
+  // Live pool state: the position's token amounts follow the current price.
+  const poolId = basePositions[0]?.poolId;
+  const live = useAsync(() => view(CONTRACTS.dcl, 'get_pool', { pool_id: poolId }, { fresh: true }), [poolId], { refreshMs: LIVE_MS });
+  const point = live.data?.current_point ?? basePositions[0]?.currentPoint;
+  const positions = useMemo(() => positionsAtPoint(basePositions, point), [basePositions, point]);
   const [mode, setMode] = useState('dual');
   const [input, setInput] = useState({ side: 'x', text: '' });
   const [zapToken, setZapToken] = useState(() => defaultZapToken(x, y));
@@ -81,7 +126,7 @@ export default function AddToPositionModal({ positions, x, y, title, onClose, on
   const debouncedZap = useDebounced(zapRaw.toString(), 450);
   const zap = useAsync(
     () => quoteZapToPosition({ inputToken: zapToken, amountIn: debouncedZap, x, y, positions, slippage, user: accountId || undefined }),
-    [mode, zapToken.id, debouncedZap, slippage, accountId, positions.map((p) => `${p.id}:${p.liquidity}`).join(',')],
+    [mode, zapToken.id, debouncedZap, slippage, accountId, point, positions.map((p) => `${p.id}:${p.liquidity}`).join(',')],
     { enabled: mode === 'zap' && toBigInt(debouncedZap) > 0n }
   );
   const zapReady = mode === 'zap' && zap.data && !zap.error && zap.data.append.items.length > 0 && toBigInt(debouncedZap) === zapRaw;
@@ -97,20 +142,33 @@ export default function AddToPositionModal({ positions, x, y, title, onClose, on
     setSubmitting(true);
     const ok = await execute(
       async () => {
+        // Read the pool once more right before signing: amounts and slippage limits use that price.
+        const pool = await freshPool(poolId);
+        const now = positionsAtPoint(basePositions, pool.current_point);
         if (mode === 'dual') {
+          const side = input.side;
+          const counter = appendCounterpart(now, side, typed);
+          const fx = side === 'x' ? typed : counter;
+          const fy = side === 'y' ? typed : counter;
+          const holdsX = now.some((p) => p.amountX > 0);
+          const holdsY = now.some((p) => p.amountY > 0);
+          if ((holdsX && fx > spendX) || (holdsY && fy > spendY)) {
+            throw new Error(`The pool price moved: this now needs more ${holdsX && fx > spendX ? x.symbol : y.symbol} than your wallet has. Lower the amount and try again.`);
+          }
+          const fresh = planAppend(now, { inX: fx, inY: fy });
           return buildDclAppendTransactions({
-            positions,
-            inX,
-            inY,
+            positions: now,
+            inX: fx,
+            inY: fy,
             slippage,
             accountId,
-            wrapX: wrapFor(x.id, plan.totalX),
-            wrapY: wrapFor(y.id, plan.totalY)
+            wrapX: wrapFor(x.id, fresh.totalX),
+            wrapY: wrapFor(y.id, fresh.totalY)
           });
         }
         // Re-quote at signing time so the swap and the deposit match the latest prices.
-        const fresh = await quoteZapToPosition({ inputToken: zapToken, amountIn: zapRaw.toString(), x, y, positions, slippage, user: accountId });
-        return buildZapAppendTransactions({ zap: fresh, inputToken: zapToken, x, y, positions, slippage, accountId });
+        const fresh = await quoteZapToPosition({ inputToken: zapToken, amountIn: zapRaw.toString(), x, y, positions: now, slippage, user: accountId });
+        return buildZapAppendTransactions({ zap: fresh, inputToken: zapToken, x, y, positions: now, slippage, accountId });
       },
       { pending: `Adding to ${x.symbol}/${y.symbol} ${title}`, success: 'Liquidity added to your position' }
     );
@@ -180,6 +238,7 @@ export default function AddToPositionModal({ positions, x, y, title, onClose, on
           </>
         )}
 
+        <LivePrice point={point} updatedAt={live.updatedAt} x={x} y={y} />
         <dl className="kv">
           <div>
             <dt>Added</dt>
@@ -196,9 +255,19 @@ export default function AddToPositionModal({ positions, x, y, title, onClose, on
           </div>
           <div>
             <dt>Max slippage</dt>
-            <dd>{slippage}%</dd>
+            <dd>
+              <button type="button" className="pill-button" onClick={() => setEditSlippage((v) => !v)} aria-expanded={editSlippage}>
+                ⚙ {slippage}%
+              </button>
+            </dd>
           </div>
         </dl>
+        {editSlippage && (
+          <div className="add-pos__slippage">
+            <SlippagePicker slippage={slippage} setSlippage={setSlippage} />
+            <small className="muted">Also used for swaps and other liquidity actions in this browser.</small>
+          </div>
+        )}
         <button type="button" className="button button--primary button--block button--lg" disabled={disabled} onClick={submit}>
           {submitting && <Spinner size={14} />}
           {label}
