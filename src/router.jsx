@@ -82,3 +82,23 @@ export function Link({ to, children, className, onClick, ...rest }) {
 }
 
 export const poolPath = (poolId) => `/pools/${encodeURIComponent(poolId)}`;
+
+// The pools list a pool page's ← returns to (e.g. /pools?view=mine), kept for this tab.
+const POOLS_RETURN_KEY = 'kinu.poolsReturn';
+
+export function rememberPoolsPath(path) {
+  try {
+    sessionStorage.setItem(POOLS_RETURN_KEY, path);
+  } catch {
+    // storage unavailable: ← goes to /pools
+  }
+}
+
+export function poolsReturnPath() {
+  try {
+    const path = sessionStorage.getItem(POOLS_RETURN_KEY);
+    return path && path.startsWith('/pools') ? path : '/pools';
+  } catch {
+    return '/pools';
+  }
+}

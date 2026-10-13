@@ -3940,16 +3940,24 @@ a.trades__row:hover {
 
 .pool-bar__back {
   display: grid;
+  flex-shrink: 0;
   place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  color: var(--muted);
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1.5px solid rgba(231, 240, 233, 0.35);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
 
-.pool-bar__back:hover {
-  color: var(--accent);
+.pool-bar__back:hover,
+.pool-bar__back:focus-visible {
+  color: #0b0f14;
+  background: var(--accent);
   border-color: var(--accent);
 }
 

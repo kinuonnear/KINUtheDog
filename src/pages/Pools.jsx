@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../state.jsx';
 import { useAsync, useDebounced, useLocalStorage } from '../hooks.js';
-import { Link, navigate, poolPath, useLocation } from '../router.jsx';
+import { Link, navigate, poolPath, rememberPoolsPath, useLocation } from '../router.jsx';
 import { getClassicPositions, getDclPositions, POOL_TYPES, searchPools } from '../lib/rhea.js';
 import { asPoolToken, getCachedToken, getTokens, priceOf } from '../lib/tokens.js';
 import { getTokenInfoCached, isQuoteToken } from '../lib/intear.js';
@@ -327,7 +327,19 @@ export default function Pools() {
   const [showCreate, setShowCreate] = useState(false);
   const { prices, accountId, connect } = useApp();
   const { search } = useLocation();
-  const [view, setView] = useState(() => (search.get('view') === 'mine' ? 'mine' : 'all'));
+  const [view, setView] = useState(() => {
+    const v = search.get('view');
+    return v === 'mine' || VIEWS.some((x) => x.key === v) ? v : 'all';
+  });
+  // The view lives in the URL (?view=mine …): back from a pool page — browser or ← — returns here.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (view === 'all') params.delete('view');
+    else params.set('view', view);
+    const path = `/pools${params.toString() ? `?${params}` : ''}`;
+    navigate(path, { replace: true });
+    rememberPoolsPath(path);
+  }, [view]);
   // "My positions": pools where the connected wallet has liquidity.
   const mine = useAsync(() => getMyPoolIds(accountId), [accountId], { enabled: Boolean(accountId), refreshMs: 120_000 });
   const mineIds = mine.data || [];

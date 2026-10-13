@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useApp } from '../state.jsx';
 import { useAsync, useElementHeight, useLocalStorage, useMediaQuery } from '../hooks.js';
-import { Link, useLocation } from '../router.jsx';
+import { Link, poolsReturnPath, useLocation } from '../router.jsx';
 import { getDclPositions, getFarmStakes, getPool, getPoolShares, getPoolStats, dclPointToPrice, parseDclPoolId } from '../lib/rhea.js';
 import { asPoolToken, getTokens, priceOf } from '../lib/tokens.js';
 import { view } from '../lib/rpc.js';
@@ -517,7 +517,7 @@ function PoolBar({ tokens, label, feePercent, rheaUrl, swapLink, stats, price })
   const [flipped, setFlipped] = useState(false);
   return (
     <header className="pool-bar card">
-      <Link to="/pools" className="pool-bar__back" aria-label="All pools">
+      <Link to={poolsReturnPath()} className="pool-bar__back" aria-label="Back to pools" title="Back to pools">
         {'\u2190'}
       </Link>
       <div className="pool-bar__pair">
@@ -569,7 +569,7 @@ function PoolBar({ tokens, label, feePercent, rheaUrl, swapLink, stats, price })
 function PoolHeader({ tokens, label, feePercent, idText, rheaUrl, swapLink }) {
   return (
     <header className="pool-head">
-      <Link to="/pools" className="back-link">
+      <Link to={poolsReturnPath()} className="back-link">
         ← All pools
       </Link>
       <div className="pool-head__main">
