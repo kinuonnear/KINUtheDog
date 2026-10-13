@@ -6,6 +6,7 @@ import { formatAmount, shortAccount, toNumber } from './lib/format.js';
 import { ENDPOINTS } from './config.js';
 import { EmptyState, Toasts } from './components/ui.jsx';
 import GlobalSearch from './components/GlobalSearch.jsx';
+import InstallPrompt from './components/InstallPrompt.jsx';
 import Welcome from './pages/Welcome.jsx';
 import Home from './pages/Home.jsx';
 import Swap from './pages/Swap.jsx';
@@ -163,6 +164,7 @@ export default function App() {
       <>
         <Welcome />
         <Toasts />
+        <InstallPrompt />
       </>
     );
   }
@@ -204,6 +206,7 @@ export default function App() {
       )}
 
       <Toasts />
+      <InstallPrompt />
     </div>
   );
 }

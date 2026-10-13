@@ -16,7 +16,7 @@ const PENDING_REDIRECT_KEY = 'kinu.pendingRedirect';
  * The app injects a flag and a React Native bridge; there the in-app module talks to Meteor
  * directly instead.
  */
-const inMeteorApp = () =>
+export const inMeteorApp = () =>
   typeof window !== 'undefined' &&
   Boolean(window.__is_running_in_meteor_wallet_app__ || /meteor/i.test(navigator.userAgent || '') || window.ReactNativeWebView);
 
