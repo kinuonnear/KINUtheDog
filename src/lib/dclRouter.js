@@ -133,10 +133,15 @@ async function quotePath(path, inId, outId, amountIn) {
 }
 
 /** Working paths for a pair, best first: cached leaders, or a full search when stale / dried up. */
-async function rankedQuotes(inId, outId, amountIn) {
+async function rankedQuotes(inId, outId, amountIn, exclude = null) {
   const key = `${inId}|${outId}`;
   const ranked = rankings.get(key);
   const byOut = (a, b) => (toBigInt(b.amountOut) > toBigInt(a.amountOut) ? 1 : -1);
+  // Routes that must avoid some pools search afresh and leave the shared ranking alone.
+  if (exclude?.size) {
+    const paths = (await findPaths(inId, outId)).filter((p) => !p.poolIds.some((id) => exclude.has(id)));
+    return (await Promise.all(paths.map((p) => quotePath(p, inId, outId, amountIn)))).filter((q) => toBigInt(q.amountOut) > 0n).sort(byOut);
+  }
   if (ranked && Date.now() - ranked.at <= RANK_TTL_MS) {
     const quotes = (await Promise.all(ranked.paths.map((p) => quotePath(p, inId, outId, amountIn)))).filter((q) => toBigInt(q.amountOut) > 0n);
     if (quotes.length) return quotes.sort(byOut);
@@ -154,12 +159,12 @@ async function rankedQuotes(inId, outId, amountIn) {
  * loses its tax on the way out. The route is quoted on what arrives; `amountOut` / `minAmountOut`
  * are what reaches the wallet, `contractMinOut` is the limit the contract checks before the tax.
  */
-export async function getDclQuote({ tokenIn, tokenOut, amountIn, slippage, user }) {
+export async function getDclQuote({ tokenIn, tokenOut, amountIn, slippage, user, excludePools = null }) {
   const inId = contractOf(tokenIn);
   const outId = contractOf(tokenOut);
   const { inBps, outBps } = await swapTax(inId, outId);
   const enters = afterTax(amountIn, inBps).toString();
-  const working = await rankedQuotes(inId, outId, enters);
+  const working = await rankedQuotes(inId, outId, enters, excludePools ? new Set(excludePools) : null);
   if (!working.length) throw new Error('No liquidity route found for this pair.');
   const best = working[0];
   const contractMinOut = applySlippage(best.amountOut, slippage);

@@ -4910,7 +4910,8 @@ a.trades__row:hover {
   font-size: 14px;
 }
 
-.lp-board__bar .fee-refresh {
+.lp-board__bar .fee-refresh,
+.zap-out__update .fee-refresh {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -4927,16 +4928,19 @@ a.trades__row:hover {
   cursor: pointer;
 }
 
-.lp-board__bar .fee-refresh:hover:not(:disabled) {
+.lp-board__bar .fee-refresh:hover:not(:disabled),
+.zap-out__update .fee-refresh:hover:not(:disabled) {
   border-color: var(--accent, var(--faint));
 }
 
-.lp-board__bar .fee-refresh:disabled {
+.lp-board__bar .fee-refresh:disabled,
+.zap-out__update .fee-refresh:disabled {
   opacity: 0.7;
   cursor: progress;
 }
 
-.lp-board__bar .fee-updated {
+.lp-board__bar .fee-updated,
+.zap-out__update .fee-updated {
   color: var(--muted);
   font-size: 11px;
 }
@@ -7046,4 +7050,101 @@ a.dt-row:hover {
 .side-splitter:active span {
   height: 72px;
   background: var(--accent);
+}
+
+/* Remove liquidity · Zap out */
+.zap-out__target {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.zap-out__target .segmented button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.zap-out__notice {
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.form-error {
+  margin: 0;
+  color: var(--down);
+  font-size: 13px;
+}
+
+/* Remove liquidity: two columns where there is room (choices | outcome), one on phones. */
+.remove-grid__col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+@media (min-width: 760px) {
+  .modal > .liq-form.remove-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    align-items: start;
+    gap: 20px;
+  }
+}
+
+.zap-out__receive {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  border: 1px solid rgba(184, 255, 61, 0.28);
+  background: rgba(184, 255, 61, 0.06);
+  transition: opacity 0.15s;
+}
+
+.zap-out__receive--busy {
+  opacity: 0.7;
+}
+
+.zap-out__receive-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.zap-out__update {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.zap-out__receive > strong {
+  font-size: 24px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+
+.zap-out__receive > strong small {
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.zap-out__receive-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+  color: var(--muted);
+  font-size: 12.5px;
 }

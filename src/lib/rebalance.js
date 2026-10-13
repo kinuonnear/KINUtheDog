@@ -53,7 +53,7 @@ export function newRange({ positions, current, pointDelta, width }) {
 }
 
 /** A one-step route from a quote (a two-step bridge route can't run inside one request). */
-function oneStep(quote) {
+export function oneStep(quote) {
   if (!quote.hybrid) return quote;
   const direct = (quote.routes || []).filter((r) => !r.quote.hybrid);
   if (!direct.length) throw new Error('No direct route for this swap right now. Try again shortly.');

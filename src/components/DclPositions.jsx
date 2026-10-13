@@ -6,7 +6,7 @@ import { useApp } from '../state.jsx';
 import { Link, poolPath } from '../router.jsx';
 import { buildDclClaimTransactions, buildDclRemoveTransactions, pointToPrice } from '../lib/dclLiquidity.js';
 import { priceOf } from '../lib/tokens.js';
-import { formatAmount, formatChartPrice, formatUsd, toNumber } from '../lib/format.js';
+import { formatAmount, formatChartPrice, formatPercent, formatUsd, toNumber } from '../lib/format.js';
 import { dclAmountX, dclAmountY } from '../lib/rhea.js';
 import { Modal, Spinner, TokenIcon } from './ui.jsx';
 import RebalanceButton from './Rebalance.jsx';
@@ -14,7 +14,9 @@ import CompoundButton from './Compound.jsx';
 import AddToPositionModal from './AddToPosition.jsx';
 import { formatAge } from '../lib/lpHistory.js';
 import { dclTax } from '../lib/tokenTax.js';
-import { useAsync } from '../hooks.js';
+import { useAsync, useDebounced } from '../hooks.js';
+import { buildZapOutTransactions, quoteZapOut } from '../lib/zapOut.js';
+import { CONTRACTS } from '../config.js';
 
 /** Summary numbers for a set of positions in one pool. */
 export function summarizeDclGroup(positions, x, y, prices) {
@@ -70,6 +72,7 @@ export function FeesText({ summary, x, y }) {
 }
 
 const PERCENTS = [25, 50, 75, 100];
+const ZAP_OUT_REFRESH_MS = 20_000;
 
 /** Remove a percentage of every position in the group (app.rhea.finance Remove modal). */
 export function DclRemoveModal({ positions, x, y, onClose, onDone }) {
@@ -78,13 +81,39 @@ export function DclRemoveModal({ positions, x, y, onClose, onDone }) {
   const [submitting, setSubmitting] = useState(false);
   const summary = summarizeDclGroup(positions, x, y, prices);
   const share = percent / 100;
+  // 'both': both tokens back; 'zap': everything (fees included) as one token.
+  const [mode, setMode] = useState('both');
+  const [target, setTarget] = useState(() => (y.id === CONTRACTS.wrapNear ? 'y' : x.id === CONTRACTS.wrapNear ? 'x' : 'y'));
+  const sideLabel = (t) => (t.id === CONTRACTS.wrapNear ? 'NEAR' : t.symbol);
+  const debouncedPercent = useDebounced(percent, 350);
+  // Refreshed every 20s while the modal is open and the tab visible (and on ↻ Update).
+  const zap = useAsync(
+    () => quoteZapOut({ positions, percent: debouncedPercent, x, y, target, slippage, user: accountId || undefined }),
+    [mode, debouncedPercent, target, slippage, accountId, positions.map((p) => `${p.id}:${p.liquidity}`).join(',')],
+    { enabled: mode === 'zap', refreshMs: ZAP_OUT_REFRESH_MS }
+  );
+  const zapReady = mode === 'zap' && zap.data && !zap.error && debouncedPercent === percent;
+  const refreshing = mode === 'zap' && zap.loading && Boolean(zap.data);
+  const outSymbol = zap.data ? zap.data.outToken.symbol : sideLabel(target === 'x' ? x : y);
+  const outDecimals = (target === 'x' ? x : y).decimals;
+  const impact = zapReady && zap.data.swap && Number.isFinite(zap.data.swap.quote.priceImpact) ? zap.data.swap.quote.priceImpact : null;
 
   const submit = async () => {
     setSubmitting(true);
-    const ok = await execute(() => buildDclRemoveTransactions({ positions, percent, slippage, accountId }), {
-      pending: `Removing ${percent}% of ${x.symbol}/${y.symbol}`,
-      success: 'Liquidity removed'
-    });
+    const ok =
+      mode === 'zap'
+        ? await execute(
+            async () => {
+              // Quote again right before signing: removal minimums and the swap use the latest price.
+              const fresh = await quoteZapOut({ positions, percent, x, y, target, slippage, user: accountId });
+              return buildZapOutTransactions({ zap: fresh, slippage, accountId });
+            },
+            { pending: `Zapping ${percent}% of ${x.symbol}/${y.symbol} out to ${outSymbol}`, success: `Liquidity removed as ${outSymbol}` }
+          )
+        : await execute(() => buildDclRemoveTransactions({ positions, percent, slippage, accountId }), {
+            pending: `Removing ${percent}% of ${x.symbol}/${y.symbol}`,
+            success: 'Liquidity removed'
+          });
     setSubmitting(false);
     if (ok) {
       onDone?.();
@@ -93,52 +122,157 @@ export function DclRemoveModal({ positions, x, y, onClose, onDone }) {
   };
 
   return (
-    <Modal title="Remove liquidity" subtitle={`${x.symbol} / ${y.symbol} · your position · ${positions.length} bin${positions.length === 1 ? '' : 's'}`} onClose={onClose}>
-      <div className="liq-form">
-        <div className="range-block">
-          <div className="range-block__value">{percent}%</div>
-          <input type="range" min="1" max="100" value={percent} onChange={(e) => setPercent(Number(e.target.value))} aria-label="Percent to remove" />
-          <div className="segmented segmented--full">
-            {PERCENTS.map((p) => (
-              <button key={p} type="button" className={percent === p ? 'active' : ''} onClick={() => setPercent(p)}>
-                {p === 100 ? 'Max' : `${p}%`}
-              </button>
-            ))}
+    <Modal title="Remove liquidity" subtitle={`${x.symbol} / ${y.symbol} · your position · ${positions.length} bin${positions.length === 1 ? '' : 's'}`} onClose={onClose} width={780}>
+      {/* Two columns on wider screens (choices left, outcome right): no scrolling to see it all. */}
+      <div className="liq-form remove-grid">
+        <div className="remove-grid__col">
+          <div className="segmented segmented--full add-pos__mode">
+            <button type="button" className={mode === 'both' ? 'active' : ''} onClick={() => setMode('both')}>
+              Both tokens
+            </button>
+            <button type="button" className={mode === 'zap' ? 'active' : ''} onClick={() => setMode('zap')}>
+              ⚡ Zap out
+            </button>
           </div>
-        </div>
-        <dl className="kv">
-          <div>
-            <dt>
-              <TokenIcon token={x} size={18} /> {x.symbol}
-            </dt>
-            <dd>{formatAmount(summary.amountX * share)}</dd>
-          </div>
-          <div>
-            <dt>
-              <TokenIcon token={y} size={18} /> {y.symbol}
-            </dt>
-            <dd>{formatAmount(summary.amountY * share)}</dd>
-          </div>
-          <div>
-            <dt>Value</dt>
-            <dd>{formatUsd(summary.usd * share)}</dd>
-          </div>
-          {summary.hasFees && (
-            <div>
-              <dt>Unclaimed fees (paid out too)</dt>
-              <dd>{formatUsd(summary.feeUsd)}</dd>
+          {mode === 'zap' && (
+            <div className="zap-out__target">
+              <span>Receive</span>
+              <div className="segmented segmented--tight">
+                {[
+                  ['x', x],
+                  ['y', y]
+                ].map(([side, t]) => (
+                  <button key={side} type="button" className={target === side ? 'active' : ''} onClick={() => setTarget(side)}>
+                    <TokenIcon token={t} size={14} /> {sideLabel(t)}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
-          <div>
-            <dt>Max slippage</dt>
-            <dd>{slippage}%</dd>
+          <div className="range-block">
+            <div className="range-block__value">{percent}%</div>
+            <input type="range" min="1" max="100" value={percent} onChange={(e) => setPercent(Number(e.target.value))} aria-label="Percent to remove" />
+            <div className="segmented segmented--full">
+              {PERCENTS.map((p) => (
+                <button key={p} type="button" className={percent === p ? 'active' : ''} onClick={() => setPercent(p)}>
+                  {p === 100 ? 'Max' : `${p}%`}
+                </button>
+              ))}
+            </div>
           </div>
-        </dl>
-        <button type="button" className="button button--primary button--block button--lg" disabled={submitting} onClick={submit}>
-          {submitting && <Spinner size={14} />}
-          {submitting ? 'Confirm in wallet…' : `Remove ${percent}%`}
-        </button>
-        <p className="hint">Tokens and earned fees go straight back to your wallet.</p>
+          {mode === 'zap' && (
+            <div className="notice notice--warn zap-out__notice">
+              <span>
+                <b>⚡ Zap out includes your earned fees.</b>{' '}
+                {summary.hasFees
+                  ? `All unclaimed fees of this position (${formatAmount(summary.feeX)} ${x.symbol} + ${formatAmount(summary.feeY)} ${y.symbol} ≈ ${formatUsd(summary.feeUsd)}) are paid out and swapped into ${outSymbol} together with the liquidity you remove — even when you remove less than 100%.`
+                  : `Any unclaimed fees are paid out and swapped into ${outSymbol} together with the liquidity you remove.`}
+                {zap.data?.taxed ? ' A token tax applies on the way out and on the swap.' : ''} A little of the other token may stay in your wallet.
+              </span>
+            </div>
+          )}
+        </div>
+        <div className="remove-grid__col">
+          <dl className="kv">
+            <div>
+              <dt>
+                <TokenIcon token={x} size={18} /> {x.symbol}
+              </dt>
+              <dd>{formatAmount(summary.amountX * share)}</dd>
+            </div>
+            <div>
+              <dt>
+                <TokenIcon token={y} size={18} /> {y.symbol}
+              </dt>
+              <dd>{formatAmount(summary.amountY * share)}</dd>
+            </div>
+            <div>
+              <dt>Value</dt>
+              <dd>{formatUsd(summary.usd * share)}</dd>
+            </div>
+            {summary.hasFees && (
+              <div>
+                <dt>Unclaimed fees (paid out too)</dt>
+                <dd>{formatUsd(summary.feeUsd)}</dd>
+              </div>
+            )}
+            {zapReady && zap.data.swap && (
+              <div>
+                <dt>Swap</dt>
+                <dd>
+                  {formatAmount(toNumber(zap.data.swap.amountIn, zap.data.sellToken.decimals))} {zap.data.sellToken.symbol} → {outSymbol}
+                  <small className="muted">
+                    {' '}
+                    · {zap.data.swap.quote.dexs?.join(' + ')}
+                    {zap.data.swap.avoidsPool ? ' · avoids this pool' : ''}
+                  </small>
+                </dd>
+              </div>
+            )}
+            <div>
+              <dt>Max slippage</dt>
+              <dd>{slippage}%</dd>
+            </div>
+          </dl>
+          {mode === 'zap' && (
+            <div className={`zap-out__receive ${refreshing ? 'zap-out__receive--busy' : ''}`}>
+              <div className="zap-out__receive-head">
+                <span>You receive</span>
+                <span className="zap-out__update">
+                  {zap.updatedAt && <UpdatedAgo at={zap.updatedAt} />}
+                  <button type="button" className="fee-refresh" onClick={() => zap.reload()} disabled={zap.loading} title="Get a fresh quote now">
+                    {zap.loading ? <Spinner size={11} /> : '↻'} Update
+                  </button>
+                </span>
+              </div>
+              {zapReady ? (
+                <>
+                  <strong>
+                    ≈ {formatAmount(toNumber(zap.data.receiveEst, outDecimals))} <small>{outSymbol}</small>
+                  </strong>
+                  <div className="zap-out__receive-meta">
+                    <span>
+                      Min. {formatAmount(toNumber(zap.data.receiveMin, outDecimals))} {outSymbol}
+                    </span>
+                    {zap.data.swap && (
+                      <span className={impact === null ? '' : impact > 5 ? 'down' : impact > 2 ? 'warn' : 'up'}>
+                        Price impact {impact === null ? '—' : formatPercent(impact, 2)}
+                      </span>
+                    )}
+                  </div>
+                </>
+              ) : zap.error ? (
+                <p className="form-error">{zap.error.message}</p>
+              ) : (
+                <div className="zap-out__receive-meta">
+                  <Spinner size={12} /> Finding the best route…
+                </div>
+              )}
+            </div>
+          )}
+          <button
+            type="button"
+            className="button button--primary button--block button--lg"
+            disabled={submitting || (mode === 'zap' && !zapReady)}
+            onClick={submit}
+          >
+            {submitting && <Spinner size={14} />}
+            {submitting
+              ? 'Confirm in wallet…'
+              : mode === 'zap'
+                ? zapReady
+                  ? `Zap out ${percent}% to ${outSymbol}`
+                  : zap.error
+                    ? 'No zap route'
+                    : 'Finding the best route…'
+                : `Remove ${percent}%`}
+          </button>
+          <p className="hint">
+            {mode === 'zap'
+              ? `One wallet request: remove, then swap ${target === 'x' ? sideLabel(y) : sideLabel(x)} into ${outSymbol}${outSymbol === 'NEAR' ? ' (paid as native NEAR)' : ''}.`
+              : 'Tokens and earned fees go straight back to your wallet.'}
+          </p>
+        </div>
       </div>
     </Modal>
   );

@@ -104,7 +104,7 @@ export function selectRoute(quote, source) {
  * Price impact of this trade size on its own route: the rate for amountIn against the
  * rate the same route gives for a tiny amount. Independent of (possibly stale) USD prices.
  */
-async function measurePriceImpact(quote, { tokenIn, tokenOut, amountIn }) {
+export async function measurePriceImpact(quote, { tokenIn, tokenOut, amountIn }) {
   if (quote.hybrid) {
     // Two swaps: impacts compound.
     const bridge = { id: quote.hybrid.mid };
