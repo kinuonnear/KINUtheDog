@@ -3,30 +3,31 @@
 // iOS only lets a page open a window right after a tap. Web wallets (Meteor, Intear,
 // MyNearWallet) open their popup once KINU has prepared the transaction, which can take a
 // moment (storage checks, routes), so iOS blocks it: "Couldn't open popup window".
-// Fix: at the tap, open a small "Opening your wallet…" window; when the wallet then calls
-// window.open for its own page, that window is reused and sent to the wallet's URL.
-// Nothing about the transaction changes, and the wallet page is still the wallet's own site.
+// Fix: at the tap, open the wallet's own site in a new window; when the wallet then calls
+// window.open for its signing page, that window is reused and moved to that page.
+// The window must start on the wallet's site: a window that switches from kinudefi.com to the
+// wallet looks closed to the page that opened it on iOS, and the wallet never receives the
+// transaction ("Receiving details from Dapp"). Nothing about the transaction changes.
 
-const WALLET_ORIGINS = new Set([
-  'https://wallet.meteorwallet.app',
-  'https://wallet.intear.tech',
-  'https://app.mynearwallet.com'
-]);
-// Wallet-selector module ids that sign in a popup window.
-const POPUP_WALLETS = new Set(['meteor-wallet', 'intear-wallet', 'my-near-wallet']);
-const WAIT_PAGE = '/wallet-wait.html';
+// Wallet-selector module id -> the wallet site its popup uses.
+const POPUP_WALLETS = {
+  'meteor-wallet': 'https://wallet.meteorwallet.app',
+  'intear-wallet': 'https://wallet.intear.tech',
+  'my-near-wallet': 'https://app.mynearwallet.com'
+};
+const WALLET_ORIGINS = new Set(Object.values(POPUP_WALLETS));
 const ARM_MS = 90_000;
 
-let armed = null; // { win, timer }
+let armed = null; // { win, site, timer }
 
 const isIos = () =>
   /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
-function walletOrigin(url) {
+function originOf(url) {
   try {
-    return WALLET_ORIGINS.has(new URL(String(url), window.location.href).origin);
+    return new URL(String(url), window.location.href).origin;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -47,11 +48,12 @@ export function disarmWalletPopup() {
  * popup wallets, and not when a browser extension handles signing.
  */
 export function armWalletPopup(walletId) {
-  if (typeof window === 'undefined' || !isIos() || !POPUP_WALLETS.has(walletId) || window.meteorCom) return;
+  const site = POPUP_WALLETS[walletId];
+  if (typeof window === 'undefined' || !isIos() || !site || window.meteorCom) return;
   disarmWalletPopup();
-  const win = window.open(WAIT_PAGE, '_blank');
+  const win = window.open(`${site}/`, '_blank');
   if (!win) return;
-  armed = { win, timer: setTimeout(disarmWalletPopup, ARM_MS) };
+  armed = { win, site, timer: setTimeout(disarmWalletPopup, ARM_MS) };
 }
 
 // Hand the prepared window to the wallet's next window.open for its own site.
@@ -59,7 +61,8 @@ if (typeof window !== 'undefined' && !window.__kinuPopupBridge) {
   window.__kinuPopupBridge = true;
   const nativeOpen = window.open.bind(window);
   window.open = (url, target, features) => {
-    if (armed && !armed.win.closed && walletOrigin(url)) {
+    // Only the same wallet's own pages reuse the window (a same-site move keeps it "open").
+    if (armed && !armed.win.closed && originOf(url) === armed.site && WALLET_ORIGINS.has(armed.site)) {
       const { win, timer } = armed;
       clearTimeout(timer);
       armed = null;
