@@ -41,7 +41,9 @@ function loadGraph() {
       }
       const byToken = new Map();
       pools
-        .filter((p) => p.state === 'Running' && p.liquidity !== '0')
+        // Whitelist-only pools (e.g. NEAR Intents solver pools) quote like any pool — quotes are
+        // view calls — but reject swaps from other accounts (E407), so they never join a route.
+        .filter((p) => p.state === 'Running' && p.liquidity !== '0' && !(Array.isArray(p.whitelist) && p.whitelist.length > 0))
         .forEach((p) => {
           [p.token_x, p.token_y].forEach((t) => {
             if (!byToken.has(t)) byToken.set(t, []);
