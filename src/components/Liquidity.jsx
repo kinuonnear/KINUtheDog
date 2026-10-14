@@ -31,7 +31,9 @@ import {
   tryParseUnits
 } from '../lib/format.js';
 import { priceOf } from '../lib/tokens.js';
-import { getDegenPoolLimit, getDeposits } from '../lib/rhea.js';
+import { getDegenPoolLimit, getDeposits, getPool } from '../lib/rhea.js';
+import { buildClassicZapTransactions, quoteClassicZap } from '../lib/zap.js';
+import { defaultZapToken, useZapSpendable, ZapInput } from './ZapIn.jsx';
 import { CONTRACTS, NEAR_GAS_RESERVE } from '../config.js';
 import { EmptyState, Spinner, Tabs, TokenIcon } from './ui.jsx';
 import DclCreatePosition from './DclCreatePosition.jsx';
@@ -175,6 +177,7 @@ function AmmAdd({ pool, tokens, onDone }) {
   const { accountId, connect, slippage, execute, balances } = useApp();
   const [inputs, setInputs] = useState(() => pool.tokenIds.map(() => ''));
   const [submitting, setSubmitting] = useState(false);
+  const [zapMode, setZapMode] = useState(false);
   const spendable = useSpendable(pool.tokenIds);
   const raws = inputs.map((v, i) => tryParseUnits(v, tokens[i]?.decimals ?? 0));
   const wrapAmount = useWrapAmount(pool.tokenIds, raws);
@@ -225,6 +228,20 @@ function AmmAdd({ pool, tokens, onDone }) {
 
   return (
     <div className="liq-form">
+      {pool.tokenIds.length === 2 && (
+        <div className="segmented liq-mode">
+          <button type="button" className={!zapMode ? 'active' : ''} onClick={() => setZapMode(false)}>
+            Both tokens
+          </button>
+          <button type="button" className={zapMode ? 'active' : ''} onClick={() => setZapMode(true)}>
+            ⚡ Zap in
+          </button>
+        </div>
+      )}
+      {zapMode ? (
+        <ClassicZap pool={pool} tokens={tokens} onDone={onDone} />
+      ) : (
+        <>
       <p className="liq-hint">Deposit both tokens at the current pool ratio — the second amount fills in automatically.</p>
       {pool.tokenIds.map((id, i) => (
         <AmountField
@@ -261,7 +278,126 @@ function AmmAdd({ pool, tokens, onDone }) {
         submitting={submitting}
         onClick={submit}
       />
+        </>
+      )}
     </div>
+  );
+}
+
+/**
+ * Zap into a classic pool with one token (lib/zap.js quoteClassicZap): the app swaps half its
+ * value into the other side and deposits at the pool ratio, in one wallet request.
+ */
+function ClassicZap({ pool, tokens, onDone }) {
+  const { accountId, connect, slippage, execute, prices } = useApp();
+  const [a, b] = tokens;
+  const [token, setToken] = useState(() => defaultZapToken(a, b));
+  const [text, setText] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const raw = tryParseUnits(text, token.decimals) || '0';
+  const spendable = useZapSpendable(token);
+  const debounced = useDebounced(raw, 450);
+  const quote = useAsync(
+    () => quoteClassicZap({ inputToken: token, amountIn: debounced, pool, tokens, slippage, user: accountId || undefined }),
+    [token.id, debounced, slippage, accountId, pool.amounts.join()],
+    { enabled: toBigInt(debounced) > 0n }
+  );
+  const zap = quote.data;
+  const stale = raw !== debounced;
+  const insufficient = accountId && toBigInt(raw) > spendable;
+  const legs = zap
+    ? [
+        [zap.legA, a],
+        [zap.legB, b]
+      ].filter(([leg]) => leg.kind !== 'none')
+    : [];
+  const depositUsd = zap ? zap.deposit.reduce((s, d, i) => s + toNumber(d, tokens[i].decimals) * priceOf(prices, tokens[i].id), 0) : 0;
+  const inputUsd = toNumber(raw, token.decimals) * priceOf(prices, token.id);
+
+  const submit = async () => {
+    if (!accountId) return connect();
+    setSubmitting(true);
+    const ok = await execute(
+      async () => {
+        // Always execute a fresh, user-bound quote on the live pool.
+        const fresh = await getPool(pool.id);
+        const live = await quoteClassicZap({ inputToken: token, amountIn: raw, pool: fresh, tokens, slippage, user: accountId });
+        return buildClassicZapTransactions({ zap: live, inputToken: token, pool: fresh, tokens, slippage, accountId });
+      },
+      { pending: `Zapping ${token.symbol} into ${a.symbol}/${b.symbol}`, success: 'Zap complete — liquidity added' }
+    );
+    setSubmitting(false);
+    if (ok) {
+      setText('');
+      onDone();
+    }
+  };
+
+  const label = !accountId
+    ? 'Connect wallet'
+    : toBigInt(raw) <= 0n
+      ? 'Enter an amount'
+      : insufficient
+        ? `Insufficient ${token.symbol}`
+        : `Zap in ${token.symbol}`;
+
+  return (
+    <>
+      <p className="liq-hint">One token in: half its value is swapped into the other side and both are deposited at the pool ratio.</p>
+      <ZapInput token={token} setToken={setToken} text={text} setText={setText} spendable={spendable} x={a} y={b} />
+      {toBigInt(raw) > 0n &&
+        (quote.loading && !zap ? (
+          <div className="zap-breakdown">
+            <Spinner size={14} /> <span className="muted small">Finding the best route…</span>
+          </div>
+        ) : quote.error ? (
+          <div className="notice notice--error">{quote.error.message || 'Could not route this zap.'}</div>
+        ) : zap ? (
+          <div className="zap-breakdown">
+            <dl className="kv">
+              {legs.map(([leg, t]) => (
+                <div key={t.id}>
+                  <dt>{leg.kind === 'swap' ? `Swap → ${t.symbol}` : leg.kind === 'wrap' ? `Wrap → ${t.symbol}` : `Keep ${t.symbol}`}</dt>
+                  <dd>
+                    {formatRawAmount(leg.amountIn, token.decimals)} {token.symbol}
+                    {leg.kind === 'swap' && (
+                      <small className="muted">
+                        {' '}
+                        → ≥ {formatRawAmount(leg.minOut, t.decimals)} {t.symbol} · {leg.quote.dexs.join(' + ')}
+                      </small>
+                    )}
+                  </dd>
+                </div>
+              ))}
+              <div>
+                <dt>Deposited</dt>
+                <dd>
+                  {formatRawAmount(zap.deposit[0], a.decimals)} {a.symbol} + {formatRawAmount(zap.deposit[1], b.decimals)} {b.symbol}
+                </dd>
+              </div>
+              {inputUsd > 0 && depositUsd > 0 && (
+                <div>
+                  <dt>Deposited value</dt>
+                  <dd>
+                    {formatUsd(depositUsd)} <small className="muted">of {formatUsd(inputUsd)}</small>
+                  </dd>
+                </div>
+              )}
+              <div>
+                <dt>Max slippage</dt>
+                <dd>{slippage}%</dd>
+              </div>
+            </dl>
+            <p className="hint">Deposits use each swap&apos;s guaranteed minimum; any surplus stays in your wallet.</p>
+          </div>
+        ) : null)}
+      <SubmitButton
+        label={label}
+        disabled={accountId && (toBigInt(raw) <= 0n || Boolean(insufficient) || !zap || stale || Boolean(quote.error))}
+        submitting={submitting}
+        onClick={submit}
+      />
+    </>
   );
 }
 

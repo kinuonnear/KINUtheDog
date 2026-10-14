@@ -14,12 +14,13 @@ import { AmmLiquidity, DclLiquidity, StableLiquidity } from '../components/Liqui
 import { DclGroupCard } from '../components/DclPositions.jsx';
 import { useDepositGroups } from '../lib/lpPositions.js';
 import { useDclRange } from '../components/DclCreatePosition.jsx';
-import { fetchTrades } from '../lib/intear.js';
+import { fetchTrades, isQuoteToken } from '../lib/intear.js';
 
 const RangeChart = lazy(() => import('../components/RangeChart.jsx'));
+const SwapChart = lazy(() => import('../components/swap/SwapChart.jsx'));
 import { formatAmount, formatChartPrice, formatPercent, formatRawAmount, formatUsd, shortAccount, toBigInt, toNumber } from '../lib/format.js';
 import { CONTRACTS, ENDPOINTS, NATIVE_NEAR } from '../config.js';
-import { CopyButton, EmptyState, ErrorNotice, PairIcons, Skeleton, Stat, Tabs, TokenIcon } from '../components/ui.jsx';
+import { CopyButton, EmptyState, ErrorNotice, PairIcons, Skeleton, Spinner, Tabs, TokenIcon } from '../components/ui.jsx';
 
 const LIVE_FEES_MS = 15_000; // your positions' claimable fees
 
@@ -121,30 +122,57 @@ function ClassicPool({ poolId, initialTab }) {
     position.reload();
   };
 
+  // Chart: the pool's own candles (GeckoTerminal lists Rhea classic pools as refv1-<id>), the
+  // main token priced against the other one.
+  const [chartBase, chartQuote] = isQuoteToken(tokens[0]?.id) && tokens[1] ? [tokens[1], tokens[0]] : [tokens[0], tokens[1]];
+  const chartPools =
+    tokens.length === 2
+      ? [
+          {
+            address: `refv1-${pool.id}`,
+            name: `${chartBase.symbol} / ${chartQuote.symbol}`,
+            fee: formatPercent(pool.feePercent, pool.feePercent < 0.1 ? 3 : 2),
+            rheaId: String(pool.id),
+            dex: 'rhea-finance',
+            tvl,
+            baseId: chartBase.id,
+            quoteId: chartQuote.id
+          }
+        ]
+      : null;
+
   return (
-    <>
-      <PoolHeader
+    <div className="classic-pool">
+      {/* The same pool bar as CLMM pages: pair, price, live stats and actions in one row. */}
+      <PoolBar
         tokens={tokens}
         label={pool.label}
         feePercent={pool.feePercent}
         idText={`#${pool.id}`}
         rheaUrl={rheaPoolUrl(pool)}
         swapLink={tokens.length >= 2 ? `/swap?from=${tokens[0].id === CONTRACTS.wrapNear ? NATIVE_NEAR.id : tokens[0].id}&to=${tokens[1].id}` : null}
+        price={spot !== null ? { value: spot, x: tokens[0], y: tokens[1] } : null}
+        stats={[
+          tvl < 1 ? { label: 'Total value locked', value: 'Empty pool', hint: 'be the first LP' } : { label: 'Total value locked', value: formatUsd(tvl) },
+          { label: '24h volume', value: stats.data ? formatUsd(stats.data.volume24h) : '-' },
+          { label: '24h fees', value: stats.data ? formatUsd(stats.data.feeVolume24h) : '-' },
+          { label: '24h fees / TVL', value: stats.data && tvl >= 1 ? formatPercent((stats.data.feeVolume24h / tvl) * 100) : '-' },
+          { label: 'Trading fee', value: formatPercent(pool.feePercent, pool.feePercent < 0.1 ? 3 : 2) },
+          {
+            label: 'Fee APR',
+            value: stats.data ? <AprValue apr={stats.data.apy} tokenIds={pool.tokenIds} estimated={stats.data.apyEstimated} /> : '-',
+            accent: true
+          }
+        ]}
       />
-
-      <div className="stats-row">
-        <Stat label="TVL" value={tvl < 1 ? 'Empty pool' : formatUsd(tvl)} hint={tvl < 1 ? 'be the first LP' : undefined} />
-        <Stat label="Volume 24h" value={stats.data ? formatUsd(stats.data.volume24h) : '—'} loading={stats.loading} />
-        <Stat label="Fee APR" value={stats.data ? <AprValue apr={stats.data.apy} tokenIds={pool.tokenIds} estimated={stats.data.apyEstimated} /> : '—'} loading={stats.loading} />
-        <Stat
-          label="Price"
-          value={spot !== null ? `${formatAmount(spot)} ${tokens[1].symbol}` : '—'}
-          hint={spot !== null ? `per 1 ${tokens[0].symbol}` : pool.label}
-        />
-      </div>
 
       <div className="pool-grid">
         <div className="pool-grid__main">
+          {chartPools && (
+            <Suspense fallback={<div className="card chart-card chart-card--loading"><Spinner size={22} /></div>}>
+              <SwapChart token={chartBase} counter={chartQuote} pools={chartPools} height={380} />
+            </Suspense>
+          )}
           <section className="card">
             <h3 className="card-title">Reserves</h3>
             <div className="reserves">
@@ -259,7 +287,7 @@ function ClassicPool({ poolId, initialTab }) {
         </aside>
       </div>
       <MobileAddCta targetId="pool-liquidity" />
-    </>
+    </div>
   );
 }
 
@@ -645,7 +673,7 @@ function PoolTrades({ poolId, x, y }) {
 /* ------------------------------------------------------------------ */
 
 /** Compact Meteora-style pool bar: pair, type, fee and live stats in one row. */
-function PoolBar({ tokens, label, feePercent, rheaUrl, swapLink, stats, price }) {
+function PoolBar({ tokens, label, feePercent, rheaUrl, swapLink, stats, price, idText }) {
   const [flipped, setFlipped] = useState(false);
   return (
     <header className="pool-bar card">
@@ -658,6 +686,7 @@ function PoolBar({ tokens, label, feePercent, rheaUrl, swapLink, stats, price })
           <strong>{tokens.map((t) => t.symbol).join(' / ')}</strong>
           <small>
             <span className={`kind kind--${label.toLowerCase()}`}>{label}</span> {formatPercent(feePercent, feePercent < 0.1 ? 3 : 2)} fee
+            {idText && <span className="mono"> · {idText}</span>}
           </small>
         </div>
       </div>
@@ -693,37 +722,6 @@ function PoolBar({ tokens, label, feePercent, rheaUrl, swapLink, stats, price })
         <a className="button button--ghost button--sm" href={rheaUrl} target="_blank" rel="noopener noreferrer">
           Rhea {'\u2197'}
         </a>
-      </div>
-    </header>
-  );
-}
-
-function PoolHeader({ tokens, label, feePercent, idText, rheaUrl, swapLink }) {
-  return (
-    <header className="pool-head">
-      <Link to={poolsReturnPath()} className="back-link">
-        ← All pools
-      </Link>
-      <div className="pool-head__main">
-        <PairIcons tokens={tokens} size={44} />
-        <div>
-          <h1>{tokens.map((t) => t.symbol).join(' / ')}</h1>
-          <div className="pool-head__meta">
-            <span className={`kind kind--${label.toLowerCase()}`}>{label}</span>
-            <span>{formatPercent(feePercent, feePercent < 0.1 ? 3 : 2)} fee</span>
-            <span className="mono">{idText}</span>
-          </div>
-        </div>
-        <div className="pool-head__actions">
-          {swapLink && (
-            <Link to={swapLink} className="button button--ghost">
-              Swap
-            </Link>
-          )}
-          <a className="button button--ghost" href={rheaUrl} target="_blank" rel="noopener noreferrer">
-            Rhea ↗
-          </a>
-        </div>
       </div>
     </header>
   );

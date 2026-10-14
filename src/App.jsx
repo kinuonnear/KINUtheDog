@@ -1,26 +1,29 @@
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { Fragment, lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useApp } from './state.jsx';
 import { useClickOutside } from './hooks.js';
 import { Link, matchRoute, useLocation } from './router.jsx';
 import { formatAmount, shortAccount, toNumber } from './lib/format.js';
 import { ENDPOINTS } from './config.js';
-import { EmptyState, Toasts } from './components/ui.jsx';
+import { EmptyState, Spinner, Toasts } from './components/ui.jsx';
 import GlobalSearch from './components/GlobalSearch.jsx';
 import InstallPrompt from './components/InstallPrompt.jsx';
 import Welcome from './pages/Welcome.jsx';
 import Home from './pages/Home.jsx';
-import Swap from './pages/Swap.jsx';
 import Pools from './pages/Pools.jsx';
-import PoolDetail from './pages/PoolDetail.jsx';
-import Portfolio from './pages/Portfolio.jsx';
-import CreatePool from './pages/CreatePool.jsx';
-import StartLp from './pages/StartLp.jsx';
 import MoreMenu from './components/MoreMenu.jsx';
 import RangeAlerts from './components/RangeAlerts.jsx';
-import Security from './pages/Security.jsx';
-import Docs from './pages/Docs.jsx';
-import Discover from './pages/Discover.jsx';
-import Token from './pages/Token.jsx';
+
+// The landing pages (Welcome, Home, Pools) ship in the main bundle; every other page loads its own
+// code when first opened, so a visitor only downloads the pages they use.
+const Swap = lazy(() => import('./pages/Swap.jsx'));
+const PoolDetail = lazy(() => import('./pages/PoolDetail.jsx'));
+const Portfolio = lazy(() => import('./pages/Portfolio.jsx'));
+const CreatePool = lazy(() => import('./pages/CreatePool.jsx'));
+const StartLp = lazy(() => import('./pages/StartLp.jsx'));
+const Security = lazy(() => import('./pages/Security.jsx'));
+const Docs = lazy(() => import('./pages/Docs.jsx'));
+const Discover = lazy(() => import('./pages/Discover.jsx'));
+const Token = lazy(() => import('./pages/Token.jsx'));
 
 // Liquidity first: Pools (and Create) right after Home. Docs and the rest live under More.
 const NAV = [
@@ -205,7 +208,17 @@ export default function App() {
         <AccountMenu />
       </header>
 
-      <main className={FULL_WIDTH_ROUTES.has(route.name) ? 'main main--full' : 'main'}>{page}</main>
+      <main className={FULL_WIDTH_ROUTES.has(route.name) ? 'main main--full' : 'main'}>
+        <Suspense
+          fallback={
+            <div className="page-loading">
+              <Spinner size={22} />
+            </div>
+          }
+        >
+          {page}
+        </Suspense>
+      </main>
 
       {!appView && (
       <footer className="footer">

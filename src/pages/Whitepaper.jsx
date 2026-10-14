@@ -89,16 +89,16 @@ export const WHITEPAPER = (
       head={['Feature', 'What it does', 'Status']}
       rows={[
         ['Smart routes', 'Quotes SmartRouter, direct CLMM (up to 3 hops) and a bridge route side by side; the best output wins', <Live key="a" />],
-        ['Smart LP · Zap In', 'Range on the chart, Spot / Curve / Bid-Ask shapes, open a position from one token in one request', <Live key="b" />],
+        ['Smart LP · Zap In', 'Range on the chart, Spot / Curve / Bid-Ask shapes; open a CLMM position — or join a Classic pool — from one token in one request', <Live key="b" />],
         ['Live-price deposits', 'Follows the pool price, sizes minimums from slippage, “Accept new price” instead of a failed deposit', <Live key="c" />],
         ['Rebalance', 'Moves the whole range (or only out-of-range bins) back around the price: withdraw, swap, reopen', <Live key="d" />],
         ['Portfolio & PnL', 'Token and LP PnL with fees, win rate, closed positions, Rhea deposits, share to X', <Live key="e" />],
-        ['Pools & discovery', 'Every Rhea pool, pool creation, New on Rhea with risk flags, token pages', <Live key="f" />]
+        ['Pools & discovery', 'Every Rhea pool with sortable yields, trending and token age; Discover (top yields, hot pairs, new launches with risk flags); pool creation; token pages; out-of-range alerts', <Live key="f" />]
       ]}
     />
     <p>
       Details for each feature are in these docs: <Link to="/docs/swap">Swap</Link>, <Link to="/docs/smart-lp">Smart LP</Link>,{' '}
-      <Link to="/docs/portfolio">Portfolio</Link>, <Link to="/docs/new-tokens">New on Rhea</Link>.
+      <Link to="/docs/portfolio">Portfolio</Link>, <Link to="/docs/new-tokens">Discover</Link>, <Link to="/docs/pools">Pools</Link> — and <Link to="/start-lp">How to start LP</Link> for a first position.
     </p>
 
     <h3>3. Architecture</h3>
@@ -193,9 +193,9 @@ export const WHITEPAPER = (
     <Table
       head={['Stage', 'Items']}
       rows={[
-        ['Shipped · Oct 2026', 'Smart routes, Smart LP & Zap In, Rebalance, PnL & share to X, pool creation, New on Rhea, token pages, security review, docs'],
+        ['Shipped · Oct 2026', 'Smart routes, Smart LP & Zap In (CLMM and Classic), Rebalance, PnL & share to X, pool creation, Discover, token pages, in-app out-of-range alerts, LP guide, security review, docs'],
         ['Next', 'Rhea referral application, limit orders on Rhea CLMM, KINU/RHEA LP leaderboard, Indonesian language, Telegram community'],
-        ['Later', 'Price and range alerts, embeddable swap widget, platform fee and treasury page, holder features, CSV export']
+        ['Later', 'Price and range alerts while KINU is closed (push), embeddable swap widget, platform fee and treasury page, holder features, CSV export']
       ]}
     />
     <p className="muted small">“Next” and “Later” are plans, not commitments, and have no fixed dates.</p>

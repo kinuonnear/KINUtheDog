@@ -68,7 +68,9 @@ const DOCS = [
           items={[
             ['Swap', 'Best-price swaps: Rhea’s SmartRouter and direct CLMM routes (up to three hops) are quoted side by side.'],
             ['Smart LP', 'Set up concentrated liquidity by dragging a range on the chart, picking a strategy, or zapping in with one token.'],
-            ['Pools', 'Every Rhea pool — AMM, CLMM, ALMM, Stable and Farm — with TVL, volume, fees and APR.'],
+            ['Pools', 'Every Rhea pool — AMM, CLMM, ALMM, Stable and Farm — with TVL, volume, fees, APR and token age.'],
+            ['Discover', 'Top yields, hot pairs, trending tokens, new launches and a live trade feed.'],
+            ['Create', 'Open a new CLMM or Classic pool on Rhea.'],
             ['Portfolio', 'Your tokens, liquidity, PnL and history in one place.']
           ]}
         />
@@ -103,6 +105,10 @@ const DOCS = [
             </>
           ]}
         />
+        <Note title="New to providing liquidity?">
+          <Link to="/start-lp">How to start LP</Link> walks you through your first position in five steps — also linked from the
+          top of the Pools page.
+        </Note>
         <Note kind="warn" title="Stay safe">
           Only use <strong>kinudefi.com</strong>. The KINU team will never DM you first or ask for your seed phrase.
         </Note>
@@ -148,13 +154,29 @@ const DOCS = [
   {
     group: 'Trading',
     slug: 'new-tokens',
-    title: 'New on Rhea & token pages',
-    summary: 'Discover new tokens and check them before you buy.',
+    title: 'Discover & token pages',
+    summary: 'Find yields, hot pairs and new tokens — and check them before you buy.',
     body: (
       <>
         <p>
-          <Link to="/new">New on Rhea</Link> lists the newest tokens launched on Nearly — each one opens a Rhea CLMM pool — with
-          age, price, FDV, liquidity, 24h volume and holders, refreshed every minute.
+          <Link to="/discover">Discover</Link> gathers what is moving on Rhea, one tab each:
+        </p>
+        <Terms
+          items={[
+            ['Top Yields', 'Pools that paid their LPs the most fees per dollar, next to how much the price moved (the impermanent-loss risk).'],
+            ['Hot pairs', 'The most traded pairs over 1h, 6h or 24h.'],
+            ['Trending · Gainers', 'Tokens with the most activity, and the biggest 24h risers.'],
+            ['New launches', 'The newest tokens launched on Nearly, with the facts below.'],
+            ['Live feed · Watchlist', 'Trades as they happen, and the tokens you starred.']
+          ]}
+        />
+        <p>
+          Pool tables show each pool’s <strong>Pair age</strong> (how long ago the pool was created), and every column label
+          sorts — click again to flip the order.
+        </p>
+        <p>
+          <Link to="/discover?tab=new">New launches</Link> lists the newest tokens launched on Nearly — each one opens a Rhea CLMM
+          pool — with age, price, FDV, liquidity, 24h volume and holders, refreshed every minute.
         </p>
         <Terms
           items={[
@@ -191,7 +213,8 @@ const DOCS = [
         <Steps
           items={[
             <>
-              Open a CLMM pool from <Link to="/pools">Pools</Link> and choose <strong>Deposit</strong>.
+              Open a CLMM pool from <Link to="/pools">Pools</Link> (or <strong>+ Add LP</strong> on any row) and use the{' '}
+              <strong>Create position</strong> panel. On a phone, the floating <strong>+ Add liquidity</strong> button jumps to it.
             </>,
             <>
               <strong>Set your range</strong> with a preset or by dragging the edges on the chart.
@@ -271,10 +294,27 @@ const DOCS = [
         />
         <p>
           Each pool shows <strong>TVL</strong>, <strong>volume</strong>, <strong>fees</strong> and <strong>APR</strong> over
-          1h–24h windows. <strong>Top Performers</strong> ranks pools by fees earned, <strong>Hide low TVL</strong> filters
-          out tiny pools, and ☆ adds a pool to your <strong>Favorites</strong>.
+          1h–24h windows, its <strong>24h move</strong> (Calm, Moving or Volatile — the impermanent-loss risk) and the{' '}
+          <strong>Token age</strong> of its main token. Every column label sorts.
         </p>
-        <Note title="APR is backward-looking">Fee APR is based on recent volume. It changes with trading activity and is not a promise.</Note>
+        <Terms
+          items={[
+            ['Views', 'All pools, Favorites (☆), Top Performers (most fees earned), Trending (most trading for their size) and My positions.'],
+            ['Filters', 'Pool type, time window, Hide low TVL and Hide inactive — in the panel on the left (Filters on a phone).'],
+            ['+ Add LP', 'Opens the pool straight at its liquidity form.']
+          ]}
+        />
+        <h3>Classic pools</h3>
+        <p>
+          A Classic (AMM) pool takes both tokens at the pool ratio — or use <strong>⚡ Zap in</strong> with a single token: half
+          its value is swapped into the other side and both are deposited in one wallet request. Deposits use each swap’s
+          guaranteed minimum, so a small remainder may stay in your wallet.
+        </p>
+        <Note title="APR is backward-looking">
+          Fee APR annualises the last 24h of fees (fees ÷ TVL × 365, no compounding). It changes with trading activity and is
+          not a promise. A <strong>≈</strong> before it means Rhea gives no APR for that pool and KINU estimated it from the
+          last 24h of fees.
+        </Note>
       </>
     )
   },
@@ -288,12 +328,18 @@ const DOCS = [
         <Steps
           items={[
             <>
-              Open <Link to="/create-pool">Create pool</Link> and choose <strong>CLMM</strong> (range liquidity) or{' '}
+              Open <Link to="/create-pool">Create</Link> in the top bar and choose <strong>CLMM</strong> (range liquidity) or{' '}
               <strong>Classic</strong> (full range).
             </>,
-            <>Pick the two tokens and a fee tier. Pools that already exist are shown per fee tier, so you never pay to create a duplicate.</>,
-            <>For CLMM, set the <strong>starting price</strong>. Then confirm in your wallet.</>,
-            <>Add liquidity to the new pool from its pool page.</>
+            <>
+              Pick the two tokens and a fee tier. Pools that already exist are shown per fee tier — pick one and{' '}
+              <strong>Go to this pool</strong> takes you there, so you never pay to create a duplicate.
+            </>,
+            <>
+              For CLMM, set the <strong>starting price</strong> (<em>Use market price</em> fills it in). The pool.spec panel
+              shows exactly what will be deployed, and how far your price is from the market.
+            </>,
+            <>Confirm in your wallet, then add liquidity from the new pool’s page.</>
           ]}
         />
         <Terms
@@ -319,7 +365,7 @@ const DOCS = [
           items={[
             ['Tokens', 'Balances with average buy price, unrealized PnL, realized PnL and allocation. Tokens you sold appear under “Sold tokens”.'],
             ['Liquidity', 'Your open positions and the Total LP PnL dashboard: unrealized and realized PnL, fees earned, win rate.'],
-            ['History', 'Closed liquidity positions with their result.'],
+            ['History', 'Closed liquidity positions (newest closed first, with their result and explorer links) and your swaps.'],
             ['Rhea deposits', 'Tokens sitting inside Rhea instead of your wallet (exchange, CLMM balance, lost & found, swap router) — withdraw them here.']
           ]}
         />
@@ -328,11 +374,16 @@ const DOCS = [
           For tokens launched on Nearly, PnL comes from Nearly’s own trade records. For everything else it is rebuilt from your
           on-chain trades. Balances that arrived in other ways (transfers, older history) may not have a known cost.
         </p>
+        <p>
+          Portfolio opens on <strong>Liquidity</strong> when you have positions (else Tokens) and remembers the tab you last
+          picked. Any account can be viewed read-only by typing its name.
+        </p>
         <h3>Share to X</h3>
         <p>
-          On your own portfolio, the ↗ button next to a token’s PnL and the <strong>Share</strong> button on the LP dashboard
-          create a card for X. It never shows your wallet address, and <strong>Hide dollar amounts</strong> shares percentages
-          only.
+          On your own portfolio, the ↗ button next to a token’s PnL and <strong>Share PnL</strong> on the LP dashboard or a
+          position create a card for X, with a choice of backgrounds or your own picture. It never shows your wallet address;{' '}
+          <strong>Hide dollar amounts</strong> shares percentages only, and you can hide the pool or individual details.{' '}
+          <strong>Post on X</strong> copies the image and opens your post — paste it there to attach it.
         </p>
       </>
     )
@@ -402,6 +453,8 @@ const DOCS = [
             ['Why does a deposit attach so much gas?', 'Since Rhea’s October 2026 upgrade a CLMM deposit uses about 420–430 TGas; the terminal attaches 600 TGas so it never runs out. You only pay for the gas used (about 0.04 NEAR) — the rest is refunded.'],
             ['The price moved while I was depositing.', 'Use Accept new price to confirm updated amounts, or widen your slippage in ⚙.'],
             ['Does KINU charge a fee?', 'No platform fee today. Pool fees go to liquidity providers. Any future fee will be shown before you sign.'],
+            ['Why APR and not APY?', 'APR is the last 24h of fees annualised without compounding (fees ÷ TVL × 365). Rhea labels the same number “APY”, but it is not compounded — so KINU calls it APR. A ≈ in front means KINU estimated it because Rhea gives none for that pool.'],
+            ['Why did my position stop earning?', 'A CLMM position earns only while the price is inside its range. While KINU is open it alerts you when a position goes out of range; ⟲ Rebalance moves it back around the current price.'],
             ['Is this financial advice?', 'No. KINU is non-custodial software. DeFi carries risk, including loss of funds — do your own research.']
           ]}
         />

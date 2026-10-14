@@ -9,6 +9,7 @@ import { CONTRACTS } from '../config.js';
 import { buildDclAppendTransactions, buildDclBinsTransactions, planAppend, planBinsByBudget } from './dclLiquidity.js';
 import { buildSwapTransactions, getSwapQuote, measurePriceImpact } from './swap.js';
 import { oneStep } from './rebalance.js';
+import { buildAddLiquidityTransactions } from './liquidity.js';
 import { toBigInt } from './format.js';
 
 const SCALE = 1_000_000n;
@@ -200,5 +201,82 @@ export async function buildZapAppendTransactions({ zap, inputToken, x, y, positi
       wrapY: wrapY.toString()
     }))
   );
+  return txs;
+}
+
+/* ------------------------------------------------------------------ */
+/* Zap into a classic (x·y=k) pool                                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Quote a zap into a two-token classic pool: half the input's value goes to each side (the part
+ * that isn't already that token is swapped), and the deposit follows the pool's ratio from each
+ * swap's guaranteed minimum — the rest stays in the wallet. When a swap may trade through this
+ * same pool it moves the ratio first: the ratio used is the one after that swap, and a move past
+ * the slippage band stops at the quote (the deposit would be refused on-chain).
+ * @param pool    classic pool from getPool() (kind SIMPLE_POOL, two tokens)
+ * @param tokens  the pool's tokens, in pool.tokenIds order
+ */
+export async function quoteClassicZap({ inputToken, amountIn, pool, tokens, slippage, user }) {
+  if (pool.kind !== 'SIMPLE_POOL' || pool.tokenIds.length !== 2) throw new Error('Zap in works with two-token classic pools.');
+  const [a, b] = tokens;
+  let rA = toBigInt(pool.amounts[0]);
+  let rB = toBigInt(pool.amounts[1]);
+  if (rA <= 0n || rB <= 0n) throw new Error('This pool is empty: add both tokens to set its first price.');
+
+  const { toX, toY } = splitAmount(amountIn, 0.5);
+  const [legA, legB] = await Promise.all([
+    quoteLeg({ inputToken, target: a, amount: toX, slippage, user }),
+    quoteLeg({ inputToken, target: b, amount: toY, slippage, user })
+  ]);
+  const pairKey = `${a.id}|${b.id}`;
+  await checkZapImpact([legA, legB], { poolId: pairKey, inputToken, slippage });
+
+  // Input is one of the pool's tokens and its swap may run through this pool: the reserves the
+  // deposit meets are the ones after that swap.
+  if (legB.kind === 'swap' && isSameToken(inputToken, a.id) && routesThrough(legB.quote, pairKey)) {
+    rA += toBigInt(legB.amountIn);
+    rB -= toBigInt(legB.out);
+  } else if (legA.kind === 'swap' && isSameToken(inputToken, b.id) && routesThrough(legA.quote, pairKey)) {
+    rB += toBigInt(legA.amountIn);
+    rA -= toBigInt(legA.out);
+  }
+  if (rA <= 0n || rB <= 0n) throw new Error('This zap is too large for the pool. Try a smaller amount.');
+
+  const haveA = toBigInt(legA.minOut);
+  const haveB = toBigInt(legB.minOut);
+  let depA = haveA;
+  let depB = (haveA * rB) / rA;
+  if (depB > haveB) {
+    depB = haveB;
+    depA = (haveB * rA) / rB;
+  }
+  if (depA <= 0n || depB <= 0n) throw new Error('Amount too small to zap into this pool.');
+
+  return {
+    legA,
+    legB,
+    deposit: [depA.toString(), depB.toString()],
+    user: user || null,
+    fetchedAt: Date.now()
+  };
+}
+
+/** Swaps (if any) followed by the classic add_liquidity, in one wallet request. */
+export async function buildClassicZapTransactions({ zap, inputToken, pool, tokens, slippage, accountId }) {
+  if (zap.user !== accountId) throw new Error('Zap quote is for another account. Refresh and try again.');
+  const txs = [];
+  for (const [legItem, target] of [
+    [zap.legA, tokens[0]],
+    [zap.legB, tokens[1]]
+  ]) {
+    if (legItem.kind === 'swap') {
+      txs.push(...(await buildSwapTransactions({ tokenIn: inputToken, tokenOut: target, quote: legItem.quote, accountId })));
+    }
+  }
+  // Native NEAR kept for the wNEAR side is wrapped right before the deposit.
+  const wrapIndex = [zap.legA, zap.legB].findIndex((legItem) => legItem.kind === 'wrap');
+  const wrapAmount = wrapIndex >= 0 ? zap.deposit[wrapIndex] : '0';
+  txs.push(...(await buildAddLiquidityTransactions({ pool, amounts: zap.deposit, accountId, slippage, wrapAmount })));
   return txs;
 }
