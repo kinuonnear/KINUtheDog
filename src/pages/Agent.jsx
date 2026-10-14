@@ -148,6 +148,73 @@ function PoolRadar({ rows, scanning }) {
   );
 }
 
+/** "What the agent analyzes": the method in plain words, folded under the header. */
+const ANALYZES = [
+  ['Fees vs. pool size', '24h fees paid to LPs ÷ TVL — what $100 of liquidity actually earned today.'],
+  ['The real price swing', 'The biggest move across 1h, 6h and 24h, not just the 24h close: a pool can close flat after a −30% dip, and LPs pay for the dip.'],
+  ['Impermanent loss', 'What that swing cost an LP versus holding. Concentrated (CLMM) pools are judged about 4× stricter, as tight ranges lose faster.'],
+  ['Fee coverage', 'Fees ÷ impermanent loss — the key number. Above 1× the fees out-earned the swing; below 1×, LPs did better just holding.'],
+  ['Momentum & age', 'Whether trading is heating up (last 6h against the daily pace), and whether the pool is brand new.'],
+  ['Your positions', 'In range or not, how close the price is to an edge, unclaimed fees against the position’s value, and the pool’s fee coverage.']
+];
+
+const CALLS = [
+  ['HOLD', 'In range and earning; fees cover the swing.'],
+  ['WATCH', 'Near the edge of your range, or fees no longer cover the swing.'],
+  ['COMPOUND', 'Unclaimed fees worth putting back to work.'],
+  ['REBALANCE', 'Out of range — earning nothing until moved.'],
+  ['ENTER · CONSIDER', 'Fees beat the swing and the pool fits the persona.'],
+  ['AVOID', 'Fees lose to the swing — a yield trap when the APR is high.']
+];
+
+function AgentMethod() {
+  return (
+    <details className="ag-method">
+      <summary>
+        <span aria-hidden>ⓘ</span> What the agent analyzes
+        <small>fees, price swings, impermanent loss, fee coverage — and what it never does</small>
+      </summary>
+      <div className="ag-method__body">
+        <div>
+          <h3>What it looks at</h3>
+          <dl>
+            {ANALYZES.map(([term, text]) => (
+              <div key={term}>
+                <dt>{term}</dt>
+                <dd>{text}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="muted small">
+            Every 90 seconds while this page is open, across the 60 most active Rhea pools and your own positions. Data: Rhea Finance,
+            DexScreener and GeckoTerminal.
+          </p>
+        </div>
+        <div>
+          <h3>What its calls mean</h3>
+          <dl>
+            {CALLS.map(([verdict, text]) => (
+              <div key={verdict}>
+                <dt>
+                  <span className={`ag-verdict ag-verdict--${verdict.split(' ')[0].toLowerCase()}`}>{verdict}</span>
+                </dt>
+                <dd>{text}</dd>
+              </div>
+            ))}
+          </dl>
+          <h3>What it never does</h3>
+          <ul className="ag-method__never">
+            <li>Never holds your funds or keys — it only reads public data.</li>
+            <li>Never trades for you — every action opens in your own wallet, for you to sign.</li>
+            <li>No black box — its calls are rules on live data, and every reason is shown.</li>
+            <li>Not financial advice — it explains, you decide.</li>
+          </ul>
+        </div>
+      </div>
+    </details>
+  );
+}
+
 function Verdict({ verdict }) {
   return <span className={`ag-verdict ag-verdict--${verdict.toLowerCase()}`}>{verdict}</span>;
 }
@@ -276,6 +343,8 @@ export default function Agent() {
         </div>
         </div>
       </header>
+
+      <AgentMethod />
 
       <section className="ag-personas" aria-label="Agent persona">
         {PERSONAS.map((p) => (
