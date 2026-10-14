@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../state.jsx';
 import { useAsync, useDebounced, useLocalStorage } from '../hooks.js';
 import { Link, navigate, poolPath, rememberPoolsPath, useLocation } from '../router.jsx';
@@ -78,10 +78,14 @@ export function PoolRowsSkeleton({ rows = 8 }) {
 const VIEWS = [
   { key: 'all', label: 'All' },
   { key: 'favorites', label: 'Favorites' },
-  { key: 'top', label: 'Top Performers' }
+  { key: 'top', label: 'Top Performers' },
+  { key: 'trending', label: 'Trending' }
 ];
 
+/** Views that rank their own candidates (the most traded pools) instead of paging the API. */
+const RANKED_VIEWS = new Set(['top', 'trending']);
 const TOP_MIN_TVL = 5_000; // ignore dust pools in Top Performers
+const TRENDING_MIN_TVL = 1_000; // Trending: small pools count, dust doesn't
 const TOP_CANDIDATES = 60; // most active pools (24h volume) considered for Top Performers
 const TOP_WINDOWS = new Set(['h6', 'h12', 'h24']); // Top Performers rank by fees over 6–24h
 
@@ -218,6 +222,17 @@ export function SwingValue({ change }) {
   );
 }
 
+/** How long ago the pool's main token was created: 45m, 18h, 12d, 7mo, 3y. Under a week reads as new. */
+function TokenAge({ createdAt, pending }) {
+  if (pending) return <Skeleton width={34} />;
+  const ms = createdAt ? Date.now() - createdAt : NaN;
+  if (!(ms >= 0)) return <span className="muted">—</span>;
+  const h = ms / 3_600_000;
+  const d = h / 24;
+  const text = h < 1 ? `${Math.max(1, Math.round(ms / 60_000))}m` : h < 48 ? `${Math.floor(h)}h` : d < 60 ? `${Math.floor(d)}d` : d < 730 ? `${Math.floor(d / 30.4)}mo` : `${Math.floor(d / 365)}y`;
+  return <span className={d < 7 ? 'dt-age--new' : ''}>{text}</span>;
+}
+
 // "Your LP" badge: whether your CLMM positions in the pool are earning fees right now.
 const MINE_LABEL = { in: 'In range', out: 'Out of range', partial: 'Partly in range' };
 const MINE_HINT = {
@@ -279,6 +294,9 @@ function DiscoverRow({ rank, pool, tokens, prices, info, stat, estimated, favori
           </small>
         </span>
       </span>
+      <span className="dt-num dt-age" data-label="Token age" title={info?.createdAt ? `${base?.symbol} created ${new Date(info.createdAt).toLocaleDateString()}` : undefined}>
+        <TokenAge createdAt={info?.createdAt} pending={info === undefined} />
+      </span>
       <span className="dt-num" data-label="Pool price">
         {poolPrice !== null ? (
           <>
@@ -303,6 +321,22 @@ function DiscoverRow({ rank, pool, tokens, prices, info, stat, estimated, favori
       </span>
       <span className="dt-num dt-apr" data-label="APR">
         <AprValue apr={pool.apy + pool.farmApy} move={info?.change24h} />
+        <AprMeter apr={pool.apy + pool.farmApy} />
+      </span>
+      {/* The row is a link, so the quick action is a button (no link inside a link). */}
+      <span className="dt-action">
+        <button
+          type="button"
+          className="dt-add"
+          title="Open the pool at its add-liquidity form"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            navigate(`${poolPath(pool.id)}?tab=add`);
+          }}
+        >
+          + Add LP
+        </button>
       </span>
     </Link>
   );
@@ -316,55 +350,70 @@ const GLANCE_TYPES = [
   { key: 'almm', label: 'ALMM' }
 ];
 
-/** Header card: Rhea-wide numbers, TVL by pool type and today's top fee earner. */
-function RheaGlance({ ready, totals }) {
-  const skeleton = <Skeleton width={80} height={20} />;
+/** Header monitor: Rhea-wide numbers (24h), TVL by pool type and today's top fee earner. */
+function PoolsMonitor({ ready, totals }) {
+  const skeleton = <Skeleton width={80} height={22} />;
   const top = totals.topFees;
   const metrics = [
-    { label: 'Total value locked', value: formatUsd(totals.tvl) },
-    { label: '24h volume', value: formatUsd(totals.volume), hint: totals.tvl > 0 && `${((totals.volume / totals.tvl) * 100).toFixed(0)}% of TVL traded` },
-    { label: '24h fees to LPs', value: formatUsd(totals.fees), accent: true },
-    { label: 'Avg. daily yield', value: totals.tvl > 0 ? formatPercent((totals.fees / totals.tvl) * 100, 3) : '—', hint: `${totals.pools.toLocaleString()} active pools` }
+    { key: 'tvl', label: 'Total value locked', value: formatUsd(totals.tvl) },
+    { key: 'vol', label: 'Volume 24h', value: formatUsd(totals.volume), hint: totals.tvl > 0 && `${((totals.volume / totals.tvl) * 100).toFixed(0)}% of TVL traded` },
+    { key: 'fees', label: 'Fees to LPs 24h', value: formatUsd(totals.fees), accent: true },
+    { key: 'yield', label: 'Avg. daily yield', value: totals.tvl > 0 ? formatPercent((totals.fees / totals.tvl) * 100, 3) : '—', hint: `${totals.pools.toLocaleString()} active pools` }
   ];
   return (
-    <section className="glance card" aria-label="Rhea at a glance, last 24 hours">
+    <section className="pt-monitor" aria-label="Rhea at a glance, last 24 hours">
       {metrics.map((m) => (
-        <div className="glance__metric" key={m.label}>
+        <div className="pt-tile" key={m.key}>
           <span>{m.label}</span>
           <strong className={m.accent ? 'up' : ''}>{ready ? m.value : skeleton}</strong>
-          {ready && m.hint && <small>{m.hint}</small>}
+          <small>{ready && m.hint ? m.hint : ' '}</small>
         </div>
       ))}
-      <div className="glance__split">
-        <span className="glance__label">
-          TVL by pool type
-          <span className="glance__live">
-            <i /> Live · 24h
-          </span>
-        </span>
-        <div className="glance__bar" aria-hidden="true">
+      <div className="pt-tile pt-tile--split">
+        <span>TVL by pool type</span>
+        <div className="pt-split" aria-hidden="true">
           {ready &&
             totals.byType.map((t) => (
-              <i key={t.key} className={`glance__seg glance__seg--${t.key}`} style={{ width: `${totals.tvl > 0 ? (t.tvl / totals.tvl) * 100 : 0}%` }} />
+              <i key={t.key} className={`pt-seg pt-seg--${t.key}`} style={{ width: `${totals.tvl > 0 ? (t.tvl / totals.tvl) * 100 : 0}%` }} />
             ))}
         </div>
-        <div className="glance__legend">
+        <div className="pt-legend">
           {totals.byType.map((t) => (
             <span key={t.key}>
-              <i className={`glance__dot glance__seg--${t.key}`} />
+              <i className={`pt-seg pt-seg--${t.key}`} />
               {t.label} <b>{ready && totals.tvl > 0 ? `${((t.tvl / totals.tvl) * 100).toFixed(0)}%` : '—'}</b>
             </span>
           ))}
         </div>
         {ready && top && (
-          <Link to={poolPath(top.id)} className="glance__top">
-            <span>Most fees today</span>
+          <Link to={poolPath(top.id)} className="pt-top">
+            <span>Top fees today</span>
             <strong>{top.symbols.join(' / ')}</strong>
             <b className="up">{formatUsd(top.feeVolume24h)}</b>
             <em aria-hidden="true">→</em>
           </Link>
         )}
       </div>
+    </section>
+  );
+}
+
+/** APR as a meter: log scale, full at 100% so ordinary yields still show. */
+function AprMeter({ apr }) {
+  const width = Number.isFinite(apr) && apr > 0 ? Math.min(1, Math.log10(1 + apr) / 2) * 100 : 0;
+  return (
+    <i className={`apr-meter ${apr >= 100 ? 'apr-meter--hot' : ''}`} aria-hidden="true">
+      <b style={{ width: `${width}%` }} />
+    </i>
+  );
+}
+
+/** A sidebar section with a terminal-style heading. */
+function SideSection({ title, children }) {
+  return (
+    <section className="pt-side__section">
+      <h3>{title}</h3>
+      {children}
     </section>
   );
 }
@@ -400,6 +449,27 @@ export default function Pools() {
   const [hideInactive, setHideInactive] = useLocalStorage('kinu.pools.hideInactive', true);
   const [query, setQuery] = useState(() => search.get('q') || '');
   const [pages, setPages] = useState(1);
+  const [filtersOpen, setFiltersOpen] = useState(false); // phones: the sidebar folds into a "Filters" button
+  // The sidebar sticks just below the sticky stats band, whose height changes with the layout.
+  const bandRef = useRef(null);
+  const measureBand = () => {
+    const band = bandRef.current;
+    if (band) band.parentElement?.style.setProperty('--pt-band-h', `${band.offsetHeight}px`);
+  };
+  useEffect(() => {
+    const band = bandRef.current;
+    if (!band) return undefined;
+    // ResizeObserver where it runs; window resizes (and the data load below) as a fallback.
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measureBand) : null;
+    observer?.observe(band);
+    window.addEventListener('resize', measureBand);
+    measureBand();
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', measureBand);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [favorites, setFavorites] = useLocalStorage('kinu.pool.favorites', []);
   const q = useDebounced(query.trim().toLowerCase(), 300);
   const windowLabel = WINDOWS.find((w) => w.key === windowKey)?.label || '24H';
@@ -413,6 +483,9 @@ export default function Pools() {
 
   // Overall stats for the header (top pools by TVL).
   const overview = useAsync(() => searchPools({ limit: 300, hideLow: true }), [], { refreshMs: 120_000 });
+  // The stats band changes height once its numbers arrive.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(measureBand, [Boolean(overview.data)]);
   const totals = useMemo(() => {
     const list = overview.data?.list || [];
     const byType = GLANCE_TYPES.map((t) => ({ ...t, tvl: list.filter((p) => p.label === t.label).reduce((s, p) => s + p.tvl, 0) }));
@@ -426,10 +499,20 @@ export default function Pools() {
     };
   }, [overview.data]);
 
-  // TVL / APR (and 24H volume) sort through the Rhea API; window volume / fees sort client-side.
+  // Top Performers / Trending show their own ranking ('rank') until a column header is clicked.
+  const ranked = RANKED_VIEWS.has(view);
+  useEffect(() => {
+    if (ranked) setSort('rank');
+    else setSort((s) => (s === 'rank' ? 'tvl' : s));
+  }, [ranked]);
+
+  // TVL / APR (and 24H volume) sort through the Rhea API; window volume / fees, the 24h move and
+  // token age sort client-side.
   const apiSortable = sort === 'tvl' || sort === 'apy' || (sort === 'volume' && windowKey === 'h24');
   const apiSort = sort === 'volume' ? 'volume_24h' : apiSortable ? sort : 'tvl';
-  const limit = q ? 300 : view === 'top' ? TOP_CANDIDATES : apiSortable ? PAGE_SIZE * pages : 100;
+  const limit = q ? 300 : ranked ? TOP_CANDIDATES : apiSortable ? PAGE_SIZE * pages : 100;
+  // NEAR account ids contain a dot; bridged tokens are 64-hex implicit accounts.
+  const tokenQuery = q && (q.includes('.') || /^[0-9a-f]{64}$/.test(q)) ? q : '';
   const favKey = favorites.slice().sort().join(',');
   const result = useAsync(
     () => {
@@ -441,13 +524,25 @@ export default function Pools() {
         if (!mineIds.length) return Promise.resolve({ list: [], total: 0 });
         return searchPools({ poolIds: mineKey, hideLow: false, limit: mineIds.length });
       }
-      if (view === 'top') {
-        // The most actively traded pools are the fee leaders; rank them by window fees below.
+      if (ranked) {
+        // The most actively traded pools: Top Performers ranks them by window fees, Trending by
+        // window volume against their size (below).
         return searchPools({ type: tab.type, labels: tab.labels || '', sort: 'volume_24h', order: 'desc', limit, hideLow: true });
       }
-      return searchPools({ type: tab.type, labels: tab.labels || '', sort: apiSort, order, limit, offset: 0, hideLow: q ? false : hideLow });
+      // A token address (from a "Add LP" link) asks Rhea for that token's pools, small ones included;
+      // anything else filters the largest pools below.
+      return searchPools({
+        type: tab.type,
+        labels: tab.labels || '',
+        sort: apiSort,
+        order,
+        limit,
+        offset: 0,
+        hideLow: q ? false : hideLow,
+        ...(tokenQuery ? { tokenList: tokenQuery } : {})
+      });
     },
-    [view, category, apiSort, order, limit, hideLow, Boolean(q), view === 'favorites' ? favKey : view === 'mine' ? mineKey : ''],
+    [view, category, apiSort, order, limit, hideLow, Boolean(q), tokenQuery, view === 'favorites' ? favKey : view === 'mine' ? mineKey : ''],
     { refreshMs: 60_000 }
   );
 
@@ -459,6 +554,7 @@ export default function Pools() {
     // My positions lists every pool you are in, whatever its type.
     if (view === 'favorites') list = list.filter((p) => matchesCategory(p, category));
     if (view === 'top') list = list.filter((p) => p.tvl >= TOP_MIN_TVL);
+    if (view === 'trending') list = list.filter((p) => p.tvl >= TRENDING_MIN_TVL);
     if (view === 'all' && hideInactive && !q) list = list.filter((p) => p.volume24h > 0);
     if (q) {
       list = list
@@ -473,20 +569,40 @@ export default function Pools() {
   const pools = useMemo(() => {
     let list = baseRows;
     const statValue = (p, field) => stats[p.id]?.[field] ?? -1;
-    if (view === 'top') {
-      list = [...list].sort((a, b) => statValue(b, 'fees') - statValue(a, 'fees')).slice(0, PAGE_SIZE * pages);
-    } else if (!apiSortable || view === 'favorites' || view === 'mine') {
+    if (ranked) {
+      // Trending: the most trading for the pool's size (volume ÷ TVL) in the window.
+      const rank = (p) => (view === 'trending' ? (p.tvl > 0 ? statValue(p, 'volume') / p.tvl : -1) : statValue(p, 'fees'));
+      list = [...list].sort((a, b) => rank(b) - rank(a)).slice(0, PAGE_SIZE * pages);
+    }
+    if (sort !== 'rank' && sort !== 'move' && sort !== 'age' && (ranked || !apiSortable || view === 'favorites' || view === 'mine')) {
       const value = (p) =>
         sort === 'fees' ? statValue(p, 'fees') : sort === 'volume' ? statValue(p, 'volume') : sort === 'apy' ? p.apy + p.farmApy : p.tvl;
       list = [...list].sort((a, b) => (order === 'desc' ? value(b) - value(a) : value(a) - value(b)));
     }
     return list;
-  }, [baseRows, stats, view, sort, order, pages, apiSortable]);
+  }, [baseRows, stats, view, ranked, sort, order, pages, apiSortable]);
 
   const tokensOf = usePoolTokens(pools);
-  const rowTokens = pools.map((p) => tokensOf(p));
   const baseIdOf = (tokens) => (baseQuote(tokens)[0]?.id || '').replace(/^near$/, 'wrap.near');
-  const infos = useBaseTokenInfo([...new Set(rowTokens.map(baseIdOf).filter(Boolean))]);
+  const infos = useBaseTokenInfo([...new Set(pools.map((p) => baseIdOf(tokensOf(p))).filter(Boolean))]);
+  // The 24h move and token age come from each row's market data: sorted once it is in
+  // (rows still loading go last).
+  const rows = useMemo(() => {
+    if (sort !== 'move' && sort !== 'age') return pools;
+    const value = (p) => {
+      const info = infos[baseIdOf(tokensOf(p))];
+      const v = sort === 'move' ? info?.change24h : info?.createdAt ? Date.now() - info.createdAt : null;
+      return Number.isFinite(v) ? v : null;
+    };
+    return [...pools].sort((a, b) => {
+      const va = value(a);
+      const vb = value(b);
+      if (va === null || vb === null) return va === null ? (vb === null ? 0 : 1) : -1;
+      return order === 'desc' ? vb - va : va - vb;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pools, infos, sort, order]);
+  const rowTokens = rows.map((p) => tokensOf(p));
   const total = result.data?.total ?? 0;
   const loadingWindow = windowKey !== 'h24' && baseRows.some((p) => stats[p.id] === undefined);
 
@@ -494,119 +610,187 @@ export default function Pools() {
     if (sort === key) setOrder(order === 'desc' ? 'asc' : 'desc');
     else {
       setSort(key);
-      setOrder('desc');
+      // Token age: newest first on the first click.
+      setOrder(key === 'age' ? 'asc' : 'desc');
     }
   };
-  const sortHeader = (key, label) => (
-    <button type="button" className={`th-sort ${sort === key && view !== 'top' ? 'th-sort--active' : ''}`} onClick={() => toggleSort(key)} disabled={view === 'top'}>
+  const sortHeader = (key, label, title) => (
+    <button
+      type="button"
+      className={`th-sort ${sort === key ? 'th-sort--active' : ''}`}
+      onClick={() => toggleSort(key)}
+      title={title || `Sort by ${label}`}
+      aria-sort={sort === key ? (order === 'desc' ? 'descending' : 'ascending') : undefined}
+    >
       {label}
-      {sort === key && view !== 'top' && <span aria-hidden>{order === 'desc' ? ' ↓' : ' ↑'}</span>}
+      <span aria-hidden className="th-sort__arrow">
+        {sort === key ? (order === 'desc' ? '↓' : '↑') : '↕'}
+      </span>
     </button>
   );
 
   // Counted before the inactive filter: the API pages through every pool.
   const fetched = result.data?.list?.length ?? 0;
   const canLoadMore = view === 'all' && !q && apiSortable && fetched < total && fetched >= PAGE_SIZE * pages;
-  const canLoadMoreTop = view === 'top' && baseRows.length > pools.length;
+  const canLoadMoreTop = ranked && baseRows.length > pools.length;
+
+  const typeShare = (key) => {
+    const t = totals.byType.find((x) => x.key === key);
+    return t && totals.tvl > 0 ? (t.tvl / totals.tvl) * 100 : null;
+  };
+  const sideViews = [
+    ...VIEWS.map((v) => ({ ...v, icon: v.key === 'favorites' ? '☆' : v.key === 'top' ? '↗' : v.key === 'trending' ? '⚡︎' : '◇', count: v.key === 'favorites' ? favorites.length : null })),
+    { key: 'mine', label: 'My positions', icon: '◎', count: accountId && mine.data ? mineIds.length : null }
+  ];
+  const pickView = (key) => {
+    if (key === 'mine') {
+      if (!accountId) return connect();
+      setCategory('all');
+    }
+    setView(key);
+  };
 
   return (
-    <div className="page page--discover">
-      <header className="discover-head">
-        <div>
-          <span className="eyebrow">Rhea Finance · NEAR</span>
-          <h1>Liquidity pools</h1>
-          <p>Live TVL, volume, fees and APR for every Rhea pool. Provide liquidity to earn trading fees.</p>
-        </div>
-        <RheaGlance ready={Boolean(overview.data)} totals={totals} />
+    <div className="page page--discover page--pools">
+      <header className="pt-hero">
+        <h1 className="pt-title">Pools</h1>
+        <p>Find a Pool, Manage Liquidity Made Simple in One Click.</p>
       </header>
-
-      <nav className="view-tabs" aria-label="Pool views">
-        {VIEWS.map((v) => (
-          <button key={v.key} type="button" className={view === v.key ? 'active' : ''} onClick={() => setView(v.key)}>
-            {v.key === 'favorites' && <span aria-hidden>★ </span>}
-            {v.key === 'top' && <span aria-hidden>🔥 </span>}
-            {v.label}
-            {v.key === 'favorites' && favorites.length > 0 && <em>{favorites.length}</em>}
-          </button>
-        ))}
-      </nav>
-
-      <div className="toolbar toolbar--discover">
-        <div className="category-chips" role="tablist" aria-label="Pool type">
-          {POOL_TYPES.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              role="tab"
-              aria-selected={category === t.key && view !== 'mine'}
-              className={category === t.key && view !== 'mine' ? 'active' : ''}
-              onClick={() => {
-                setCategory(t.key);
-                // A pool type applies to the full list: leave My positions.
-                if (view === 'mine') setView('all');
-              }}
-            >
-              {t.key === 'all' ? 'All types' : t.label}
-            </button>
-          ))}
-          <button
-            type="button"
-            className={`my-positions-chip ${view === 'mine' ? 'active' : ''}`}
-            onClick={() => {
-              if (!accountId) return connect();
-              if (view !== 'mine') setCategory('all');
-              setView((v) => (v === 'mine' ? 'all' : 'mine'));
-            }}
-            title={accountId ? 'Pools where you provide liquidity' : 'Connect your wallet to see your positions'}
-          >
-            <span aria-hidden>◎</span> My positions
-            {accountId && mine.data && <em>{mineIds.length}</em>}
-          </button>
-        </div>
-        <div className="toolbar__right">
-          <div className="segmented window-picker" role="radiogroup" aria-label="Time window">
-            {WINDOWS.map((w) => {
-              const disabled = view === 'top' && !TOP_WINDOWS.has(w.key);
-              return (
-                <button
-                  key={w.key}
-                  type="button"
-                  role="radio"
-                  aria-checked={windowKey === w.key}
-                  className={windowKey === w.key ? 'active' : ''}
-                  disabled={disabled}
-                  title={disabled ? 'Top Performers rank by 6H–24H fees' : `Volume and fees over the last ${w.hours}h`}
-                  onClick={() => setWindowKey(w.key)}
-                >
-                  {w.label}
-                </button>
-              );
-            })}
-          </div>
-          <div className="search-field">
-            <span aria-hidden>⌕</span>
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Filter token, symbol or pool id" spellCheck={false} />
-          </div>
-          {view === 'all' && (
-            <label className="checkbox">
-              <input type="checkbox" checked={hideLow} onChange={(e) => setHideLow(e.target.checked)} disabled={Boolean(q)} />
-              Hide low TVL
-            </label>
-          )}
-          {view === 'all' && (
-            <label className="checkbox" title="Hide pools with no trades in the last 24h: they earn their LPs nothing">
-              <input type="checkbox" checked={hideInactive} onChange={(e) => setHideInactive(e.target.checked)} disabled={Boolean(q)} />
-              Hide inactive
-            </label>
-          )}
-        </div>
+      {/* The title scrolls away; the stats band stays under the top bar and the list passes under it. */}
+      <div className="pt-band" ref={bandRef}>
+        <PoolsMonitor ready={Boolean(overview.data)} totals={totals} />
       </div>
+
+      <div className="pt-layout">
+        <aside className={`pt-side ${filtersOpen ? 'pt-side--open' : ''}`}>
+          <button type="button" className="pt-side__toggle" onClick={() => setFiltersOpen((o) => !o)} aria-expanded={filtersOpen}>
+            <span>⚙ Filters</span>
+            <small>
+              {sideViews.find((v) => v.key === view)?.label} · {view === 'mine' || tab.key === 'all' ? 'All types' : tab.label} · {windowLabel}
+            </small>
+            <em aria-hidden>{filtersOpen ? '▴' : '▾'}</em>
+          </button>
+          <div className="pt-side__body">
+            <SideSection title="VIEW">
+              <div className="pt-list" role="radiogroup" aria-label="Pool views">
+                {sideViews.map((v) => (
+                  <button
+                    key={v.key}
+                    type="button"
+                    role="radio"
+                    aria-checked={view === v.key}
+                    className={`pt-item ${view === v.key ? 'pt-item--on' : ''}`}
+                    onClick={() => pickView(v.key)}
+                    title={v.key === 'mine' && !accountId ? 'Connect your wallet to see your positions' : undefined}
+                  >
+                    <span aria-hidden className="pt-item__icon">
+                      {v.icon}
+                    </span>
+                    {v.label}
+                    {v.count > 0 && <em>{v.count}</em>}
+                  </button>
+                ))}
+              </div>
+            </SideSection>
+
+            <SideSection title="POOL TYPE">
+              <div className="pt-list" role="radiogroup" aria-label="Pool type">
+                {POOL_TYPES.map((t) => {
+                  const share = typeShare(t.key);
+                  const on = category === t.key && view !== 'mine';
+                  return (
+                    <button
+                      key={t.key}
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      className={`pt-item ${on ? 'pt-item--on' : ''}`}
+                      onClick={() => {
+                        setCategory(t.key);
+                        // A pool type applies to the full list: leave My positions.
+                        if (view === 'mine') setView('all');
+                      }}
+                      title={t.hint}
+                    >
+                      <span className={`pt-dot pt-seg--${t.key}`} aria-hidden />
+                      {t.key === 'all' ? 'All types' : t.label}
+                      {share !== null && <small>{share.toFixed(0)}% TVL</small>}
+                    </button>
+                  );
+                })}
+              </div>
+            </SideSection>
+
+            <SideSection title="TIME WINDOW">
+              <div className="segmented window-picker pt-window" role="radiogroup" aria-label="Time window">
+                {WINDOWS.map((w) => {
+                  const disabled = view === 'top' && !TOP_WINDOWS.has(w.key);
+                  return (
+                    <button
+                      key={w.key}
+                      type="button"
+                      role="radio"
+                      aria-checked={windowKey === w.key}
+                      className={windowKey === w.key ? 'active' : ''}
+                      disabled={disabled}
+                      title={disabled ? 'Top Performers rank by 6H–24H fees' : `Volume and fees over the last ${w.hours}h`}
+                      onClick={() => setWindowKey(w.key)}
+                    >
+                      {w.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </SideSection>
+
+            <SideSection title="FILTERS">
+              <label className={`pt-switch ${view !== 'all' || q ? 'pt-switch--off' : ''}`}>
+                <input type="checkbox" checked={hideLow} onChange={(e) => setHideLow(e.target.checked)} disabled={view !== 'all' || Boolean(q)} />
+                <i aria-hidden />
+                Hide low TVL
+              </label>
+              <label
+                className={`pt-switch ${view !== 'all' || q ? 'pt-switch--off' : ''}`}
+                title="Hide pools with no trades in the last 24h: they earn their LPs nothing"
+              >
+                <input type="checkbox" checked={hideInactive} onChange={(e) => setHideInactive(e.target.checked)} disabled={view !== 'all' || Boolean(q)} />
+                <i aria-hidden />
+                Hide inactive
+              </label>
+              {view !== 'all' && <small className="muted">Filters apply to the All pools view.</small>}
+            </SideSection>
+          </div>
+        </aside>
+
+        <div className="pt-main">
+          {/* Searching lives in the navbar; a filter opened from a link (/pools?q=…) shows here so it can be cleared. */}
+          {query && (
+            <div className="pt-filter">
+              <span>
+                Filtered by <b>{query.length > 24 ? `${query.slice(0, 10)}…${query.slice(-8)}` : query}</b>
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setQuery('');
+                  const params = new URLSearchParams(window.location.search);
+                  params.delete('q');
+                  navigate(`/pools${params.toString() ? `?${params}` : ''}`, { replace: true });
+                }}
+                aria-label="Clear filter"
+              >
+                ✕
+              </button>
+            </div>
+          )}
 
       <p className="type-hint">
         <span className={`kind kind--${view === 'mine' ? 'all' : tab.key}`}>{tab.key === 'all' || view === 'mine' ? 'All types' : tab.label}</span>
         {view === 'top'
           ? `Pools that earned the most fees in the last ${windowLabel} (TVL ≥ ${formatUsd(TOP_MIN_TVL)}).`
-          : view === 'favorites'
+          : view === 'trending'
+            ? `Pools trading the most for their size in the last ${windowLabel} (volume ÷ TVL, TVL ≥ ${formatUsd(TRENDING_MIN_TVL)}).`
+            : view === 'favorites'
             ? 'Pools you starred. Tap ☆ on any row to add it here.'
             : view === 'mine'
               ? 'Pools where you provide liquidity. Open one to see and manage your positions.'
@@ -629,27 +813,27 @@ export default function Pools() {
           <div className="dt-row dt-row--head">
             <span>#</span>
             <span>Pool</span>
+            <span className="dt-num">{sortHeader('age', 'Token age', 'Sort by the age of the pool’s main token')}</span>
             <span className="dt-num">Pool price</span>
-            <span className="dt-num" title="24h price move: the impermanent-loss risk for LPs">
-              24h move
-            </span>
+            <span className="dt-num">{sortHeader('move', '24h move', '24h price move: the impermanent-loss risk for LPs')}</span>
             <span className="dt-num">{sortHeader('tvl', 'TVL')}</span>
             <span className="dt-num">{sortHeader('volume', `Volume ${windowLabel}`)}</span>
-            <span className="dt-num">{view === 'top' ? `Fees ${windowLabel} ↓` : sortHeader('fees', `Fees ${windowLabel}`)}</span>
+            <span className="dt-num">{sortHeader('fees', `Fees ${windowLabel}`)}</span>
             <span className="dt-num">{sortHeader('apy', 'APR')}</span>
+            <span aria-hidden />
           </div>
           {result.loading && !result.data ? (
             Array.from({ length: 8 }, (_, i) => (
               <div className="dt-row" key={i}>
                 <Skeleton width={28} />
                 <Skeleton width="60%" height={18} />
-                {Array.from({ length: 6 }, (__, j) => (
-                  <Skeleton key={j} width={64} />
+                {Array.from({ length: 7 }, (__, j) => (
+                  <Skeleton key={j} width={56} />
                 ))}
               </div>
             ))
-          ) : pools.length ? (
-            pools.map((pool, i) => (
+          ) : rows.length ? (
+            rows.map((pool, i) => (
               <DiscoverRow
                 key={pool.id}
                 rank={i + 1}
@@ -696,6 +880,8 @@ export default function Pools() {
           </button>
         </div>
       )}
+        </div>
+      </div>
     </div>
   );
 }

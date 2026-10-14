@@ -87,6 +87,8 @@ async function loadTokenInfo(tokenId) {
     liquidityUsd: Number(info?.liquidity_usd) || 0,
     volume24hUsd: Number(info?.volume_usd_24h) || 0,
     holders: Number(info?.holders) || null,
+    // When the token contract was created (ms); 0 / missing when unknown.
+    createdAt: Number(info?.created_at_millis) || null,
     mainPoolUrl: info?.main_pool_url || null
   };
 }
