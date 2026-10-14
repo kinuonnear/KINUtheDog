@@ -11,10 +11,11 @@ import {
   signOut
 } from './lib/wallet.js';
 import { armWalletPopup, disarmWalletPopup } from './lib/walletPopup.js';
-import { backgroundRefreshAllowed, beginWalletRequest } from './lib/walletActivity.js';
+import { backgroundRefreshAllowed, beginWalletRequest, CHAIN_UPDATED_EVENT } from './lib/walletActivity.js';
 import { getAllBalances, getFtBalance, getPrices } from './lib/tokens.js';
 import { clearViewCache } from './lib/rpc.js';
-import { explainRecentFailure, GENERIC_RECEIPT_FAILURE } from './lib/txErrors.js';
+import { explainRecentFailure, GENERIC_RECEIPT_FAILURE, landedSince, WALLET_NETWORK_ERROR } from './lib/txErrors.js';
+import { mergeTransactions } from './lib/tx.js';
 import { useLocalStorage } from './hooks.js';
 import { DEFAULT_SLIPPAGE, ENDPOINTS } from './config.js';
 
@@ -164,6 +165,38 @@ export function AppProvider({ children }) {
   }, [accountId, refreshBalances]);
 
   /* ---------------- transactions ---------------- */
+  /**
+   * After a wallet reported "closed", "cancelled" or a network error: see on-chain whether it still
+   * sent the request (wholly or partly), tell the user, and refresh what the page shows.
+   */
+  const followUpOnChain = useCallback(
+    async ({ accountId: account, startedAt, expected, network, success }) => {
+      const landed = await landedSince(account, startedAt, { expected });
+      if (!landed) return; // index unavailable: the first message stands
+      if (!landed.length) {
+        if (network) toast('info', 'Nothing was sent', 'Try again in a few seconds — or use Intear or HOT Wallet for multi-step actions.', { timeout: 12000 });
+        return;
+      }
+      clearViewCache();
+      refreshBalances();
+      window.dispatchEvent(new Event(CHAIN_UPDATED_EVENT));
+      const failed = landed.find((t) => t.failure);
+      const last = landed[landed.length - 1];
+      const link = last?.hash ? `${ENDPOINTS.explorer}/txns/${last.hash}` : undefined;
+      if (!failed && landed.length >= expected) {
+        toast('success', success, `Your wallet still completed all ${expected} transaction(s).`, { link, timeout: 15000 });
+        return;
+      }
+      toast(
+        'warning',
+        `${Math.min(landed.length, expected)} of ${expected} transaction(s) went through`,
+        `${failed ? `${failed.failure} ` : ''}Tokens from the steps that ran are in your wallet or your Rhea balance — nothing is lost. Review the page before trying again.`,
+        { timeout: 20000, link }
+      );
+    },
+    [refreshBalances, toast]
+  );
+
   const execute = useCallback(
     async (buildTransactions, { pending = 'Confirm in your wallet', success = 'Transaction confirmed' } = {}) => {
       if (!accountId) {
@@ -175,8 +208,11 @@ export function AppProvider({ children }) {
       // Background refreshes hold off until the wallet is done (lib/walletActivity.js).
       const endWalletRequest = beginWalletRequest();
       const pendingId = toast('info', pending, 'Review and approve the request in your wallet.', { timeout: 0 });
+      const startedAt = Date.now();
+      let expected = 0; // transactions handed to the wallet (0 = it never got that far)
       try {
         const txs = await buildTransactions();
+        expected = mergeTransactions(txs).length;
         const outcomes = await sendTransactions(txs);
         dismissToast(pendingId);
         const last = outcomes[outcomes.length - 1];
@@ -190,6 +226,19 @@ export function AppProvider({ children }) {
       } catch (error) {
         dismissToast(pendingId);
         const message = error?.message || String(error);
+        // The wallet said "closed", "cancelled" or a network error after getting the request: it may
+        // still have sent some or all of it (e.g. Intear finishing a batch in the background).
+        // Look at the chain before telling the user anything.
+        if (expected > 0 && !error?.onChain && !GENERIC_RECEIPT_FAILURE.test(message)) {
+          const network = WALLET_NETWORK_ERROR.test(message);
+          const cancelled = !network && /reject|cancel|denied|closed/i.test(message);
+          if (cancelled) toast('warning', 'Request cancelled', 'Checking whether your wallet sent anything…');
+          else if (network) toast('error', "Your wallet couldn't reach the NEAR network", 'Checking whether anything was sent…', { timeout: 12000 });
+          else toast('error', 'Transaction failed', message, { timeout: 12000 });
+          console.error('[KINU] transaction', error);
+          followUpOnChain({ accountId, startedAt, expected, network, success });
+          return null;
+        }
         if (/reject|cancel|denied|closed/i.test(message) && !GENERIC_RECEIPT_FAILURE.test(message)) {
           toast('warning', 'Request cancelled', 'Nothing was sent.');
         } else if (GENERIC_RECEIPT_FAILURE.test(message) && !/ran out of gas|failed:/.test(message)) {
@@ -210,7 +259,7 @@ export function AppProvider({ children }) {
         disarmWalletPopup(); // closes it only if the wallet never used it
       }
     },
-    [accountId, connect, dismissToast, refreshBalances, toast]
+    [accountId, connect, dismissToast, followUpOnChain, refreshBalances, toast]
   );
 
   /* ---------------- settings ---------------- */

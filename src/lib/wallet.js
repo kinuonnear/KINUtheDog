@@ -153,7 +153,11 @@ export async function sendTransactions(transactions) {
   // A receipt can fail inside a transaction that reports success (e.g. a refunded deposit).
   for (const outcome of list) {
     const failed = failureOf(outcome);
-    if (failed) throw new Error(describeFailure(failed));
+    if (failed) {
+      const error = new Error(describeFailure(failed));
+      error.onChain = true; // read from the outcomes: the batch reached the chain
+      throw error;
+    }
   }
   return list;
 }

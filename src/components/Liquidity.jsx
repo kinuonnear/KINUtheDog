@@ -5,7 +5,7 @@
 
 import { useMemo, useState } from 'react';
 import { useApp } from '../state.jsx';
-import { useAsync, useDebounced } from '../hooks.js';
+import { useAsync, useChainUpdates, useDebounced } from '../hooks.js';
 import {
   amountsForShares,
   buildAddLiquidityTransactions,
@@ -565,7 +565,10 @@ export function StableLiquidity({ pool, tokens, shares, staked, onDone, initialT
 /** CLMM side panel: open a new position (positions are managed in DclGroupCard). */
 export function DclLiquidity({ pool, x, y, rangeState, onDone }) {
   const { accountId, execute } = useApp();
-  const assets = useAsync(() => getDclAssets(accountId), [accountId], { enabled: Boolean(accountId) });
+  // Tokens waiting in the CLMM balance: re-read every 15s (like the positions) so a deposit that a
+  // later step already used never lingers here as "unused".
+  const assets = useAsync(() => getDclAssets(accountId), [accountId], { enabled: Boolean(accountId), refreshMs: 15_000 });
+  useChainUpdates(() => assets.reload());
   const parked = Object.entries(assets.data || {}).filter(([id]) => id === pool.token_x || id === pool.token_y);
   // Some CLMM pools only accept liquidity from listed accounts (e.g. solvers): same rule
   // app.rhea.finance applies ("Whitelist Only").

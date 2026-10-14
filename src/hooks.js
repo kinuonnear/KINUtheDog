@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { backgroundRefreshAllowed } from './lib/walletActivity.js';
+import { backgroundRefreshAllowed, CHAIN_UPDATED_EVENT } from './lib/walletActivity.js';
 
 /**
  * Run an async loader whenever `deps` change. Stale responses are ignored.
@@ -45,6 +45,17 @@ export function useAsync(loader, deps, { enabled = true, refreshMs = 0 } = {}) {
 
   const reload = useCallback(() => run(true), [run]);
   return { ...state, reload };
+}
+
+/** Run `onUpdate` when KINU learns that transactions landed on-chain late (see walletActivity.js). */
+export function useChainUpdates(onUpdate) {
+  const ref = useRef(onUpdate);
+  ref.current = onUpdate;
+  useEffect(() => {
+    const handler = () => ref.current?.();
+    window.addEventListener(CHAIN_UPDATED_EVENT, handler);
+    return () => window.removeEventListener(CHAIN_UPDATED_EVENT, handler);
+  }, []);
 }
 
 export function useDebounced(value, delay = 350) {

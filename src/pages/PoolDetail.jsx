@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useApp } from '../state.jsx';
-import { useAsync, useElementHeight, useLocalStorage, useMediaQuery } from '../hooks.js';
+import { useAsync, useChainUpdates, useElementHeight, useLocalStorage, useMediaQuery } from '../hooks.js';
 import { Link, poolsReturnPath, useLocation } from '../router.jsx';
 import { getDclPositions, getFarmStakes, getPool, getPoolShares, getPoolStats, dclPointToPrice, parseDclPoolId } from '../lib/rhea.js';
 import { asPoolToken, getTokens, priceOf } from '../lib/tokens.js';
@@ -48,6 +48,7 @@ function ClassicPool({ poolId, initialTab }) {
     [poolId, accountId],
     { enabled: Boolean(accountId), refreshMs: LIVE_FEES_MS }
   );
+  useChainUpdates(() => position.reload());
 
   if (poolQuery.error && !pool) {
     return <EmptyState icon="⚠" title={`Pool #${poolId} could not be loaded`}>{poolQuery.error.message}</EmptyState>;
@@ -230,6 +231,8 @@ function DclPool({ poolId, initialTab }) {
     chain.reload();
     positions.reload();
   };
+  // A wallet that finished a request after reporting it closed or failed (state.jsx follow-up).
+  useChainUpdates(refresh);
   const scrollToForm = () => document.getElementById('new-position')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   // Deep link from the portfolio "Add" button: /pools/<id>?tab=add
