@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useApp } from '../state.jsx';
+import { Link } from '../router.jsx';
 
 export function TokenIcon({ token, size = 28 }) {
   const [broken, setBroken] = useState(false);
@@ -150,6 +151,11 @@ export function Toasts() {
               <a href={t.link} target="_blank" rel="noopener noreferrer">
                 View on explorer ↗
               </a>
+            )}
+            {t.action && (
+              <Link to={t.action.to} className="toast__action" onClick={() => dismissToast(t.id)}>
+                {t.action.label} →
+              </Link>
             )}
           </div>
           <button type="button" className="icon-button" onClick={() => dismissToast(t.id)} aria-label="Dismiss">

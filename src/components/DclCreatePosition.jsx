@@ -11,8 +11,10 @@ import {
   buildBins,
   buildDclBinsTransactions,
   fullRange,
+  getDclAssets,
   getMarketDepth,
   planBins,
+  planBinsByBudget,
   pointToPrice,
   priceToPoint,
   rangeSide,
@@ -354,7 +356,12 @@ function useSpendable(tokenIds) {
   }, [tokenIds, balances, nearBalance]);
 }
 
-export default function DclCreatePosition({ pool, x, y, rangeState, onDone }) {
+/**
+ * @param retryRef  set to a function that adds the tokens waiting in the user's CLMM balance (e.g.
+ *                  left there by an add that failed with E204 when the price moved) to the range
+ *                  and strategy chosen here, at the current price — used by the balance notice.
+ */
+export default function DclCreatePosition({ pool, x, y, rangeState, onDone, retryRef }) {
   const { accountId, connect, slippage, setSlippage, execute, balances, prices } = useApp();
   const [showSlippage, setShowSlippage] = useState(false);
   const [strategy, setStrategy] = useState('spot');
@@ -552,6 +559,43 @@ export default function DclCreatePosition({ pool, x, y, rangeState, onDone }) {
       onDone?.();
     }
   };
+
+  /**
+   * Retry after a failed add: the tokens are already in the CLMM balance, so nothing is deposited
+   * again — they are fitted into the chosen range at the price the pool has now (the scarcer token
+   * decides; any rest stays in the balance) and added in one transaction.
+   */
+  const addFromBalance = async () => {
+    if (!accountId) return connect();
+    setSubmitting(true);
+    const ok = await execute(
+      async () => {
+        const [fresh, assets] = await Promise.all([
+          view(CONTRACTS.dcl, 'get_pool', { pool_id: pool.pool_id }, { fresh: true }),
+          getDclAssets(accountId)
+        ]);
+        const haveX = toBigInt(assets[pool.token_x] || '0');
+        const haveY = toBigInt(assets[pool.token_y] || '0');
+        if (haveX <= 0n && haveY <= 0n) throw new Error('Nothing is waiting in your CLMM balance for this pool.');
+        const freshBins = buildBins({ left: range.left, right: range.right, current: fresh.current_point, pointDelta: pool.point_delta, strategy });
+        const unit = planBins({ bins: freshBins, current: fresh.current_point, from: 'x', amount: 0 });
+        const sized = planBinsByBudget({ bins: unit.bins, budgetX: Number(haveX), budgetY: Number(haveY) });
+        if (!(sized.totalX >= 1 || sized.totalY >= 1)) {
+          throw new Error(
+            `This range needs ${sized.needsX && sized.needsY ? `both ${x.symbol} and ${y.symbol}` : sized.needsX ? x.symbol : y.symbol}, which your CLMM balance doesn't hold. Pick a range above or below the price, or withdraw the balance.`
+          );
+        }
+        return buildDclBinsTransactions({ pool: fresh, plan: sized, slippage, accountId, maxX: haveX.toString(), maxY: haveY.toString() });
+      },
+      { pending: 'Adding your CLMM balance at the current price', success: 'Liquidity added' }
+    );
+    setSubmitting(false);
+    if (ok) {
+      refreshDclGraphFor(pool.pool_id);
+      onDone?.();
+    }
+  };
+  if (retryRef) retryRef.current = addFromBalance;
 
   const amountRow = (which, token, value, index) => {
     const disabled = (which === 'x' && side === 'y') || (which === 'y' && side === 'x');

@@ -34,9 +34,10 @@ export function AppProvider({ children }) {
   }, []);
 
   const toast = useCallback(
-    (kind, title, message, { link, timeout = 7000 } = {}) => {
+    // action: { label, to } — a button that opens a page of the app (e.g. the pool to rebalance).
+    (kind, title, message, { link, action, timeout = 7000 } = {}) => {
       const id = ++toastId.current;
-      setToasts((list) => [...list.slice(-3), { id, kind, title, message, link }]);
+      setToasts((list) => [...list.slice(-3), { id, kind, title, message, link, action }]);
       if (timeout) setTimeout(() => dismissToast(id), timeout);
       return id;
     },

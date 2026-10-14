@@ -8,6 +8,7 @@ import { view } from '../lib/rpc.js';
 import { useLiveDclPool } from '../lib/liveEvents.js';
 import { positionsAtPoint } from '../lib/dclLiquidity.js';
 import AprValue from '../components/AprValue.jsx';
+import FeeTiers from '../components/FeeTiers.jsx';
 import { amountsForShares, isStableKind } from '../lib/liquidity.js';
 import { AmmLiquidity, DclLiquidity, StableLiquidity } from '../components/Liquidity.jsx';
 import { DclGroupCard } from '../components/DclPositions.jsx';
@@ -168,6 +169,13 @@ function ClassicPool({ poolId, initialTab }) {
                   </dl>
                 </div>
               )}
+            </section>
+          )}
+
+          {pool.tokenIds.length === 2 && (
+            <section className="card">
+              <h3 className="card-title">Fee tiers for this pair</h3>
+              <FeeTiers tokenIds={pool.tokenIds} currentId={String(poolId)} />
             </section>
           )}
 
@@ -495,6 +503,7 @@ function DclWorkspace({ poolId, pool, x, y, reserves, positions, onAdd, onDone }
               // One position per deposit; its CLMM bins are details inside it.
               { key: 'liquidity', label: 'Your liquidity', count: accountId ? deposits.groups.length : undefined },
               { key: 'composition', label: 'Pool composition' },
+              { key: 'tiers', label: 'Fee tiers' },
               { key: 'trades', label: 'Transactions' }
             ]}
             value={panel}
@@ -541,6 +550,7 @@ function DclWorkspace({ poolId, pool, x, y, reserves, positions, onAdd, onDone }
                 ))}
               </div>
             )}
+            {panel === 'tiers' && <FeeTiers tokenIds={[x.id, y.id]} currentId={poolId} />}
             {panel === 'trades' && <PoolTrades poolId={poolId} x={x} y={y} />}
           </div>
         </section>

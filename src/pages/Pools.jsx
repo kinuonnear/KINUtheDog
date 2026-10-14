@@ -85,10 +85,20 @@ const TOP_MIN_TVL = 5_000; // ignore dust pools in Top Performers
 const TOP_CANDIDATES = 60; // most active pools (24h volume) considered for Top Performers
 const TOP_WINDOWS = new Set(['h6', 'h12', 'h24']); // Top Performers rank by fees over 6–24h
 
-/** Ids of the pools where the account provides liquidity (CLMM positions, AMM / stable shares incl. farmed). */
-async function getMyPoolIds(accountId) {
+/**
+ * The pools where the account provides liquidity (CLMM positions, AMM / stable shares incl. farmed),
+ * and for CLMM pools whether its positions earn: { ids, range: { [poolId]: 'in' | 'out' | 'partial' } }.
+ */
+async function getMyPools(accountId) {
   const [dcl, classic] = await Promise.all([getDclPositions(accountId), getClassicPositions(accountId).catch(() => [])]);
-  return [...new Set([...dcl.map((p) => p.poolId), ...classic.map((c) => String(c.pool.id))])];
+  const range = {};
+  const byPool = new Map();
+  dcl.forEach((p) => byPool.set(p.poolId, [...(byPool.get(p.poolId) || []), p]));
+  byPool.forEach((list, id) => {
+    const earning = list.filter((p) => p.inRange).length;
+    range[id] = earning === list.length ? 'in' : earning === 0 ? 'out' : 'partial';
+  });
+  return { ids: [...new Set([...byPool.keys(), ...classic.map((c) => String(c.pool.id))])], range };
 }
 
 function matchesCategory(pool, category) {
@@ -208,6 +218,15 @@ export function SwingValue({ change }) {
   );
 }
 
+// "Your LP" badge: whether your CLMM positions in the pool are earning fees right now.
+const MINE_LABEL = { in: 'In range', out: 'Out of range', partial: 'Partly in range' };
+const MINE_HINT = {
+  yes: 'You provide liquidity in this pool',
+  in: 'Your positions here are in range: earning fees',
+  out: 'Your positions here are out of range: not earning fees — consider a rebalance',
+  partial: 'Some of your positions here are out of range'
+};
+
 function DiscoverRow({ rank, pool, tokens, prices, info, stat, estimated, favorite, onFavorite, mine }) {
   const [base, quote] = baseQuote(tokens);
   const pBase = priceOf(prices, base?.id);
@@ -250,8 +269,11 @@ function DiscoverRow({ rank, pool, tokens, prices, info, stat, estimated, favori
             )}
             {pool.isFarm && <span className="kind kind--farm">Farm</span>}
             {mine && (
-              <span className="kind kind--mine" title="You provide liquidity in this pool">
-                Your LP
+              <span
+                className={`kind kind--mine ${mine === 'out' ? 'kind--mine-out' : mine === 'partial' ? 'kind--mine-partial' : ''}`}
+                title={MINE_HINT[mine]}
+              >
+                Your LP{MINE_LABEL[mine] ? ` · ${MINE_LABEL[mine]}` : ''}
               </span>
             )}
           </small>
@@ -364,8 +386,9 @@ export default function Pools() {
     rememberPoolsPath(path);
   }, [view]);
   // "My positions": pools where the connected wallet has liquidity.
-  const mine = useAsync(() => getMyPoolIds(accountId), [accountId], { enabled: Boolean(accountId), refreshMs: 120_000 });
-  const mineIds = mine.data || [];
+  const mine = useAsync(() => getMyPools(accountId), [accountId], { enabled: Boolean(accountId), refreshMs: 120_000 });
+  const mineIds = mine.data?.ids || [];
+  const mineRange = mine.data?.range || {};
   const mineKey = mineIds.join(',');
   const [category, setCategory] = useState('all');
   const tab = POOL_TYPES.find((t) => t.key === category) || POOL_TYPES[0];
@@ -638,7 +661,7 @@ export default function Pools() {
                 estimated={ESTIMATED_WINDOWS.has(windowKey)}
                 favorite={favorites.includes(pool.id)}
                 onFavorite={toggleFavorite}
-                mine={mineIds.includes(pool.id)}
+                mine={mineIds.includes(pool.id) ? mineRange[pool.id] || 'yes' : null}
               />
             ))
           ) : (

@@ -3,7 +3,7 @@
 //   Stable / ALMM (STABLE, RATED, DEGEN)-> StableLiquidity
 //   CLMM (DCL)                         -> DclLiquidity
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useApp } from '../state.jsx';
 import { useAsync, useChainUpdates, useDebounced } from '../hooks.js';
 import {
@@ -622,6 +622,8 @@ export function DclLiquidity({ pool, x, y, rangeState, onDone }) {
   const assets = useAsync(() => getDclAssets(accountId), [accountId], { enabled: Boolean(accountId), refreshMs: 15_000 });
   useChainUpdates(() => assets.reload());
   const parked = Object.entries(assets.data || {}).filter(([id]) => id === pool.token_x || id === pool.token_y);
+  // The form's "add the CLMM balance at the current price" (DclCreatePosition), for the notice below.
+  const retryRef = useRef(null);
   // Some CLMM pools only accept liquidity from listed accounts (e.g. solvers): same rule
   // app.rhea.finance applies ("Whitelist Only").
   const restricted = Array.isArray(pool.whitelist) && pool.whitelist.length > 0 && !pool.whitelist.includes(accountId);
@@ -648,9 +650,21 @@ export function DclLiquidity({ pool, x, y, rangeState, onDone }) {
               .join(' + ')}{' '}
             unused in your CLMM balance.
           </span>
-          <button type="button" className="link-button" onClick={withdrawParked}>
-            Withdraw
-          </button>
+          <span className="notice__actions">
+            {!restricted && (
+              <button
+                type="button"
+                className="link-button"
+                onClick={() => retryRef.current?.()}
+                title="Add these tokens to the range below at the pool's current price — nothing is deposited again"
+              >
+                Add at current price
+              </button>
+            )}
+            <button type="button" className="link-button" onClick={withdrawParked}>
+              Withdraw
+            </button>
+          </span>
         </div>
       )}
       {restricted ? (
@@ -671,6 +685,7 @@ export function DclLiquidity({ pool, x, y, rangeState, onDone }) {
           x={x}
           y={y}
           rangeState={rangeState}
+          retryRef={retryRef}
           onDone={() => {
             assets.reload();
             onDone();

@@ -95,6 +95,31 @@ function ShareModal({ build, onClose }) {
     a.click();
   };
 
+  // X's post link can only carry text. So "Post on X" first puts the card image on the clipboard
+  // (or, where that isn't allowed, downloads it), then opens the prepared post: the user pastes the
+  // image into it with Ctrl+V / ⌘V.
+  const [xHint, setXHint] = useState(null);
+  const intentUrl = `https://x.com/intent/post?text=${encodeURIComponent(postText)}`;
+  const postOnX = async (event) => {
+    event.preventDefault();
+    if (!image) return;
+    let copied = false;
+    try {
+      // A promise-valued item keeps Safari happy (it wants the item created during the click).
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': Promise.resolve(image.blob) })]);
+      copied = true;
+    } catch {
+      download();
+    }
+    window.open(intentUrl, '_blank', 'noopener,noreferrer');
+    const mac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '');
+    setXHint(
+      copied
+        ? `Image copied — in the X post, press ${mac ? '⌘V' : 'Ctrl+V'} (or long-press → Paste) to attach it.`
+        : 'Image downloaded — attach it to your X post with the image button.'
+    );
+  };
+
   return (
     <Modal title="Share your PnL" subtitle="Ready for X — your wallet address is never shown." onClose={onClose} width={680}>
       <div className="share-card">
@@ -178,10 +203,11 @@ function ShareModal({ build, onClose }) {
           )}
           <a
             className={`button ${canShareFile ? 'button--outline' : 'button--primary'}`}
-            href={`https://x.com/intent/post?text=${encodeURIComponent(postText)}`}
+            href={intentUrl}
             target="_blank"
             rel="noopener noreferrer"
-            onClick={() => !canShareFile && image && download()}
+            onClick={postOnX}
+            aria-disabled={!image}
           >
             Post on X
           </a>
@@ -189,7 +215,11 @@ function ShareModal({ build, onClose }) {
             Download image
           </button>
         </div>
-        {!canShareFile && <p className="muted small">“Post on X” also downloads the image — attach it to your post.</p>}
+        {xHint ? (
+          <p className="share-card__x-hint">{xHint}</p>
+        ) : (
+          <p className="muted small">“Post on X” copies the card image and opens your post — paste it there to attach the image.</p>
+        )}
       </div>
     </Modal>
   );

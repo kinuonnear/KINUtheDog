@@ -15,6 +15,7 @@ import PoolDetail from './pages/PoolDetail.jsx';
 import Portfolio from './pages/Portfolio.jsx';
 import CreatePool, { CreatePoolChooser } from './pages/CreatePool.jsx';
 import MoreMenu from './components/MoreMenu.jsx';
+import RangeAlerts from './components/RangeAlerts.jsx';
 import Security from './pages/Security.jsx';
 import Docs from './pages/Docs.jsx';
 import Discover from './pages/Discover.jsx';
@@ -223,6 +224,7 @@ export default function App() {
       )}
 
       <Toasts />
+      <RangeAlerts />
       <InstallPrompt />
     </div>
   );

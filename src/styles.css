@@ -7957,3 +7957,97 @@ button.nav__link.nav__link--active {
   flex: none;
   min-height: 0;
 }
+
+/* "Your LP" badge: range status */
+.kind--mine-out {
+  color: var(--warn);
+  background: rgba(255, 181, 71, 0.12);
+}
+.kind--mine-partial {
+  color: #5ec8ff;
+  background: rgba(94, 200, 255, 0.08);
+  outline: 1px dashed rgba(255, 181, 71, 0.5);
+}
+
+/* ---- Fee tiers for a pair ---- */
+.pair-tiers {
+  display: grid;
+  overflow-x: auto;
+}
+.pair-tiers__row {
+  display: grid;
+  grid-template-columns: minmax(170px, 1.4fr) repeat(4, minmax(96px, 1fr));
+  align-items: center;
+  gap: 12px;
+  min-width: 600px;
+  font-size: 13px;
+  padding: 10px 8px;
+  border-radius: 8px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.pair-tiers__row + .pair-tiers__row {
+  border-top: 1px solid var(--border);
+}
+a.pair-tiers__row:hover {
+  background: var(--surface-2);
+}
+.pair-tiers__row--head {
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.pair-tiers__row--here {
+  background: var(--accent-soft);
+}
+.pair-tiers__pool {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.pair-tiers__pool em {
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  color: var(--muted);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+}
+.pair-tiers__pool em.pair-tiers__best {
+  border-color: rgba(184, 255, 61, 0.55);
+  color: var(--accent);
+}
+.pair-tiers .hint {
+  margin: 10px 8px 0;
+}
+
+.toast__action {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.notice__actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.pair-tiers__more {
+  justify-self: start;
+  margin: 8px 8px 0;
+}
+
+.share-card__x-hint {
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid rgba(184, 255, 61, 0.45);
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+}
