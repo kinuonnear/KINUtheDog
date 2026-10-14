@@ -215,6 +215,51 @@ function AgentMethod() {
   );
 }
 
+/** Full disclaimer, at the foot of the Agent page. */
+function AgentDisclaimer() {
+  return (
+    <section className="ag-disclaimer" aria-labelledby="ag-disclaimer-title">
+      <h2 id="ag-disclaimer-title">Disclaimer</h2>
+      <p>
+        <strong>KINU Agent is an experimental analytics tool in beta.</strong> It is provided for information and education only and
+        is <strong>not financial, investment, tax or legal advice</strong>, nor a recommendation or solicitation to buy, sell or
+        provide liquidity to any asset or pool.
+      </p>
+      <ul>
+        <li>
+          <strong>Rule-based, not a prediction.</strong> Its calls (HOLD, WATCH, COMPOUND, REBALANCE, ENTER, CONSIDER, AVOID) come from
+          fixed rules applied to recent data. Fee coverage, impermanent loss and net yield are estimates based on the last 24 hours;
+          they do not predict future prices, fees or returns. Past performance is not indicative of future results.
+        </li>
+        <li>
+          <strong>Third-party data.</strong> It relies on data from Rhea Finance, DexScreener, GeckoTerminal and NEAR RPC providers,
+          which may be delayed, incomplete or wrong. A pool missing from its scan, or a call based on bad data, is possible.
+        </li>
+        <li>
+          <strong>No endorsement.</strong> Showing a pool — including under ENTER — is not an endorsement of the pool, its tokens or
+          their issuers. Anyone can create a token or pool; always verify contract addresses.
+        </li>
+        <li>
+          <strong>You stay in control.</strong> The agent never holds funds or keys and never executes transactions. Every action opens
+          in your own wallet, and you alone decide whether to sign it and bear its outcome.
+        </li>
+        <li>
+          <strong>DeFi is risky.</strong> Providing liquidity can lose money through impermanent loss, price volatility, out-of-range
+          positions, smart-contract bugs, token taxes, illiquid or malicious tokens, and network failures. Only use funds you can
+          afford to lose, and do your own research.
+        </li>
+        <li>
+          <strong>Your responsibility.</strong> You are responsible for complying with the laws of your jurisdiction. KINU and its
+          contributors accept no liability for any loss arising from use of the agent or reliance on its output.
+        </li>
+      </ul>
+      <p className="muted small">
+        See also the <Link to="/docs/terms">Terms of Service</Link> and <Link to="/security">Security &amp; transparency</Link>.
+      </p>
+    </section>
+  );
+}
+
 function Verdict({ verdict }) {
   return <span className={`ag-verdict ag-verdict--${verdict.toLowerCase()}`}>{verdict}</span>;
 }
@@ -323,6 +368,9 @@ export default function Agent() {
           </span>
           <h1>KINU Agent</h1>
           <p>Your LP co-pilot. It scans Rhea pools and your positions, and explains every call. You stay in control — nothing moves until you sign it.</p>
+          <p className="ag-hero__note">
+            Beta · analytics only, not financial advice · <a href="#ag-disclaimer-title">Read the disclaimer</a>
+          </p>
         </div>
         {/* The robot sits with the scan stats it is producing. */}
         <div className="ag-hero__side">
@@ -514,11 +562,13 @@ export default function Agent() {
             ))}
           </ol>
           <p className="ag-feed__note">
-            Calls are rule-based on live Rhea data — fee coverage = 24h fees ÷ the impermanent loss of the 24h price move. Not
-            financial advice: the agent explains, you decide.
+            Calls are rule-based on live Rhea data — fee coverage = 24h fees ÷ the impermanent loss of the biggest recent price
+            swing. Not financial advice: the agent explains, you decide.
           </p>
         </aside>
       </div>
+
+      <AgentDisclaimer />
     </div>
   );
 }
