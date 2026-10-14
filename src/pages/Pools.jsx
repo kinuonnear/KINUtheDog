@@ -6,9 +6,9 @@ import { getClassicPositions, getDclPositions, POOL_TYPES, searchPools } from '.
 import { asPoolToken, getCachedToken, getTokens, priceOf } from '../lib/tokens.js';
 import { getTokenInfoCached, isQuoteToken } from '../lib/intear.js';
 import { ESTIMATED_WINDOWS, fetchWindowVolumes, WINDOWS } from '../lib/gecko.js';
+import { aprWarning, swingLevel } from '../lib/poolRadar.js';
 import { formatChartPrice, formatPercent, formatUsd } from '../lib/format.js';
 import { ErrorNotice, PairIcons, Skeleton } from '../components/ui.jsx';
-import { CreatePoolChooser } from './CreatePool.jsx';
 
 const PAGE_SIZE = 25;
 
@@ -194,14 +194,39 @@ function Change({ value }) {
   );
 }
 
-function DiscoverRow({ rank, pool, tokens, prices, info, stat, estimated, favorite, onFavorite }) {
+/** APR with a warning mark when it is a one-day spike (lib/poolRadar.js aprWarning). */
+export function AprValue({ apr, move }) {
+  const warning = aprWarning(apr, move);
+  return (
+    <span className={warning ? 'apr-spike' : ''} title={warning || undefined}>
+      {formatPercent(apr)}
+      {warning && <i aria-label="One-day spike">⚠</i>}
+    </span>
+  );
+}
+
+/** How far the price moved in 24h, with the swing level (the impermanent-loss risk for LPs). */
+export function SwingValue({ change }) {
+  const move = Number.isFinite(change) ? Math.abs(change) : null;
+  const swing = swingLevel(move, 24);
+  if (move === null) return <span className="muted">—</span>;
+  return (
+    <span className="disc-swing" title="24h price move of the pool's main token: bigger moves mean more impermanent loss for LPs">
+      <Change value={change} />
+      {swing && <em className={`swing swing--${swing.key}`}>{swing.label}</em>}
+    </span>
+  );
+}
+
+function DiscoverRow({ rank, pool, tokens, prices, info, stat, estimated, favorite, onFavorite, mine }) {
   const [base, quote] = baseQuote(tokens);
   const pBase = priceOf(prices, base?.id);
   const pQuote = quote ? priceOf(prices, quote.id) : 0;
   const poolPrice = pBase > 0 && pQuote > 0 ? pBase / pQuote : null;
-  const mcap = info?.circulatingSupply && info?.price ? info.circulatingSupply * info.price : null;
   const volTvl = stat && pool.tvl > 0 ? (stat.volume / pool.tvl) * 100 : 0;
   const pending = stat === undefined;
+  // Classic pools can be created with a 0% fee: swaps then pay LPs nothing.
+  const noFee = !pool.isDcl && !(pool.feePercent > 0);
 
   return (
     <Link to={poolPath(pool.id)} className="dt-row">
@@ -228,7 +253,17 @@ function DiscoverRow({ rank, pool, tokens, prices, info, stat, estimated, favori
           <small>
             <span className={`kind kind--${pool.label.toLowerCase()}`}>{pool.label}</span>
             {pool.feePercent > 0 && `Fee ${formatPercent(pool.feePercent, pool.feePercent < 0.1 ? 3 : 2)}`}
+            {noFee && (
+              <span className="kind kind--nofee" title="This pool charges a 0% trading fee: its LPs earn nothing from swaps.">
+                No fee
+              </span>
+            )}
             {pool.isFarm && <span className="kind kind--farm">Farm</span>}
+            {mine && (
+              <span className="kind kind--mine" title="You provide liquidity in this pool">
+                Your LP
+              </span>
+            )}
           </small>
         </span>
       </span>
@@ -240,10 +275,9 @@ function DiscoverRow({ rank, pool, tokens, prices, info, stat, estimated, favori
         ) : (
           '—'
         )}
-        <Change value={info?.change24h} />
       </span>
-      <span className="dt-num" data-label="Market cap">
-        {mcap ? formatUsd(mcap) : '—'}
+      <span className="dt-num" data-label="24h move">
+        <SwingValue change={info?.change24h} />
       </span>
       <span className="dt-num" data-label="TVL">
         {formatUsd(pool.tvl)}
@@ -256,7 +290,7 @@ function DiscoverRow({ rank, pool, tokens, prices, info, stat, estimated, favori
         {pending ? <Skeleton width={56} /> : stat ? `${estimated ? '≈' : ''}${formatUsd(stat.fees)}` : '—'}
       </span>
       <span className="dt-num dt-apr" data-label="APR">
-        {formatPercent(pool.apy + pool.farmApy)}
+        <AprValue apr={pool.apy + pool.farmApy} move={info?.change24h} />
       </span>
     </Link>
   );
@@ -324,7 +358,6 @@ function RheaGlance({ ready, totals }) {
 }
 
 export default function Pools() {
-  const [showCreate, setShowCreate] = useState(false);
   const { prices, accountId, connect } = useApp();
   const { search } = useLocation();
   const [view, setView] = useState(() => {
@@ -350,6 +383,8 @@ export default function Pools() {
   const [sort, setSort] = useState('tvl');
   const [order, setOrder] = useState('desc');
   const [hideLow, setHideLow] = useState(true);
+  // Pools with liquidity but no trades in 24h earn their LPs nothing.
+  const [hideInactive, setHideInactive] = useLocalStorage('kinu.pools.hideInactive', true);
   const [query, setQuery] = useState(() => search.get('q') || '');
   const [pages, setPages] = useState(1);
   const [favorites, setFavorites] = useLocalStorage('kinu.pool.favorites', []);
@@ -410,13 +445,14 @@ export default function Pools() {
     let list = result.data?.list || [];
     if (view === 'favorites' || view === 'mine') list = list.filter((p) => matchesCategory(p, category));
     if (view === 'top') list = list.filter((p) => p.tvl >= TOP_MIN_TVL);
+    if (view === 'all' && hideInactive && !q) list = list.filter((p) => p.volume24h > 0);
     if (q) {
       list = list
         .filter((p) => p.id === q || p.symbols.some((s) => s.toLowerCase().includes(q)) || p.tokenIds.some((id) => id.toLowerCase().includes(q)))
         .slice(0, 100);
     }
     return list;
-  }, [result.data, view, category, q]);
+  }, [result.data, view, category, q, hideInactive]);
 
   const stats = useWindowStats(baseRows, windowKey);
 
@@ -454,20 +490,18 @@ export default function Pools() {
     </button>
   );
 
-  const canLoadMore = view === 'all' && !q && apiSortable && pools.length < total && pools.length >= PAGE_SIZE * pages;
+  // Counted before the inactive filter: the API pages through every pool.
+  const fetched = result.data?.list?.length ?? 0;
+  const canLoadMore = view === 'all' && !q && apiSortable && fetched < total && fetched >= PAGE_SIZE * pages;
   const canLoadMoreTop = view === 'top' && baseRows.length > pools.length;
 
   return (
     <div className="page page--discover">
-      {showCreate && <CreatePoolChooser onClose={() => setShowCreate(false)} />}
       <header className="discover-head">
         <div>
           <span className="eyebrow">Rhea Finance · NEAR</span>
           <h1>Liquidity pools</h1>
           <p>Live TVL, volume, fees and APR for every Rhea pool. Provide liquidity to earn trading fees.</p>
-          <button type="button" className="button button--primary create-pool-button" onClick={() => setShowCreate(true)}>
-            + Create pool
-          </button>
         </div>
         <RheaGlance ready={Boolean(overview.data)} totals={totals} />
       </header>
@@ -530,6 +564,12 @@ export default function Pools() {
               Hide low TVL
             </label>
           )}
+          {view === 'all' && (
+            <label className="checkbox" title="Hide pools with no trades in the last 24h: they earn their LPs nothing">
+              <input type="checkbox" checked={hideInactive} onChange={(e) => setHideInactive(e.target.checked)} disabled={Boolean(q)} />
+              Hide inactive
+            </label>
+          )}
         </div>
       </div>
 
@@ -561,7 +601,9 @@ export default function Pools() {
             <span>#</span>
             <span>Pool</span>
             <span className="dt-num">Pool price</span>
-            <span className="dt-num">Market cap</span>
+            <span className="dt-num" title="24h price move: the impermanent-loss risk for LPs">
+              24h move
+            </span>
             <span className="dt-num">{sortHeader('tvl', 'TVL')}</span>
             <span className="dt-num">{sortHeader('volume', `Volume ${windowLabel}`)}</span>
             <span className="dt-num">{view === 'top' ? `Fees ${windowLabel} ↓` : sortHeader('fees', `Fees ${windowLabel}`)}</span>
@@ -590,6 +632,7 @@ export default function Pools() {
                 estimated={ESTIMATED_WINDOWS.has(windowKey)}
                 favorite={favorites.includes(pool.id)}
                 onFavorite={toggleFavorite}
+                mine={mineIds.includes(pool.id)}
               />
             ))
           ) : (
@@ -620,7 +663,7 @@ export default function Pools() {
       {(canLoadMore || canLoadMoreTop) && (
         <div className="center">
           <button type="button" className="button button--ghost" onClick={() => setPages((p) => p + 1)} disabled={result.loading}>
-            {result.loading ? 'Loading…' : canLoadMore ? `Load more (${pools.length} of ${total.toLocaleString()})` : 'Load more'}
+            {result.loading ? 'Loading…' : canLoadMore ? `Load more (${fetched} of ${total.toLocaleString()})` : 'Load more'}
           </button>
         </div>
       )}

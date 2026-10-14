@@ -81,6 +81,20 @@ export function swingLevel(move, hours = 24) {
   return { key: 'high', label: 'Volatile' };
 }
 
+/**
+ * Rhea's APR annualises the last 24h of fees. After a big price move (a pump draws heavy trading)
+ * that one day can read as thousands of percent — the pools where impermanent loss is also
+ * highest. Returns a note to show next to such an APR, or null.
+ */
+export function aprWarning(apr, move24h) {
+  if (!(apr >= 200)) return null;
+  const swing = swingLevel(move24h, 24);
+  if (swing?.key === 'high' || apr >= 1000) {
+    return `Annualised from one day of fees${swing?.key === 'high' ? ` during a ${Math.round(move24h)}% price move` : ''} — not a steady rate. Volume and fees usually fall back, and big moves mean impermanent loss.`;
+  }
+  return null;
+}
+
 /** Rhea's effective LP fee rate (24h fees / 24h volume), else the nominal fee tier. */
 const feeRate = (p) => (p.volume24h > 0 && p.feeVolume24h > 0 ? p.feeVolume24h / p.volume24h : (p.feePercent || 0) / 100);
 

@@ -12,18 +12,35 @@ import { formatPercent, formatPrice, formatUsd } from '../lib/format.js';
 import { bestToLp, filterRadar, getPoolRadar, hotPairs, LP_MIN_TVL, RADAR_TYPES, RADAR_WINDOWS } from '../lib/poolRadar.js';
 import { NATIVE_NEAR } from '../config.js';
 import { NewLaunches } from './NewOnRhea.jsx';
-import { usePoolTokens } from './Pools.jsx';
+import { AprValue, usePoolTokens } from './Pools.jsx';
 import LiveFeed from '../components/LiveFeed.jsx';
 
+// KINU is a liquidity platform: where to earn as an LP comes first. Each tab has a small
+// animated emoji (styles.css .disc-ico--*; still when the visitor prefers reduced motion).
 const TABS = [
-  { key: 'trending', label: 'Trending' },
-  { key: 'feed', label: 'Live feed' },
-  { key: 'hot', label: 'Hot pairs' },
-  { key: 'gainers', label: 'Gainers' },
-  { key: 'lp', label: 'Best to LP' },
-  { key: 'new', label: 'New launches' },
-  { key: 'watchlist', label: 'Watchlist' }
+  { key: 'lp', label: 'Top Yields', icon: '💰', anim: 'coin' },
+  { key: 'hot', label: 'Hot pairs', icon: '🔥', anim: 'fire' },
+  { key: 'trending', label: 'Trending', icon: '📈', anim: 'rise' },
+  { key: 'gainers', label: 'Gainers', icon: '🚀', anim: 'rocket' },
+  { key: 'new', label: 'New launches', icon: '✨', anim: 'sparkle' },
+  { key: 'feed', label: 'Live feed', icon: null, anim: 'live' },
+  { key: 'watchlist', label: 'Watchlist', icon: '⭐', anim: 'star' }
 ];
+
+function TabLabel({ tab }) {
+  return (
+    <span className="disc-tab">
+      {tab.icon ? (
+        <i className={`disc-ico disc-ico--${tab.anim}`} aria-hidden="true">
+          {tab.icon}
+        </i>
+      ) : (
+        <i className="disc-ico disc-ico--live" aria-hidden="true" />
+      )}
+      {tab.label}
+    </span>
+  );
+}
 
 const MIN_GAINER_LIQUIDITY = 10_000;
 
@@ -33,7 +50,7 @@ const TITLES = {
   feed: ['Live ', 'feed', ''],
   hot: ['Hot pairs on ', 'Rhea', ''],
   gainers: ['Top gainers on ', 'Rhea', ''],
-  lp: ['Best pools ', 'to', ' LP'],
+  lp: ['Manage ', 'Liquidity', ', Made Simple.'],
   new: ['New on ', 'Rhea', ''],
   watchlist: ['Your ', 'watchlist', '']
 };
@@ -43,7 +60,7 @@ const INTROS = {
   feed: 'Every swap on Rhea as it happens. Follow traders to see their moves first.',
   hot: 'The pairs traded most right now, over the last hour, 6 hours or day.',
   gainers: 'Biggest 24h moves among actively traded Rhea tokens with at least $10K liquidity.',
-  lp: `Pools that paid their liquidity providers the most fees per dollar (TVL ≥ $${LP_MIN_TVL / 1000}K), with how much the price moved.`,
+  lp: `Pools that paid their liquidity providers the most fees per dollar (TVL ≥ $${LP_MIN_TVL / 1000}K), next to how much the price moved — the bigger the move, the more impermanent loss.`,
   new: 'The newest tokens with a Rhea pool, launched on Nearly. Live every minute, with the facts that matter before you buy.',
   watchlist: 'Tokens you starred, with live prices.'
 };
@@ -102,8 +119,11 @@ function TokenTable({ rows, loading, error, onRetry, volumeLabel = 'Volume 24h',
               <span data-label={volumeLabel}>{formatUsd(r.rheaVolume ?? r.volume24hUsd ?? 0)}</span>
               <span data-label="Liquidity">{r.liquidityUsd ? formatUsd(r.liquidityUsd) : '—'}</span>
               <span data-label="Holders">{r.holders ? r.holders.toLocaleString() : '—'}</span>
-              <span className="new-row__buy">
-                <Link className="button button--outline button--sm" to={`/swap?from=${NATIVE_NEAR.id}&to=${encodeURIComponent(r.id)}`} onClick={(e) => e.stopPropagation()}>
+              <span className="new-row__buy disc-row__actions">
+                <Link className="button button--outline button--sm" to={`/pools?q=${encodeURIComponent(r.id)}`} onClick={(e) => e.stopPropagation()} title={`Rhea pools with ${r.token.symbol}: provide liquidity`}>
+                  Add LP
+                </Link>
+                <Link className="button button--ghost button--sm" to={`/swap?from=${NATIVE_NEAR.id}&to=${encodeURIComponent(r.id)}`} onClick={(e) => e.stopPropagation()}>
                   Buy
                 </Link>
               </span>
@@ -291,12 +311,14 @@ function HotPairs({ filters, onFilters }) {
           formatUsd(r.tvl)
         ]}
         action={(r) => (
-          <Link
-            className="button button--outline button--sm"
-            to={`/swap?from=${encodeURIComponent(r.tokenIds[0])}&to=${encodeURIComponent(r.tokenIds[1])}`}
-          >
-            Swap
-          </Link>
+          <>
+            <Link className="button button--outline button--sm" to={`${poolPath(r.id)}?tab=add`}>
+              Add LP
+            </Link>
+            <Link className="button button--ghost button--sm" to={`/swap?from=${encodeURIComponent(r.tokenIds[0])}&to=${encodeURIComponent(r.tokenIds[1])}`}>
+              Swap
+            </Link>
+          </>
         )}
         empty={<p className="muted small new-table__empty">No pairs match. Try another filter or window.</p>}
       />
@@ -330,13 +352,13 @@ function BestToLp({ filters, onFilters }) {
         loading={data.loading}
         error={data.error}
         onRetry={data.reload}
-        heads={[`Fees ${w}`, `Yield ${w}`, 'Rhea APR', `Price ${w}`, 'TVL']}
+        heads={[`Fees ${w}`, `Yield ${w}`, 'APR (1-day)', `Price ${w}`, 'TVL']}
         cells={(r) => [
           formatUsd(r.fees),
           <b key="y" className="up" title={`Fees over ${w} ÷ TVL: what $100 of liquidity earned`}>
             {formatPercent(r.yieldPct, 2)}
           </b>,
-          formatPercent(r.apy + r.farmApy),
+          <AprValue key="a" apr={r.apy + r.farmApy} move={r.activity?.change.h24} />,
           <span key="m" className="disc-swing">
             <Change value={r.change} />
             {r.swing && <em className={`swing swing--${r.swing.key}`}>{r.swing.label}</em>}
@@ -372,7 +394,7 @@ function Watchlist() {
 const POOL_TABS = new Set(['hot', 'lp']);
 const DEFAULT_WINDOW = { hot: 'h1', lp: 'h24' };
 
-export default function Discover({ defaultTab = 'trending' }) {
+export default function Discover({ defaultTab = 'lp' }) {
   const { search } = useLocation();
   const tab = TABS.some((t) => t.key === search.get('tab')) ? search.get('tab') : defaultTab;
   const { list } = useWatchlist();
@@ -406,7 +428,7 @@ export default function Discover({ defaultTab = 'trending' }) {
 
       <div className="disc-nav">
         <Tabs
-          tabs={TABS.map((t) => (t.key === 'watchlist' ? { ...t, count: list.length || undefined } : t))}
+          tabs={TABS.map((t) => ({ key: t.key, label: <TabLabel tab={t} />, count: t.key === 'watchlist' ? list.length || undefined : undefined }))}
           value={tab}
           onChange={(key) => navigate(`/discover?tab=${key}`, { replace: true })}
         />

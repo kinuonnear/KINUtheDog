@@ -118,16 +118,53 @@ function windowsFrom(v) {
 
 const multiCache = new Map(); // geckoId -> { at, value } (value: the pool's Gecko attributes)
 
+/**
+ * The same windowed activity from DexScreener, which indexes Rhea pools under the same addresses
+ * and allows far more requests (~300 a minute): 30 pools per call, shaped like Gecko's attributes.
+ */
+async function dexScreenerAttributes(batch) {
+  const url = `${ENDPOINTS.dexscreener}/latest/dex/pairs/near/${batch.map((p) => encodeURIComponent(geckoPoolId(p))).join(',')}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`DexScreener HTTP ${res.status}`);
+  const json = await res.json();
+  const byAddress = new Map();
+  (json.pairs || []).forEach((d) => {
+    const tx = d.txns || {};
+    byAddress.set(d.pairAddress, {
+      volume_usd: { h1: d.volume?.h1, h6: d.volume?.h6, h24: d.volume?.h24 },
+      price_change_percentage: { h1: d.priceChange?.h1, h6: d.priceChange?.h6, h24: d.priceChange?.h24 },
+      transactions: { h1: tx.h1, h6: tx.h6, h24: tx.h24 }
+    });
+  });
+  return byAddress;
+}
+
 /** { [poolId]: Gecko pool attributes } for the given pools (null when unknown). */
 async function fetchAttributes(pools) {
   const out = {};
   const now = Date.now();
-  const missing = [];
+  let missing = [];
   pools.forEach((p) => {
     const hit = multiCache.get(geckoPoolId(p));
     if (hit && now - hit.at < MULTI_TTL_MS) out[p.id] = hit.value;
     else missing.push(p);
   });
+
+  // DexScreener first; GeckoTerminal for the pools it doesn't know (or if it fails).
+  const batches = [];
+  for (let i = 0; i < missing.length; i += MULTI_BATCH) batches.push(missing.slice(i, i + MULTI_BATCH));
+  const found = await Promise.all(batches.map((b) => dexScreenerAttributes(b).catch(() => null)));
+  const unknown = [];
+  batches.forEach((batch, i) => {
+    batch.forEach((p) => {
+      const value = found[i]?.get(geckoPoolId(p));
+      if (value) {
+        multiCache.set(geckoPoolId(p), { at: Date.now(), value });
+        out[p.id] = value;
+      } else unknown.push(p);
+    });
+  });
+  missing = unknown;
 
   for (let i = 0; i < missing.length; i += MULTI_BATCH) {
     const batch = missing.slice(i, i + MULTI_BATCH);

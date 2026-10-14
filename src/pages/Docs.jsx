@@ -62,7 +62,7 @@ const DOCS = [
       <>
         <p>
           The <strong>KINU Terminal</strong> is a non-custodial DeFi app on NEAR, built by the KINU community on top of{' '}
-          <strong>Rhea Finance</strong> liquidity. It is where KINU-built Swap &amp; Liquidity is made simple with Smart LP.
+          <strong>Rhea Finance</strong> liquidity, with market data from <strong>Intear</strong>: Swap &amp; Add Liquidity, made simple — all in one place.
         </p>
         <Terms
           items={[
@@ -412,6 +412,97 @@ const DOCS = [
           </a>{' '}
           on X.
         </p>
+      </>
+    )
+  },
+  {
+    group: 'Legal',
+    slug: 'terms',
+    title: 'Terms of Service',
+    summary: 'The terms for using the KINU Terminal. Last updated 14 October 2026.',
+    body: (
+      <>
+        <p>
+          These terms apply to your use of the KINU Terminal at kinudefi.com (the “Terminal”). By using the Terminal you agree to
+          them. If you do not agree, do not use it.
+        </p>
+
+        <h3>1. What the Terminal is</h3>
+        <p>
+          The Terminal is a free, non-custodial interface to public smart contracts on the NEAR blockchain — mainly the pools of{' '}
+          <strong>Rhea Finance</strong>. KINU does not operate those contracts, does not run an exchange and does not hold, move or
+          control your funds. Every transaction is built in your browser, shown in your own wallet, and only happens if you sign it
+          there.
+        </p>
+
+        <h3>2. Your wallet and keys</h3>
+        <p>
+          You are solely responsible for your wallet, its keys and recovery phrase, and every transaction you sign. KINU never asks for
+          your keys or recovery phrase and cannot reverse, cancel or recover a transaction once it is on the blockchain.
+        </p>
+
+        <h3>3. No advice</h3>
+        <p>
+          Nothing on the Terminal — prices, APRs, yields, rankings such as Top Yields, Trending or Hot pairs, or any other content — is
+          financial, investment, legal or tax advice, or a recommendation to buy, sell or provide liquidity for any token. A token or
+          pool appearing on the Terminal is not an endorsement. Do your own research.
+        </p>
+
+        <h3>4. Risks</h3>
+        <p>Using DeFi involves significant risk, including the total loss of funds. Among others:</p>
+        <Terms
+          items={[
+            ['Impermanent loss', 'Liquidity you provide changes in value as prices move, and can be worth less than simply holding the tokens.'],
+            ['Concentrated liquidity', 'A CLMM range stops earning fees when the price leaves it, and then holds only one of the two tokens.'],
+            ['Volatile tokens', 'New and small tokens can lose most of their value quickly, have thin liquidity, or be abandoned by their creators.'],
+            ['Token taxes', 'Some tokens (e.g. launched on Nearly) charge a transfer tax on buys and sells; the Terminal accounts for known taxes but cannot guarantee them.'],
+            ['Smart contracts', 'Contracts can contain bugs or be upgraded by their operators; KINU does not control or audit third-party contracts.'],
+            ['APR and yield', 'APRs are estimates from past fees (often a single day) and are not a promise of future returns.'],
+            ['Network', 'Transactions can fail, be delayed or cost gas; wallets and RPC services can be unavailable or rate-limited.']
+          ]}
+        />
+
+        <h3>5. Data from third parties</h3>
+        <p>
+          Prices, charts, volumes and other data come from third-party services (such as Rhea Finance, Intear, DexScreener,
+          GeckoTerminal and FastNEAR) and from the blockchain. They may be delayed, incomplete or wrong. Always check the amounts in
+          your wallet before you sign.
+        </p>
+
+        <h3>6. Fees</h3>
+        <p>
+          KINU charges no platform fee today. Pool fees go to the pool’s liquidity providers; network gas and storage deposits go to
+          NEAR. If KINU ever adds a fee, it will be shown before you sign.
+        </p>
+
+        <h3>7. Acceptable use</h3>
+        <p>
+          You may not use the Terminal in breach of any law that applies to you, including sanctions, or to interfere with the
+          Terminal or other users. You are responsible for knowing whether using DeFi is allowed where you live, and for any taxes
+          you owe.
+        </p>
+
+        <h3>8. No warranty and limitation of liability</h3>
+        <p>
+          The Terminal is provided “as is” and “as available”, without warranties of any kind. To the fullest extent permitted by law,
+          the KINU contributors are not liable for any loss or damage arising from your use of the Terminal, the blockchain, third-party
+          contracts or third-party data.
+        </p>
+
+        <h3>9. Changes</h3>
+        <p>
+          These terms may be updated; the date above shows the latest version. Continuing to use the Terminal after a change means you
+          accept the updated terms.
+        </p>
+
+        <Note title="Questions">
+          Contact{' '}
+          <a href={X_URL} {...ext}>
+            @KINUonNEAR
+          </a>{' '}
+          on X. See also{' '}
+          <Link to="/security">Security &amp; transparency</Link>.
+        </Note>
       </>
     )
   }

@@ -268,6 +268,8 @@
 .welcome .section-head{margin-bottom:26px}
 .welcome .hero-promise{margin:16px 0 0;font-size:clamp(17px,1.6vw,21px);font-weight:800;line-height:1.35;color:#e6edf5;letter-spacing:-.01em;max-width:560px}
 .welcome .hero-promise b{color:var(--teal);font-weight:950}
+.welcome .hero-features{margin:12px 0 0;color:var(--teal);font-size:12px;font-weight:900;letter-spacing:.16em;opacity:.85}
+.welcome .hero-sub{margin:8px 0 0;font-size:clamp(14px,1.2vw,16px);font-weight:700;color:#b8c3d1;max-width:560px}.welcome .hero-sub b{color:#e6edf5}.welcome .hero-built{margin:8px 0 0;color:#6b778a;font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase}
 .welcome .hero p{margin:12px 0 0;font-size:16px}
 .welcome .cta{margin-top:24px}
 .welcome .hero-chip--price{display:inline-flex;align-items:center;gap:7px;font-size:11px;padding:9px 13px}

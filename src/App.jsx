@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { useApp } from './state.jsx';
 import { useClickOutside } from './hooks.js';
 import { Link, matchRoute, useLocation } from './router.jsx';
@@ -13,20 +13,22 @@ import Swap from './pages/Swap.jsx';
 import Pools from './pages/Pools.jsx';
 import PoolDetail from './pages/PoolDetail.jsx';
 import Portfolio from './pages/Portfolio.jsx';
-import CreatePool from './pages/CreatePool.jsx';
+import CreatePool, { CreatePoolChooser } from './pages/CreatePool.jsx';
+import MoreMenu from './components/MoreMenu.jsx';
 import Security from './pages/Security.jsx';
 import Docs from './pages/Docs.jsx';
 import Discover from './pages/Discover.jsx';
 import Token from './pages/Token.jsx';
 
+// Liquidity first: Pools (and Create) right after Home. Docs and the rest live under More.
 const NAV = [
   { to: '/app', label: 'Home', match: ['app'] },
-  { to: '/swap', label: 'Swap', match: ['swap'] },
   { to: '/pools', label: 'Pools', match: ['pools', 'pool'] },
   { to: '/discover', label: 'Discover', match: ['discover', 'new', 'token'] },
-  { to: '/portfolio', label: 'Portfolio', match: ['portfolio'] },
-  { to: '/docs', label: 'Docs', match: ['docs'] }
+  { to: '/swap', label: 'Swap', match: ['swap'] },
+  { to: '/portfolio', label: 'Portfolio', match: ['portfolio'] }
 ];
+const MORE_ROUTES = new Set(['docs', 'security']);
 
 // Trading screens use the full window width (like Meteora / Intear). CLMM pool
 // pages are an app-style workspace that fills the viewport, so they have no footer.
@@ -99,6 +101,9 @@ function AccountMenu() {
 export default function App() {
   const { pathname } = useLocation();
   const route = matchRoute(pathname);
+  const [showCreate, setShowCreate] = useState(false);
+  // The pool-type chooser closes once a type is picked (it navigates to the create page).
+  useEffect(() => setShowCreate(false), [pathname]);
 
   const appView = route.name === 'pool' && route.params[0]?.includes('|');
 
@@ -177,15 +182,25 @@ export default function App() {
         </Link>
         <nav className="nav">
           {NAV.map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              className={item.match.includes(route.name) ? 'nav__link nav__link--active' : 'nav__link'}
-            >
-              {item.label}
-            </Link>
+            <Fragment key={item.to}>
+              <Link to={item.to} className={item.match.includes(route.name) ? 'nav__link nav__link--active' : 'nav__link'}>
+                {item.label}
+              </Link>
+              {/* Create sits right next to Pools. */}
+              {item.to === '/pools' && (
+                <button
+                  type="button"
+                  className={`nav__link nav__create ${route.name === 'create' ? 'nav__link--active' : ''}`}
+                  onClick={() => setShowCreate(true)}
+                >
+                  Create
+                </button>
+              )}
+            </Fragment>
           ))}
+          <MoreMenu active={MORE_ROUTES.has(route.name)} />
         </nav>
+        {showCreate && <CreatePoolChooser onClose={() => setShowCreate(false)} />}
         <GlobalSearch />
         <AccountMenu />
       </header>

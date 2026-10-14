@@ -108,28 +108,72 @@ export async function getTokens(ids) {
 const PRICE_TTL_MS = 60_000;
 const priceCache = { at: 0, value: null, promise: null };
 
-/** Map<tokenId, { price:number, symbol, decimals }> from the Rhea indexer. */
+// Two feeds in the same format: Intear answers in ~1–3 s, the Rhea indexer often takes ~20 s.
+// Intear's list leads; the Rhea list (fetched in the background, kept for later reads) fills
+// tokens Intear lacks or prices at 0 (some bridged tokens).
+const INTEAR_PRICES = 'https://prices.intear.tech/list-token-price';
+let rheaFill = null; // last Rhea price list, as a Map
+let rheaAt = 0;
+let rheaLoading = null;
+const RHEA_FILL_MS = 10 * 60_000; // only gap-filling: refreshed now and then
+
+async function loadPriceList(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`Price feed HTTP ${r.status}`);
+  const json = await r.json();
+  const map = new Map();
+  Object.entries(json || {}).forEach(([id, info]) => {
+    const price = Number(info?.price);
+    map.set(id, {
+      price: Number.isFinite(price) ? price : 0,
+      symbol: info?.symbol || '',
+      decimals: Number(info?.decimal ?? 0)
+    });
+  });
+  return map;
+}
+
+function loadRheaFill() {
+  if (rheaFill && Date.now() - rheaAt < RHEA_FILL_MS) return Promise.resolve(rheaFill);
+  if (!rheaLoading) {
+    rheaLoading = loadPriceList(`${ENDPOINTS.rheaIndexer}/list-token-price`)
+      .then((map) => {
+        rheaFill = map;
+        rheaAt = Date.now();
+        return map;
+      })
+      .finally(() => {
+        rheaLoading = null;
+      });
+  }
+  return rheaLoading;
+}
+
+function withFill(primary) {
+  if (!rheaFill) return primary;
+  const map = new Map(primary);
+  rheaFill.forEach((info, id) => {
+    if (!(map.get(id)?.price > 0) && info.price > 0) map.set(id, info);
+  });
+  return map;
+}
+
+/** Map<tokenId, { price:number, symbol, decimals }> (Intear, gaps filled from the Rhea indexer). */
 export async function getPrices({ fresh = false } = {}) {
   if (!fresh && priceCache.value && Date.now() - priceCache.at < PRICE_TTL_MS) {
     return priceCache.value;
   }
   if (priceCache.promise) return priceCache.promise;
 
-  priceCache.promise = fetch(`${ENDPOINTS.rheaIndexer}/list-token-price`)
-    .then((r) => {
-      if (!r.ok) throw new Error(`Price feed HTTP ${r.status}`);
-      return r.json();
+  const fill = loadRheaFill().catch(() => null); // background: used by this read only as a fallback
+  priceCache.promise = loadPriceList(INTEAR_PRICES)
+    .then(withFill, async () => {
+      // Intear unavailable: wait for the Rhea list instead.
+      const rhea = await fill;
+      if (!rhea) throw new Error('Price feed unavailable');
+      return rhea;
     })
-    .then((json) => {
-      const map = new Map();
-      Object.entries(json || {}).forEach(([id, info]) => {
-        const price = Number(info?.price);
-        map.set(id, {
-          price: Number.isFinite(price) ? price : 0,
-          symbol: info?.symbol || '',
-          decimals: Number(info?.decimal ?? 0)
-        });
-      });
+    .then((map) => {
       const wrapped = map.get(CONTRACTS.wrapNear);
       if (wrapped) map.set(NATIVE_NEAR.id, { ...wrapped, symbol: 'NEAR' });
       priceCache.value = map;

@@ -161,8 +161,13 @@ export default function Welcome() {
                   <span>FOLLOWS THE FLOW.</span>
                 </div>
                 <div className="hero-promise">
-                  KINU-built <b>Swap</b> &amp; <b>Liquidity</b> — made simple with <b>Smart LP</b>.
+                  Manage <b>Liquidity</b>, Made Simple.
                 </div>
+                <div className="hero-sub">
+                  <b>Swap</b> &amp; <b>Add Liquidity</b>, Made Simple. All in One Place.
+                </div>
+                <div className="hero-features">SWAP · ZAP IN &amp; ZAP OUT · 1-CLICK REBALANCE · 1-CLICK COMPOUND</div>
+                <div className="hero-built">Built on NEAR · Built on Rhea Finance &amp; Intear</div>
                 <p>
                   A community dog on NEAR, <strong>paired with RHEA</strong> — with its own terminal for best-price swaps, simple
                   liquidity and honest PnL on Rhea Finance.
@@ -213,8 +218,6 @@ export default function Welcome() {
         </div>
 
         <div className="trust-row">
-          <span>Powered by Rhea Finance</span>
-          <span>Built on NEAR</span>
           <span>Non-custodial — you sign every transaction</span>
           <span>Open source</span>
           <Link to="/security">Security &amp; transparency →</Link>
@@ -274,7 +277,7 @@ export default function Welcome() {
           <div className="section-head">
             <div>
               <div className="eyebrow">THE KINU TERMINAL</div>
-              <h2>Swap &amp; Liquidity, made simple.</h2>
+              <h2>Swap &amp; Add Liquidity, made simple.</h2>
             </div>
             <p>
               KINU-built swap and liquidity tools with Smart LP setup, running on Rhea Finance liquidity. Non-custodial: every
@@ -577,7 +580,7 @@ export default function Welcome() {
               <div className="eyebrow">ABOUT KINU</div>
               <h2>From the pack, for the pack.</h2>
             </div>
-            <p>A community token on NEAR that grew into a place to trade: KINU-built Swap &amp; Liquidity, made simple with Smart LP.</p>
+            <p>A community token on NEAR that grew into a liquidity platform: Swap &amp; Add Liquidity, made simple — all in one place.</p>
           </div>
           <div className="about">
             <div className="about__story">
@@ -704,7 +707,7 @@ export default function Welcome() {
                   K<span>I</span>NU
                 </div>
               </a>
-              <p>KINU × RHEA — the dog that follows the flow. KINU-built Swap &amp; Liquidity on NEAR, made simple with Smart LP.</p>
+              <p>KINU × RHEA — the dog that follows the flow. Swap &amp; Add Liquidity on NEAR, made simple. All in one place.</p>
             </div>
             <div>
               <h4>Platform</h4>
