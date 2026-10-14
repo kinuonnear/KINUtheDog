@@ -9,10 +9,10 @@
 // re-check the leaders. Execution is the same ft_transfer_call
 // { Swap: { pool_ids, … } } the Rhea app sends.
 
-import { CONTRACTS, DEPOSIT, GAS } from '../config.js';
+import { CONTRACTS, GAS } from '../config.js';
 import { view } from './rpc.js';
 import { searchPools } from './rhea.js';
-import { ensureStorageTx, ftTransferCallTx, functionCall, transaction, wrapNearTx } from './tx.js';
+import { ensureStorageTx, ftTransferCallTx, wrapNearTx } from './tx.js';
 import { applySlippage, toBigInt } from './format.js';
 import { afterTax, swapTax } from './tokenTax.js';
 
@@ -251,22 +251,20 @@ export async function buildDclSwapTransactions({ tokenIn, tokenOut, quote, accou
       CONTRACTS.dcl,
       quote.amountIn,
       JSON.stringify({
-        // The contract unwraps a wNEAR output to native NEAR unless told not to. Keep it as wNEAR:
-        // later steps (a deposit, our own unwrap below) count on the wNEAR being there.
-        Swap: { pool_ids: quote.dcl.poolIds, output_token: outId, min_output_amount: quote.contractMinOut ?? quote.minAmountOut, skip_unwrap_near: true }
+        // Since its 2026-10-01 upgrade the contract pays a wNEAR output as native NEAR unless told
+        // not to. Native NEAR asked for: let it — the whole output arrives as NEAR (unwrapping only
+        // the guaranteed minimum ourselves left the rest behind as wNEAR). wNEAR asked for (Zap,
+        // Rebalance, deposits that follow): keep it as wNEAR.
+        Swap: {
+          pool_ids: quote.dcl.poolIds,
+          output_token: outId,
+          min_output_amount: quote.contractMinOut ?? quote.minAmountOut,
+          skip_unwrap_near: !tokenOut.native
+        }
       }),
       GAS.ftTransferCall
     )
   );
-
-  // DCL pays out wNEAR; unwrap the guaranteed minimum when native NEAR was requested.
-  if (tokenOut.native) {
-    txs.push(
-      transaction(CONTRACTS.wrapNear, [
-        functionCall('near_withdraw', { amount: quote.minAmountOut }, GAS.nearDeposit, DEPOSIT.oneYocto)
-      ])
-    );
-  }
 
   return txs.filter(Boolean);
 }
