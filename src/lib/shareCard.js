@@ -65,10 +65,8 @@ function fitText(ctx, text, weight, size, maxWidth, family = FONT) {
 export const CARD_BACKGROUNDS = [
   { key: 'classic', label: 'Classic', src: null },
   { key: 'minimal', label: 'Minimal', src: null },
-  { key: 'waves', label: 'Liquidity Waves', src: null, art: true },
   { key: 'candles', label: 'Candle Rise', src: null, art: true },
   { key: 'constellation', label: 'Constellation', src: null, art: true },
-  { key: 'aurora', label: 'Aurora', src: null, art: true },
   { key: 'jungle', label: 'Jungle', src: '/site/discover-hero.webp' }
 ];
 
@@ -137,36 +135,6 @@ function shadeLeft(ctx, strength = 0.9) {
 }
 
 const ART = {
-  /** Layered glowing waves rolling along the bottom. */
-  waves(ctx, rgb, rand) {
-    for (let layer = 0; layer < 6; layer += 1) {
-      const base = 400 + layer * 42;
-      const amp = 18 + rand() * 34;
-      const len = 260 + rand() * 260;
-      const phase = rand() * Math.PI * 2;
-      const wave = (x) => base + Math.sin(x / len + phase) * amp + Math.sin(x / (len * 0.43) + phase * 2) * amp * 0.35;
-      ctx.beginPath();
-      ctx.moveTo(0, wave(0));
-      for (let x = 0; x <= W; x += 10) ctx.lineTo(x, wave(x));
-      ctx.lineTo(W, H);
-      ctx.lineTo(0, H);
-      ctx.closePath();
-      const fill = ctx.createLinearGradient(0, base - amp, 0, H);
-      fill.addColorStop(0, `rgba(${rgb},${0.1 + layer * 0.02})`);
-      fill.addColorStop(1, 'rgba(8,11,16,0.2)');
-      ctx.fillStyle = fill;
-      ctx.fill();
-      ctx.beginPath();
-      for (let x = 0; x <= W; x += 10) (x ? ctx.lineTo(x, wave(x)) : ctx.moveTo(x, wave(x)));
-      ctx.strokeStyle = `rgba(${rgb},${0.25 + layer * 0.08})`;
-      ctx.lineWidth = 2;
-      ctx.shadowColor = `rgba(${rgb},0.8)`;
-      ctx.shadowBlur = 14;
-      ctx.stroke();
-      ctx.shadowBlur = 0;
-    }
-  },
-
   /** Candlesticks climbing (or sliding, for a loss) on the right. */
   candles(ctx, rgb, rand, card) {
     const down = card.tone === 'down';
@@ -231,37 +199,6 @@ const ART = {
       ctx.fill();
     });
     ctx.shadowBlur = 0;
-  },
-
-  /** Soft aurora curtains over a starry sky. */
-  aurora(ctx, rgb, rand) {
-    for (let i = 0; i < 90; i += 1) {
-      ctx.fillStyle = `rgba(255,255,255,${0.15 + rand() * 0.5})`;
-      ctx.fillRect(rand() * W, rand() * H * 0.7, 1.5, 1.5);
-    }
-    const tones = [rgb, '61,220,190', rgb];
-    tones.forEach((c, k) => {
-      const cx = 620 + rand() * 480;
-      const cy = 120 + rand() * 260;
-      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, 380 + k * 60);
-      g.addColorStop(0, `rgba(${c},0.32)`);
-      g.addColorStop(0.5, `rgba(${c},0.1)`);
-      g.addColorStop(1, `rgba(${c},0)`);
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, W, H);
-    });
-    // Curtains: thin vertical streaks under a wavy top edge.
-    const phase = rand() * 6;
-    for (let x = 480; x < W; x += 6) {
-      const topY = 90 + Math.sin(x / 120 + phase) * 50 + Math.sin(x / 47) * 12;
-      const len = 160 + Math.sin(x / 80 + phase) * 70;
-      const g = ctx.createLinearGradient(0, topY, 0, topY + len);
-      g.addColorStop(0, `rgba(${rgb},0)`);
-      g.addColorStop(0.3, `rgba(${rgb},${0.16 + ((x - 480) / (W - 480)) * 0.14})`);
-      g.addColorStop(1, `rgba(${rgb},0)`);
-      ctx.fillStyle = g;
-      ctx.fillRect(x, topY, 4, len);
-    }
   }
 };
 
