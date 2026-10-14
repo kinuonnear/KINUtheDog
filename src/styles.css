@@ -7148,3 +7148,444 @@ a.dt-row:hover {
   color: var(--muted);
   font-size: 12.5px;
 }
+
+/* ==========================================================================
+   Swap page, Jupiter-style: token header · chart | divider | activity · flow + swap
+   ========================================================================== */
+.swap-pro {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.swap-pro__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 440px;
+  gap: 16px;
+  align-items: start;
+}
+
+.swap-pro__main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.swap-pro__side {
+  position: sticky;
+  top: 88px;
+}
+
+.swap-pro__splitter {
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Token header */
+.token-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 28px;
+  padding: 14px 18px;
+}
+
+.token-head__id {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.token-head__names {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.token-head__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.token-head__title strong {
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.token-head__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: var(--muted);
+}
+
+.token-head__meta code {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text);
+}
+
+.token-head__link {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.token-head__link:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.token-head__price {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.token-head__price strong {
+  font-family: var(--mono);
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.token-head__price em {
+  font-style: normal;
+  font-weight: 700;
+}
+
+.token-head__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(96px, 1fr));
+  gap: 8px;
+  flex: 1 1 340px;
+  margin: 0;
+}
+
+.token-head__stats > div {
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.token-head__stats dt {
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.token-head__stats dd {
+  margin: 2px 0 0;
+  font-family: var(--mono);
+  font-weight: 700;
+}
+
+/* Chart */
+.swap-chart {
+  padding: 10px 14px 12px;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.swap-chart__toolbar {
+  justify-content: flex-start;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.chart-toolbar__spacer {
+  flex: 1;
+}
+
+.swap-chart__pool select {
+  height: 32px;
+  max-width: 320px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+}
+
+.swap-chart .pro-chart__body {
+  height: 460px;
+  margin: 0 -2px;
+  border-top: 1px solid var(--border);
+}
+
+.swap-chart .chart-card__canvas {
+  height: auto;
+  align-self: stretch;
+}
+
+/* Activity */
+.activity {
+  padding: 0;
+  overflow: hidden;
+}
+
+.activity--flush {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.activity__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.activity__tabs button {
+  height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.activity__tabs button.active {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.activity__body {
+  max-height: 520px;
+  overflow: auto;
+}
+
+.activity__filters {
+  display: inline-flex;
+  align-items: center;
+  margin: 10px 12px 0;
+}
+
+.activity__filters .live-pill {
+  margin-left: 10px;
+}
+
+.activity__note {
+  margin: 10px 12px 0;
+}
+
+.activity__table {
+  width: 100%;
+  min-width: 600px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.activity__table th {
+  position: sticky;
+  top: 0;
+  padding: 10px 12px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.activity__table td {
+  padding: 9px 12px;
+  border-top: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+.activity__table .num {
+  text-align: right;
+}
+
+.activity__table a {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.activity__table a:hover {
+  color: var(--accent);
+}
+
+.activity__mine td {
+  background: rgba(184, 255, 61, 0.05);
+}
+
+.activity__empty {
+  padding: 28px 12px !important;
+  color: var(--muted);
+  text-align: center;
+}
+
+.activity__connect {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 36px 16px;
+}
+
+/* 24h flow */
+.token-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+}
+
+.token-flow dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.token-flow dt {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.token-flow dd {
+  margin: 2px 0 0;
+  font-family: var(--mono);
+  font-weight: 700;
+}
+
+.token-flow__bar {
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--danger);
+}
+
+.token-flow__bar span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+@media (max-width: 1080px) {
+  .swap-pro__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Phones and tablets: the swap first, then the token header and 24h flow, the chart and the
+     activity (the grid steps aside so its columns order with the header). */
+  .swap-pro__grid {
+    display: contents;
+  }
+
+  .swap-pro__side {
+    position: static;
+    order: -1;
+  }
+
+  .swap-pro__side .token-flow {
+    order: 1;
+  }
+
+  .swap-pro__main {
+    order: 1;
+  }
+
+  .swap-pro__splitter {
+    display: none;
+  }
+
+  .swap-chart .pro-chart__body {
+    height: 340px !important;
+  }
+
+  .token-head__stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Swap header: links beside the name, and the pair switch ("NEAR/NEARLY ⇄") */
+.swap-pro__main > .token-head {
+  margin-bottom: 12px;
+}
+
+.token-head__links {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 4px;
+}
+
+.token-head__info {
+  display: inline-grid;
+  place-items: center;
+  height: 26px;
+  padding: 0 9px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.token-head__info:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.token-head__pair {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  color: var(--muted);
+  font: inherit;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.token-head__pair .is-shown {
+  color: var(--text);
+}
+
+.token-head__pair svg {
+  margin-left: 6px;
+  color: var(--accent);
+}
+
+.token-head__pair:hover {
+  border-color: var(--accent);
+}

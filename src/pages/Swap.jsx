@@ -3,8 +3,11 @@ import { useApp } from '../state.jsx';
 import { useAsync, useClickOutside, useDebounced, useLocalStorage } from '../hooks.js';
 import { navigate, useLocation } from '../router.jsx';
 import TokenPicker from '../components/TokenPicker.jsx';
-import RecentTrades from '../components/RecentTrades.jsx';
-import { defaultChartSide } from '../lib/intear.js';
+import TokenHeader from '../components/swap/TokenHeader.jsx';
+import SwapActivity, { TokenFlow } from '../components/swap/SwapActivity.jsx';
+import { getTokenPools } from '../lib/tokenMarket.js';
+import { backgroundRefreshAllowed } from '../lib/walletActivity.js';
+import { defaultChartSide, intearTokenId } from '../lib/intear.js';
 import { Modal, Spinner, TokenIcon } from '../components/ui.jsx';
 import { getCachedToken, getToken, getTokens, getWhitelistedTokens, priceOf } from '../lib/tokens.js';
 import { buildSwapTransactions, getSwapQuote, quoteHybridSecondLeg, selectRoute } from '../lib/swap.js';
@@ -28,11 +31,13 @@ import {
 import { CONTRACTS, DEPOSIT, NATIVE_NEAR, NEAR_GAS_RESERVE, PINNED_TOKENS } from '../config.js';
 import { SlippagePicker } from '../components/Slippage.jsx';
 
-const PriceChart = lazy(() => import('../components/PriceChart.jsx'));
+const SwapChart = lazy(() => import('../components/swap/SwapChart.jsx'));
 
 const USDC = '17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1';
 const QUOTE_REFRESH_MS = 20_000;
 const QUOTE_MAX_AGE_MS = 15_000;
+// Chart height on the swap page, set with the divider under it (px).
+const CHART_H = { min: 260, max: 820, default: 460 };
 
 /**
  * Tokens the swap router (aggregatedex.near) is holding for the account: a swap whose final
@@ -266,6 +271,36 @@ export default function Swap() {
   useEffect(() => setChartSide(null), [tokenIn.id, tokenOut.id]);
   const side = chartSide || defaultChartSide(tokenIn, tokenOut);
   const chartToken = side === 'in' ? tokenIn : tokenOut;
+  const counterToken = side === 'in' ? tokenOut : tokenIn;
+  // The charted token's pools (GeckoTerminal): chart source, 24h flow, top traders and Pairs.
+  const chartTokenId = intearTokenId(chartToken);
+  const counterTokenId = intearTokenId(counterToken);
+  const poolsQuery = useAsync(() => getTokenPools(chartTokenId, counterTokenId), [chartTokenId, counterTokenId], {
+    enabled: Boolean(chartTokenId),
+    refreshMs: 120_000
+  });
+  const pools = poolsQuery.data ?? (poolsQuery.error ? [] : undefined);
+  const [chartHeight, setChartHeight] = useLocalStorage('kinu.swap.chartH', CHART_H.default);
+  const clampChart = (h) => Math.round(Math.min(CHART_H.max, Math.max(CHART_H.min, h)));
+  const startChartResize = (event) => {
+    event.preventDefault();
+    const handle = event.currentTarget;
+    handle.setPointerCapture(event.pointerId);
+    const startY = event.clientY;
+    const startH = chartHeight;
+    const move = (e) => setChartHeight(clampChart(startH + e.clientY - startY));
+    const up = (e) => {
+      handle.releasePointerCapture(e.pointerId);
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', up);
+    };
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', up);
+  };
+  const nudgeChart = (e) => {
+    if (e.key === 'ArrowUp') setChartHeight((h) => clampChart(h - 30));
+    if (e.key === 'ArrowDown') setChartHeight((h) => clampChart(h + 30));
+  };
 
   // Initial tokens from the URL (?from=…&to=…), e.g. links from pool pages.
   useEffect(() => {
@@ -352,7 +387,7 @@ export default function Swap() {
 
   useEffect(() => {
     requestQuote();
-    const timer = setInterval(() => document.visibilityState === 'visible' && requestQuote({ silent: true }), QUOTE_REFRESH_MS);
+    const timer = setInterval(() => backgroundRefreshAllowed() && requestQuote({ silent: true }), QUOTE_REFRESH_MS);
     return () => clearInterval(timer);
   }, [requestQuote]);
 
@@ -539,15 +574,36 @@ export default function Swap() {
   }
 
   return (
-    <div className="page page--swap">
-      <div className={`swap-layout ${showChart ? '' : 'swap-layout--solo'}`}>
-        {showChart && (
-          <Suspense fallback={<div className="card chart-card chart-card--loading"><Spinner size={22} /></div>}>
-            <PriceChart tokenIn={tokenIn} tokenOut={tokenOut} side={side} onSideChange={setChartSide} />
-          </Suspense>
-        )}
+    <div className="page page--swap swap-pro">
+      <div className="swap-pro__grid">
+        <div className="swap-pro__main">
+          <TokenHeader tokenIn={tokenIn} tokenOut={tokenOut} side={side} onSideChange={setChartSide} />
+          {showChart && (
+            <>
+              <Suspense fallback={<div className="card chart-card chart-card--loading"><Spinner size={22} /></div>}>
+                <SwapChart token={chartToken} counter={counterToken} pools={pools} height={chartHeight} />
+              </Suspense>
+              <div
+                className="splitter swap-pro__splitter"
+                role="separator"
+                aria-orientation="horizontal"
+                aria-label="Resize chart"
+                tabIndex={0}
+                title="Drag to resize · double-click to reset"
+                onPointerDown={startChartResize}
+                onDoubleClick={() => setChartHeight(CHART_H.default)}
+                onKeyDown={nudgeChart}
+              >
+                <span />
+              </div>
+            </>
+          )}
+          <SwapActivity token={chartToken} pools={pools} poolsError={Boolean(poolsQuery.error)} flush={showChart} />
+        </div>
 
-        <div className="swap-column">
+        <div className="swap-column swap-pro__side">
+          {/* Pool counts only when the pools loaded: a busy GeckoTerminal shows "—", not zero. */}
+          <TokenFlow token={chartToken} pools={poolsQuery.data} />
           <div className="card swap-card">
             <div className="swap-card__head">
               <div>
@@ -556,7 +612,7 @@ export default function Swap() {
               </div>
               <div className="swap-card__tools">
                 <button type="button" className="pill-button" onClick={() => setShowChart(!showChart)}>
-                  {showChart ? 'Hide chart' : 'Chart'}
+                  {showChart ? 'Hide chart' : 'Show chart'}
                 </button>
                 <SlippageSettings slippage={slippage} setSlippage={setSlippage} />
               </div>
@@ -718,7 +774,6 @@ export default function Swap() {
             Every transaction is reviewed and signed in your own wallet — KINU never holds your keys or funds.
           </p>
 
-          <RecentTrades token={chartToken} />
         </div>
       </div>
 

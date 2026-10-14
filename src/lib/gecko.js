@@ -141,7 +141,7 @@ const OHLCV_FRAMES = {
  * A pool's price only moves when it trades, so empty buckets carry the last close (volume 0).
  * `trades` is how many buckets had real trades (0 = no history in this pool yet).
  */
-export async function fetchPoolOhlc({ poolId, tokenId, resolution = '60', usd = false, countBack = 300, signal }) {
+export async function fetchPoolOhlc({ poolId, address, tokenId, resolution = '60', usd = false, countBack = 300, signal }) {
   const [frame, aggregate, step] = OHLCV_FRAMES[resolution] || OHLCV_FRAMES[60];
   const weekly = resolution === '1W';
   const params = new URLSearchParams({
@@ -150,7 +150,9 @@ export async function fetchPoolOhlc({ poolId, tokenId, resolution = '60', usd = 
     currency: usd ? 'usd' : 'token',
     token: tokenId
   });
-  const response = await fetch(`${ENDPOINTS.geckoterminal}/networks/near/pools/${encodeURIComponent(geckoPoolId({ id: poolId }))}/ohlcv/${frame}?${params}`, {
+  // `address`: a GeckoTerminal pool address as listed (any DEX); else derived from a Rhea pool id.
+  const pool = address || geckoPoolId({ id: poolId });
+  const response = await fetch(`${ENDPOINTS.geckoterminal}/networks/near/pools/${encodeURIComponent(pool)}/ohlcv/${frame}?${params}`, {
     signal,
     headers: { accept: 'application/json' }
   });

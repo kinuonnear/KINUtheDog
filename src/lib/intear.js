@@ -61,10 +61,13 @@ export async function fetchTokenInfo(tokenId, signal) {
   const rawNow = Number(info?.price_usd_raw);
   const rawAgo = Number(info?.price_usd_raw_24h_ago);
   const circulating = Number(info?.circulating_supply) / 10 ** decimals;
+  const total = Number(info?.total_supply) / 10 ** decimals;
   return {
     price: Number.isFinite(price) ? price : null,
     change24h: rawAgo > 0 && rawNow > 0 ? ((rawNow - rawAgo) / rawAgo) * 100 : null,
     circulatingSupply: Number.isFinite(circulating) && circulating > 0 ? circulating : null,
+    totalSupply: Number.isFinite(total) && total > 0 ? total : null,
+    decimals,
     liquidityUsd: Number(info?.liquidity_usd) || 0,
     volume24hUsd: Number(info?.volume_usd_24h) || 0,
     holders: Number(info?.holders) || null,
