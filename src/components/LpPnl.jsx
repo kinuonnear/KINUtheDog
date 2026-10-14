@@ -13,6 +13,7 @@ import { formatAmount, formatPercent, formatUsd, toNumber } from '../lib/format.
 import { EmptyState, PairIcons, Skeleton, Spinner } from './ui.jsx';
 import { lpShareCard } from '../lib/shareCard.js';
 import ShareButton from './ShareCard.jsx';
+import { ENDPOINTS } from '../config.js';
 
 const UP = '#b8ff3d';
 const DOWN = '#ff5d6c';
@@ -424,6 +425,7 @@ export function ClosedPositions({ history }) {
           <span>Withdrawn</span>
           <span>Fees</span>
           <span>PnL</span>
+          <span>Explorer</span>
         </div>
         {model.closed.map((c) => (
           <div className="hist-row" key={c.lptId}>
@@ -450,6 +452,18 @@ export function ClosedPositions({ history }) {
             </span>
             <span data-label="PnL">
               <PnlValue value={c.pnl} pct={c.pnlPct} />
+            </span>
+            <span data-label="Explorer" className="hist-tx">
+              {c.openHash && (
+                <a href={`${ENDPOINTS.explorer}/txns/${c.openHash}`} target="_blank" rel="noopener noreferrer" title="Transaction that opened the position">
+                  Open ↗
+                </a>
+              )}
+              {c.closeHash && (
+                <a href={`${ENDPOINTS.explorer}/txns/${c.closeHash}`} target="_blank" rel="noopener noreferrer" title="Transaction that closed the position">
+                  Close ↗
+                </a>
+              )}
             </span>
           </div>
         ))}

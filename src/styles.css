@@ -5691,7 +5691,7 @@ a.dt-row:hover {
   display: grid;
   grid-template-columns:
     minmax(180px, 1.6fr) minmax(150px, 1.5fr) minmax(110px, 1fr) minmax(80px, 0.8fr) minmax(80px, 0.8fr)
-    minmax(80px, 0.8fr) minmax(70px, 0.7fr) minmax(100px, 0.9fr);
+    minmax(80px, 0.8fr) minmax(70px, 0.7fr) minmax(100px, 0.9fr) minmax(90px, 0.6fr);
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
@@ -5720,7 +5720,13 @@ a.dt-row:hover {
 }
 
 .hist-row {
-  min-width: 1040px;
+  min-width: 1140px;
+}
+
+.hist-tx {
+  display: grid;
+  gap: 2px;
+  font-size: 12px;
 }
 
 @media (min-width: 1081px) and (max-width: 1280px) {

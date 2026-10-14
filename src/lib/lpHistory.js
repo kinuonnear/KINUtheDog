@@ -327,6 +327,8 @@ export function buildHistory(events, meta, history, prices) {
         rightPoint: e.right,
         openedAt: null,
         closedAt: null,
+        openHash: null, // the transaction that opened the position
+        closeHash: null, // the one that removed the last of it
         liquidity: 0,
         costUsd: 0, // basis of the liquidity still in the position
         investedUsd: 0, // everything ever added
@@ -342,7 +344,10 @@ export function buildHistory(events, meta, history, prices) {
     const usd = (rx, ry) =>
       toNumber(rx || '0', dx) * priceAt(history, prices, tokenX, e.ts) + toNumber(ry || '0', dy) * priceAt(history, prices, tokenY, e.ts);
     if (e.kind === 'add') {
-      if (l.openedAt === null) l.openedAt = e.ts;
+      if (l.openedAt === null) {
+        l.openedAt = e.ts;
+        l.openHash = e.hash;
+      }
       const value = usd(e.x, e.y);
       l.costUsd += value;
       l.investedUsd += value;
@@ -379,7 +384,10 @@ export function buildHistory(events, meta, history, prices) {
     l.realizedUsd += out - released;
     l.feesUsd += fees;
     l.liquidity = big(e.cur);
-    if (big(e.cur) === 0 && big(e.delta) > 0) l.closedAt = e.ts;
+    if (big(e.cur) === 0 && big(e.delta) > 0) {
+      l.closedAt = e.ts;
+      l.closeHash = e.hash;
+    }
 
     const day = Math.floor(e.ts / DAY) * DAY;
     const row = days.get(day) || { time: day / 1000, pnl: 0, fees: 0 };
