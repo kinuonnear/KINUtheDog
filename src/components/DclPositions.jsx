@@ -304,7 +304,7 @@ function ActionIcon({ kind }) {
   );
 }
 
-export function DclActions({ poolId, positions, x, y, onDone, onAdd, readOnly, stacked = false, icons = false, claimOnly = false }) {
+export function DclActions({ poolId, positions, x, y, onDone, onAdd, readOnly, stacked = false, icons = false, claimOnly = false, extra = null }) {
   const { accountId, execute, prices } = useApp();
   const [removing, setRemoving] = useState(false);
   const [claiming, setClaiming] = useState(false);
@@ -380,6 +380,7 @@ export function DclActions({ poolId, positions, x, y, onDone, onAdd, readOnly, s
       <button type="button" className="button button--ghost button--sm" onClick={() => setRemoving(true)}>
         Remove
       </button>
+      {extra}
       {removing && <DclRemoveModal positions={positions} x={x} y={y} onClose={() => setRemoving(false)} onDone={onDone} />}
     </div>
   );

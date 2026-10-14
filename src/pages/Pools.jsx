@@ -6,7 +6,8 @@ import { getClassicPositions, getDclPositions, POOL_TYPES, searchPools } from '.
 import { asPoolToken, getCachedToken, getTokens, priceOf } from '../lib/tokens.js';
 import { getTokenInfoCached, isQuoteToken } from '../lib/intear.js';
 import { ESTIMATED_WINDOWS, fetchWindowVolumes, WINDOWS } from '../lib/gecko.js';
-import { aprWarning, swingLevel } from '../lib/poolRadar.js';
+import { swingLevel } from '../lib/poolRadar.js';
+import AprValue from '../components/AprValue.jsx';
 import { formatChartPrice, formatPercent, formatUsd } from '../lib/format.js';
 import { ErrorNotice, PairIcons, Skeleton } from '../components/ui.jsx';
 
@@ -191,17 +192,6 @@ function Change({ value }) {
       {value >= 0 ? '+' : ''}
       {value.toFixed(2)}%
     </small>
-  );
-}
-
-/** APR with a warning mark when it is a one-day spike (lib/poolRadar.js aprWarning). */
-export function AprValue({ apr, move }) {
-  const warning = aprWarning(apr, move);
-  return (
-    <span className={warning ? 'apr-spike' : ''} title={warning || undefined}>
-      {formatPercent(apr)}
-      {warning && <i aria-label="One-day spike">⚠</i>}
-    </span>
   );
 }
 

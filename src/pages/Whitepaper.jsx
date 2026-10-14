@@ -72,7 +72,7 @@ export const WHITEPAPER = (
       </li>
       <li>
         <strong>Deposits fail at the worst moment.</strong> Prices move between filling a form and signing it, and Rhea’s CLMM
-        deposit can use 260–410 TGas.
+        deposit uses about 420–430 TGas.
       </li>
       <li>
         <strong>The best price is not in one place.</strong> Rhea’s SmartRouter does not see every community CLMM pool, and

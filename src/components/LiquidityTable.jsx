@@ -14,6 +14,9 @@ import RebalanceButton from './Rebalance.jsx';
 import { groupDeposits } from '../lib/lpPositions.js';
 import { PnlValue } from './LpPnl.jsx';
 import { EmptyState, PairIcons, Spinner, Stat } from './ui.jsx';
+import AprValue from './AprValue.jsx';
+import ShareButton from './ShareCard.jsx';
+import { positionShareCard } from '../lib/shareCard.js';
 
 /** Group CLMM positions by pool, then by deposit. `positions` carry x / y token metadata. */
 function groupDcl(positions, prices, events) {
@@ -141,7 +144,7 @@ export default function LiquidityTable({ classicRows, dclRows, depositUsd, readO
 
   const apr = (id) => {
     const p = stats.data?.[id];
-    return p ? formatPercent(p.apy + p.farmApy) : stats.loading ? <Spinner size={12} /> : '—';
+    return p ? <AprValue apr={p.apy + p.farmApy} tokenIds={p.tokenIds} /> : stats.loading ? <Spinner size={12} /> : '—';
   };
 
   if (!classicRows.length && !dclGroups.length) {
@@ -234,7 +237,24 @@ export default function LiquidityTable({ classicRows, dclRows, depositUsd, readO
                 />
                 <span data-label="Pool APR">{apr(g.poolId)}</span>
                 <span className="lp-row__actions">
-                  <DclActions poolId={g.poolId} positions={g.positions} x={g.x} y={g.y} onDone={onDone} readOnly={readOnly} />
+                  <DclActions
+                    poolId={g.poolId}
+                    positions={g.positions}
+                    x={g.x}
+                    y={g.y}
+                    onDone={onDone}
+                    readOnly={readOnly}
+                    extra={
+                      <ShareButton
+                        label="Share PnL"
+                        className="button button--ghost button--sm lp-share"
+                        title="Share this pool's PnL card"
+                        build={(hideUsd, opts) =>
+                          positionShareCard({ x: g.x, y: g.y, poolId: g.poolId, summary: g.summary, p, age: p?.openedAt ? formatAge(Date.now() - p.openedAt) : null }, hideUsd, opts)
+                        }
+                      />
+                    }
+                  />
                 </span>
               </div>
               {isOpen &&
@@ -265,6 +285,16 @@ export default function LiquidityTable({ classicRows, dclRows, depositUsd, readO
                       <span />
                       <span className="lp-row__actions">
                         {!readOnly && <RebalanceButton positions={d.positions} title={title} x={g.x} y={g.y} onDone={onDone} />}
+                        {!readOnly && (
+                          <ShareButton
+                            label="Share PnL"
+                            className="button button--ghost button--sm lp-share"
+                            title="Share this position's PnL card"
+                            build={(hideUsd, opts) =>
+                              positionShareCard({ x: g.x, y: g.y, poolId: g.poolId, summary: ds, p: dp, age: dp?.openedAt ? formatAge(Date.now() - dp.openedAt) : null }, hideUsd, opts)
+                            }
+                          />
+                        )}
                       </span>
                     </div>
                   );

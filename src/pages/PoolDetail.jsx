@@ -3,8 +3,10 @@ import { useApp } from '../state.jsx';
 import { useAsync, useChainUpdates, useElementHeight, useLocalStorage, useMediaQuery } from '../hooks.js';
 import { Link, poolsReturnPath, useLocation } from '../router.jsx';
 import { getDclPositions, getFarmStakes, getPool, getPoolShares, getPoolStats, dclPointToPrice, parseDclPoolId } from '../lib/rhea.js';
-import { asPoolToken, getTokens, priceOf } from '../lib/tokens.js';
+import { asPoolToken, getToken, getTokens, priceOf } from '../lib/tokens.js';
+import { view } from '../lib/rpc.js';
 import { useLiveDclPool } from '../lib/liveEvents.js';
+import AprValue from '../components/AprValue.jsx';
 import { amountsForShares, isStableKind } from '../lib/liquidity.js';
 import { AmmLiquidity, DclLiquidity, StableLiquidity } from '../components/Liquidity.jsx';
 import { DclGroupCard } from '../components/DclPositions.jsx';
@@ -48,6 +50,20 @@ function ClassicPool({ poolId, initialTab }) {
     { enabled: Boolean(accountId), refreshMs: LIVE_FEES_MS }
   );
   useChainUpdates(() => position.reload());
+  // Price of a stable / ALMM pool: what a small swap of token 0 returns (fee added back).
+  const curved = pool && pool.kind !== 'SIMPLE_POOL' && pool.tokenIds.length === 2;
+  const curvePrice = useAsync(
+    async () => {
+      const [a, b] = await Promise.all(pool.tokenIds.map((id) => getToken(id)));
+      const amountIn = 10n ** BigInt(Math.max(0, (a?.decimals ?? 0) - 2)); // 0.01 token
+      const out = await view(CONTRACTS.exchange, 'get_return', { pool_id: Number(poolId), token_in: pool.tokenIds[0], amount_in: amountIn.toString(), token_out: pool.tokenIds[1] });
+      const rate = toNumber(out, b?.decimals ?? 0) / toNumber(amountIn.toString(), a?.decimals ?? 0);
+      const fee = (pool.feePercent || 0) / 100;
+      return rate > 0 ? rate / (1 - fee) : null;
+    },
+    [poolId, curved],
+    { enabled: Boolean(curved), refreshMs: 30_000 }
+  );
 
   if (poolQuery.error && !pool) {
     return <EmptyState icon="⚠" title={`Pool #${poolId} could not be loaded`}>{poolQuery.error.message}</EmptyState>;
@@ -68,7 +84,9 @@ function ClassicPool({ poolId, initialTab }) {
   const userUsd = userAmounts.reduce((sum, a, i) => sum + toNumber(a, tokens[i].decimals) * priceOf(prices, pool.tokenIds[i]), 0);
 
   const isSimple = pool.kind === 'SIMPLE_POOL';
-  const spot = isSimple && reserves[0] > 0 && reserves.length === 2 ? reserves[1] / reserves[0] : null;
+  // Simple pools: the reserve ratio. Stable / ALMM pools price along a curve, so the reserve
+  // ratio is meaningless there: they use a small on-chain quote instead (curvePrice below).
+  const spot = isSimple && reserves[0] > 0 && reserves.length === 2 ? reserves[1] / reserves[0] : (curvePrice.data ?? null);
 
   const refresh = () => {
     poolQuery.reload();
@@ -87,9 +105,9 @@ function ClassicPool({ poolId, initialTab }) {
       />
 
       <div className="stats-row">
-        <Stat label="TVL" value={formatUsd(tvl)} />
+        <Stat label="TVL" value={tvl < 1 ? 'Empty pool' : formatUsd(tvl)} hint={tvl < 1 ? 'be the first LP' : undefined} />
         <Stat label="Volume 24h" value={stats.data ? formatUsd(stats.data.volume24h) : '—'} loading={stats.loading} />
-        <Stat label="Fee APR" value={stats.data ? formatPercent(stats.data.apy) : '—'} loading={stats.loading} />
+        <Stat label="Fee APR" value={stats.data ? <AprValue apr={stats.data.apy} tokenIds={pool.tokenIds} /> : '—'} loading={stats.loading} />
         <Stat
           label="Price"
           value={spot !== null ? `${formatAmount(spot)} ${tokens[1].symbol}` : '—'}
@@ -253,7 +271,12 @@ function DclPool({ poolId, initialTab }) {
   const totalY = toNumber(chain.data.total_y || '0', y.decimals);
   const usdX = totalX * priceOf(prices, tokenX);
   const usdY = totalY * priceOf(prices, tokenY);
-  const tvl = stats.data?.tvl || usdX + usdY;
+  // The pool's own reserves when both tokens have a price (Rhea's API can't price tokens off its
+  // list, e.g. KINU, and then reports ~0); Rhea's number otherwise.
+  const priced = priceOf(prices, tokenX) > 0 && priceOf(prices, tokenY) > 0;
+  const tvl = priced ? usdX + usdY : stats.data?.tvl || usdX + usdY;
+  // No liquidity in range and (almost) nothing deposited: say so instead of "<$0.000001".
+  const empty = String(chain.data.liquidity || '0') === '0' && tvl < 1;
 
   return (
     <div className="terminal">
@@ -265,12 +288,14 @@ function DclPool({ poolId, initialTab }) {
         swapLink={`/swap?from=${tokenX}&to=${tokenY}`}
         price={{ value: price, x, y }}
         stats={[
-          { label: 'Total value locked', value: formatUsd(tvl) },
+          empty
+            ? { label: 'Total value locked', value: 'Empty pool', hint: 'be the first LP' }
+            : { label: 'Total value locked', value: formatUsd(tvl) },
           { label: '24h volume', value: stats.data ? formatUsd(stats.data.volume24h) : '-' },
           { label: '24h fees', value: stats.data ? formatUsd(stats.data.feeVolume24h) : '-' },
-          { label: '24h fees / TVL', value: stats.data && tvl > 0 ? formatPercent((stats.data.feeVolume24h / tvl) * 100) : '-' },
+          { label: '24h fees / TVL', value: stats.data && tvl > 0 && !empty ? formatPercent((stats.data.feeVolume24h / tvl) * 100) : '-' },
           { label: 'Trading fee', value: formatPercent(fee / 10000, 2) },
-          { label: 'Fee APR', value: stats.data ? formatPercent(stats.data.apy) : '-', accent: true }
+          { label: 'Fee APR', value: stats.data ? <AprValue apr={stats.data.apy} tokenIds={[tokenX, tokenY]} /> : '-', accent: true }
         ]}
       />
       <DclWorkspace

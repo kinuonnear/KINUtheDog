@@ -88,6 +88,9 @@ export default function Token({ id }) {
           <Link className="button button--outline" to={`/swap?from=${encodeURIComponent(id)}&to=${NATIVE_NEAR.id}`}>
             Sell
           </Link>
+          <Link className="button button--outline" to={`/pools?q=${encodeURIComponent(id)}`} title={`Rhea pools with ${t?.symbol || 'this token'}: provide liquidity`}>
+            Add LP
+          </Link>
           <WatchStar id={id} label />
           <CopyButton text={`https://kinudefi.com/token/${id}`} label="Copy link" />
         </div>

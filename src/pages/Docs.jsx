@@ -399,7 +399,7 @@ const DOCS = [
           items={[
             ['My transaction failed — where are my tokens?', 'Failed swaps and deposits are refunded by Rhea. If tokens landed inside Rhea instead of your wallet, open Portfolio → Rhea deposits and withdraw them. A router notice on the Swap page means the same for swaps.'],
             ['Why do I pay a storage fee?', 'NEAR charges storage for each token account you hold. It is paid once per token (usually 0.00125 NEAR) and is shown in the cost breakdown.'],
-            ['Why does a deposit attach so much gas?', 'Depositing into Rhea CLMM can use 260–410 TGas; the terminal attaches 600 TGas so it doesn’t run out. Unused gas is refunded.'],
+            ['Why does a deposit attach so much gas?', 'Since Rhea’s October 2026 upgrade a CLMM deposit uses about 420–430 TGas; the terminal attaches 600 TGas so it never runs out. You only pay for the gas used (about 0.04 NEAR) — the rest is refunded.'],
             ['The price moved while I was depositing.', 'Use Accept new price to confirm updated amounts, or widen your slippage in ⚙.'],
             ['Does KINU charge a fee?', 'No platform fee today. Pool fees go to liquidity providers. Any future fee will be shown before you sign.'],
             ['Is this financial advice?', 'No. KINU is non-custodial software. DeFi carries risk, including loss of funds — do your own research.']

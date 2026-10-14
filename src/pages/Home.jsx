@@ -86,21 +86,21 @@ export default function Home() {
         <div className="hero__content">
           <span className="eyebrow eyebrow--glow">KINU · DeFi terminal on NEAR</span>
           <h1>
-            Swap at the best price.
+            Manage Liquidity, Made Simple.
             <br />
-            <em>Set up LP the smart way.</em>
+            <em>Swap &amp; Add Liquidity. All in One Place.</em>
           </h1>
           <p>
-            Every swap compares Rhea&apos;s SmartRouter with direct CLMM routes up to three hops and takes the best output.
-            Smart LP setup lets you draw your range on the chart, pick a strategy or zap in with one token — then track
-            fees and PnL live. Non-custodial: you sign every action in your own wallet.
+            Find the pools that pay LPs the most, draw your range on the chart or zap in with one token, then rebalance and
+            compound in one click — with fees and PnL tracked live. Swaps compare Rhea&apos;s SmartRouter with direct CLMM
+            routes for the best output. Non-custodial: you sign every action in your own wallet.
           </p>
           <div className="hero__actions">
-            <Link to="/swap" className="button button--primary button--lg">
-              Start trading
+            <Link to="/discover" className="button button--primary button--lg">
+              Explore Top Yields
             </Link>
             <Link to="/pools" className="button button--outline button--lg">
-              Smart LP setup
+              Add liquidity
             </Link>
             {accountId ? (
               <Link to="/portfolio" className="button button--ghost button--lg">

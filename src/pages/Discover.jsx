@@ -12,7 +12,8 @@ import { formatPercent, formatPrice, formatUsd } from '../lib/format.js';
 import { bestToLp, filterRadar, getPoolRadar, hotPairs, LP_MIN_TVL, RADAR_TYPES, RADAR_WINDOWS } from '../lib/poolRadar.js';
 import { NATIVE_NEAR } from '../config.js';
 import { NewLaunches } from './NewOnRhea.jsx';
-import { AprValue, usePoolTokens } from './Pools.jsx';
+import { usePoolTokens } from './Pools.jsx';
+import AprValue from '../components/AprValue.jsx';
 import LiveFeed from '../components/LiveFeed.jsx';
 
 // KINU is a liquidity platform: where to earn as an LP comes first. Each tab has a small

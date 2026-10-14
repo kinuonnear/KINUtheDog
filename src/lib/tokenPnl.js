@@ -19,6 +19,7 @@
 import { CONTRACTS } from '../config.js';
 import { loadPriceHistory, priceAt } from './lpHistory.js';
 import { toNumber } from './format.js';
+import { getTransactions } from './fastnearTx.js';
 
 const FASTNEAR = 'https://tx.main.fastnear.com/v0';
 const MAX_PAGES = 15; // 3,000 most recent transactions
@@ -198,7 +199,8 @@ export function loadTokenMoves(account) {
     const merged = () => [...new Map([...cache.txs, ...moves].map((m) => [m.hash, m])).values()].sort((a, b) => a.ts - b.ts);
     for (let i = 0; i < batches.length; i += PARALLEL) {
       const round = batches.slice(i, i + PARALLEL);
-      const results = await Promise.all(round.map((hashes) => post('/transactions', { tx_hashes: hashes })));
+      // Shared with the LP history, which reads many of the same transactions (lib/fastnearTx.js).
+      const results = await Promise.all(round.map(async (hashes) => ({ transactions: await getTransactions(hashes) })));
       results.forEach((json) =>
         (json.transactions || []).forEach((tx) => {
           const m = legsOf(account, tx);

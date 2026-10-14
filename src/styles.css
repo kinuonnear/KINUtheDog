@@ -7766,3 +7766,109 @@ button.nav__link.nav__link--active {
 @media (prefers-reduced-motion: reduce) {
   .disc-ico { animation: none !important; }
 }
+
+/* Phones: the range-line labels would cover the chart legend; the legend gets a backing and sits on top. */
+@media (max-width: 720px) {
+  .pro-chart__legend {
+    z-index: 8;
+    max-width: calc(100% - 84px);
+    padding: 4px 6px;
+    border-radius: 6px;
+    background: rgba(11, 14, 20, 0.82);
+  }
+  .pro-chart .range-chart__line span {
+    padding: 1px 6px;
+    font-size: 10px;
+  }
+}
+
+/* ---- Share card: background picker ---- */
+.share-card__backgrounds {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 8px;
+}
+.share-bg {
+  position: relative;
+  height: 54px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 10px;
+  background: #0b0e14 center / cover no-repeat;
+  color: var(--text);
+  cursor: pointer;
+  overflow: hidden;
+}
+.share-bg span {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 3px 6px;
+  background: rgba(8, 11, 16, 0.78);
+  font-size: 11px;
+  font-weight: 700;
+}
+.share-bg--classic {
+  background-image: radial-gradient(circle at 25% 55%, rgba(184, 255, 61, 0.28), transparent 60%);
+}
+.share-bg--minimal {
+  background: #05070a;
+}
+.share-bg--upload {
+  border-style: dashed;
+}
+.share-bg--upload:not(.share-bg--on) span {
+  top: 0;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  color: var(--accent);
+}
+.share-bg--on {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(184, 255, 61, 0.25);
+}
+
+.lp-share { white-space: nowrap; }
+
+/* ---- Share card: privacy / detail controls ---- */
+.share-custom {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.share-custom legend {
+  padding: 0 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+.share-custom__toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+}
+.share-custom__stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.share-chip {
+  padding: 4px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.share-chip--on {
+  border-color: rgba(184, 255, 61, 0.55);
+  background: var(--accent-soft);
+  color: var(--accent);
+}

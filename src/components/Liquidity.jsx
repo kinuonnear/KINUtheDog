@@ -17,6 +17,7 @@ import {
   predictStableShares
 } from '../lib/liquidity.js';
 import { buildDclWithdrawTransactions, getDclAssets } from '../lib/dclLiquidity.js';
+import { wrapNeededFor } from '../lib/tx.js';
 import {
   applySlippage,
   formatPercent,
@@ -63,7 +64,17 @@ export function useSpendable(tokenIds) {
   }, [tokenIds, balances, nearBalance]);
 }
 
-/** Raw NEAR to wrap so the wNEAR side of a deposit is covered. */
+/**
+ * NEAR to wrap at signing time, from the wNEAR balance read on-chain now: the page's balance can
+ * lag (e.g. right after a wrap or a swap) and leave the deposit short ("Not enough balance").
+ */
+function wrapAtSubmit(accountId, tokenIds, raws, balances) {
+  const index = tokenIds.indexOf(CONTRACTS.wrapNear);
+  if (index < 0 || !raws[index]) return Promise.resolve('0');
+  return wrapNeededFor(accountId, raws[index], balances[CONTRACTS.wrapNear]);
+}
+
+/** Raw NEAR to wrap so the wNEAR side of a deposit is covered (for display; see wrapAtSubmit). */
 export function useWrapAmount(tokenIds, raws) {
   const { balances } = useApp();
   const index = tokenIds.indexOf(CONTRACTS.wrapNear);
@@ -160,7 +171,7 @@ function insufficientLabel(raws, spendable, tokens) {
 /* ------------------------------------------------------------------ */
 
 function AmmAdd({ pool, tokens, onDone }) {
-  const { accountId, connect, slippage, execute } = useApp();
+  const { accountId, connect, slippage, execute, balances } = useApp();
   const [inputs, setInputs] = useState(() => pool.tokenIds.map(() => ''));
   const [submitting, setSubmitting] = useState(false);
   const spendable = useSpendable(pool.tokenIds);
@@ -197,10 +208,13 @@ function AmmAdd({ pool, tokens, onDone }) {
   const submit = async () => {
     if (!accountId) return connect();
     setSubmitting(true);
-    const ok = await execute(() => buildAddLiquidityTransactions({ pool, amounts: raws, accountId, slippage, wrapAmount }), {
-      pending: 'Adding liquidity',
-      success: 'Liquidity added'
-    });
+    const ok = await execute(
+      async () => {
+        const wrap = await wrapAtSubmit(accountId, pool.tokenIds, raws, balances);
+        return buildAddLiquidityTransactions({ pool, amounts: raws, accountId, slippage, wrapAmount: wrap });
+      },
+      { pending: 'Adding liquidity', success: 'Liquidity added' }
+    );
     setSubmitting(false);
     if (ok) {
       setInputs(pool.tokenIds.map(() => ''));
@@ -336,7 +350,7 @@ const DEPOSIT_MODES = [
 ];
 
 function StableAdd({ pool, tokens, onDone }) {
-  const { accountId, connect, slippage, execute, prices } = useApp();
+  const { accountId, connect, slippage, execute, prices, balances } = useApp();
   const [inputs, setInputs] = useState(() => pool.tokenIds.map(() => ''));
   // Balanced by default (same as app.rhea.finance): one amount fills the others at the pool
   // ratio. Custom lets any mix through, including a single token, for an imbalance fee.
@@ -406,13 +420,13 @@ function StableAdd({ pool, tokens, onDone }) {
     setSubmitting(true);
     const ok = await execute(
       async () => {
-        const fresh = await predictStableShares(pool.id, raws);
+        const [fresh, wrap] = await Promise.all([predictStableShares(pool.id, raws), wrapAtSubmit(accountId, pool.tokenIds, raws, balances)]);
         return buildAddStableLiquidityTransactions({
           pool,
           amounts: raws,
           minShares: applySlippage(fresh, slippage),
           accountId,
-          wrapAmount
+          wrapAmount: wrap
         });
       },
       { pending: 'Adding liquidity', success: 'Liquidity added' }

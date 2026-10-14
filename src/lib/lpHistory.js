@@ -19,9 +19,9 @@
 import { CONTRACTS } from '../config.js';
 import { fetchOhlc } from './intear.js';
 import { toNumber } from './format.js';
+import { getTransactions } from './fastnearTx.js';
 
 const NEARBLOCKS = 'https://api.nearblocks.io/v1';
-const FASTNEAR_TX = 'https://tx.main.fastnear.com/v0/transactions';
 const PAGE_SIZE = 250;
 const MAX_PAGES = 8; // 2,000 most recent DCL transactions
 const TX_BATCH = 20; // FastNEAR limit per request
@@ -153,13 +153,10 @@ const big = (v) => Number(v || 0);
 
 /** dcl.ref events owned by `account` from a batch of transactions. */
 async function fetchEvents(account, hashes) {
-  const json = await fetchJson(FASTNEAR_TX, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ tx_hashes: hashes })
-  });
+  // Shared with the token PnL, which reads many of the same transactions (lib/fastnearTx.js).
+  const transactions = await getTransactions(hashes);
   const events = [];
-  (json.transactions || []).forEach((tx) => {
+  transactions.forEach((tx) => {
     const hash = tx.transaction?.hash;
     (tx.receipts || []).forEach((rc, ri) => {
       if (rc.receipt?.receiver_id !== CONTRACTS.dcl) return;

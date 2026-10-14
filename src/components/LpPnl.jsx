@@ -92,6 +92,18 @@ export function useLpHistory(account, dclRows, prices) {
     const invested = [...closed.map((c) => c.investedUsd), ...openKnown.map((o) => o.ledger.investedUsd)];
     const holds = closed.map((c) => c.closedAt - c.openedAt);
     const wins = closed.filter((c) => c.pnl > 0).length;
+    // For the share card: what is in the pools now, the return on everything put in, and the pool
+    // the account is most in (largest open position, else the largest closed one).
+    const grossInvested = closed.reduce((s, c) => s + c.investedUsd, 0) + openKnown.reduce((s, o) => s + o.ledger.investedUsd, 0);
+    const openList = [...open.values()];
+    const biggestOpen = openList.reduce((best, o) => (!best || o.value > best.value ? o : best), null);
+    const biggestClosed = closed.reduce((best, c) => (!best || c.investedUsd > best.investedUsd ? c : best), null);
+    const mainPair = biggestOpen
+      ? [biggestOpen.position.x, biggestOpen.position.y]
+      : biggestClosed
+        ? [biggestClosed.x, biggestClosed.y]
+        : null;
+    const poolCount = new Set([...openList.map((o) => o.position.poolId), ...closed.map((c) => `${c.tokenX}|${c.tokenY}`)]).size;
 
     return {
       complete,
@@ -107,7 +119,11 @@ export function useLpHistory(account, dclRows, prices) {
         winRate: closed.length ? (wins / closed.length) * 100 : null,
         avgInvested: invested.length ? invested.reduce((s, v) => s + v, 0) / invested.length : null,
         avgHold: holds.length ? holds.reduce((s, v) => s + v, 0) / holds.length : null,
-        totalInvested: openKnown.reduce((s, o) => s + o.invested, 0)
+        totalInvested: openKnown.reduce((s, o) => s + o.invested, 0),
+        openValue: openList.reduce((s, o) => s + o.value + o.unclaimed, 0),
+        returnPct: grossInvested > 0 ? ((realized + unrealized) / grossInvested) * 100 : null,
+        mainPair,
+        poolCount
       }
     };
   }, [raw.data, dclRows, prices]);
@@ -238,7 +254,9 @@ export function PnlDashboard({ history, shareable = false }) {
         <div className="pnl-dash__headline">
           <span className="pnl-dash__title">
             <span className="eyebrow">Total LP PnL</span>
-            {shareable && !busy && (s.closedCount > 0 || s.totalInvested > 0) && <ShareButton build={(hideUsd) => lpShareCard(s, hideUsd)} />}
+            {shareable && !busy && (s.closedCount > 0 || s.totalInvested > 0) && (
+              <ShareButton label="Share PnL" build={(hideUsd, opts) => lpShareCard(s, hideUsd, { days: model.days, ...opts })} />
+            )}
           </span>
           {busy ? (
             <Skeleton width={160} height={34} />
