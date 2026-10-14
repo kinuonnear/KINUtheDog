@@ -2,6 +2,7 @@
 // app's theme. Only same-origin or data: images are drawn, so the canvas stays exportable.
 
 import { formatPrice, formatUsd } from './format.js';
+import { isQuoteToken } from './intear.js';
 
 const W = 1200;
 const H = 675;
@@ -379,11 +380,26 @@ export async function drawShareCard(card, background = null) {
   }
   if (hasSpark) drawSpark(ctx, spark, { x: W - 64 - 320, y: 258, w: 320, h: 120 }, toneColor);
 
-  // Stat boxes.
+  // Stat boxes: [label, value, icon?]. Each box is as wide as what it holds; when they would not
+  // fit side by side, they share the width equally (and long values shrink to fit).
   const stats = (card.stats || []).slice(0, 4);
-  const boxW = (W - 128 - (stats.length - 1) * 16) / Math.max(stats.length, 1);
+  const statIcons = await Promise.all(stats.map((s) => loadImage(s[2])));
+  const GAP = 16;
+  const ICON = 30;
+  const widthOf = ([label, value], icon) => {
+    ctx.font = `700 14px ${MONO}`;
+    const lw = ctx.measureText(label.toUpperCase()).width;
+    ctx.font = `800 28px ${FONT}`;
+    const vw = ctx.measureText(value).width + (icon ? ICON + 10 : 0);
+    return Math.max(lw, vw) + 44;
+  };
+  let widths = stats.map((s, i) => widthOf(s, statIcons[i]));
+  const room = W - 128 - GAP * Math.max(0, stats.length - 1);
+  if (widths.reduce((a, b) => a + b, 0) > room) widths = widths.map(() => room / stats.length);
+  let bx = 64;
   stats.forEach(([label, value], i) => {
-    const bx = 64 + i * (boxW + 16);
+    const boxW = widths[i];
+    const icon = statIcons[i];
     roundRect(ctx, bx, 456, boxW, 92, 16);
     ctx.fillStyle = 'rgba(18,24,33,0.9)';
     ctx.fill();
@@ -393,9 +409,15 @@ export async function drawShareCard(card, background = null) {
     ctx.fillStyle = C.faint;
     ctx.font = `700 14px ${MONO}`;
     ctx.fillText(label.toUpperCase(), bx + 20, 490);
+    let vx = bx + 20;
+    if (icon) {
+      circleImage(ctx, icon, vx, 506, ICON);
+      vx += ICON + 10;
+    }
     ctx.fillStyle = C.text;
-    fitText(ctx, value, 800, 28, boxW - 40);
-    ctx.fillText(value, bx + 20, 528);
+    fitText(ctx, value, 800, 28, boxW - (vx - bx) - 20);
+    ctx.fillText(value, vx, 530);
+    bx += boxW + GAP;
   });
 
   // Footer: the tagline and the address, as a bright button.
@@ -466,6 +488,8 @@ export function lpShareCard(stats, hideUsd, { days, hidePool = false } = {}) {
   const pool = stats.mainPair ? pairLabel(...stats.mainPair) : '—';
   // Just the main pair (the largest position): a pool count reads as part of the name.
   const pools = pool;
+  // The pair's base token (not NEAR or a stablecoin) gives the Pool box its icon.
+  const baseIcon = (stats.mainPair?.find((t) => !isQuoteToken(t.id)) || stats.mainPair?.[0])?.icon;
   return {
     kicker: 'LP PnL',
     title: 'Total LP Profit & Loss',
@@ -478,13 +502,13 @@ export function lpShareCard(stats, hideUsd, { days, hidePool = false } = {}) {
       ? [
           ['Return', ret],
           ['Positions', String(stats.closedCount + (stats.openValue > 0 ? 1 : 0))],
-          ...(hidePool ? [] : [['Pool', pools]])
+          ...(hidePool ? [] : [['Pool', pools, baseIcon]])
         ]
       : [
           ['Trading fees', formatUsd(stats.fees)],
           ['LP position value', stats.openValue > 0 ? formatUsd(stats.openValue) : '$0'],
           ['Return', ret],
-          ...(hidePool ? [] : [['Pool', pools]])
+          ...(hidePool ? [] : [['Pool', pools, baseIcon]])
         ],
     text: hideUsd
       ? `💧 My liquidity on Rhea Finance: ${ret} return, trading fees included.\n\nManage Liquidity, Made Simple — @KINUonNEAR 🐕`
