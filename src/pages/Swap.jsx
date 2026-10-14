@@ -574,9 +574,11 @@ export default function Swap() {
 
   return (
     <div className="page page--swap swap-pro">
-      <div className="swap-pro__grid">
+      {/* Chart hidden: the token header goes with it. Nothing left on the left (no history
+          either): the swap card moves to the centre. */}
+      <div className={`swap-pro__grid ${!showChart && !showHistory ? 'swap-pro__grid--solo' : ''}`}>
         <div className="swap-pro__main">
-          <TokenHeader token={chartToken} />
+          {showChart && <TokenHeader token={chartToken} />}
           {showChart && (
             <>
               <Suspense fallback={<div className="card chart-card chart-card--loading"><Spinner size={22} /></div>}>

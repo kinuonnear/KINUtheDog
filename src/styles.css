@@ -9851,3 +9851,17 @@ a.pair-tiers__row:hover {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Swap with the chart and history hidden: just the swap, centred. */
+@media (min-width: 1081px) {
+  .swap-pro__grid--solo {
+    grid-template-columns: minmax(0, 520px);
+    justify-content: center;
+    /* The page keeps 24px on the left for the chart; centre on the whole window instead. */
+    margin-left: -24px;
+  }
+
+  .swap-pro__grid--solo > .swap-pro__main {
+    display: none;
+  }
+}
