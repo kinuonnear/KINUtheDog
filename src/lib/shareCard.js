@@ -527,7 +527,8 @@ function cumulative(days) {
 export function lpShareCard(stats, hideUsd, { days, hidePool = false } = {}) {
   const ret = Number.isFinite(stats.returnPct) ? signedPct(stats.returnPct) : '—';
   const pool = stats.mainPair ? pairLabel(...stats.mainPair) : '—';
-  const pools = stats.poolCount > 1 ? `${pool} +${stats.poolCount - 1}` : pool;
+  // Just the main pair (the largest position): a pool count reads as part of the name.
+  const pools = pool;
   return {
     kicker: 'LP PnL',
     title: 'Total LP Profit & Loss',

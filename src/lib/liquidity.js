@@ -7,6 +7,7 @@ import { getExchangeStorage } from './rhea.js';
 import { view } from './rpc.js';
 import { ensureStorageTx, ftTransferCallTx, functionCall, transaction, wrapNearTx } from './tx.js';
 import { applySlippage, toBigInt } from './format.js';
+import { afterTax, getTokenTax, taxBps } from './tokenTax.js';
 
 const exchange = CONTRACTS.exchange;
 
@@ -79,14 +80,19 @@ export async function buildAddLiquidityTransactions({ pool, amounts, accountId, 
     txs.push(ftTransferCallTx(tokenId, exchange, amounts[i], ''));
   });
 
+  // A taxed token that lists this exchange among its pairs arrives short by its tax: add what
+  // arrives (lib/tokenTax.js). Today's taxed tokens only tax the CLMM contract, so this is 0.
+  const taxes = await Promise.all(pool.tokenIds.map((id) => getTokenTax(id)));
+  const net = amounts.map((a, i) => afterTax(a, taxBps(taxes[i], { from: '', to: exchange })).toString());
+
   txs.push(
     transaction(exchange, [
       functionCall(
         'add_liquidity',
         {
           pool_id: Number(pool.id),
-          amounts,
-          min_amounts: amounts.map((a) => applySlippage(a, slippage))
+          amounts: net,
+          min_amounts: net.map((a) => applySlippage(a, slippage))
         },
         GAS.addLiquidity,
         DEPOSIT.lpStorage

@@ -306,18 +306,15 @@ export function dclPointToPrice(point, decimalsX, decimalsY) {
 }
 
 export async function getDclPositions(accountId) {
-  let liquidities = [];
-  try {
-    liquidities = (await view(CONTRACTS.dcl, 'list_liquidities', { account_id: accountId }, { fresh: true })) || [];
-  } catch {
-    return [];
-  }
+  // A failed read throws (it is not "no positions"): pages keep what they showed and retry, instead
+  // of telling the user their liquidity is gone while the RPC is busy.
+  const liquidities = (await view(CONTRACTS.dcl, 'list_liquidities', { account_id: accountId }, { fresh: true })) || [];
   if (!liquidities.length) return [];
 
   const poolIds = [...new Set(liquidities.map((l) => l.pool_id))];
   const pools = Object.fromEntries(
     await Promise.all(
-      poolIds.map(async (id) => [id, await view(CONTRACTS.dcl, 'get_pool', { pool_id: id }).catch(() => null)])
+      poolIds.map(async (id) => [id, await view(CONTRACTS.dcl, 'get_pool', { pool_id: id })])
     )
   );
 

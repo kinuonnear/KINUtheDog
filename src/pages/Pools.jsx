@@ -87,7 +87,7 @@ const TOP_WINDOWS = new Set(['h6', 'h12', 'h24']); // Top Performers rank by fee
 
 /** Ids of the pools where the account provides liquidity (CLMM positions, AMM / stable shares incl. farmed). */
 async function getMyPoolIds(accountId) {
-  const [dcl, classic] = await Promise.all([getDclPositions(accountId).catch(() => []), getClassicPositions(accountId).catch(() => [])]);
+  const [dcl, classic] = await Promise.all([getDclPositions(accountId), getClassicPositions(accountId).catch(() => [])]);
   return [...new Set([...dcl.map((p) => p.poolId), ...classic.map((c) => String(c.pool.id))])];
 }
 

@@ -7932,3 +7932,28 @@ button.nav__link.nav__link--active {
 .swap-hist__legs.up .swap-hist__leg b {
   color: var(--accent);
 }
+
+/* ---- Share window: scroll the content, keep the buttons in the window ---- */
+.modal > .share-card {
+  min-height: 0;
+  overflow-y: auto;
+  /* Rows keep their full height (the preview would otherwise collapse when the content scrolls). */
+  grid-auto-rows: max-content;
+  align-content: start;
+  margin-right: -8px;
+  padding-right: 8px;
+}
+.share-card__actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  padding: 10px 0 2px;
+  background: var(--surface);
+}
+.share-bg {
+  height: 46px;
+}
+.share-card__preview {
+  flex: none;
+  min-height: 0;
+}

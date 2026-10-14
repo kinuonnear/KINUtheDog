@@ -13,6 +13,7 @@ import {
   buildRemoveLiquidityTransactions,
   expectedShares,
   pairedAmount,
+  buildWithdrawDepositsTransactions,
   predictRemoveAmounts,
   predictStableShares
 } from '../lib/liquidity.js';
@@ -30,7 +31,7 @@ import {
   tryParseUnits
 } from '../lib/format.js';
 import { priceOf } from '../lib/tokens.js';
-import { getDegenPoolLimit } from '../lib/rhea.js';
+import { getDegenPoolLimit, getDeposits } from '../lib/rhea.js';
 import { CONTRACTS, NEAR_GAS_RESERVE } from '../config.js';
 import { EmptyState, Spinner, Tabs, TokenIcon } from './ui.jsx';
 import DclCreatePosition from './DclCreatePosition.jsx';
@@ -323,10 +324,46 @@ function SharesRemove({ pool, tokens, shares, staked, onDone, predict }) {
   );
 }
 
+/**
+ * Tokens of this pool left in the user's Rhea exchange balance (e.g. the excess of an add whose
+ * ratio drifted, or a deposit whose add failed), with a one-tap withdrawal to the wallet.
+ */
+function ExchangeLeftovers({ pool, tokens }) {
+  const { accountId, execute } = useApp();
+  const deposits = useAsync(() => getDeposits(accountId), [accountId], { enabled: Boolean(accountId), refreshMs: 15_000 });
+  useChainUpdates(() => deposits.reload());
+  const left = Object.entries(deposits.data || {}).filter(([id]) => pool.tokenIds.includes(id));
+  if (!left.length) return null;
+  const withdraw = async () => {
+    const ok = await execute(() => buildWithdrawDepositsTransactions({ tokenIds: left.map(([id]) => id), accountId }), {
+      pending: 'Withdrawing your Rhea balance',
+      success: 'Withdrawn to wallet'
+    });
+    if (ok) deposits.reload();
+  };
+  return (
+    <div className="notice notice--info">
+      <span>
+        {left
+          .map(([id, rawAmount]) => {
+            const t = tokens[pool.tokenIds.indexOf(id)];
+            return `${formatRawAmount(rawAmount, t?.decimals ?? 0)} ${t?.symbol || id}`;
+          })
+          .join(' + ')}{' '}
+        waiting in your Rhea balance.
+      </span>
+      <button type="button" className="link-button" onClick={withdraw}>
+        Withdraw
+      </button>
+    </div>
+  );
+}
+
 export function AmmLiquidity({ pool, tokens, shares, staked, onDone, initialTab = 'add' }) {
   const [tab, setTab] = useState(initialTab === 'remove' ? 'remove' : 'add');
   return (
     <>
+      <ExchangeLeftovers pool={pool} tokens={tokens} />
       <Tabs tabs={[{ key: 'add', label: 'Deposit' }, { key: 'remove', label: 'Withdraw' }]} value={tab} onChange={setTab} size="block" />
       {tab === 'add' ? (
         <AmmAdd pool={pool} tokens={tokens} onDone={onDone} />
@@ -562,6 +599,7 @@ export function StableLiquidity({ pool, tokens, shares, staked, onDone, initialT
   const [tab, setTab] = useState(initialTab === 'remove' ? 'remove' : 'add');
   return (
     <>
+      <ExchangeLeftovers pool={pool} tokens={tokens} />
       <Tabs tabs={[{ key: 'add', label: 'Deposit' }, { key: 'remove', label: 'Withdraw' }]} value={tab} onChange={setTab} size="block" />
       {tab === 'add' ? (
         <StableAdd pool={pool} tokens={tokens} onDone={onDone} />

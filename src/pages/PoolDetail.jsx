@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../state.jsx';
 import { useAsync, useChainUpdates, useElementHeight, useLocalStorage, useMediaQuery } from '../hooks.js';
 import { Link, poolsReturnPath, useLocation } from '../router.jsx';
@@ -6,6 +6,7 @@ import { getDclPositions, getFarmStakes, getPool, getPoolShares, getPoolStats, d
 import { asPoolToken, getToken, getTokens, priceOf } from '../lib/tokens.js';
 import { view } from '../lib/rpc.js';
 import { useLiveDclPool } from '../lib/liveEvents.js';
+import { positionsAtPoint } from '../lib/dclLiquidity.js';
 import AprValue from '../components/AprValue.jsx';
 import { amountsForShares, isStableKind } from '../lib/liquidity.js';
 import { AmmLiquidity, DclLiquidity, StableLiquidity } from '../components/Liquidity.jsx';
@@ -242,8 +243,17 @@ function DclPool({ poolId, initialTab }) {
   const positions = useAsync(
     async () => (await getDclPositions(accountId)).filter((p) => p.poolId === poolId),
     [poolId, accountId],
-    { enabled: Boolean(accountId) }
+    // Unclaimed fees grow all the time: re-read every 30 s.
+    { enabled: Boolean(accountId), refreshMs: 30_000 }
   );
+  // Between reads, the positions follow the live pool price (lib/liveEvents.js): their token
+  // amounts and in-range status move with it instead of waiting for the next read.
+  const livePoint = chain.data?.current_point;
+  const liveData = useMemo(
+    () => (positions.data && Number.isFinite(livePoint) ? positionsAtPoint(positions.data, livePoint) : positions.data),
+    [positions.data, livePoint]
+  );
+  const shownPositions = { ...positions, data: liveData };
 
   const refresh = () => {
     chain.reload();
@@ -307,7 +317,7 @@ function DclPool({ poolId, initialTab }) {
           [x, totalX, usdX],
           [y, totalY, usdY]
         ]}
-        positions={positions}
+        positions={shownPositions}
         onAdd={scrollToForm}
         onDone={refresh}
       />

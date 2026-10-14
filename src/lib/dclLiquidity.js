@@ -10,7 +10,7 @@
 
 import { CONTRACTS, GAS } from '../config.js';
 import { view } from './rpc.js';
-import { dclAmountX, dclAmountY, dclPositionAmounts } from './rhea.js';
+import { dclAmountX, dclAmountY, dclPositionAmounts, getDclPositions } from './rhea.js';
 import { ensureStorageTx, ftTransferCallTx, functionCall, transaction, wrapNearTx } from './tx.js';
 import { toBigInt } from './format.js';
 import { afterTax, dclTax, grossUp } from './tokenTax.js';
@@ -257,6 +257,18 @@ export async function buildDclAddTransactions({
   return txs.filter(Boolean);
 }
 
+/**
+ * The same positions read again from the chain at signing time: the pool's current price, the
+ * liquidity left and the fees accrued since the page loaded. Minimums computed from a page that
+ * was opened a while ago would fail once the price moved past the slippage band.
+ */
+async function livePositions(positions, accountId) {
+  const ids = new Set(positions.map((p) => p.id));
+  const fresh = (await getDclPositions(accountId)).filter((p) => ids.has(p.id));
+  if (!fresh.length) throw new Error('These positions are no longer open. Refresh the page.');
+  return fresh;
+}
+
 async function tokenStorageTxs(position, accountId) {
   const txs = [];
   for (const token of [position.tokenX, position.tokenY]) txs.push(await ensureStorageTx(token, accountId));
@@ -268,8 +280,9 @@ async function tokenStorageTxs(position, accountId) {
  * Remove button on app.rhea.finance/poolV2 does. Tokens go straight to the wallet.
  * @param positions  items from rhea.getDclPositions() (same pool)
  */
-export async function buildDclRemoveTransactions({ positions, percent, slippage, accountId }) {
-  if (!positions.length) throw new Error('Nothing to remove.');
+export async function buildDclRemoveTransactions({ positions: shown, percent, slippage, accountId }) {
+  if (!shown.length) throw new Error('Nothing to remove.');
+  const positions = await livePositions(shown, accountId);
   const infos = positions
     .map((p) => {
       const amount = ((toBigInt(p.liquidity) * BigInt(percent)) / 100n).toString();
@@ -673,7 +686,8 @@ function appendItems(plan, usableX, usableY) {
  * One wallet request: claim every position's fees (they arrive in the wallet), deposit the
  * part that fits back into the CLMM contract, and append it to the same positions.
  */
-export async function buildDclCompoundTransactions({ positions, slippage, accountId, mode = 'shape' }) {
+export async function buildDclCompoundTransactions({ positions: shown, slippage, accountId, mode = 'shape' }) {
+  const positions = await livePositions(shown, accountId);
   const withFees = positions.filter((p) => toBigInt(p.unclaimedFeeX) > 0n || toBigInt(p.unclaimedFeeY) > 0n);
   if (!withFees.length) throw new Error('No fees can be compounded into these positions right now.');
   const { tokenX, tokenY } = withFees[0];

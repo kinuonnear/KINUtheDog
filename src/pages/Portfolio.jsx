@@ -36,7 +36,8 @@ async function loadPortfolio(account) {
     getLostFound(account).catch(() => ({})),
     getAggregatorBalances(account).catch(() => ({})),
     getClassicPositions(account).catch(() => []),
-    getDclPositions(account).catch(() => [])
+    // Not caught: a failed read must not show the CLMM positions as gone (the last result stays).
+    getDclPositions(account)
   ]);
   const ids = new Set([
     ...Object.keys(wallet.balances),
