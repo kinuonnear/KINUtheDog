@@ -20,6 +20,71 @@ export const WINDOWS = [
 /** Windows derived by interpolation rather than reported directly. */
 export const ESTIMATED_WINDOWS = new Set(['h4', 'h12']);
 
+/* ------------------------------------------------------------------ */
+/* One shared lane for every GeckoTerminal request                      */
+/* ------------------------------------------------------------------ */
+
+// Gecko's public API allows about 30 requests a minute per IP. Every Gecko call in the app goes
+// through this lane: a small burst, then one request every ~2.2 s; after a rate limit, everything
+// waits (15 s, doubling up to 2 min) instead of hammering it. A 429 is sent without CORS headers,
+// so the browser reports it as a network failure: both count as a rate limit here.
+const BURST = 5;
+const REFILL_MS = 2_200;
+let tokens = BURST;
+let refilledAt = Date.now();
+let pausedUntil = 0;
+let backoffMs = 0;
+let lane = Promise.resolve();
+
+const sleep = (ms, signal) =>
+  new Promise((resolve, reject) => {
+    if (ms <= 0) return resolve();
+    const t = setTimeout(resolve, ms);
+    signal?.addEventListener('abort', () => {
+      clearTimeout(t);
+      reject(new DOMException('Aborted', 'AbortError'));
+    });
+  });
+
+async function takeSlot(signal) {
+  for (;;) {
+    const now = Date.now();
+    tokens = Math.min(BURST, tokens + (now - refilledAt) / REFILL_MS);
+    refilledAt = now;
+    const wait = Math.max(pausedUntil - now, tokens >= 1 ? 0 : (1 - tokens) * REFILL_MS);
+    if (wait <= 0) {
+      tokens -= 1;
+      return;
+    }
+    await sleep(wait, signal);
+  }
+}
+
+function rateLimited() {
+  backoffMs = backoffMs ? Math.min(backoffMs * 2, 120_000) : 15_000;
+  pausedUntil = Date.now() + backoffMs;
+  const error = new Error('GeckoTerminal is busy — retrying shortly.');
+  error.rateLimited = true;
+  return error;
+}
+
+/** fetch() for GeckoTerminal through the shared lane. Throws `rateLimited` errors on a 429. */
+export async function geckoFetch(url, { signal } = {}) {
+  const slot = lane.then(() => takeSlot(signal));
+  lane = slot.catch(() => {});
+  await slot;
+  let response;
+  try {
+    response = await fetch(url, { signal, headers: { accept: 'application/json' } });
+  } catch (error) {
+    if (error?.name === 'AbortError') throw error;
+    throw rateLimited();
+  }
+  if (response.status === 429) throw rateLimited();
+  backoffMs = 0;
+  return response;
+}
+
 const MULTI_BATCH = 30;
 const MULTI_TTL_MS = 60_000;
 
@@ -60,15 +125,16 @@ async function fetchAttributes(pools) {
     const batch = missing.slice(i, i + MULTI_BATCH);
     const url = `${ENDPOINTS.geckoterminal}/networks/near/pools/multi/${batch.map((p) => encodeURIComponent(geckoPoolId(p))).join(',')}`;
     // Gecko signals rate limiting with HTTP 429 or with a 200 whose body carries
-    // error_code 429; back off and retry a couple of times before giving up.
-    // A 429 sent without CORS headers surfaces as a network error, so that is retried too.
+    // error_code 429; the shared lane backs off, and this retries once after it.
     let json = null;
-    for (let attempt = 0; attempt <= 2 && !json; attempt += 1) {
-      if (attempt) await new Promise((r) => setTimeout(r, 6_000 * attempt));
-      const res = await fetch(url).catch(() => null);
+    for (let attempt = 0; attempt <= 1 && !json; attempt += 1) {
+      const res = await geckoFetch(url).catch(() => null);
       if (!res) continue;
-      const body = res.status === 429 ? null : await res.json().catch(() => null);
-      if (res.status === 429 || body?.status?.error_code === 429) continue;
+      const body = await res.json().catch(() => null);
+      if (body?.status?.error_code === 429) {
+        rateLimited();
+        continue;
+      }
       if (!res.ok) throw new Error(`GeckoTerminal HTTP ${res.status}`);
       json = body;
     }
@@ -152,11 +218,8 @@ export async function fetchPoolOhlc({ poolId, address, tokenId, resolution = '60
   });
   // `address`: a GeckoTerminal pool address as listed (any DEX); else derived from a Rhea pool id.
   const pool = address || geckoPoolId({ id: poolId });
-  const response = await fetch(`${ENDPOINTS.geckoterminal}/networks/near/pools/${encodeURIComponent(pool)}/ohlcv/${frame}?${params}`, {
-    signal,
-    headers: { accept: 'application/json' }
-  });
-  if (!response.ok) throw new Error(response.status === 429 ? 'Pool chart is busy — retrying shortly.' : `Pool chart HTTP ${response.status}`);
+  const response = await geckoFetch(`${ENDPOINTS.geckoterminal}/networks/near/pools/${encodeURIComponent(pool)}/ohlcv/${frame}?${params}`, { signal });
+  if (!response.ok) throw new Error(`Pool chart HTTP ${response.status}`);
   const rows = (await response.json())?.data?.attributes?.ohlcv_list || [];
   let real = rows
     .map(([time, open, high, low, close, volume]) => ({ time: Number(time), open: +open, high: +high, low: +low, close: +close, volume: +volume || 0 }))

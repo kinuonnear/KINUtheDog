@@ -11,6 +11,7 @@ import { createChart, CandlestickSeries, HistogramSeries, LineSeries } from 'lig
 import { useAsync, useClickOutside, useLocalStorage } from '../hooks.js';
 import { fetchOhlc, fetchPairOhlc, fetchTokenInfo, intearTokenId, RESOLUTIONS } from '../lib/intear.js';
 import { fetchPoolOhlc } from '../lib/gecko.js';
+import { CHART_BARS, lastGood, sameCandles, useBarClock } from '../lib/candles.js';
 import { bollinger, ema, INDICATORS, sma } from '../lib/indicators.js';
 import { pointToPrice } from '../lib/dclLiquidity.js';
 import { formatChartPrice, formatPercent, formatUsd } from '../lib/format.js';
@@ -152,13 +153,18 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
   // A pool with no trades yet falls back to the market candles.
   const [source, setSource] = useLocalStorage('kinu.range.source', 'pool');
   const marketCandles = () =>
-    unit === 'usd' ? fetchOhlc({ tokenId: xId, resolution, countBack: 300 }) : fetchPairOhlc({ tokenX: xId, tokenY: yId, resolution, countBack: 300 });
+    unit === 'usd'
+      ? fetchOhlc({ tokenId: xId, resolution, countBack: CHART_BARS })
+      : fetchPairOhlc({ tokenX: xId, tokenY: yId, resolution, countBack: CHART_BARS });
+  const lastGoodRef = useRef(null);
   const loaded = useAsync(
     async () => {
+      const memo = lastGood(lastGoodRef, `${xId}|${yId}|${resolution}|${unit}|${source}|${poolId}`);
+      const keep = (value) => memo.keep(value, (a, b) => a.from === b.from && a.fallback === b.fallback && sameCandles(a.data, b.data));
       if (source === 'pool' && poolId) {
         const usd = unit === 'usd';
         const [pool, xInfo] = await Promise.all([
-          fetchPoolOhlc({ poolId, tokenId: x.id, resolution, usd, countBack: 300 }).catch(() => null),
+          fetchPoolOhlc({ poolId, tokenId: x.id, resolution, usd, countBack: CHART_BARS }).catch(() => null),
           usd ? null : fetchTokenInfo(xId).catch(() => null)
         ]);
         if (pool?.trades > 0) {
@@ -166,11 +172,14 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
           const lastPair = pool.candles[pool.candles.length - 1]?.close;
           const yUsd = !usd && xInfo?.price && lastPair ? xInfo.price / lastPair : null;
           const data = usd ? pool.candles : pool.candles.map((c) => ({ ...c, volume: yUsd ? c.volume * yUsd : 0 }));
-          return { from: 'pool', data };
+          return keep({ from: 'pool', data });
         }
-        return { from: 'market', fallback: pool ? 'empty' : 'error', data: await marketCandles() };
+        // GeckoTerminal busy for a moment: keep this pool's candles rather than switching sources.
+        const prev = memo.previous();
+        if (!pool && prev?.from === 'pool') return prev;
+        return keep({ from: 'market', fallback: pool ? 'empty' : 'error', data: await marketCandles() });
       }
-      return { from: 'market', data: await marketCandles() };
+      return keep({ from: 'market', data: await marketCandles() });
     },
     [xId, yId, resolution, unit, source, poolId],
     { refreshMs: 60_000 }
@@ -231,6 +240,8 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
     bar0.series.update(bar0.line ? { time: bar.time, value: bar.close } : { time: bar.time, open: bar.open, high: bar.high, low: bar.low, close: bar.close });
     bar0.bar = bar;
   }, [currentPrice, fromPool, unit, step]);
+  // A new bar opens when its time bucket starts, not at the next refresh.
+  useBarClock(liveBarRef, step);
 
   useDrawingKeys(live, pendingRef, paintRef);
 

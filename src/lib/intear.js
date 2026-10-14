@@ -53,9 +53,25 @@ export async function fetchOhlc({ tokenId, resolution = '60', countBack = 300, s
     .sort((a, b) => a.time - b.time);
 }
 
+// Several parts of a page show the same token's stats (header, chart, activity): they share one
+// request, and a read stays good for a few seconds (Intear's own cache is ~5 s).
+const INFO_TTL_MS = 20_000;
+const infoShared = new Map(); // tokenId -> { at, promise }
+
 /** Token stats: price, 24h change, supply, liquidity, volume, holders. */
-export async function fetchTokenInfo(tokenId, signal) {
-  const info = await getJson(`${BASE}/token?token_id=${encodeURIComponent(tokenId)}`, signal);
+export function fetchTokenInfo(tokenId) {
+  const hit = infoShared.get(tokenId);
+  if (hit && Date.now() - hit.at < INFO_TTL_MS) return hit.promise;
+  const promise = loadTokenInfo(tokenId);
+  infoShared.set(tokenId, { at: Date.now(), promise });
+  promise.catch(() => {
+    if (infoShared.get(tokenId)?.promise === promise) infoShared.delete(tokenId);
+  });
+  return promise;
+}
+
+async function loadTokenInfo(tokenId) {
+  const info = await getJson(`${BASE}/token?token_id=${encodeURIComponent(tokenId)}`);
   const decimals = Number(info?.metadata?.decimals ?? 0);
   const price = Number(info?.price_usd);
   const rawNow = Number(info?.price_usd_raw);

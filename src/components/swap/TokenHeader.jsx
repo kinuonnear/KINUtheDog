@@ -1,6 +1,6 @@
 // Swap page header for the charted token, Jupiter-style: logo, name, verified mark and links on
-// the first line, the contract under it, then price and the key market numbers. The pair button
-// ("NEAR/NEARLY ⇄") switches which of the two swap tokens is shown.
+// the first line, the contract under it, then price and the key market numbers. Links come from
+// GeckoTerminal and DexScreener (lib/tokenMarket.js getTokenProfile).
 
 import { useAsync } from '../../hooks.js';
 import { fetchTokenInfo, intearTokenId } from '../../lib/intear.js';
@@ -18,8 +18,7 @@ function Social({ href, label, children }) {
   );
 }
 
-export default function TokenHeader({ tokenIn, tokenOut, side, onSideChange }) {
-  const token = side === 'in' ? tokenIn : tokenOut;
+export default function TokenHeader({ token }) {
   const tokenId = intearTokenId(token);
   const native = token?.id === NATIVE_NEAR.id;
   const info = useAsync(() => fetchTokenInfo(tokenId), [tokenId], { enabled: Boolean(tokenId), refreshMs: 30_000 });
@@ -27,7 +26,8 @@ export default function TokenHeader({ tokenIn, tokenOut, side, onSideChange }) {
   const p = profile.data;
   const d = info.data;
   const mcap = d?.circulatingSupply && d?.price ? d.circulatingSupply * d.price : null;
-  const pair = tokenIn && tokenOut && tokenIn.id !== tokenOut.id;
+  // DexScreener's page for the token's deepest pair; its token search otherwise.
+  const dexUrl = p?.dexscreener || `https://dexscreener.com/near/${encodeURIComponent(tokenId || '')}`;
 
   return (
     <section className="card token-head" aria-label={`${token?.symbol} overview`}>
@@ -69,6 +69,11 @@ export default function TokenHeader({ tokenIn, tokenOut, side, onSideChange }) {
                     </svg>
                   </Social>
                 )}
+                <Social href={dexUrl} label="DexScreener">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                    <path d="M4 19V9M10 19V5M16 19v-7M22 19H2" />
+                  </svg>
+                </Social>
               </span>
             )}
           </div>
@@ -113,21 +118,6 @@ export default function TokenHeader({ tokenIn, tokenOut, side, onSideChange }) {
           <dd>{d?.holders ? d.holders.toLocaleString() : '—'}</dd>
         </div>
       </dl>
-
-      {pair && (
-        <button
-          type="button"
-          className="token-head__pair"
-          onClick={() => onSideChange(side === 'in' ? 'out' : 'in')}
-          title={`Show ${(side === 'in' ? tokenOut : tokenIn).symbol} instead`}
-          aria-label={`Showing ${token?.symbol}. Switch to ${(side === 'in' ? tokenOut : tokenIn).symbol}`}
-        >
-          <span className={side === 'in' ? 'is-shown' : ''}>{tokenIn.symbol}</span>/<span className={side === 'out' ? 'is-shown' : ''}>{tokenOut.symbol}</span>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true">
-            <path d="M4 8h14l-4-4M20 16H6l4 4" />
-          </svg>
-        </button>
-      )}
     </section>
   );
 }

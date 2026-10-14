@@ -8,6 +8,7 @@ import { createChart, CandlestickSeries, HistogramSeries } from 'lightweight-cha
 import { useAsync, useLocalStorage } from '../../hooks.js';
 import { fetchOhlc, fetchTokenInfo, intearTokenId, RESOLUTIONS } from '../../lib/intear.js';
 import { fetchPoolOhlc } from '../../lib/gecko.js';
+import { CHART_BARS, lastGood, sameCandles, useBarClock } from '../../lib/candles.js';
 import { chartPoolFor } from '../../lib/tokenMarket.js';
 import { formatChartPrice, formatUsd } from '../../lib/format.js';
 import { attachDrawings, DrawingToolbar, useDrawingKeys } from '../chart/DrawingTools.jsx';
@@ -39,14 +40,20 @@ export default function SwapChart({ token, counter, pools, height }) {
   const info = useAsync(() => fetchTokenInfo(tokenId), [tokenId], { enabled: Boolean(tokenId), refreshMs: 60_000 });
   const supply = info.data?.circulatingSupply;
 
+  const lastGoodRef = useRef(null);
   const loaded = useAsync(
     async () => {
+      const memo = lastGood(lastGoodRef, `${tokenId}|${pool?.address}|${resolution}|${unit}`);
+      const keep = (value) => memo.keep(value, (a, b) => a.source === b.source && a.usd === b.usd && sameCandles(a.candles, b.candles));
       if (pool) {
         const usd = unit === 'usd';
-        const res = await fetchPoolOhlc({ address: pool.address, tokenId, resolution, usd, countBack: 300 }).catch(() => null);
-        if (res?.trades > 0) return { source: 'pool', usd, candles: res.candles };
+        const res = await fetchPoolOhlc({ address: pool.address, tokenId, resolution, usd, countBack: CHART_BARS }).catch(() => null);
+        if (res?.trades > 0) return keep({ source: 'pool', usd, candles: res.candles });
+        // GeckoTerminal busy for a moment: keep the pool's candles rather than switching sources.
+        const prev = memo.previous();
+        if (!res && prev?.source === 'pool') return prev;
       }
-      return { source: 'market', usd: true, candles: await fetchOhlc({ tokenId, resolution, countBack: 300 }) };
+      return keep({ source: 'market', usd: true, candles: await fetchOhlc({ tokenId, resolution, countBack: CHART_BARS }) });
     },
     [tokenId, pool?.address, resolution, unit],
     { enabled: Boolean(tokenId) && pools !== undefined, refreshMs: REFRESH_MS }
@@ -77,6 +84,8 @@ export default function SwapChart({ token, counter, pools, height }) {
   const pendingRef = useRef(null);
   const live = useRef({});
   const viewRef = useRef(null);
+  const liveBarRef = useRef(null);
+  useBarClock(liveBarRef, step);
   const [legend, setLegend] = useState(null);
   const [tool, setTool] = useState('cursor');
   const [magnet, setMagnet] = useState(true);
@@ -118,6 +127,7 @@ export default function SwapChart({ token, counter, pools, height }) {
     chart.priceScale('volume').applyOptions({ scaleMargins: { top: 0.84, bottom: 0 } });
     series.setData(scaled.map(({ time, open, high, low, close }) => ({ time, open, high, low, close })));
     volume.setData(scaled.map((c) => ({ time: c.time, value: c.volume, color: c.close >= c.open ? 'rgba(184,255,61,0.28)' : 'rgba(255,93,108,0.28)' })));
+    liveBarRef.current = { series, bar: scaled[scaled.length - 1], line: false };
 
     // High / Low of the loaded range, as on Jupiter.
     const hi = scaled.reduce((m, c) => Math.max(m, c.high), -Infinity);
@@ -161,6 +171,7 @@ export default function SwapChart({ token, counter, pools, height }) {
         price: scale.options().autoScale ? null : scale.getVisibleRange()
       };
       paintRef.current = null;
+      liveBarRef.current = null;
       drawingLayer.dispose();
       chart.remove();
     };

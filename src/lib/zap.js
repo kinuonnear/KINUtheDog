@@ -7,7 +7,8 @@
 
 import { CONTRACTS } from '../config.js';
 import { buildDclAppendTransactions, buildDclBinsTransactions, planAppend, planBinsByBudget } from './dclLiquidity.js';
-import { buildSwapTransactions, getSwapQuote } from './swap.js';
+import { buildSwapTransactions, getSwapQuote, measurePriceImpact } from './swap.js';
+import { oneStep } from './rebalance.js';
 import { toBigInt } from './format.js';
 
 const SCALE = 1_000_000n;
@@ -32,6 +33,38 @@ function splitAmount(amountIn, shareX) {
   return { toX, toY: toBigInt(amountIn) - toX };
 }
 
+/** Whether a swap quote trades through the given CLMM pool ("x|y|fee"). */
+function routesThrough(quote, poolId) {
+  if (quote.dcl) return quote.dcl.poolIds.includes(poolId);
+  // Rhea's SmartRouter message is opaque: any hop between the pool's two tokens may use it.
+  const [a, b] = poolId.split('|');
+  const t = quote.routeTokens;
+  if (!Array.isArray(t)) return true;
+  return t.some((id, i) => i > 0 && ((t[i - 1] === a && id === b) || (t[i - 1] === b && id === a)));
+}
+
+/**
+ * A zap swaps part of the input and then deposits into the pool. When a swap runs through that
+ * same pool it moves the pool's price first — in a CLMM pool by about twice the average impact —
+ * and past the slippage band the deposit is refused on-chain (E204). Stop at the quote instead.
+ */
+async function checkZapImpact(legs, { poolId, inputToken, slippage }) {
+  let move = 0;
+  for (const leg of legs) {
+    if (leg.kind !== 'swap' || !routesThrough(leg.quote, poolId)) continue;
+    let impact = leg.quote.priceImpact;
+    if (!Number.isFinite(impact)) {
+      impact = await measurePriceImpact(leg.quote, { tokenIn: inputToken, tokenOut: { id: leg.target }, amountIn: leg.amountIn }).catch(() => null);
+    }
+    if (Number.isFinite(impact)) move += impact * 2;
+  }
+  if (move > slippage) {
+    throw new Error(
+      `The swap inside this zap moves the pool price about ${move.toFixed(2)}% — more than your ${slippage}% slippage, so the deposit would fail. Raise slippage in ⚙, zap a smaller amount, or add both tokens.`
+    );
+  }
+}
+
 /** One side of a zap: kept (input already is that token), wrapped (native NEAR -> wNEAR) or swapped. */
 async function quoteLeg({ inputToken, target, amount, slippage, user }) {
   if (amount <= 0n) return { target: target.id, amountIn: '0', kind: 'none', out: '0', minOut: '0' };
@@ -44,7 +77,8 @@ async function quoteLeg({ inputToken, target, amount, slippage, user }) {
       minOut: amount.toString()
     };
   }
-  const quote = await getSwapQuote({ tokenIn: inputToken, tokenOut: target, amountIn: amount.toString(), slippage, user });
+  // One-step routes only: a zap is a single wallet request (lib/rebalance.js oneStep).
+  const quote = oneStep(await getSwapQuote({ tokenIn: inputToken, tokenOut: target, amountIn: amount.toString(), slippage, user }));
   return { target: target.id, amountIn: amount.toString(), kind: 'swap', quote, out: quote.amountOut, minOut: quote.minAmountOut };
 }
 
@@ -61,6 +95,7 @@ export async function quoteZap({ inputToken, amountIn, x, y, pool, unitPlan, sli
     quoteLeg({ inputToken, target: x, amount: toX, slippage, user }),
     quoteLeg({ inputToken, target: y, amount: toY, slippage, user })
   ]);
+  await checkZapImpact([legX, legY], { poolId: pool.pool_id, inputToken, slippage });
   const plan = planBinsByBudget({
     bins: unitPlan.bins,
     budgetX: Number(legX.minOut),
@@ -125,6 +160,7 @@ export async function quoteZapToPosition({ inputToken, amountIn, x, y, positions
     quoteLeg({ inputToken, target: x, amount: toX, slippage, user }),
     quoteLeg({ inputToken, target: y, amount: toY, slippage, user })
   ]);
+  await checkZapImpact([legX, legY], { poolId: positions[0].poolId, inputToken, slippage });
   const append = planAppend(positions, { inX: toBigInt(legX.minOut), inY: toBigInt(legY.minOut) });
   return {
     shareX,

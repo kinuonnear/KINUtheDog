@@ -6,6 +6,7 @@
 // and identical reads share one request.
 
 import { ENDPOINTS } from '../config.js';
+import { geckoFetch } from './gecko.js';
 
 const GECKO = `${ENDPOINTS.geckoterminal}/networks/near`;
 const cache = new Map(); // key -> { at, promise }
@@ -20,7 +21,8 @@ function cached(key, ttlMs, load) {
 }
 
 async function getJson(url) {
-  const response = await fetch(url, { headers: { accept: 'application/json' } });
+  // GeckoTerminal reads share one rate-limited lane with the charts (lib/gecko.js).
+  const response = url.startsWith(GECKO) ? await geckoFetch(url) : await fetch(url, { headers: { accept: 'application/json' } });
   if (!response.ok) throw new Error(response.status === 429 ? 'Market data is busy — retrying shortly.' : `Market data HTTP ${response.status}`);
   return response.json();
 }
@@ -93,18 +95,60 @@ export function getTokenPools(tokenId, counterId = null) {
 }
 
 /** Logo, links and verified flag from GeckoTerminal (null when the token isn't indexed). */
+const handleOf = (url, host) => {
+  const m = String(url || '').match(new RegExp(`${host}/(?:#!/)?@?([A-Za-z0-9_+]+)`, 'i'));
+  return m ? m[1] : null;
+};
+
+/**
+ * A token's links from DexScreener: most NEAR teams fill in their socials there (via the
+ * DexScreener token profile) rather than on GeckoTerminal. Also the token's DexScreener page.
+ */
+async function dexScreenerProfile(tokenId) {
+  const json = await getJson(`${ENDPOINTS.dexscreener}/latest/dex/tokens/${encodeURIComponent(tokenId)}`);
+  const pairs = (json.pairs || []).filter((p) => p.chainId === 'near');
+  const info = pairs.find((p) => p.info)?.info;
+  const socials = info?.socials || [];
+  const social = (type) => socials.find((s) => s.type === type)?.url || null;
+  const top = [...pairs].sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0))[0];
+  return {
+    image: info?.imageUrl || null,
+    website: info?.websites?.[0]?.url || null,
+    twitter: handleOf(social('twitter'), '(?:x|twitter)\\.com'),
+    telegram: handleOf(social('telegram'), 't\\.me'),
+    discord: social('discord'),
+    dexscreener: top?.url || null
+  };
+}
+
+async function geckoProfile(tokenId) {
+  const json = await getJson(`${GECKO}/tokens/${encodeURIComponent(tokenId)}/info`);
+  const a = json.data?.attributes;
+  if (!a) return null;
+  return {
+    image: a.image_url && a.image_url !== 'missing.png' ? a.image_url : null,
+    website: (a.websites || [])[0] || null,
+    twitter: a.twitter_handle || null,
+    telegram: a.telegram_handle || null,
+    discord: a.discord_url || null,
+    verified: Boolean(a.gt_verified)
+  };
+}
+
+/** Logo, links and GeckoTerminal verification, from GeckoTerminal and DexScreener combined. */
 export function getTokenProfile(tokenId) {
   return cached(`profile:${tokenId}`, 10 * 60_000, async () => {
-    const json = await getJson(`${GECKO}/tokens/${encodeURIComponent(tokenId)}/info`);
-    const a = json.data?.attributes;
-    if (!a) return null;
+    const [gecko, dex] = await Promise.all([geckoProfile(tokenId).catch(() => null), dexScreenerProfile(tokenId).catch(() => null)]);
+    if (!gecko && !dex) return null;
+    const pick = (key) => gecko?.[key] || dex?.[key] || null;
     return {
-      image: a.image_url && a.image_url !== 'missing.png' ? a.image_url : null,
-      website: (a.websites || [])[0] || null,
-      twitter: a.twitter_handle || null,
-      telegram: a.telegram_handle || null,
-      discord: a.discord_url || null,
-      verified: Boolean(a.gt_verified)
+      image: pick('image'),
+      website: pick('website'),
+      twitter: pick('twitter'),
+      telegram: pick('telegram'),
+      discord: pick('discord'),
+      verified: Boolean(gecko?.verified),
+      dexscreener: dex?.dexscreener || null
     };
   });
 }

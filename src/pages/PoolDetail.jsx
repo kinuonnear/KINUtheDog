@@ -4,7 +4,7 @@ import { useAsync, useChainUpdates, useElementHeight, useLocalStorage, useMediaQ
 import { Link, poolsReturnPath, useLocation } from '../router.jsx';
 import { getDclPositions, getFarmStakes, getPool, getPoolShares, getPoolStats, dclPointToPrice, parseDclPoolId } from '../lib/rhea.js';
 import { asPoolToken, getTokens, priceOf } from '../lib/tokens.js';
-import { view } from '../lib/rpc.js';
+import { useLiveDclPool } from '../lib/liveEvents.js';
 import { amountsForShares, isStableKind } from '../lib/liquidity.js';
 import { AmmLiquidity, DclLiquidity, StableLiquidity } from '../components/Liquidity.jsx';
 import { DclGroupCard } from '../components/DclPositions.jsx';
@@ -17,7 +17,6 @@ import { formatAmount, formatChartPrice, formatPercent, formatRawAmount, formatU
 import { CONTRACTS, ENDPOINTS, NATIVE_NEAR } from '../config.js';
 import { CopyButton, EmptyState, ErrorNotice, PairIcons, Skeleton, Stat, Tabs, TokenIcon } from '../components/ui.jsx';
 
-const LIVE_POOL_MS = 4_000;
 const LIVE_FEES_MS = 15_000; // your positions' claimable fees
 
 /** Pool page on app.rhea.finance, for users who want the original UI. */
@@ -219,7 +218,8 @@ function DclPool({ poolId, initialTab }) {
   const { tokenX, tokenY, fee } = parseDclPoolId(poolId);
   const tokenQuery = useAsync(() => getTokens([tokenX, tokenY]), [tokenX, tokenY]);
   // Live pool state: the price moves between quoting and signing, so the deposit form follows it.
-  const chain = useAsync(() => view(CONTRACTS.dcl, 'get_pool', { pool_id: poolId }), [poolId], { refreshMs: LIVE_POOL_MS });
+  // Pushed by Intear's event stream when it is connected, polled otherwise (lib/liveEvents.js).
+  const chain = useLiveDclPool(poolId);
   const stats = useAsync(() => getPoolStats(poolId), [poolId]);
   const positions = useAsync(
     async () => (await getDclPositions(accountId)).filter((p) => p.poolId === poolId),

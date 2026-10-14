@@ -254,6 +254,8 @@ export default function Swap() {
   const [amount, setAmount] = useState('');
   const [picker, setPicker] = useState(null);
   const [showChart, setShowChart] = useLocalStorage('kinu.swap.chart', true);
+  // The activity tabs under the chart (Transactions, My history, Holders, …).
+  const [showHistory, setShowHistory] = useLocalStorage('kinu.swap.history', true);
   const [quote, setQuote] = useState(null);
   const [quoteError, setQuoteError] = useState('');
   const [quoting, setQuoting] = useState(false);
@@ -265,11 +267,8 @@ export default function Swap() {
   routeSourceRef.current = routeSource;
   const [showRoutes, setShowRoutes] = useState(false);
   const [invert, setInvert] = useState(false);
-  const [chartSide, setChartSide] = useState(null);
-
-  // The chart follows the non-quote token of the pair unless the user picks a side.
-  useEffect(() => setChartSide(null), [tokenIn.id, tokenOut.id]);
-  const side = chartSide || defaultChartSide(tokenIn, tokenOut);
+  // The chart follows the non-quote token of the pair (e.g. NEARLY in NEAR → NEARLY).
+  const side = defaultChartSide(tokenIn, tokenOut);
   const chartToken = side === 'in' ? tokenIn : tokenOut;
   const counterToken = side === 'in' ? tokenOut : tokenIn;
   // The charted token's pools (GeckoTerminal): chart source, 24h flow, top traders and Pairs.
@@ -577,7 +576,7 @@ export default function Swap() {
     <div className="page page--swap swap-pro">
       <div className="swap-pro__grid">
         <div className="swap-pro__main">
-          <TokenHeader tokenIn={tokenIn} tokenOut={tokenOut} side={side} onSideChange={setChartSide} />
+          <TokenHeader token={chartToken} />
           {showChart && (
             <>
               <Suspense fallback={<div className="card chart-card chart-card--loading"><Spinner size={22} /></div>}>
@@ -598,7 +597,7 @@ export default function Swap() {
               </div>
             </>
           )}
-          <SwapActivity token={chartToken} pools={pools} poolsError={Boolean(poolsQuery.error)} flush={showChart} />
+          {showHistory && <SwapActivity token={chartToken} pools={pools} poolsError={Boolean(poolsQuery.error)} flush={showChart} />}
         </div>
 
         <div className="swap-column swap-pro__side">
@@ -613,6 +612,9 @@ export default function Swap() {
               <div className="swap-card__tools">
                 <button type="button" className="pill-button" onClick={() => setShowChart(!showChart)}>
                   {showChart ? 'Hide chart' : 'Show chart'}
+                </button>
+                <button type="button" className="pill-button" onClick={() => setShowHistory(!showHistory)}>
+                  {showHistory ? 'Hide history' : 'Show history'}
                 </button>
                 <SlippageSettings slippage={slippage} setSlippage={setSlippage} />
               </div>

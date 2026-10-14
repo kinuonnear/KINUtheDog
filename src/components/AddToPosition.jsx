@@ -11,7 +11,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../state.jsx';
 import { useAsync, useDebounced } from '../hooks.js';
 import { appendCounterpart, buildDclAppendTransactions, freshPool, getDclAssets, planAppend, pointToPrice, positionsAtPoint } from '../lib/dclLiquidity.js';
-import { view } from '../lib/rpc.js';
+import { useLiveDclPool } from '../lib/liveEvents.js';
 import { wrapNeededFor } from '../lib/tx.js';
 import { buildZapAppendTransactions, quoteZapToPosition } from '../lib/zap.js';
 import { priceOf } from '../lib/tokens.js';
@@ -26,8 +26,6 @@ import TaxNote from './TaxNote.jsx';
 const PERCENTS = [0.25, 0.5, 0.75, 1];
 
 const formatUnitsShort = (raw, decimals) => formatAmount(toNumber(raw, decimals));
-// Same cadence and cache key as the pool page's own read, so an open modal adds no RPC calls.
-const LIVE_MS = 4_000;
 
 /** Pool price, live: flashes up / down when it moves, with the time since the last read. */
 function LivePrice({ point, updatedAt, x, y }) {
@@ -80,7 +78,8 @@ export default function AddToPositionModal({ positions: basePositions, x, y, tit
   const [editSlippage, setEditSlippage] = useState(false);
   // Live pool state: the position's token amounts follow the current price.
   const poolId = basePositions[0]?.poolId;
-  const live = useAsync(() => view(CONTRACTS.dcl, 'get_pool', { pool_id: poolId }), [poolId], { refreshMs: LIVE_MS });
+  // Shares the pool page's live read (lib/liveEvents.js), so an open modal adds no RPC calls.
+  const live = useLiveDclPool(poolId);
   const point = live.data?.current_point ?? basePositions[0]?.currentPoint;
   const positions = useMemo(() => positionsAtPoint(basePositions, point), [basePositions, point]);
   const [mode, setMode] = useState('dual');

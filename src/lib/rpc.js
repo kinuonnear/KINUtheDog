@@ -171,15 +171,49 @@ function endpointOrder(count) {
   return [...ready, ...resting];
 }
 
+/* ------------------------------------------------------------------ */
+/* The reserve (FastNEAR) is for reads the visitor just asked for       */
+/* ------------------------------------------------------------------ */
+
+// A click or key press in the last few seconds: the read serves something the visitor is waiting
+// for (opening a page, a quote, building a transaction). Background refreshes outside that window
+// never fall back to FastNEAR, whose per-IP quota the wallet needs to broadcast.
+const INTERACTIVE_MS = 15_000;
+let lastInput = 0;
+if (typeof window !== 'undefined') {
+  const mark = () => {
+    lastInput = Date.now();
+  };
+  window.addEventListener('pointerdown', mark, { capture: true, passive: true });
+  window.addEventListener('keydown', mark, { capture: true, passive: true });
+}
+const reserveAllowed = () => Date.now() - lastInput < INTERACTIVE_MS;
+
+function busyError() {
+  const error = new Error('NEAR RPC is busy — retrying shortly.');
+  error.retryable = true;
+  error.rateLimited = true;
+  return error;
+}
+
 export async function rpc(method, params) {
   await acquire();
   try {
     const endpoints = ALL_ENDPOINTS;
+    const useReserve = reserveAllowed();
+    const count = useReserve ? endpoints.length : ENDPOINTS.rpc.length;
+    const tries = new Array(count).fill(0);
     let lastError;
-    // Each endpoint gets two tries; endpoints resting after a rate limit come last.
-    const order = endpointOrder(endpoints.length);
-    for (let attempt = 0; attempt < endpoints.length * 2; attempt += 1) {
-      const index = order[attempt % order.length];
+    // Each endpoint gets two tries. The order is worked out again before every attempt, so an
+    // endpoint that just hit its rate limit moves behind the ones that are still fresh.
+    for (let attempt = 0; attempt < count * 2; attempt += 1) {
+      const order = endpointOrder(count);
+      // A background read while every endpoint is resting: skip it (the page keeps what it shows)
+      // rather than adding to the rate limit.
+      if (!useReserve && order.every((i) => cooldownUntil.get(i) > Date.now())) throw lastError?.rateLimited ? lastError : busyError();
+      const round = attempt < count ? 0 : 1;
+      const index = order.find((i) => tries[i] === round) ?? order[attempt % order.length];
+      tries[index] += 1;
       try {
         const json = await postJson(endpoints[index], {
           jsonrpc: '2.0',
@@ -205,7 +239,7 @@ export async function rpc(method, params) {
         if (!error.retryable) throw error;
         if (error.rateLimited) coolDown(index, error.retryAfter);
         // Moving on to a fresh endpoint needs no wait; a second round over the same ones backs off.
-        if (attempt + 1 >= endpoints.length || !error.rateLimited) await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+        if (attempt + 1 >= count || !error.rateLimited) await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
       }
     }
     throw lastError;
