@@ -109,7 +109,9 @@ function paintMine(ctx, mine, toY, width, height, cur, f) {
     const w = ctx.measureText(text).width + 14;
     ctx.fillStyle = `rgba(${SKY},0.92)`;
     // Labels sit in the middle so they clear the legend (top-left) and the Min/Max tags (right).
-    const left = Math.round(Math.max(8, Math.min(width * 0.34, width - w - 120)));
+    // On a narrow (phone) chart there is no middle: they go right, against the price axis.
+    const left =
+      width < 520 ? Math.round(Math.max(8, width - w - 72)) : Math.round(Math.max(8, Math.min(width * 0.34, width - w - 120)));
     ctx.fillRect(left, yy - 10, w, 20);
     ctx.fillStyle = '#04121a';
     ctx.fillText(text, left + 7, yy);

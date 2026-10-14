@@ -144,7 +144,7 @@ export default function LiquidityTable({ classicRows, dclRows, depositUsd, readO
 
   const apr = (id) => {
     const p = stats.data?.[id];
-    return p ? <AprValue apr={p.apy + p.farmApy} tokenIds={p.tokenIds} /> : stats.loading ? <Spinner size={12} /> : '—';
+    return p ? <AprValue apr={p.apy + p.farmApy} tokenIds={p.tokenIds} estimated={p.apyEstimated} /> : stats.loading ? <Spinner size={12} /> : '—';
   };
 
   if (!classicRows.length && !dclGroups.length) {

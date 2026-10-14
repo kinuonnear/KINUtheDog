@@ -9865,3 +9865,85 @@ a.pair-tiers__row:hover {
     display: none;
   }
 }
+
+/* Pool page on phones: every header stat visible (Fees, APR…) in two columns, not in a
+   sideways strip nobody knows to swipe. */
+@media (max-width: 720px) {
+  .pool-bar__stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 16px;
+    overflow: visible;
+  }
+
+  .pool-bar__stats > div {
+    min-width: 0;
+  }
+
+  .pool-bar__stats strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* Phones: a compact chart legend that leaves room for the Min/Max labels on the right. */
+@media (max-width: 720px) {
+  .pro-chart__legend {
+    max-width: 58%;
+    font-size: 10px;
+  }
+
+  .pro-chart__legend > span:first-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* Pool page on phones: a floating way to the liquidity form (it sits below the chart). */
+.mobile-add-cta {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .mobile-add-cta {
+    position: fixed;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    z-index: 30;
+    display: inline-flex;
+    align-items: center;
+    padding: 14px 26px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--accent);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 24px rgba(184, 255, 61, 0.35);
+    color: var(--accent-ink);
+    font-size: 15px;
+    font-weight: 700;
+    transform: translateX(-50%);
+    transition:
+      opacity 0.2s,
+      transform 0.2s;
+  }
+
+  .mobile-add-cta--hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, 20px);
+  }
+}
+
+/* Jumping to a liquidity form (Add liquidity button, ?tab=add links) stops below the sticky
+   top bar instead of under it. */
+#new-position,
+#pool-liquidity {
+  scroll-margin-top: 84px;
+}
+
+@media (max-width: 720px) {
+  #new-position,
+  #pool-liquidity {
+    scroll-margin-top: 168px;
+  }
+}

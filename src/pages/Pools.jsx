@@ -320,7 +320,7 @@ function DiscoverRow({ rank, pool, tokens, prices, info, stat, estimated, favori
         {pending ? <Skeleton width={56} /> : stat ? `${estimated ? '≈' : ''}${formatUsd(stat.fees)}` : '—'}
       </span>
       <span className="dt-num dt-apr" data-label="APR">
-        <AprValue apr={pool.apy + pool.farmApy} move={info?.change24h} />
+        <AprValue apr={pool.apy + pool.farmApy} move={info?.change24h} estimated={pool.apyEstimated} />
         <AprMeter apr={pool.apy + pool.farmApy} />
       </span>
       {/* The row is a link, so the quick action is a button (no link inside a link). */}

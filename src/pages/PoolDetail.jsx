@@ -32,6 +32,32 @@ function rheaPoolUrl(pool) {
   return `${ENDPOINTS.rheaApp}/${isStableKind(pool.kind) ? 'sauce' : 'pool'}/${pool.id}`;
 }
 
+/**
+ * Phones: the liquidity form sits below the chart and pool data. A floating button jumps to it,
+ * and steps aside while the form is on screen.
+ */
+function MobileAddCta({ targetId, label = '+ Add liquidity' }) {
+  const [formVisible, setFormVisible] = useState(false);
+  useEffect(() => {
+    const target = document.getElementById(targetId);
+    if (!target || typeof IntersectionObserver === 'undefined') return undefined;
+    const observer = new IntersectionObserver(([entry]) => setFormVisible(entry.isIntersecting), { threshold: 0.15 });
+    observer.observe(target);
+    return () => observer.disconnect();
+  });
+  return (
+    <button
+      type="button"
+      className={`mobile-add-cta ${formVisible ? 'mobile-add-cta--hidden' : ''}`}
+      onClick={() => document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+      tabIndex={formVisible ? -1 : 0}
+      aria-hidden={formVisible}
+    >
+      {label}
+    </button>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Classic / stable pool page                                          */
 /* ------------------------------------------------------------------ */
@@ -109,7 +135,7 @@ function ClassicPool({ poolId, initialTab }) {
       <div className="stats-row">
         <Stat label="TVL" value={tvl < 1 ? 'Empty pool' : formatUsd(tvl)} hint={tvl < 1 ? 'be the first LP' : undefined} />
         <Stat label="Volume 24h" value={stats.data ? formatUsd(stats.data.volume24h) : '—'} loading={stats.loading} />
-        <Stat label="Fee APR" value={stats.data ? <AprValue apr={stats.data.apy} tokenIds={pool.tokenIds} /> : '—'} loading={stats.loading} />
+        <Stat label="Fee APR" value={stats.data ? <AprValue apr={stats.data.apy} tokenIds={pool.tokenIds} estimated={stats.data.apyEstimated} /> : '—'} loading={stats.loading} />
         <Stat
           label="Price"
           value={spot !== null ? `${formatAmount(spot)} ${tokens[1].symbol}` : '—'}
@@ -205,7 +231,7 @@ function ClassicPool({ poolId, initialTab }) {
         </div>
 
         <aside className="pool-grid__side">
-          <section className="card">
+          <section className="card" id="pool-liquidity">
             {isSimple ? (
               <AmmLiquidity
                 pool={pool}
@@ -232,6 +258,7 @@ function ClassicPool({ poolId, initialTab }) {
           </section>
         </aside>
       </div>
+      <MobileAddCta targetId="pool-liquidity" />
     </>
   );
 }
@@ -313,7 +340,7 @@ function DclPool({ poolId, initialTab }) {
           { label: '24h fees', value: stats.data ? formatUsd(stats.data.feeVolume24h) : '-' },
           { label: '24h fees / TVL', value: stats.data && tvl > 0 && !empty ? formatPercent((stats.data.feeVolume24h / tvl) * 100) : '-' },
           { label: 'Trading fee', value: formatPercent(fee / 10000, 2) },
-          { label: 'Fee APR', value: stats.data ? <AprValue apr={stats.data.apy} tokenIds={[tokenX, tokenY]} /> : '-', accent: true }
+          { label: 'Fee APR', value: stats.data ? <AprValue apr={stats.data.apy} tokenIds={[tokenX, tokenY]} estimated={stats.data.apyEstimated} /> : '-', accent: true }
         ]}
       />
       <DclWorkspace
@@ -329,6 +356,7 @@ function DclPool({ poolId, initialTab }) {
         onAdd={scrollToForm}
         onDone={refresh}
       />
+      <MobileAddCta targetId="new-position" />
     </div>
   );
 }

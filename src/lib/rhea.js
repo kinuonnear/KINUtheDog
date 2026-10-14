@@ -66,9 +66,23 @@ function num(value) {
   return Number.isFinite(n) ? n : 0;
 }
 
+// Rhea leaves `apy` at 0 for some CLMM pools that did earn fees. For those (with real liquidity —
+// a near-empty pool would annualise to nonsense) the last 24h of fees are annualised here instead,
+// flagged `apyEstimated` so the APR shows as an estimate.
+const APR_ESTIMATE_MIN_TVL = 100;
+
+function poolApy(raw) {
+  const apy = num(raw.apy);
+  const tvl = num(raw.tvl);
+  const fees = num(raw.fee_volume_24h);
+  if (apy > 0 || !(fees > 0) || tvl < APR_ESTIMATE_MIN_TVL) return { apy, apyEstimated: false };
+  return { apy: (fees / tvl) * 365 * 100, apyEstimated: true };
+}
+
 function normalizeSearchPool(raw) {
   const kind = raw.pool_kind;
   return {
+    ...poolApy(raw),
     id: String(raw.id),
     kind,
     label: poolKindLabel(kind),
@@ -80,7 +94,6 @@ function normalizeSearchPool(raw) {
     tvl: num(raw.tvl),
     volume24h: num(raw.volume_24h),
     feeVolume24h: num(raw.fee_volume_24h),
-    apy: num(raw.apy),
     farmApy: num(raw.farm_apy),
     isFarm: Boolean(raw.is_farm),
     feePercent: num(raw.total_fee) * 100,

@@ -412,7 +412,7 @@ function BestToLp({ filters, onFilters }) {
           <b key="y" className="up" title={`Fees over ${w} ÷ TVL: what $100 of liquidity earned`}>
             {formatPercent(r.yieldPct, 2)}
           </b>,
-          <AprValue key="a" apr={r.apy + r.farmApy} move={r.activity?.change.h24} />,
+          <AprValue key="a" apr={r.apy + r.farmApy} move={r.activity?.change.h24} estimated={r.apyEstimated} />,
           <span key="m" className="disc-swing">
             <Change value={r.change} />
             {r.swing && <em className={`swing swing--${r.swing.key}`}>{r.swing.label}</em>}

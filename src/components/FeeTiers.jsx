@@ -54,7 +54,7 @@ export default function FeeTiers({ tokenIds, currentId }) {
               {formatPercent(p.yieldPct, 2)}
             </span>
             <span data-label="APR">
-              <AprValue apr={p.apy + p.farmApy} tokenIds={p.tokenIds} />
+              <AprValue apr={p.apy + p.farmApy} tokenIds={p.tokenIds} estimated={p.apyEstimated} />
             </span>
           </Link>
         );
