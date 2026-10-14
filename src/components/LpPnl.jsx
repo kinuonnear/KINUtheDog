@@ -6,10 +6,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createChart, HistogramSeries, LineSeries } from 'lightweight-charts';
 import { useAsync } from '../hooks.js';
 import { Link, poolPath } from '../router.jsx';
-import { asPoolToken, getTokens } from '../lib/tokens.js';
+import { asPoolToken, getTokens, priceOf } from '../lib/tokens.js';
 import { buildHistory, formatAge, loadDclEvents, loadPriceHistory } from '../lib/lpHistory.js';
 import { pointToPrice } from '../lib/dclLiquidity.js';
-import { formatAmount, formatPercent, formatUsd } from '../lib/format.js';
+import { formatAmount, formatPercent, formatUsd, toNumber } from '../lib/format.js';
 import { EmptyState, PairIcons, Skeleton, Spinner } from './ui.jsx';
 import { lpShareCard } from '../lib/shareCard.js';
 import ShareButton from './ShareCard.jsx';
@@ -460,4 +460,42 @@ export function ClosedPositions({ history }) {
       </p>
     </section>
   );
+}
+
+/**
+ * PnL of the positions in one CLMM pool, for the pool page (e.g. its share cards). `events` are
+ * the account's liquidity events the page already loaded (useDepositGroups); only the two tokens'
+ * price history is added. Returns pnlOf(positions) -> { known, pnl, pnlPct, fees } (as in the
+ * Portfolio), null while loading, or { known: false } when the history could not be read.
+ */
+export function usePoolPnl(events, poolId, x, y, prices, failed = false) {
+  const poolEvents = useMemo(() => (events ? events.filter((e) => e.pool === poolId) : null), [events, poolId]);
+  const since = poolEvents?.length ? poolEvents[0].ts : null;
+  const history = useAsync(() => loadPriceHistory([x.id, y.id], since), [x.id, y.id, since], { enabled: Boolean(since) });
+  const ledgers = useMemo(() => {
+    if (!poolEvents || !history.data) return null;
+    const meta = (id) => (id === x.id ? x : id === y.id ? y : { id, symbol: id.slice(0, 6), decimals: 0 });
+    return buildHistory(poolEvents, meta, history.data, prices).ledgers;
+  }, [poolEvents, history.data, prices, x, y]);
+
+  return (positions) => {
+    if (!ledgers) return failed || history.error ? { known: false } : null;
+    const px = priceOf(prices, x.id);
+    const py = priceOf(prices, y.id);
+    let pnl = 0;
+    let gross = 0;
+    let fees = 0;
+    let known = 0;
+    positions.forEach((p) => {
+      const value = (p.amountX / 10 ** x.decimals) * px + (p.amountY / 10 ** y.decimals) * py;
+      const unclaimed = toNumber(p.unclaimedFeeX, x.decimals) * px + toNumber(p.unclaimedFeeY, y.decimals) * py;
+      const l = ledgers.get(p.id);
+      fees += unclaimed + (l?.feesUsd || 0);
+      if (!l || !l.complete) return;
+      known += 1;
+      pnl += value + unclaimed - l.costUsd + l.realizedUsd + l.feesUsd;
+      gross += l.investedUsd;
+    });
+    return { known: known > 0 && known === positions.length, pnl, pnlPct: gross > 0 ? (pnl / gross) * 100 : null, fees };
+  };
 }

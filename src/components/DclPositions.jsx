@@ -18,6 +18,9 @@ import { useAsync, useDebounced } from '../hooks.js';
 import { buildZapOutTransactions, quoteZapOut } from '../lib/zapOut.js';
 import { CONTRACTS } from '../config.js';
 import { SlippagePicker } from './Slippage.jsx';
+import ShareButton from './ShareCard.jsx';
+import { positionShareCard } from '../lib/shareCard.js';
+import { usePoolPnl } from './LpPnl.jsx';
 
 /** Summary numbers for a set of positions in one pool. */
 export function summarizeDclGroup(positions, x, y, prices) {
@@ -541,7 +544,7 @@ export function depositTitle(group, loading) {
 }
 
 /** One deposit (Meteora-style position): range, liquidity, fees, earning state and actions. */
-function PositionRow({ poolId, group, x, y, pool, loading, onDone, onChart, onToggleChart }) {
+function PositionRow({ poolId, group, x, y, pool, loading, pnl, onDone, onChart, onToggleChart }) {
   const { prices } = useApp();
   const [open, setOpen] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -620,6 +623,15 @@ function PositionRow({ poolId, group, x, y, pool, loading, onDone, onChart, onTo
           </span>
           <small className="muted">of active pool liquidity</small>
           <RebalanceButton positions={positions} x={x} y={y} title={title} onDone={onDone} className="button button--outline button--sm" />
+          {/* This position's PnL card, right here: no detour to the Portfolio. */}
+          <ShareButton
+            label="Share PnL"
+            className="button button--ghost button--sm lp-share"
+            title="Share this position's card"
+            build={(hideUsd, opts) =>
+              positionShareCard({ x, y, poolId, summary, p: pnl, age: group.openedAt ? formatAge(Date.now() - group.openedAt) : null }, hideUsd, opts)
+            }
+          />
         </div>
         <div className="lp-board__actions" data-label="Actions">
           <DclActions poolId={poolId} positions={positions} x={x} y={y} onDone={onDone} onAdd={() => setAdding(true)} icons />
@@ -656,6 +668,8 @@ export function DclGroupCard({ poolId, positions, deposits, x, y, pool, onDone, 
   };
   const { groups, loading } = deposits;
   const summary = summarizeDclGroup(positions, x, y, prices);
+  // Each position's PnL, for its share card (from the events this page already loaded).
+  const pnlOf = usePoolPnl(deposits.events, poolId, x, y, prices, Boolean(deposits.error));
   const earning = groups.filter((g) => g.positions.some((p) => p.inRange)).length;
 
   // Fees already claimed in this pool (Claim, Compound, Remove and Add all pay them out), from
@@ -729,6 +743,7 @@ export function DclGroupCard({ poolId, positions, deposits, x, y, pool, onDone, 
             pool={pool}
             loading={loading}
             onDone={onDone}
+            pnl={pnlOf(g.positions)}
             onChart={chartKey === g.key}
             onToggleChart={onToggleChart}
           />

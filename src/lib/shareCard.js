@@ -66,13 +66,10 @@ export const CARD_BACKGROUNDS = [
   { key: 'classic', label: 'Classic', src: null },
   { key: 'minimal', label: 'Minimal', src: null },
   { key: 'waves', label: 'Liquidity Waves', src: null, art: true },
-  { key: 'bands', label: 'Range Bands', src: null, art: true },
   { key: 'candles', label: 'Candle Rise', src: null, art: true },
   { key: 'constellation', label: 'Constellation', src: null, art: true },
   { key: 'aurora', label: 'Aurora', src: null, art: true },
-  { key: 'guardian', label: 'Guardians', src: '/site/kinu-guardian.jpg' },
-  { key: 'jungle', label: 'Jungle', src: '/site/discover-hero.webp' },
-  { key: 'terminal', label: 'Terminal', src: '/kinu-home-bg.png' }
+  { key: 'jungle', label: 'Jungle', src: '/site/discover-hero.webp' }
 ];
 
 /** Draws `img` to cover the whole card (centre-cropped). */
@@ -168,52 +165,6 @@ const ART = {
       ctx.stroke();
       ctx.shadowBlur = 0;
     }
-  },
-
-  /** A CLMM range: two bands with the price inside (or leaving it when out of range). */
-  bands(ctx, rgb, rand, card) {
-    const top = 210;
-    const bottom = 420;
-    const x0 = 520;
-    const band = ctx.createLinearGradient(x0, 0, W, 0);
-    band.addColorStop(0, `rgba(${rgb},0)`);
-    band.addColorStop(1, `rgba(${rgb},0.14)`);
-    ctx.fillStyle = band;
-    ctx.fillRect(x0, top, W - x0, bottom - top);
-    [top, bottom].forEach((y) => {
-      const line = ctx.createLinearGradient(x0, 0, W, 0);
-      line.addColorStop(0, `rgba(${rgb},0)`);
-      line.addColorStop(1, `rgba(${rgb},0.85)`);
-      ctx.strokeStyle = line;
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(x0, y);
-      ctx.lineTo(W, y);
-      ctx.stroke();
-    });
-    // The price: a random walk that stays in the band, or breaks out of it.
-    const out = card.inRange === false;
-    let y = (top + bottom) / 2;
-    const pts = [];
-    for (let x = x0 - 120; x <= W; x += 14) {
-      const pull = out && x > 950 ? (rand() < 0.5 ? -9 : 9) : ((top + bottom) / 2 - y) * 0.08;
-      y += (rand() - 0.5) * 34 + pull;
-      if (!out) y = Math.min(bottom - 14, Math.max(top + 14, y));
-      pts.push([x, y]);
-    }
-    ctx.beginPath();
-    pts.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)));
-    ctx.strokeStyle = `rgba(${rgb},0.9)`;
-    ctx.lineWidth = 3;
-    ctx.shadowColor = `rgba(${rgb},0.9)`;
-    ctx.shadowBlur = 16;
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-    const [lx, ly] = pts[pts.length - 1];
-    ctx.fillStyle = `rgb(${rgb})`;
-    ctx.beginPath();
-    ctx.arc(Math.min(lx, W - 10), ly, 7, 0, Math.PI * 2);
-    ctx.fill();
   },
 
   /** Candlesticks climbing (or sliding, for a loss) on the right. */
@@ -476,16 +427,18 @@ export async function drawShareCard(card, background = null) {
 
   // Headline value, with a small trend chart on the right when there is history.
   const spark = (card.spark || []).filter(Number.isFinite);
-  // Range Bands and Candle Rise already draw a chart on the right: no second one on top.
-  const hasSpark = spark.length >= 2 && art !== 'bands' && art !== 'candles';
+  // Candle Rise already draws a chart on the right: no second one on top.
+  const hasSpark = spark.length >= 2 && art !== 'candles';
+  // A card without detail boxes (e.g. a single position) gives the result the room: bigger, lower.
+  const solo = !(card.stats || []).length;
   ctx.fillStyle = toneColor;
-  fitText(ctx, card.value, 900, 132, W - 128 - (hasSpark ? 360 : 0));
+  fitText(ctx, card.value, 900, solo ? 170 : 132, W - 128 - (hasSpark ? 360 : 0));
   ctx.textBaseline = 'alphabetic';
-  ctx.fillText(card.value, 60, 370);
+  ctx.fillText(card.value, 58, solo ? 430 : 370);
   if (card.sub) {
     ctx.fillStyle = C.muted;
-    fitText(ctx, card.sub, 700, 26, W - 128);
-    ctx.fillText(card.sub, 64, 418);
+    fitText(ctx, card.sub, 700, solo ? 30 : 26, W - 128);
+    ctx.fillText(card.sub, 64, solo ? 492 : 418);
   }
   if (hasSpark) drawSpark(ctx, spark, { x: W - 64 - 320, y: 258, w: 320, h: 120 }, toneColor);
 
@@ -602,39 +555,36 @@ export function lpShareCard(stats, hideUsd, { days, hidePool = false } = {}) {
 }
 
 /**
- * One LP position (or a pool's positions): p = perf() from the Liquidity table, summary from
- * summarizeDclGroup. PnL = value now + fees earned + withdrawn − invested.
+ * One LP position (or a pool's positions): p = { known, pnl, pnlPct, fees } (Liquidity table's
+ * perf() or the pool page's usePoolPnl), summary from summarizeDclGroup. PnL = value now + fees
+ * earned + withdrawn − invested. The card shows just the result: PnL (or the return with
+ * amounts hidden); while the PnL isn't known yet, the position's value.
  */
 export function positionShareCard({ x, y, poolId, summary, p, age }, hideUsd, { hidePool = false } = {}) {
   const fee = poolId ? `${Number(poolId.split('|')[2]) / 10000}% fee` : '';
   const known = p?.known;
-  const ret = known && Number.isFinite(p.pnlPct) ? signedPct(p.pnlPct) : '—';
-  const value = known ? (hideUsd ? ret : signedUsd(p.pnl)) : hideUsd ? (summary.inRange ? 'In range' : 'Out of range') : formatUsd(summary.usd);
+  const ret = known && Number.isFinite(p.pnlPct) ? signedPct(p.pnlPct) : null;
   const range = summary.fullRange ? 'Full range' : summary.inRange ? 'In range' : 'Out of range';
+  const value = known ? (hideUsd ? ret || '—' : signedUsd(p.pnl)) : hideUsd ? range : formatUsd(summary.usd);
+  const sub = known
+    ? hideUsd
+      ? 'Return · fees included'
+      : `Position PnL${ret ? ` · ${ret}` : ''} · fees included`
+    : p === null
+      ? 'Position value · calculating PnL…' // the pool page is still reading the history
+      : 'Position value';
   return {
     kicker: 'LP POSITION',
-    inRange: summary.inRange,
     // hidePool: the card and the post don't say which pool it is.
     title: hidePool ? 'My LP position' : `${pairLabel(x, y)}${fee ? ` · ${fee}` : ''}`,
     icons: hidePool ? [] : [x.icon, y.icon],
     value,
     tone: known ? toneOf(p.pnl) : 'up',
-    sub: known ? (hideUsd ? 'Return, fees included' : 'Position PnL, fees included') : 'Position value',
+    sub,
     updated: updatedAt(),
-    stats: hideUsd
-      ? [
-          ['Return', ret],
-          ['Range', range],
-          ['Held', age || '—']
-        ]
-      : [
-          ['Trading fees', p ? formatUsd(p.fees) : '—'],
-          ['Position value', formatUsd(summary.usd)],
-          ['Range', range],
-          ['Held', age || '—']
-        ],
-    text: `💧 My ${hidePool ? '' : `${pairLabel(x, y)} `}liquidity on Rhea Finance: ${known ? `${hideUsd ? ret : `${signedUsd(p.pnl)} (${ret})`} PnL` : range}${
-      p && !hideUsd ? `, ${formatUsd(p.fees)} in trading fees` : ''
-    }.\n\nManage Liquidity, Made Simple — @KINUonNEAR 🐕`
+    stats: [],
+    text: `💧 My ${hidePool ? '' : `${pairLabel(x, y)} `}liquidity on Rhea Finance: ${
+      known ? `${hideUsd ? ret || '—' : `${signedUsd(p.pnl)}${ret ? ` (${ret})` : ''}`} PnL, fees included` : hideUsd ? range.toLowerCase() : `${formatUsd(summary.usd)} position, ${range.toLowerCase()}`
+    }${age ? ` · held ${age}` : ''}.\n\nManage Liquidity, Made Simple — @KINUonNEAR 🐕`
   };
 }

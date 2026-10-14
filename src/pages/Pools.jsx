@@ -433,7 +433,8 @@ export default function Pools() {
   // Rows before window stats: search / category / Top Performers candidate filtering.
   const baseRows = useMemo(() => {
     let list = result.data?.list || [];
-    if (view === 'favorites' || view === 'mine') list = list.filter((p) => matchesCategory(p, category));
+    // My positions lists every pool you are in, whatever its type.
+    if (view === 'favorites') list = list.filter((p) => matchesCategory(p, category));
     if (view === 'top') list = list.filter((p) => p.tvl >= TOP_MIN_TVL);
     if (view === 'all' && hideInactive && !q) list = list.filter((p) => p.volume24h > 0);
     if (q) {
@@ -510,14 +511,29 @@ export default function Pools() {
       <div className="toolbar toolbar--discover">
         <div className="category-chips" role="tablist" aria-label="Pool type">
           {POOL_TYPES.map((t) => (
-            <button key={t.key} type="button" role="tab" aria-selected={category === t.key} className={category === t.key ? 'active' : ''} onClick={() => setCategory(t.key)}>
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={category === t.key && view !== 'mine'}
+              className={category === t.key && view !== 'mine' ? 'active' : ''}
+              onClick={() => {
+                setCategory(t.key);
+                // A pool type applies to the full list: leave My positions.
+                if (view === 'mine') setView('all');
+              }}
+            >
               {t.key === 'all' ? 'All types' : t.label}
             </button>
           ))}
           <button
             type="button"
             className={`my-positions-chip ${view === 'mine' ? 'active' : ''}`}
-            onClick={() => (accountId ? setView((v) => (v === 'mine' ? 'all' : 'mine')) : connect())}
+            onClick={() => {
+              if (!accountId) return connect();
+              if (view !== 'mine') setCategory('all');
+              setView((v) => (v === 'mine' ? 'all' : 'mine'));
+            }}
             title={accountId ? 'Pools where you provide liquidity' : 'Connect your wallet to see your positions'}
           >
             <span aria-hidden>◎</span> My positions
@@ -564,7 +580,7 @@ export default function Pools() {
       </div>
 
       <p className="type-hint">
-        <span className={`kind kind--${tab.key}`}>{tab.key === 'all' ? 'All types' : tab.label}</span>
+        <span className={`kind kind--${view === 'mine' ? 'all' : tab.key}`}>{tab.key === 'all' || view === 'mine' ? 'All types' : tab.label}</span>
         {view === 'top'
           ? `Pools that earned the most fees in the last ${windowLabel} (TVL ≥ ${formatUsd(TOP_MIN_TVL)}).`
           : view === 'favorites'
