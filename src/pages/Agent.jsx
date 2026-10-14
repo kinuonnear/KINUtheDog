@@ -68,7 +68,7 @@ function useHoldings(account) {
     }));
     return [...dclGroups, ...classicGroups].sort((a, b) => b.usd.value - a.usd.value);
   }, [data.data, prices]);
-  return { groups, loading: data.loading && !data.data, error: data.error };
+  return { groups, loading: data.loading && !data.data, error: data.data ? null : data.error, reload: data.reload };
 }
 
 export default function Agent() {
@@ -175,6 +175,14 @@ export default function Agent() {
               <div className="ag-empty">
                 <Spinner size={16} /> <span className="muted">Reading your positions…</span>
               </div>
+            ) : holdings.error ? (
+              // Not "no liquidity": the read failed (RPC busy), so say that and offer a retry.
+              <div className="ag-empty">
+                <p>Couldn&apos;t read your positions right now (network busy).</p>
+                <button type="button" className="button button--ghost button--sm" onClick={holdings.reload}>
+                  Try again
+                </button>
+              </div>
             ) : !calls.length ? (
               <div className="ag-empty">
                 <p>No liquidity yet. Pick a pool from the agent&apos;s list below — or start with <Link to="/start-lp">How to start LP</Link>.</p>
@@ -216,7 +224,14 @@ export default function Agent() {
             <h2>
               Opportunities <small>· {persona.name}</small>
             </h2>
-            {!scan ? (
+            {!scan && radar.error ? (
+              <div className="ag-empty">
+                <p>Couldn&apos;t load pool data right now — the agent will retry on its next scan.</p>
+                <button type="button" className="button button--ghost button--sm" onClick={radar.reload}>
+                  Scan now
+                </button>
+              </div>
+            ) : !scan ? (
               <div className="ag-empty">
                 <Spinner size={16} /> <span className="muted">Scanning Rhea pools…</span>
               </div>

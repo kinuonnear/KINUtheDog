@@ -26,11 +26,22 @@ export function poolMetrics(row) {
   const tvl = row.tvl || 0;
   const fees = row.feeVolume24h || 0;
   const dailyYield = tvl > 0 ? (fees / tvl) * 100 : 0;
-  const change = row.activity?.change?.h24;
+  // The price risk is the biggest move seen in any recent window (1h, 6h, 24h): a 24h change near
+  // zero can hide a −30% swing within the day, and LPs pay for the swing, not the close.
+  const ch = row.activity?.change || {};
+  const worst = [
+    ['24h', ch.h24],
+    ['6h', ch.h6],
+    ['1h', ch.h1]
+  ]
+    .filter(([, v]) => Number.isFinite(v))
+    .reduce((w, m) => (!w || Math.abs(m[1]) > Math.abs(w[1]) ? m : w), null);
+  const change = worst ? worst[1] : null;
   // Concentrated liquidity loses faster to a price move than full range: about 4× for a ±50%
   // range (a typical LP range), so CLMM pools aren't judged as safer than they are.
-  const il = impermanentLossPct(Number.isFinite(change) ? change : 0) * (row.isDcl ? CLMM_IL_FACTOR : 1);
-  const coverage = il > 0.0005 ? dailyYield / il : dailyYield > 0 ? 99 : 0;
+  const il = change === null ? null : impermanentLossPct(change) * (row.isDcl ? CLMM_IL_FACTOR : 1);
+  // No price data: no coverage (unknown risk is not "no risk").
+  const coverage = il === null ? null : il > 0.0005 ? dailyYield / il : dailyYield > 0 ? 99 : 0;
   // Is trading heating up? The last 6h against a quarter of the day.
   const v6 = row.activity?.volume?.h6;
   const v24 = row.activity?.volume?.h24 || row.volume24h || 0;
@@ -40,10 +51,11 @@ export function poolMetrics(row) {
     tvl,
     fees,
     dailyYield,
-    change: Number.isFinite(change) ? change : null,
+    change,
+    swingWindow: worst ? worst[0] : null,
     il,
     coverage,
-    net: dailyYield - il,
+    net: il === null ? null : dailyYield - il,
     heat,
     ageDays,
     apr: (row.apy || 0) + (row.farmApy || 0)
@@ -61,6 +73,7 @@ export const PERSONAS = [
     minTvl: 50_000,
     minCoverage: 1.5,
     maxMove: 8,
+    minAgeDays: 14, // established pools only
     rank: (m) => m.net * Math.min(m.coverage, 5)
   },
   {
@@ -88,30 +101,38 @@ export const PERSONAS = [
 ];
 
 /** A pool call for a persona: { verdict, reasons, metrics, score }. */
+/** "the price swing (−30.6% in 6h)" */
+const swingText = (m) => `the price swing (${fmtPct(m.change, 1)} in ${m.swingWindow})`;
+
 export function judgePool(row, persona) {
   const m = poolMetrics(row);
   const reasons = [];
   const pair = row.symbols?.join('/') || row.id;
+  if (m.coverage === null) {
+    return { pair, verdict: 'UNKNOWN', reasons: ['No recent price data, so the price risk can’t be judged.'], metrics: m, score: -1 };
+  }
   if (m.coverage < 1) {
     reasons.push(
       m.apr >= 200
-        ? `APR ${m.apr.toFixed(0)}% looks great, but fees cover only ${fmtX(m.coverage)} of the 24h price swing (${fmtPct(m.change ?? 0, 1)}).`
-        : `Fees cover only ${fmtX(m.coverage)} of the 24h price swing — LPs did better holding.`
+        ? `APR ${m.apr.toFixed(0)}% looks great, but fees cover only ${fmtX(m.coverage)} of ${swingText(m)}.`
+        : `Fees cover only ${fmtX(m.coverage)} of ${swingText(m)} — LPs did better holding.`
     );
     reasons.push(`Net after impermanent loss: ${fmtPct(m.net)} a day.`);
     return { pair, verdict: 'AVOID', reasons, metrics: m, score: -1 };
   }
-  reasons.push(`Fees cover ${fmtX(m.coverage)} the 24h price swing; net ${fmtPct(m.net)} a day after impermanent loss.`);
+  reasons.push(`Fees cover ${fmtX(m.coverage)} ${swingText(m)}; net ${fmtPct(m.net)} a day after impermanent loss.`);
   if (m.heat !== null) {
     if (m.heat >= 1.3) reasons.push(`Trading is heating up: the last 6h ran at ${m.heat.toFixed(1)}× the daily pace.`);
     else if (m.heat <= 0.6) reasons.push(`Trading is cooling: the last 6h ran at ${m.heat.toFixed(1)}× the daily pace.`);
   }
   if (m.ageDays !== null && m.ageDays < 3) reasons.push(`Young pool (${m.ageDays < 1 ? 'under a day' : `${Math.floor(m.ageDays)}d`}): prices can still swing hard.`);
-  const fits = m.tvl >= persona.minTvl && m.coverage >= persona.minCoverage && Math.abs(m.change ?? 0) <= persona.maxMove;
+  const tooYoung = persona.minAgeDays && m.ageDays !== null && m.ageDays < persona.minAgeDays;
+  const fits = m.tvl >= persona.minTvl && m.coverage >= persona.minCoverage && Math.abs(m.change) <= persona.maxMove && !tooYoung;
   const verdict = fits && m.coverage >= persona.minCoverage * 1.5 ? 'ENTER' : fits ? 'CONSIDER' : 'PASS';
   if (!fits) {
     if (m.tvl < persona.minTvl) reasons.push(`Below ${persona.name}'s $${(persona.minTvl / 1000).toFixed(0)}K TVL floor.`);
-    else if (Math.abs(m.change ?? 0) > persona.maxMove) reasons.push(`Price moved ${fmtPct(m.change, 1)} — too swingy for ${persona.name}.`);
+    else if (Math.abs(m.change) > persona.maxMove) reasons.push(`Price swung ${fmtPct(m.change, 1)} in ${m.swingWindow} — too swingy for ${persona.name}.`);
+    else if (tooYoung) reasons.push(`Under ${persona.minAgeDays} days old — ${persona.name} sticks to established pools.`);
   }
   return { pair, verdict, reasons, metrics: m, score: fits ? persona.rank(m) : -0.5 };
 }
@@ -127,7 +148,8 @@ export function scanPools(rows, persona, limit = 6) {
     .filter((c) => c.verdict === 'AVOID' && c.metrics.apr >= 100)
     .sort((a, b) => b.metrics.apr - a.metrics.apr)
     .slice(0, 4);
-  return { picks, traps, scanned: calls.length, passed: calls.filter((c) => c.verdict !== 'AVOID' && c.verdict !== 'PASS').length };
+  // "Pass the fee-coverage test": fees out-earn the swing (any persona's other filters aside).
+  return { picks, traps, scanned: calls.length, passed: calls.filter((c) => c.metrics.coverage !== null && c.metrics.coverage >= 1).length };
 }
 
 /**
@@ -163,8 +185,8 @@ export function judgeDclHolding({ positions, usd, radarRow }) {
     reasons.push('Compound puts them back to work in the same range.');
     return { verdict: 'COMPOUND', reasons, tone: 'up' };
   }
-  if (m && m.coverage < 1) {
-    reasons.push(`In range, but the pool's fees cover only ${fmtX(m.coverage)} of today's price swing (${fmtPct(m.change ?? 0, 1)}).`);
+  if (m && m.coverage !== null && m.coverage < 1) {
+    reasons.push(`In range, but the pool's fees cover only ${fmtX(m.coverage)} of ${swingText(m)}.`);
     reasons.push('Watch it: a wider range or a calmer pool may serve you better.');
     return { verdict: 'WATCH', reasons, tone: 'warn' };
   }
@@ -174,17 +196,18 @@ export function judgeDclHolding({ positions, usd, radarRow }) {
     return { verdict: 'WATCH', reasons, tone: 'warn' };
   }
   reasons.push(`In range${total > 1 ? ` (all ${total} positions)` : ''} and earning fees.`);
-  if (m) reasons.push(`Pool fees cover ${fmtX(m.coverage)} the 24h price swing.`);
+  if (m && m.coverage !== null) reasons.push(`Pool fees cover ${fmtX(m.coverage)} ${swingText(m)}.`);
   return { verdict: 'HOLD', reasons, tone: 'up' };
 }
 
 /** A call on a classic / stable / ALMM holding (fees auto-compound). */
 export function judgeClassicHolding({ radarRow }) {
   const m = radarRow ? poolMetrics(radarRow) : null;
-  if (m && m.coverage < 1) {
+  const known = m && m.coverage !== null;
+  if (known && m.coverage < 1) {
     return {
       verdict: 'WATCH',
-      reasons: [`Fees cover only ${fmtX(m.coverage)} of today's price swing (${fmtPct(m.change ?? 0, 1)}).`, 'Fees auto-compound here; the risk is the price swing itself.'],
+      reasons: [`Fees cover only ${fmtX(m.coverage)} of ${swingText(m)}.`, 'Fees auto-compound here; the risk is the price swing itself.'],
       tone: 'warn'
     };
   }
@@ -192,7 +215,7 @@ export function judgeClassicHolding({ radarRow }) {
     verdict: 'HOLD',
     reasons: [
       'Full-range liquidity: always earning while the pool trades.',
-      m ? `Fees cover ${fmtX(m.coverage)} the 24h price swing; they auto-compound — nothing to claim.` : 'Fees auto-compound — nothing to claim.'
+      known ? `Fees cover ${fmtX(m.coverage)} ${swingText(m)}; they auto-compound — nothing to claim.` : 'Fees auto-compound — nothing to claim.'
     ],
     tone: 'up'
   };
