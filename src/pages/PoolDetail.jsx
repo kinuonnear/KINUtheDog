@@ -244,7 +244,7 @@ function DclPool({ poolId, initialTab }) {
   if (chain.error && !chain.data) {
     return <EmptyState icon="⚠" title="Pool could not be loaded">{chain.error.message}</EmptyState>;
   }
-  if (!tokenQuery.data || !chain.data) return <PoolSkeleton />;
+  if (!tokenQuery.data?.[tokenX] || !tokenQuery.data?.[tokenY] || !chain.data) return <PoolSkeleton />;
 
   const x = asPoolToken(tokenQuery.data[tokenX]);
   const y = asPoolToken(tokenQuery.data[tokenY]);

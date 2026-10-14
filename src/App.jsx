@@ -124,7 +124,9 @@ export default function App() {
       page = <Pools />;
       break;
     case 'pool':
-      page = <PoolDetail poolId={route.params[0]} />;
+      // Keyed by pool: going straight to another pool (search, back / forward) starts clean
+      // instead of showing the previous pool's tokens, chart and form.
+      page = <PoolDetail key={route.params[0]} poolId={route.params[0]} />;
       break;
     case 'portfolio':
       page = <Portfolio />;

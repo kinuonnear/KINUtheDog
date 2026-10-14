@@ -157,10 +157,12 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
       ? fetchOhlc({ tokenId: xId, resolution, countBack: CHART_BARS })
       : fetchPairOhlc({ tokenX: xId, tokenY: yId, resolution, countBack: CHART_BARS });
   const lastGoodRef = useRef(null);
+  const viewOf = `${xId}|${yId}|${resolution}|${unit}|${source}|${poolId}`;
   const loaded = useAsync(
     async () => {
-      const memo = lastGood(lastGoodRef, `${xId}|${yId}|${resolution}|${unit}|${source}|${poolId}`);
-      const keep = (value) => memo.keep(value, (a, b) => a.from === b.from && a.fallback === b.fallback && sameCandles(a.data, b.data));
+      const memo = lastGood(lastGoodRef, viewOf);
+      const keep = (value) =>
+        memo.keep({ ...value, view: viewOf }, (a, b) => a.from === b.from && a.fallback === b.fallback && sameCandles(a.data, b.data));
       if (source === 'pool' && poolId) {
         const usd = unit === 'usd';
         const [pool, xInfo] = await Promise.all([
@@ -184,8 +186,11 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
     [xId, yId, resolution, unit, source, poolId],
     { refreshMs: 60_000 }
   );
-  const candles = { ...loaded, data: loaded.data?.data };
-  const fromPool = loaded.data?.from === 'pool';
+  // Only candles of the pool, unit and timeframe on screen: while another loads (switching pool,
+  // Price ⇄ USD or timeframe) the old ones would put the range lines at wrong prices.
+  const current = loaded.data?.view === viewOf ? loaded.data : undefined;
+  const candles = { ...loaded, data: current?.data };
+  const fromPool = current?.from === 'pool';
   const noHistory = candles.data && candles.data.length < 2;
   // This pool's price against the market candles' latest close (%), e.g. -2.7 = pool below market.
   // Pair view only: the USD view converts the pool price with that same close.
@@ -193,7 +198,7 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
   const poolGap = !fromPool && unit !== 'usd' && lastClose && currentPrice ? (currentPrice / lastClose - 1) * 100 : null;
   // The user's chart view, carried across rebuilds of the same pair / resolution / unit / source.
   const viewRef = useRef(null);
-  const viewKey = `${xId}|${yId}|${resolution}|${unit}|${loaded.data?.from}`;
+  const viewKey = `${xId}|${yId}|${resolution}|${unit}|${current?.from}`;
 
   // Pair -> display units. In USD mode the range is shown as token X's USD price.
   const usdFactor = useMemo(() => {
@@ -778,11 +783,11 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
           <div className="pro-chart__legend">
             <span>
               {x.symbol}/{quoteLabel} · {RESOLUTIONS.find((r) => r.key === resolution)?.label} ·{' '}
-              {fromPool ? 'this pool (GeckoTerminal)' : 'market price (Intear)'}
+              {current ? (fromPool ? 'this pool (GeckoTerminal)' : 'market price (Intear)') : 'loading…'}
             </span>
-            {source === 'pool' && loaded.data?.fallback && (
+            {source === 'pool' && current?.fallback && (
               <span className="pro-chart__gap">
-                {loaded.data.fallback === 'empty' ? 'No trades in this pool yet' : 'Pool history unavailable right now'} — showing market price
+                {current.fallback === 'empty' ? 'No trades in this pool yet' : 'Pool history unavailable right now'} — showing market price
               </span>
             )}
             {poolGap !== null && Math.abs(poolGap) >= 0.5 && (
