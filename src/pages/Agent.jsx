@@ -10,7 +10,7 @@ import { Link, poolPath, useLocation } from '../router.jsx';
 import { getPoolRadar } from '../lib/poolRadar.js';
 import { getClassicPositions, getDclPositions } from '../lib/rhea.js';
 import { getTokens, priceOf } from '../lib/tokens.js';
-import { judgeClassicHolding, judgeDclHolding, PERSONAS, scanPools } from '../lib/agent.js';
+import { judgeClassicHolding, judgeDclHolding, PERSONAS, poolMetrics, scanPools } from '../lib/agent.js';
 import { formatPercent, formatUsd } from '../lib/format.js';
 import { PairIcons, Spinner } from '../components/ui.jsx';
 import { usePoolTokens } from './Pools.jsx';
@@ -19,6 +19,134 @@ const SCAN_MS = 90_000;
 const FEED_MAX = 40;
 
 const clock = (t) => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+
+/**
+ * The agent's face: a KINU-style robot shiba (ears, green bandana) with a blinking visor and a
+ * scan line that runs faster while a scan is in progress. Pure SVG + CSS, no image files.
+ */
+function AgentBot({ scanning }) {
+  return (
+    <div className={`ag-bot ${scanning ? 'ag-bot--scanning' : ''}`} aria-hidden>
+      <svg viewBox="0 0 120 124" width="104" height="108">
+        <defs>
+          <linearGradient id="agHead" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#2a3446" />
+            <stop offset="1" stopColor="#141a24" />
+          </linearGradient>
+          <linearGradient id="agBand" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="#b8ff3d" />
+            <stop offset="1" stopColor="#3ddc97" />
+          </linearGradient>
+          <clipPath id="agVisor">
+            <rect x="30" y="47" width="60" height="26" rx="13" />
+          </clipPath>
+        </defs>
+        {/* antenna */}
+        <line x1="60" y1="14" x2="60" y2="30" stroke="#7d8798" strokeWidth="3" strokeLinecap="round" />
+        <circle className="ag-bot__beacon" cx="60" cy="11" r="5" fill="#b8ff3d" />
+        {/* shiba ears */}
+        <path d="M24 46 L30 18 L50 34 Z" fill="url(#agHead)" stroke="#3a4558" strokeWidth="2" strokeLinejoin="round" />
+        <path d="M96 46 L90 18 L70 34 Z" fill="url(#agHead)" stroke="#3a4558" strokeWidth="2" strokeLinejoin="round" />
+        <path d="M31 38 L33 26 L42 33 Z" fill="#b8ff3d" opacity="0.55" />
+        <path d="M89 38 L87 26 L78 33 Z" fill="#b8ff3d" opacity="0.55" />
+        {/* head */}
+        <rect x="18" y="30" width="84" height="64" rx="24" fill="url(#agHead)" stroke="#3a4558" strokeWidth="2" />
+        {/* visor with eyes and the scan line */}
+        <rect x="30" y="47" width="60" height="26" rx="13" fill="#070a0f" stroke="rgba(184,255,61,0.35)" strokeWidth="1.5" />
+        <g clipPath="url(#agVisor)">
+          <g className="ag-bot__eyes">
+            <rect x="42" y="55" width="10" height="10" rx="5" fill="#b8ff3d" />
+            <rect x="68" y="55" width="10" height="10" rx="5" fill="#b8ff3d" />
+          </g>
+          <rect className="ag-bot__scan" x="30" y="47" width="10" height="26" fill="rgba(94,200,255,0.45)" />
+        </g>
+        {/* cheek lights */}
+        <circle cx="27" cy="72" r="2.5" fill="#3ddc97" opacity="0.7" />
+        <circle cx="93" cy="72" r="2.5" fill="#3ddc97" opacity="0.7" />
+        {/* mouth grill */}
+        <path d="M50 82 H70" stroke="#5b6678" strokeWidth="2.5" strokeLinecap="round" />
+        {/* KINU bandana */}
+        <path d="M30 94 Q60 104 90 94 L60 120 Z" fill="url(#agBand)" />
+        <path d="M54 102 L60 96 L66 102 L60 110 Z" fill="#0b1204" opacity="0.55" />
+      </svg>
+    </div>
+  );
+}
+
+const SWEEP_S = 4; // one radar turn (seconds); faster while scanning
+
+/** A stable angle (0–360°) for a pool, so its blip keeps its place between scans. */
+function angleOf(id) {
+  let h = 0;
+  for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return h % 360;
+}
+
+/**
+ * Pool radar: every scanned pool is a blip. Green = fees out-earn the price swing, red = they
+ * don't (a trap when the APR is high), grey = no price data. Bigger pools sit nearer the centre.
+ * A blip lights up as the sweep passes it (its pulse is delayed by its angle on the same clock).
+ */
+function PoolRadar({ rows, scanning }) {
+  const blips = useMemo(() => {
+    if (!rows?.length) return [];
+    const logs = rows.map((r) => Math.log10(Math.max(r.tvl || 1, 1)));
+    const max = Math.max(...logs);
+    const min = Math.min(...logs);
+    return rows.map((r, i) => {
+      const m = poolMetrics(r);
+      const angle = angleOf(r.id);
+      // Big TVL → near the centre (0.18), small → near the rim (0.92).
+      const depth = max > min ? 1 - (logs[i] - min) / (max - min) : 0.5;
+      const radius = 0.18 + depth * 0.74;
+      const rad = ((angle - 90) * Math.PI) / 180;
+      const tone = m.coverage === null ? 'unknown' : m.coverage >= 1 ? 'win' : 'lose';
+      return {
+        id: r.id,
+        tone,
+        x: 50 + Math.cos(rad) * radius * 50,
+        y: 50 + Math.sin(rad) * radius * 50,
+        delay: (angle / 360) * SWEEP_S,
+        label: `${r.symbols.join('/')} · ${m.coverage === null ? 'no price data' : `fee coverage ${m.coverage >= 10 ? '>10' : m.coverage.toFixed(2)}×`}`
+      };
+    });
+  }, [rows]);
+  const counts = blips.reduce((c, b) => ({ ...c, [b.tone]: (c[b.tone] || 0) + 1 }), {});
+
+  return (
+    <div className="ag-radar">
+      {/* Re-keyed when the blips or the speed change: sweep and blips restart on one clock, so
+          each blip flashes exactly as the sweep reaches it. */}
+      <div
+        key={`${blips.length}|${blips[0]?.id}|${scanning}`}
+        className={`ag-radar__screen ${scanning ? 'ag-radar__screen--fast' : ''}`}
+        style={{ '--ag-sweep': `${scanning ? SWEEP_S / 3 : SWEEP_S}s` }}
+      >
+        <div className="ag-radar__sweep" />
+        {blips.map((b) => (
+          <span
+            key={b.id}
+            className={`ag-radar__blip ag-radar__blip--${b.tone}`}
+            style={{ left: `${b.x}%`, top: `${b.y}%`, animationDelay: `${scanning ? b.delay / 3 : b.delay}s` }}
+            title={b.label}
+          />
+        ))}
+        <i className="ag-radar__core" />
+      </div>
+      <div className="ag-radar__legend">
+        <span>
+          <i className="win" /> Fees win <b>{counts.win || 0}</b>
+        </span>
+        <span>
+          <i className="lose" /> Fees lose <b>{counts.lose || 0}</b>
+        </span>
+        <span>
+          <i className="unknown" /> No data <b>{counts.unknown || 0}</b>
+        </span>
+      </div>
+    </div>
+  );
+}
 
 function Verdict({ verdict }) {
   return <span className={`ag-verdict ag-verdict--${verdict.toLowerCase()}`}>{verdict}</span>;
@@ -129,6 +257,9 @@ export default function Agent() {
           <h1>KINU Agent</h1>
           <p>Your LP co-pilot. It scans Rhea pools and your positions, and explains every call. You stay in control — nothing moves until you sign it.</p>
         </div>
+        {/* The robot sits with the scan stats it is producing. */}
+        <div className="ag-hero__side">
+          <AgentBot scanning={radar.loading} />
         <div className="ag-status">
           <div>
             <span>Pools scanned</span>
@@ -142,6 +273,7 @@ export default function Agent() {
             <span>Next scan</span>
             <strong>{radar.loading && !radar.data ? <Spinner size={14} /> : next !== null ? `${next}s` : '—'}</strong>
           </div>
+        </div>
         </div>
       </header>
 
@@ -299,6 +431,7 @@ export default function Agent() {
         </div>
 
         <aside className="ag-feed" aria-label="Agent activity">
+          <PoolRadar rows={radar.data} scanning={radar.loading} />
           <div className="ag-feed__head">
             <h2>Activity</h2>
             <span className="muted small">{feed.length ? `last ${clock(feed[0].t)}` : 'waiting for the first scan'}</span>
