@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useApp } from '../state.jsx';
-import { useAsync } from '../hooks.js';
+import { useAsync, useLocalStorage } from '../hooks.js';
 import { Link, navigate, useLocation } from '../router.jsx';
 import { asPoolToken, getAllBalances, getTokens, priceOf } from '../lib/tokens.js';
 import { getAggregatorBalances, getClassicPositions, getDclPositions, getDeposits, getLostFound } from '../lib/rhea.js';
@@ -95,7 +95,9 @@ export default function Portfolio() {
   // Cards say "my PnL": only offered on your own portfolio.
   const ownPortfolio = Boolean(accountId) && viewed === accountId;
   const readOnly = viewed !== accountId;
-  const [tab, setTab] = useState('tokens');
+  // The tab the user last picked is remembered; until then an account with liquidity opens on
+  // Liquidity (KINU is an LP platform), any other on Tokens. See `tab` below.
+  const [savedTab, setTab] = useLocalStorage('kinu.portfolio.tab', null);
   // History: closed LP positions or swaps, shown apart.
   const [historyKind, setHistoryKind] = useState('lp');
   const [showDust, setShowDust] = useState(false);
@@ -202,6 +204,7 @@ export default function Portfolio() {
   const hiddenCount = model ? model.walletRows.length - visibleTokens.length : 0;
   // One entry per pool: CLMM positions in the same pool count once.
   const lpCount = model ? model.classicRows.length + new Set(model.dclRows.map((r) => r.poolId)).size : 0;
+  const tab = savedTab || (lpCount > 0 ? 'liquidity' : 'tokens');
 
   const withdrawAll = () =>
     execute(

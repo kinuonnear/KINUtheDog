@@ -9947,3 +9947,136 @@ a.pair-tiers__row:hover {
     scroll-margin-top: 168px;
   }
 }
+
+/* ── Portfolio: the premium look of Pools / Discover ─────────────────────────────────
+   Dark glass panels, hairline dividers, light large numerals, quiet small-caps labels. */
+.page--portfolio {
+  --pf-line: rgba(220, 230, 255, 0.08);
+  --pf-line-strong: rgba(220, 230, 255, 0.14);
+  --pf-glass: linear-gradient(180deg, rgba(22, 28, 38, 0.72), rgba(12, 16, 22, 0.72));
+  --pf-label: #7d8798;
+  position: relative;
+  isolation: isolate;
+}
+
+/* Soft light behind the header. */
+.page--portfolio::before {
+  content: '';
+  position: absolute;
+  top: -100px;
+  left: 50%;
+  z-index: -1;
+  width: min(1100px, 100%);
+  height: 460px;
+  background:
+    radial-gradient(ellipse 45% 55% at 25% 40%, rgba(184, 255, 61, 0.07), transparent 70%),
+    radial-gradient(ellipse 40% 50% at 75% 30%, rgba(94, 200, 255, 0.05), transparent 70%);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.page--portfolio .card {
+  border: 1px solid var(--pf-line-strong);
+  border-radius: 18px;
+  background: var(--pf-glass);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.page--portfolio .eyebrow {
+  color: var(--pf-label);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+}
+
+/* Net worth: one glass panel with a thin light on top; stats divided by hairlines. */
+.page--portfolio .net-worth {
+  position: relative;
+  background:
+    radial-gradient(500px 240px at 0% 0%, rgba(184, 255, 61, 0.06), transparent 70%),
+    var(--pf-glass);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 30px 60px -30px rgba(0, 0, 0, 0.6);
+}
+
+.page--portfolio .net-worth::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  right: 18%;
+  left: 18%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(184, 255, 61, 0.55), transparent);
+}
+
+.page--portfolio .net-worth__total strong {
+  background: linear-gradient(180deg, #ffffff 30%, #a7b2c3 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-size: clamp(36px, 4.4vw, 52px);
+  font-weight: 300;
+  letter-spacing: -0.04em;
+}
+
+.page--portfolio .net-worth__stats {
+  gap: 0;
+}
+
+.page--portfolio .net-worth__stats .stat {
+  border: 0;
+  border-left: 1px solid var(--pf-line);
+  border-radius: 0;
+  background: transparent;
+}
+
+.page--portfolio .stat__label {
+  color: var(--pf-label);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.page--portfolio .stat__value {
+  font-size: clamp(20px, 2vw, 26px);
+  font-weight: 300;
+  letter-spacing: -0.02em;
+}
+
+/* PnL figures: light and large. */
+.page--portfolio .pnl-dash__headline strong,
+.page--portfolio .token-pnl__stat .pnl b {
+  font-weight: 300;
+  letter-spacing: -0.02em;
+}
+
+/* Table labels: small caps over hairlines; rows light up on hover. */
+.page--portfolio .asset-row--head,
+.page--portfolio .lp-row--head,
+.page--portfolio .hist-row--head {
+  border-bottom: 1px solid var(--pf-line-strong);
+  color: var(--pf-label);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.page--portfolio .asset-row + .asset-row,
+.page--portfolio .hist-row + .hist-row {
+  border-top-color: var(--pf-line);
+}
+
+.page--portfolio .asset-row:not(.asset-row--head):hover,
+.page--portfolio .hist-row:not(.hist-row--head):hover {
+  background: linear-gradient(90deg, rgba(184, 255, 61, 0.035), rgba(255, 255, 255, 0.02) 60%, transparent);
+}
+
+@media (max-width: 720px) {
+  .page--portfolio .net-worth__stats .stat {
+    border-left: 0;
+    border-top: 1px solid var(--pf-line);
+  }
+}

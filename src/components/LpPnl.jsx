@@ -419,7 +419,8 @@ export function ClosedPositions({ history }) {
         <div className="hist-row hist-row--head">
           <span>Position / Pool</span>
           <span>Price range</span>
-          <span>Opened</span>
+          {/* The list is newest-closed first, so the date shown is the close date. */}
+          <span>Closed</span>
           <span>Duration</span>
           <span>Invested</span>
           <span>Withdrawn</span>
@@ -441,8 +442,8 @@ export function ClosedPositions({ history }) {
             <span data-label="Price range">
               <RangeCell row={c} />
             </span>
-            <span data-label="Opened" className="muted">
-              {dateFmt.format(c.openedAt)}
+            <span data-label="Closed" className="muted" title={`Opened ${dateFmt.format(c.openedAt)}`}>
+              {dateFmt.format(c.closedAt)}
             </span>
             <span data-label="Duration">{formatAge(c.closedAt - c.openedAt)}</span>
             <span data-label="Invested">{formatUsd(c.investedUsd)}</span>
