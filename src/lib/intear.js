@@ -134,6 +134,16 @@ const QUOTE_TOKENS = new Set([
   'dac17f958d2ee523a2206206994597c13d831ec7.factory.bridge.near' // USDT.e
 ]);
 
+/**
+ * How "quote-like" a token is, for picking which side of a pair to chart: 0 for any other token,
+ * 1 for NEAR / wNEAR, 2 for stablecoins. The lower one is charted, priced in the other — so
+ * NEAR/USDC charts NEAR in USDC, and KINU/NEAR charts KINU.
+ */
+export function quoteRank(id) {
+  if (!QUOTE_TOKENS.has(id)) return 0;
+  return id === 'near' || id === 'wrap.near' ? 1 : 2;
+}
+
 /** Which side of a pair the chart shows by default: the non-quote token. */
 export function defaultChartSide(tokenIn, tokenOut) {
   const inQuote = QUOTE_TOKENS.has(tokenIn?.id);

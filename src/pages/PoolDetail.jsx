@@ -14,7 +14,7 @@ import { AmmLiquidity, DclLiquidity, FeeCompoundNote, StableLiquidity } from '..
 import { DclGroupCard } from '../components/DclPositions.jsx';
 import { useDepositGroups } from '../lib/lpPositions.js';
 import { useDclRange } from '../components/DclCreatePosition.jsx';
-import { fetchTrades, isQuoteToken } from '../lib/intear.js';
+import { fetchTrades, quoteRank } from '../lib/intear.js';
 
 const RangeChart = lazy(() => import('../components/RangeChart.jsx'));
 const SwapChart = lazy(() => import('../components/swap/SwapChart.jsx'));
@@ -124,7 +124,9 @@ function ClassicPool({ poolId, initialTab }) {
 
   // Chart: the pool's own candles (GeckoTerminal lists Rhea classic pools as refv1-<id>), the
   // main token priced against the other one.
-  const [chartBase, chartQuote] = isQuoteToken(tokens[0]?.id) && tokens[1] ? [tokens[1], tokens[0]] : [tokens[0], tokens[1]];
+  // The less quote-like token is charted (NEAR/USDC → NEAR in USDC; KINU/NEAR → KINU).
+  const [chartBase, chartQuote] =
+    tokens[1] && quoteRank(tokens[0]?.id) > quoteRank(tokens[1].id) ? [tokens[1], tokens[0]] : [tokens[0], tokens[1]];
   const chartPools =
     tokens.length === 2
       ? [
@@ -173,7 +175,7 @@ function ClassicPool({ poolId, initialTab }) {
               <SwapChart token={chartBase} counter={chartQuote} pools={chartPools} height={380} />
             </Suspense>
           )}
-          <section className="card">
+          <section className="card classic-card--half">
             <h3 className="card-title">Reserves</h3>
             <div className="reserves">
               {tokens.map((token, i) => {
@@ -195,7 +197,7 @@ function ClassicPool({ poolId, initialTab }) {
           </section>
 
           {accountId && (
-            <section className="card">
+            <section className="card classic-card--half">
               <h3 className="card-title">Your position</h3>
               <FeeCompoundNote />
               {position.loading && !position.data ? (
@@ -228,13 +230,13 @@ function ClassicPool({ poolId, initialTab }) {
           )}
 
           {pool.tokenIds.length === 2 && (
-            <section className="card">
+            <section className="card classic-card--full">
               <h3 className="card-title">Fee tiers for this pair</h3>
               <FeeTiers tokenIds={pool.tokenIds} currentId={String(poolId)} />
             </section>
           )}
 
-          <section className="card">
+          <section className="card classic-card--half">
             <h3 className="card-title">Pool contract</h3>
             <dl className="kv">
               <div>
@@ -762,7 +764,8 @@ export default function PoolDetail({ poolId }) {
   return isDcl ? (
     <DclPool poolId={poolId} initialTab={initialTab} />
   ) : (
-    <div className="page page--contained">
+    // Full window width, like CLMM pool pages (a 1240px cap made wide screens scroll a long column).
+    <div className="page page--classic-pool">
       <ClassicPool poolId={poolId} initialTab={initialTab} />
     </div>
   );

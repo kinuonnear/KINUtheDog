@@ -10184,3 +10184,26 @@ a.pair-tiers__row:hover {
   align-items: center;
   gap: 8px;
 }
+
+/* Classic / stable pool page across the full window (as CLMM pages). On wide screens the data
+   under the chart sits two cards to a row, so the page is about half as long to scroll. */
+.page--classic-pool {
+  padding-top: 20px;
+}
+
+@media (min-width: 1280px) {
+  .classic-pool .pool-grid {
+    grid-template-columns: minmax(0, 1fr) 440px;
+  }
+
+  .classic-pool .pool-grid__main {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-flow: row dense;
+    align-items: start;
+  }
+
+  .classic-pool .pool-grid__main > :not(.classic-card--half) {
+    grid-column: 1 / -1;
+  }
+}
