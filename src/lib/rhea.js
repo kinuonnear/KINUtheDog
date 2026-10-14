@@ -243,17 +243,21 @@ export async function getFarmStakes(accountId) {
  * The indexer lists pools the account has touched; shares are re-read on-chain.
  */
 export async function getClassicPositions(accountId) {
-  const [touched, stakes] = await Promise.all([
-    fetch(`${ENDPOINTS.rheaIndexer}/liquidity-pools/${encodeURIComponent(accountId)}`)
+  // The pools an account has touched: Rhea's API and the older indexer are both asked, as either
+  // can lag or come back empty (the indexer returned [] for fresh classic positions). Each
+  // candidate is then checked on-chain, so a stale entry costs one read and never shows.
+  const touchedFrom = (base) =>
+    fetch(`${base}/liquidity-pools/${encodeURIComponent(accountId)}`)
       .then((r) => (r.ok ? r.json() : []))
-      .catch(() => []),
+      .then((list) => (Array.isArray(list) ? list : []))
+      .catch(() => []);
+  const [fromApi, fromIndexer, stakes] = await Promise.all([
+    touchedFrom(ENDPOINTS.rheaApi),
+    touchedFrom(ENDPOINTS.rheaIndexer),
     getFarmStakes(accountId)
   ]);
 
-  const poolIds = new Set([
-    ...(Array.isArray(touched) ? touched.map((p) => String(p.id)) : []),
-    ...Object.keys(stakes)
-  ]);
+  const poolIds = new Set([...fromApi, ...fromIndexer].map((p) => String(p.id)).concat(Object.keys(stakes)));
 
   const positions = await Promise.all(
     [...poolIds].map(async (poolId) => {

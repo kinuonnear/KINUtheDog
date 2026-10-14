@@ -10,7 +10,7 @@ import { positionsAtPoint } from '../lib/dclLiquidity.js';
 import AprValue from '../components/AprValue.jsx';
 import FeeTiers from '../components/FeeTiers.jsx';
 import { amountsForShares, isStableKind } from '../lib/liquidity.js';
-import { AmmLiquidity, DclLiquidity, StableLiquidity } from '../components/Liquidity.jsx';
+import { AmmLiquidity, DclLiquidity, FeeCompoundNote, StableLiquidity } from '../components/Liquidity.jsx';
 import { DclGroupCard } from '../components/DclPositions.jsx';
 import { useDepositGroups } from '../lib/lpPositions.js';
 import { useDclRange } from '../components/DclCreatePosition.jsx';
@@ -197,6 +197,7 @@ function ClassicPool({ poolId, initialTab }) {
           {accountId && (
             <section className="card">
               <h3 className="card-title">Your position</h3>
+              <FeeCompoundNote />
               {position.loading && !position.data ? (
                 <Skeleton height={40} />
               ) : userTotal === 0n ? (

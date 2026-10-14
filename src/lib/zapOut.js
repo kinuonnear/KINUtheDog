@@ -11,9 +11,11 @@ import { buildDclRemoveTransactions, freshPool, positionsAtPoint, removeMinsInBa
 import { getDclQuote } from './dclRouter.js';
 import { oneStep } from './rebalance.js';
 import { buildSwapTransactions, getSwapQuote, measurePriceImpact } from './swap.js';
-import { afterTax, dclTax } from './tokenTax.js';
+import { afterTax, dclTax, getTokenTax, taxBps } from './tokenTax.js';
 import { ensureStorageTx, wrapNearTx } from './tx.js';
-import { toBigInt } from './format.js';
+import { applySlippage, toBigInt } from './format.js';
+import { amountsForShares, buildRemoveLiquidityTransactions, isStableKind, predictRemoveAmounts } from './liquidity.js';
+import { routesThrough } from './zap.js';
 
 // Above this share of the pool's active liquidity, removing it changes the pool too much for a
 // quote taken beforehand: the swap then avoids this pool.
@@ -124,6 +126,91 @@ export async function buildZapOutTransactions({ zap, slippage, accountId }) {
     txs.push(await ensureStorageTx(CONTRACTS.wrapNear, accountId));
     txs.push(wrapNearTx(zap.rewrap.toString()));
   }
+  if (zap.swap) {
+    const { tokenIn, tokenOut, quote } = zap.swap;
+    txs.push(...(await buildSwapTransactions({ tokenIn, tokenOut, quote, accountId })));
+  }
+  return txs.filter(Boolean);
+}
+
+/* ------------------------------------------------------------------ */
+/* Zap out of a classic / stable / ALMM pool (two tokens)              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Quote removing `shares` of a two-token classic, stable or ALMM pool and receiving only side
+ * `target` (0 | 1, in pool.tokenIds order). The removal pays both tokens to the wallet (a wNEAR
+ * side as native NEAR); the other side is swapped from its guaranteed minimum (slippage, then any
+ * tax on the way out of Rhea's exchange). Any extra stays in the wallet.
+ * @param pool    pool from getPool()
+ * @param tokens  the pool's tokens, in pool.tokenIds order
+ */
+export async function quoteClassicZapOut({ pool, tokens, shares, target, slippage, user }) {
+  if (pool.tokenIds.length !== 2) throw new Error('Zap out works with two-token pools.');
+  if (toBigInt(shares) <= 0n) throw new Error('Choose how much to remove.');
+  const expected = isStableKind(pool.kind) ? await predictRemoveAmounts(pool.id, shares) : amountsForShares(pool, shares);
+  const taxes = await Promise.all(pool.tokenIds.map((id) => getTokenTax(id)));
+  const outBps = (i) => taxBps(taxes[i], { from: CONTRACTS.exchange, to: '' });
+  const got = (i) => ({
+    min: afterTax(toBigInt(applySlippage(expected[i], slippage)), outBps(i)),
+    est: afterTax(toBigInt(expected[i]), outBps(i))
+  });
+
+  const keepIndex = target === 1 ? 1 : 0;
+  const sellIndex = 1 - keepIndex;
+  // wNEAR leaves the exchange as native NEAR: both the kept side and a sold side are NEAR.
+  const asWallet = (t) => (t.id === CONTRACTS.wrapNear ? NATIVE_NEAR : t);
+  const outToken = asWallet(tokens[keepIndex]);
+  const sellToken = asWallet(tokens[sellIndex]);
+
+  let swap = null;
+  const amountIn = got(sellIndex).min;
+  if (amountIn > 0n) {
+    const params = { tokenIn: sellToken, tokenOut: outToken, amountIn: amountIn.toString(), slippage, user };
+    let quote;
+    try {
+      quote = oneStep(await getSwapQuote(params));
+    } catch {
+      throw new Error(`No route to swap ${sellToken.symbol} into ${outToken.symbol} right now. Try again shortly or withdraw both tokens.`);
+    }
+    // A swap back through this same pool moves its price (about twice the average impact).
+    if (routesThrough(quote, `${pool.tokenIds[0]}|${pool.tokenIds[1]}`)) {
+      const impact = Number.isFinite(quote.priceImpact) ? quote.priceImpact : await measurePriceImpact(quote, params).catch(() => null);
+      const move = Number.isFinite(impact) ? impact * 2 : 0;
+      if (move > slippage) {
+        throw new Error(
+          `Swapping your ${sellToken.symbol} moves the price about ${move.toFixed(2)}% — more than your ${slippage}% slippage. Raise slippage, remove less, or withdraw both tokens.`
+        );
+      }
+    }
+    swap = { tokenIn: sellToken, tokenOut: outToken, amountIn: amountIn.toString(), quote };
+  }
+
+  const keep = got(keepIndex);
+  return {
+    pool,
+    shares: String(shares),
+    expected,
+    outToken,
+    sellToken,
+    swap,
+    receiveMin: keep.min + toBigInt(swap?.quote.minAmountOut || '0'),
+    receiveEst: keep.est + toBigInt(swap?.quote.amountOut || '0'),
+    user: user || null,
+    fetchedAt: Date.now()
+  };
+}
+
+/** Remove (both tokens to the wallet) → swap the other side, in one wallet request. */
+export async function buildClassicZapOutTransactions({ zap, slippage, accountId }) {
+  if (zap.user !== accountId) throw new Error('This quote is for another account. Refresh and try again.');
+  const txs = await buildRemoveLiquidityTransactions({
+    pool: zap.pool,
+    shares: zap.shares,
+    accountId,
+    slippage,
+    expectedAmounts: zap.expected
+  });
   if (zap.swap) {
     const { tokenIn, tokenOut, quote } = zap.swap;
     txs.push(...(await buildSwapTransactions({ tokenIn, tokenOut, quote, accountId })));

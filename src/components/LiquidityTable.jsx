@@ -331,7 +331,12 @@ export default function LiquidityTable({ classicRows, dclRows, depositUsd, readO
               <small className="muted">{r.parts.map((p) => `${formatAmount(p.amount)} ${p.token.symbol}`).join(' + ')}</small>
             </span>
             <span data-label="Fees">
-              <span className="muted small">Auto-compounded</span>
+              <span
+                className="muted small auto-compound"
+                title="AMM, Stable and ALMM fees and profits are auto-compounded and don’t require claiming: every swap’s fee goes back into the pool, so your LP shares grow in value. They come out with your liquidity when you withdraw."
+              >
+                Auto-compounded ⓘ
+              </span>
             </span>
             <span data-label="uPnL" className="muted">
               —

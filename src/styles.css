@@ -10144,3 +10144,43 @@ a.pair-tiers__row:hover {
     border-left: 0;
   }
 }
+
+/* AMM / Stable / ALMM pools: how their fees work (auto-compounded, nothing to claim). */
+.fee-compound-note {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(61, 220, 151, 0.3);
+  border-radius: 12px;
+  background: rgba(61, 220, 151, 0.07);
+}
+
+.fee-compound-note > span {
+  color: var(--mint);
+  font-size: 16px;
+  line-height: 1.3;
+}
+
+.fee-compound-note p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.fee-compound-note strong {
+  color: var(--text);
+}
+
+.auto-compound {
+  cursor: help;
+}
+
+/* Zap out: pick the one token to receive. */
+.zap-out-target {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}

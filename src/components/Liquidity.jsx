@@ -33,6 +33,7 @@ import {
 import { priceOf } from '../lib/tokens.js';
 import { getDegenPoolLimit, getDeposits, getPool } from '../lib/rhea.js';
 import { buildClassicZapTransactions, quoteClassicZap } from '../lib/zap.js';
+import { buildClassicZapOutTransactions, quoteClassicZapOut } from '../lib/zapOut.js';
 import { defaultZapToken, useZapSpendable, ZapInput } from './ZapIn.jsx';
 import { CONTRACTS, NEAR_GAS_RESERVE } from '../config.js';
 import { EmptyState, Spinner, Tabs, TokenIcon } from './ui.jsx';
@@ -406,12 +407,23 @@ function SharesRemove({ pool, tokens, shares, staked, onDone, predict }) {
   const { accountId, slippage, execute } = useApp();
   const [percent, setPercent] = useState(50);
   const [submitting, setSubmitting] = useState(false);
+  // Zap out (two-token pools): receive one token — the other side is swapped (lib/zapOut.js).
+  const canZap = pool.tokenIds.length === 2;
+  const [zapOut, setZapOut] = useState(false);
+  const [target, setTarget] = useState(() => (pool.tokenIds[0] === CONTRACTS.wrapNear ? 0 : pool.tokenIds[1] === CONTRACTS.wrapNear ? 1 : 0));
   const removeShares = ((toBigInt(shares) * BigInt(percent)) / 100n).toString();
   const debounced = useDebounced(removeShares, 300);
   const predicted = useAsync(() => predictRemoveAmounts(pool.id, debounced), [pool.id, debounced], {
-    enabled: Boolean(predict) && toBigInt(debounced) > 0n
+    enabled: Boolean(predict) && toBigInt(debounced) > 0n && !zapOut
   });
   const out = predict && predicted.data ? predicted.data : amountsForShares(pool, removeShares);
+  const zapQuote = useAsync(
+    () => quoteClassicZapOut({ pool, tokens, shares: debounced, target, slippage, user: accountId || undefined }),
+    [pool.id, debounced, target, slippage, accountId],
+    { enabled: canZap && zapOut && toBigInt(debounced) > 0n }
+  );
+  const zapStale = debounced !== removeShares;
+  const walletToken = (t) => (t.id === CONTRACTS.wrapNear ? { ...t, symbol: 'NEAR' } : t);
 
   if (!accountId) return <ConnectPrompt />;
   if (toBigInt(shares) === 0n) {
@@ -426,19 +438,107 @@ function SharesRemove({ pool, tokens, shares, staked, onDone, predict }) {
 
   const submit = async () => {
     setSubmitting(true);
-    const ok = await execute(
-      async () => {
-        const expectedAmounts = predict ? await predictRemoveAmounts(pool.id, removeShares) : undefined;
-        return buildRemoveLiquidityTransactions({ pool, shares: removeShares, accountId, slippage, expectedAmounts });
-      },
-      { pending: 'Removing liquidity', success: 'Liquidity removed' }
-    );
+    const ok = zapOut
+      ? await execute(
+          async () => {
+            // Always execute a fresh, user-bound quote on the live pool.
+            const fresh = await getPool(pool.id);
+            const zap = await quoteClassicZapOut({ pool: fresh, tokens, shares: removeShares, target, slippage, user: accountId });
+            return buildClassicZapOutTransactions({ zap, slippage, accountId });
+          },
+          { pending: `Zapping out to ${walletToken(tokens[target]).symbol}`, success: 'Zap out complete' }
+        )
+      : await execute(
+          async () => {
+            const expectedAmounts = predict ? await predictRemoveAmounts(pool.id, removeShares) : undefined;
+            return buildRemoveLiquidityTransactions({ pool, shares: removeShares, accountId, slippage, expectedAmounts });
+          },
+          { pending: 'Removing liquidity', success: 'Liquidity removed' }
+        );
     setSubmitting(false);
     if (ok) onDone();
   };
 
+  const zap = zapQuote.data;
+  if (canZap && zapOut) {
+    const outT = walletToken(tokens[target]);
+    return (
+      <div className="liq-form">
+        <div className="segmented liq-mode">
+          <button type="button" onClick={() => setZapOut(false)}>
+            Both tokens
+          </button>
+          <button type="button" className="active">
+            ⚡ Zap out
+          </button>
+        </div>
+        <PercentPicker percent={percent} setPercent={setPercent} />
+        <div className="zap-out-target">
+          <span className="muted small">Receive only</span>
+          {tokens.map((t, i) => (
+            <button key={t.id} type="button" className={`chip ${target === i ? 'chip--active' : ''}`} onClick={() => setTarget(i)}>
+              <TokenIcon token={t} size={16} /> {walletToken(t).symbol}
+            </button>
+          ))}
+        </div>
+        {zapQuote.loading && !zap ? (
+          <div className="zap-breakdown">
+            <Spinner size={14} /> <span className="muted small">Finding the best route…</span>
+          </div>
+        ) : zapQuote.error ? (
+          <div className="notice notice--error">{zapQuote.error.message || 'Could not route this zap out.'}</div>
+        ) : zap ? (
+          <dl className="kv">
+            {zap.swap && (
+              <div>
+                <dt>Swap → {outT.symbol}</dt>
+                <dd>
+                  {formatRawAmount(zap.swap.amountIn, zap.sellToken.decimals)} {zap.sellToken.symbol}{' '}
+                  <small className="muted">· {zap.swap.quote.dexs.join(' + ')}</small>
+                </dd>
+              </div>
+            )}
+            <div>
+              <dt>You receive</dt>
+              <dd>
+                <strong>
+                  ≈ {formatRawAmount(zap.receiveEst.toString(), outT.decimals)} {outT.symbol}
+                </strong>
+                <small className="muted">
+                  {' '}
+                  · at least {formatRawAmount(zap.receiveMin.toString(), outT.decimals)}
+                </small>
+              </dd>
+            </div>
+            <div>
+              <dt>Max slippage</dt>
+              <dd>{slippage}%</dd>
+            </div>
+          </dl>
+        ) : null}
+        <SubmitButton
+          label={`Zap out to ${outT.symbol}`}
+          disabled={!zap || zapStale || Boolean(zapQuote.error)}
+          submitting={submitting}
+          onClick={submit}
+        />
+        <p className="hint">Removes your liquidity and swaps the other side into {outT.symbol}, in one wallet request. Fees earned come out with it.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="liq-form">
+      {canZap && (
+        <div className="segmented liq-mode">
+          <button type="button" className="active">
+            Both tokens
+          </button>
+          <button type="button" onClick={() => setZapOut(true)}>
+            ⚡ Zap out
+          </button>
+        </div>
+      )}
       <PercentPicker percent={percent} setPercent={setPercent} />
       <dl className="kv">
         {pool.tokenIds.map((id, i) => (
@@ -464,12 +564,21 @@ function SharesRemove({ pool, tokens, shares, staked, onDone, predict }) {
  * Tokens of this pool left in the user's Rhea exchange balance (e.g. the excess of an add whose
  * ratio drifted, or a deposit whose add failed), with a one-tap withdrawal to the wallet.
  */
+const LEFTOVER_MIN_USD = 0.01;
+
 function ExchangeLeftovers({ pool, tokens }) {
-  const { accountId, execute } = useApp();
+  const { accountId, execute, prices } = useApp();
   const deposits = useAsync(() => getDeposits(accountId), [accountId], { enabled: Boolean(accountId), refreshMs: 15_000 });
   useChainUpdates(() => deposits.reload());
   const left = Object.entries(deposits.data || {}).filter(([id]) => pool.tokenIds.includes(id));
-  if (!left.length) return null;
+  // An add's rounding dust (worth a fraction of a cent) isn't worth the gas to withdraw: no
+  // notice for it. Unpriced tokens still show. Portfolio → Rhea deposits lists everything.
+  const worth = left.reduce((s, [id, rawAmount]) => {
+    const t = tokens[pool.tokenIds.indexOf(id)];
+    const price = priceOf(prices, id);
+    return price > 0 ? s + toNumber(rawAmount, t?.decimals ?? 0) * price : Infinity;
+  }, 0);
+  if (!left.length || worth < LEFTOVER_MIN_USD) return null;
   const withdraw = async () => {
     const ok = await execute(() => buildWithdrawDepositsTransactions({ tokenIds: left.map(([id]) => id), accountId }), {
       pending: 'Withdrawing your Rhea balance',
@@ -491,6 +600,19 @@ function ExchangeLeftovers({ pool, tokens }) {
       <button type="button" className="link-button" onClick={withdraw}>
         Withdraw
       </button>
+    </div>
+  );
+}
+
+/** How fees work in AMM, Stable and ALMM pools (unlike CLMM, where fees are claimed). */
+export function FeeCompoundNote() {
+  return (
+    <div className="fee-compound-note">
+      <span aria-hidden>↻</span>
+      <p>
+        <strong>AMM, Stable and ALMM fees and profits are auto-compounded and don’t require claiming.</strong> Every swap’s fee goes
+        back into the pool, so your LP shares grow in value — they come out with your liquidity when you withdraw.
+      </p>
     </div>
   );
 }

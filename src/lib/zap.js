@@ -35,7 +35,7 @@ function splitAmount(amountIn, shareX) {
 }
 
 /** Whether a swap quote trades through the given CLMM pool ("x|y|fee"). */
-function routesThrough(quote, poolId) {
+export function routesThrough(quote, poolId) {
   if (quote.dcl) return quote.dcl.poolIds.includes(poolId);
   // Rhea's SmartRouter message is opaque: any hop between the pool's two tokens may use it.
   const [a, b] = poolId.split('|');
