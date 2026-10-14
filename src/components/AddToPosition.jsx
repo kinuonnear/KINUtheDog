@@ -12,9 +12,10 @@ import { useApp } from '../state.jsx';
 import { useAsync, useDebounced } from '../hooks.js';
 import { appendCounterpart, buildDclAppendTransactions, freshPool, getDclAssets, planAppend, pointToPrice, positionsAtPoint } from '../lib/dclLiquidity.js';
 import { view } from '../lib/rpc.js';
+import { wrapNeededFor } from '../lib/tx.js';
 import { buildZapAppendTransactions, quoteZapToPosition } from '../lib/zap.js';
 import { priceOf } from '../lib/tokens.js';
-import { formatAmount, formatChartPrice, formatUnits, formatUsd, maxBig, toBigInt, toNumber, tryParseUnits } from '../lib/format.js';
+import { formatAmount, formatChartPrice, formatUnits, formatUsd, toBigInt, toNumber, tryParseUnits } from '../lib/format.js';
 import { CONTRACTS } from '../config.js';
 import { Modal, Spinner } from './ui.jsx';
 import { AmountField, trimDecimals, useSpendable } from './Liquidity.jsx';
@@ -113,7 +114,6 @@ export default function AddToPositionModal({ positions: basePositions, x, y, tit
     return value > 0n ? trimDecimals(formatUnits(value, side === 'x' ? x.decimals : y.decimals)) : '';
   };
   const plan = planAppend(positions, { inX, inY });
-  const wrapFor = (id, amount) => (id === CONTRACTS.wrapNear ? maxBig(0n, amount - toBigInt(balances[CONTRACTS.wrapNear] || '0')).toString() : '0');
   const short = (needsX && inX > spendX ? x.symbol : null) || (needsY && inY > spendY ? y.symbol : null);
 
   // A share of the most the wallet can add while keeping the mix (MAX = all of it).
@@ -172,14 +172,18 @@ export default function AddToPositionModal({ positions: basePositions, x, y, tit
             throw new Error(`The pool price moved: this now needs more ${holdsX && fx > spendX ? x.symbol : y.symbol} than your wallet has. Lower the amount and try again.`);
           }
           const fresh = planAppend(now, { inX: fx, inY: fy });
+          // NEAR to wrap from the wallet's wNEAR balance read now (the page's balance can lag).
+          const W = CONTRACTS.wrapNear;
+          const wantW = x.id === W ? fresh.totalX : y.id === W ? fresh.totalY : 0n;
+          const wrap = await wrapNeededFor(accountId, wantW.toString(), balances[W]);
           return buildDclAppendTransactions({
             positions: now,
             inX: fx,
             inY: fy,
             slippage,
             accountId,
-            wrapX: wrapFor(x.id, fresh.totalX),
-            wrapY: wrapFor(y.id, fresh.totalY)
+            wrapX: x.id === W ? wrap : '0',
+            wrapY: y.id === W ? wrap : '0'
           });
         }
         // Re-quote at signing time so the swap and the deposit match the latest prices.

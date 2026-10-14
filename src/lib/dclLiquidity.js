@@ -393,10 +393,21 @@ export function planBins({ bins, current, from, amount }) {
 }
 
 /** Deposit and open every planned bin as its own position (batch_add_liquidity). */
-export async function buildDclBinsTransactions({ pool, plan, slippage, accountId, wrapX = '0', wrapY = '0' }) {
-  const bins = plan.bins
+export async function buildDclBinsTransactions({ pool, plan, slippage, accountId, wrapX = '0', wrapY = '0', maxX = null, maxY = null }) {
+  let bins = plan.bins
     .map((b) => ({ ...b, rawX: toBigInt(floatToRaw(b.amountX)), rawY: toBigInt(floatToRaw(b.amountY)) }))
     .filter((b) => b.rawX > 0n || b.rawY > 0n);
+  // The plan is in floating point: a typed 5 NEAR (5e24 yocto) comes back as 5000000000000000452984832.
+  // Never ask for more than the amounts offered (`maxX` / `maxY`, raw): every bin shrinks by the same share.
+  const capped = (key, max) => {
+    if (max === null || max === undefined) return;
+    const total = bins.reduce((s, b) => s + b[key], 0n);
+    const limit = toBigInt(max);
+    if (total > limit) bins = bins.map((b) => ({ ...b, [key]: shrink(b[key], limit, total) }));
+  };
+  capped('rawX', maxX);
+  capped('rawY', maxY);
+  bins = bins.filter((b) => b.rawX > 0n || b.rawY > 0n);
   if (!bins.length) throw new Error('Enter an amount.');
   if (bins.length === 1) {
     const [only] = bins;

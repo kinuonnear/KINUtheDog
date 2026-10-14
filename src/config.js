@@ -18,9 +18,12 @@ export const CONTRACTS = {
 };
 
 export const ENDPOINTS = {
-  // Ordered by preference; the RPC client fails over automatically.
+  // KINU's own reads, ordered by preference; the RPC client fails over automatically.
   // (rpc.mainnet.near.org is shut down and refuses every request.)
-  rpc: ['https://free.rpc.fastnear.com', 'https://near.drpc.org', 'https://rpc.intea.rs'],
+  rpc: ['https://near.drpc.org', 'https://rpc.intea.rs'],
+  // Tried only after every endpoint above failed. Wallets such as Meteor broadcast through FastNEAR,
+  // rate-limited per IP: KINU stays off it so its reads don't use up the quota a wallet needs.
+  rpcReserve: ['https://free.rpc.fastnear.com'],
   // For the wallets (wallet-selector + their modules). Some modules only use the FIRST url, so it
   // differs from the app's own: KINU's live reads can't use up the quota a wallet call needs.
   // (rpc.intea.rs is last: it slows requests down without an API key.)

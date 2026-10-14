@@ -2,6 +2,7 @@
 // a concurrency limit and a short-lived view cache.
 
 import { ENDPOINTS } from '../config.js';
+import { backgroundRefreshAllowed } from './walletActivity.js';
 
 const MAX_CONCURRENT = 6;
 const REQUEST_TIMEOUT_MS = 12_000;
@@ -9,7 +10,8 @@ const VIEW_CACHE_MS = 4_000;
 
 let active = 0;
 const queue = [];
-let preferred = 0;
+let preferred = 0; // index into ENDPOINTS.rpc (the reserve is never preferred)
+const ALL_ENDPOINTS = [...ENDPOINTS.rpc, ...(ENDPOINTS.rpcReserve || [])];
 
 function acquire() {
   if (active < MAX_CONCURRENT) {
@@ -140,7 +142,7 @@ export function autoSelectRpc({ force = false } = {}) {
 export function startAutoRpc() {
   autoSelectRpc().catch(() => {});
   setInterval(() => {
-    if (document.visibilityState === 'visible' && Date.now() - lastProbe >= PROBE_EVERY_MS) autoSelectRpc({ force: true }).catch(() => {});
+    if (backgroundRefreshAllowed() && Date.now() - lastProbe >= PROBE_EVERY_MS) autoSelectRpc({ force: true }).catch(() => {});
   }, 60_000);
 }
 
@@ -156,10 +158,14 @@ function coolDown(index, retryAfterSec) {
   cooldownUntil.set(index, Date.now() + ms);
 }
 
-/** Endpoint order for one call: the preferred first, resting endpoints last (still a fallback). */
+/** Primary endpoints first (from the preferred one), then the reserve; resting endpoints last. */
 function endpointOrder(count) {
   const now = Date.now();
-  const order = Array.from({ length: count }, (_, i) => (preferred + i) % count);
+  const primary = ENDPOINTS.rpc.length;
+  const order = [
+    ...Array.from({ length: primary }, (_, i) => (preferred + i) % primary),
+    ...Array.from({ length: count - primary }, (_, i) => primary + i)
+  ];
   const ready = order.filter((i) => !(cooldownUntil.get(i) > now));
   const resting = order.filter((i) => cooldownUntil.get(i) > now);
   return [...ready, ...resting];
@@ -168,7 +174,7 @@ function endpointOrder(count) {
 export async function rpc(method, params) {
   await acquire();
   try {
-    const endpoints = ENDPOINTS.rpc;
+    const endpoints = ALL_ENDPOINTS;
     let lastError;
     // Each endpoint gets two tries; endpoints resting after a rate limit come last.
     const order = endpointOrder(endpoints.length);
@@ -192,7 +198,7 @@ export async function rpc(method, params) {
           error.rateLimited = json.error.code === -429 || /rate limit/i.test(json.error.message || '');
           throw error;
         }
-        preferred = index;
+        if (index < ENDPOINTS.rpc.length) preferred = index; // the reserve never becomes the default
         return json.result;
       } catch (error) {
         lastError = error;

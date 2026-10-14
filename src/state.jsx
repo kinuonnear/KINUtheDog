@@ -11,6 +11,7 @@ import {
   signOut
 } from './lib/wallet.js';
 import { armWalletPopup, disarmWalletPopup } from './lib/walletPopup.js';
+import { backgroundRefreshAllowed, beginWalletRequest } from './lib/walletActivity.js';
 import { getAllBalances, getFtBalance, getPrices } from './lib/tokens.js';
 import { clearViewCache } from './lib/rpc.js';
 import { explainRecentFailure, GENERIC_RECEIPT_FAILURE } from './lib/txErrors.js';
@@ -100,7 +101,7 @@ export function AppProvider({ children }) {
         .then((map) => !cancelled && setPrices(map))
         .catch((error) => console.warn('[KINU] price feed', error));
     load(false);
-    const timer = setInterval(() => document.visibilityState === 'visible' && load(true), PRICE_REFRESH_MS);
+    const timer = setInterval(() => backgroundRefreshAllowed() && load(true), PRICE_REFRESH_MS);
     return () => {
       cancelled = true;
       clearInterval(timer);
@@ -156,7 +157,7 @@ export function AppProvider({ children }) {
     if (!accountId) return undefined;
     refreshBalances();
     const timer = setInterval(
-      () => document.visibilityState === 'visible' && refreshBalances(),
+      () => backgroundRefreshAllowed() && refreshBalances(),
       BALANCE_REFRESH_MS
     );
     return () => clearInterval(timer);
@@ -171,6 +172,8 @@ export function AppProvider({ children }) {
       }
       // iOS: open the wallet's window now, while the tap still counts (lib/walletPopup.js).
       armWalletPopup(currentWalletId());
+      // Background refreshes hold off until the wallet is done (lib/walletActivity.js).
+      const endWalletRequest = beginWalletRequest();
       const pendingId = toast('info', pending, 'Review and approve the request in your wallet.', { timeout: 0 });
       try {
         const txs = await buildTransactions();
@@ -203,6 +206,7 @@ export function AppProvider({ children }) {
         console.error('[KINU] transaction', error);
         return null;
       } finally {
+        endWalletRequest();
         disarmWalletPopup(); // closes it only if the wallet never used it
       }
     },

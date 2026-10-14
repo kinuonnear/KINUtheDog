@@ -20,7 +20,7 @@ import {
 } from '../lib/dclLiquidity.js';
 import { view } from '../lib/rpc.js';
 import { formatAmount, formatChartPrice, formatPercent, formatRawAmount, formatUnits, formatUsd, maxBig, toBigInt, tryParseUnits } from '../lib/format.js';
-import { mergeTransactions } from '../lib/tx.js';
+import { mergeTransactions, wrapNeededFor } from '../lib/tx.js';
 import { estimateNetworkFee } from '../lib/gasEstimate.js';
 import { priceOf } from '../lib/tokens.js';
 import { CONTRACTS, NEAR_GAS_RESERVE } from '../config.js';
@@ -432,7 +432,7 @@ export default function DclCreatePosition({ pool, x, y, rangeState, onDone }) {
       if (accountId && (!zapMode || zapQuote.data)) {
         txs = zapMode
           ? await buildZapTransactions({ zap: zapQuote.data, inputToken: zapToken, x, y, pool, slippage, accountId })
-          : await buildDclBinsTransactions({ pool, plan, slippage, accountId, wrapX, wrapY });
+          : await buildDclBinsTransactions({ pool, plan, slippage, accountId, wrapX, wrapY, maxX: rawX, maxY: rawY });
       } else {
         const legs = zapMode && zapQuote.data ? [zapQuote.data.legX, zapQuote.data.legY] : [];
         txs = sketchDeposit({
@@ -519,10 +519,31 @@ export default function DclCreatePosition({ pool, x, y, rangeState, onDone }) {
           },
           { pending: `Zapping ${zapToken.symbol} into ${x.symbol}/${y.symbol}`, success: 'Zap complete — position created' }
         )
-      : await execute(async () => buildDclBinsTransactions({ pool: await livePool(), plan, slippage, accountId, wrapX, wrapY }), {
-          pending: `Creating ${positionsCount} position${positionsCount === 1 ? '' : 's'}`,
-          success: 'Liquidity added'
-        });
+      : await execute(
+          async () => {
+            const live = await livePool();
+            // NEAR to wrap from the wallet's wNEAR balance read now: the page's balance can lag
+            // (e.g. right after a wrap) and leave the deposit short.
+            const W = CONTRACTS.wrapNear;
+            const wantW = pool.token_x === W ? rawX : pool.token_y === W ? rawY : '0';
+            const wrap = await wrapNeededFor(accountId, wantW, balances[W]);
+            return buildDclBinsTransactions({
+              pool: live,
+              plan,
+              slippage,
+              accountId,
+              wrapX: pool.token_x === W ? wrap : '0',
+              wrapY: pool.token_y === W ? wrap : '0',
+              // Never more than the amounts entered (the plan is floating point).
+              maxX: rawX,
+              maxY: rawY
+            });
+          },
+          {
+            pending: `Creating ${positionsCount} position${positionsCount === 1 ? '' : 's'}`,
+            success: 'Liquidity added'
+          }
+        );
     setSubmitting(false);
     if (ok) {
       setInputs({ x: '', y: '' });

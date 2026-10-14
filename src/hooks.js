@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { backgroundRefreshAllowed } from './lib/walletActivity.js';
 
 /**
  * Run an async loader whenever `deps` change. Stale responses are ignored.
@@ -36,7 +37,7 @@ export function useAsync(loader, deps, { enabled = true, refreshMs = 0 } = {}) {
     run(false);
     if (!refreshMs) return undefined;
     const timer = setInterval(() => {
-      if (document.visibilityState === 'visible') run(true);
+      if (backgroundRefreshAllowed()) run(true);
     }, refreshMs);
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps

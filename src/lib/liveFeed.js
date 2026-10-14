@@ -6,6 +6,7 @@
 // visible; lists in memory are bounded; token data comes from shared caches.
 
 import { useEffect, useState } from 'react';
+import { backgroundRefreshAllowed } from './walletActivity.js';
 import { fetchTrades } from './intear.js';
 import { getPoolRadar } from './poolRadar.js';
 import { BASE_TOKENS } from './trending.js';
@@ -35,7 +36,7 @@ function usePolled(load, merge, { enabled, ms, key }) {
     setState((s) => ({ ...s, loading: true }));
     // The first load always runs; later ones only while the tab is visible.
     const tick = async (force = false) => {
-      if (busy || (!force && document.visibilityState !== 'visible')) return;
+      if (busy || (!force && !backgroundRefreshAllowed())) return;
       busy = true;
       try {
         const fresh = await load();
