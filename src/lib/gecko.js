@@ -133,7 +133,8 @@ async function dexScreenerAttributes(batch) {
     byAddress.set(d.pairAddress, {
       volume_usd: { h1: d.volume?.h1, h6: d.volume?.h6, h24: d.volume?.h24 },
       price_change_percentage: { h1: d.priceChange?.h1, h6: d.priceChange?.h6, h24: d.priceChange?.h24 },
-      transactions: { h1: tx.h1, h6: tx.h6, h24: tx.h24 }
+      transactions: { h1: tx.h1, h6: tx.h6, h24: tx.h24 },
+      pool_created_at: d.pairCreatedAt // ms (Gecko gives an ISO date under the same key)
     });
   });
   return byAddress;
@@ -223,7 +224,9 @@ export async function fetchPoolActivity(pools) {
         {
           volume: windowsFrom(a.volume_usd || {}),
           change: { h1: pct(change.h1), h6: pct(change.h6), h24: pct(change.h24) },
-          trades: { h1: trades(a.transactions?.h1), h6: trades(a.transactions?.h6), h24: trades(a.transactions?.h24) }
+          trades: { h1: trades(a.transactions?.h1), h6: trades(a.transactions?.h6), h24: trades(a.transactions?.h24) },
+          // When the pool was created (ms), or null.
+          createdAt: (typeof a.pool_created_at === 'number' ? a.pool_created_at : Date.parse(a.pool_created_at)) || null
         }
       ];
     })

@@ -8095,7 +8095,7 @@ a.dt-row:hover {
 .disc-search:focus-within { border-color: var(--accent); }
 .disc-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: var(--text); font: inherit; font-size: 13px; }
 
-.disc-row--pools { grid-template-columns: 28px minmax(200px, 2fr) repeat(5, minmax(70px, 1fr)) 128px; }
+.disc-row--pools { grid-template-columns: 28px minmax(190px, 2fr) 64px repeat(5, minmax(70px, 1fr)) 128px; }
 .disc-row__actions { display: inline-flex; align-items: center; justify-content: flex-end; gap: 8px; }
 .disc-row__actions-head { text-align: right; }
 .disc-row__actions .disc-star { width: 34px; height: 34px; justify-content: center; border: 1px solid var(--border-strong); border-radius: 9px; font-size: 16px; }
@@ -8961,7 +8961,7 @@ a.dt-row:hover {
 /* ---- LP focus: Discover actions, Pools badges and APR spikes ---- */
 @media (min-width: 1101px) {
   .disc-row { grid-template-columns: 28px minmax(200px, 2fr) repeat(5, minmax(70px, 1fr)) 150px; }
-  .disc-row--pools { grid-template-columns: 28px minmax(200px, 2fr) repeat(5, minmax(70px, 1fr)) 196px; }
+  .disc-row--pools { grid-template-columns: 28px minmax(190px, 2fr) 64px repeat(5, minmax(70px, 1fr)) 196px; }
 }
 .kind--mine {
   color: #5ec8ff;
@@ -9828,4 +9828,141 @@ a.pair-tiers__row:hover {
   .st-steps::before {
     left: 36px;
   }
+}
+
+/* Discover: the banner scrolls away; the category bar stays under the top bar (desktop). */
+@media (min-width: 1001px) {
+  .disc-nav {
+    position: sticky;
+    top: 68px;
+    z-index: 20;
+    padding: 10px 0;
+    background: #0b0e14;
+    /* Extend the bar's background to the window edges, sideways only. */
+    box-shadow: 0 0 0 100vmax #0b0e14;
+    clip-path: inset(0 -100vmax);
+  }
+}
+
+/* Discover pool tables: every column label sorts. */
+.disc-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.disc-sort:hover {
+  color: var(--text);
+}
+
+.disc-sort span {
+  color: var(--faint);
+  letter-spacing: 0;
+}
+
+.disc-sort--on,
+.disc-sort--on span {
+  color: var(--accent);
+}
+
+.disc-age {
+  color: var(--muted);
+}
+
+.disc-age--new {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+
+/* ── Discover pool tables, wide screens ──────────────────────────────────────────────
+   One grid for the label row and the rows, and one alignment per column, so every label
+   sits exactly over its values: pair and Pair age on the left, numbers centred, actions
+   on the right. The label row stays under the category bar while the list scrolls. */
+@media (min-width: 1180px) {
+  .disc-table--yield .disc-row--pools {
+    /* # · pair · age · fees · yield · APR · price · TVL · actions */
+    grid-template-columns: 28px minmax(190px, 1.6fr) 72px repeat(3, minmax(84px, 1fr)) minmax(150px, 1.2fr) minmax(96px, 1fr) 140px;
+  }
+
+  .disc-table--hot .disc-row--pools {
+    /* # · pair · age · volume · trades · price · volume 24h · TVL · actions */
+    grid-template-columns: 28px minmax(180px, 1.6fr) 72px minmax(84px, 1fr) minmax(64px, 0.8fr) minmax(150px, 1.2fr) repeat(2, minmax(84px, 1fr)) 212px;
+  }
+
+  .disc-table .disc-row--pools {
+    column-gap: 20px;
+    padding: 14px 22px;
+  }
+
+  /* Pair age: left, right beside the pair. */
+  .disc-table .disc-row--pools > :nth-child(3) {
+    justify-self: start;
+    text-align: left;
+  }
+
+  /* Number columns: centred, label and values alike. */
+  .disc-table .disc-row--pools > :nth-child(n + 4):not(:last-child) {
+    justify-self: center;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .disc-table .disc-row--pools .disc-swing {
+    flex-wrap: nowrap;
+    justify-content: center;
+  }
+
+  /* Actions: right, with a hairline before them. */
+  .disc-table .disc-row--pools > :last-child {
+    justify-self: end;
+    padding-left: 18px;
+    border-left: 1px solid var(--border);
+  }
+
+  .disc-table .new-row--head > :last-child {
+    border-left-color: transparent;
+  }
+
+  /* The sort arrow hangs outside the label, so the label text itself is what gets centred. */
+  .disc-table .new-row--head .disc-sort {
+    position: relative;
+  }
+
+  .disc-table .new-row--head .disc-sort > span {
+    position: absolute;
+    left: 100%;
+    margin-left: 4px;
+  }
+
+  /* Sticky label row (the card must not clip it). */
+  .disc-table {
+    overflow: visible;
+  }
+
+  .disc-table .new-row--head {
+    position: sticky;
+    top: calc(68px + var(--disc-nav-h, 64px));
+    z-index: 10;
+    border-radius: 16px 16px 0 0;
+    background: #0f141c;
+    box-shadow: 0 8px 16px -12px rgba(0, 0, 0, 0.8);
+  }
+}
+
+/* Long pair names stay on one line (full name on hover). */
+.disc-row--pools .new-row__token strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

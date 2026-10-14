@@ -133,3 +133,16 @@ export function formatChartPrice(value) {
   const digits = Math.min(14, Math.ceil(-Math.log10(abs)) + 3);
   return n.toFixed(digits);
 }
+
+/** Age since a time (ms) in one short unit: 45m, 18h, 12d, 7mo, 3y. '' when unknown. */
+export function formatAge(since, now = Date.now()) {
+  const ms = since ? now - since : NaN;
+  if (!(ms >= 0)) return '';
+  const h = ms / 3_600_000;
+  const d = h / 24;
+  if (h < 1) return `${Math.max(1, Math.round(ms / 60_000))}m`;
+  if (h < 48) return `${Math.floor(h)}h`;
+  if (d < 60) return `${Math.floor(d)}d`;
+  if (d < 730) return `${Math.floor(d / 30.4)}mo`;
+  return `${Math.floor(d / 365)}y`;
+}

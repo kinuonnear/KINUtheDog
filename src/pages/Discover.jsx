@@ -1,14 +1,14 @@
 // Discover (/discover, /new): Trending on Rhea, Hot pairs, top Gainers, Best to LP,
 // New launches and your Watchlist.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAsync, useLocalStorage } from '../hooks.js';
 import { Link, navigate, poolPath, useLocation } from '../router.jsx';
 import { EmptyState, ErrorNotice, PairIcons, Skeleton, Tabs, TokenIcon } from '../components/ui.jsx';
 import WatchStar from '../components/WatchStar.jsx';
 import { enrichTokens, getTrending } from '../lib/trending.js';
 import { useWatchlist } from '../lib/watchlist.js';
-import { formatPercent, formatPrice, formatUsd } from '../lib/format.js';
+import { formatAge, formatPercent, formatPrice, formatUsd } from '../lib/format.js';
 import { bestToLp, filterRadar, getPoolRadar, hotPairs, LP_MIN_TVL, RADAR_TYPES, RADAR_WINDOWS } from '../lib/poolRadar.js';
 import { NATIVE_NEAR } from '../config.js';
 import { NewLaunches } from './NewOnRhea.jsx';
@@ -174,19 +174,65 @@ function PoolStar({ id, favorites, onToggle }) {
 }
 
 /** Pool table shared by Hot pairs and Best to LP: rank, pair, five numbers, star + one action. */
-function PoolTable({ rows, loading, error, onRetry, heads, cells, action, empty }) {
+/** How long ago the pool was created; under a week reads as new. */
+function PairAge({ at }) {
+  const age = formatAge(at);
+  if (!age) return <span className="muted">—</span>;
+  const fresh = Date.now() - at < 7 * 86_400_000;
+  return (
+    <span className={`disc-age ${fresh ? 'disc-age--new' : ''}`} title={`Pool created ${new Date(at).toLocaleString()}`}>
+      {age}
+    </span>
+  );
+}
+
+/**
+ * `values(row)` gives one number per column (same order as `heads`): clicking a column label
+ * sorts the listed pools by it (again to flip the order). Until then the tab's own ranking stands.
+ */
+function PoolTable({ rows: ranked, loading, error, onRetry, heads, cells, values, action, empty, variant }) {
+  const [sort, setSort] = useState(null); // { col, desc }
+  const rows = useMemo(() => {
+    if (!ranked || !sort) return ranked;
+    const v = (r) => {
+      const x = values(r)[sort.col];
+      return Number.isFinite(x) ? x : null;
+    };
+    // Rows without a value go last either way.
+    return [...ranked].sort((a, b) => {
+      const va = v(a);
+      const vb = v(b);
+      if (va === null || vb === null) return va === null ? (vb === null ? 0 : 1) : -1;
+      return sort.desc ? vb - va : va - vb;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ranked, sort]);
   const tokensOf = usePoolTokens(rows || []);
   const [favorites, setFavorites] = useLocalStorage('kinu.pool.favorites', []);
   const toggle = (id) => setFavorites((list) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]));
   if (error && !rows) return <ErrorNotice error={error} onRetry={onRetry} />;
   return (
-    <section className="card new-table disc-table">
+    <section className={`card new-table disc-table disc-table--${variant}`}>
       <div className="new-row disc-row disc-row--pools new-row--head">
         <span>#</span>
         <span>Pair</span>
-        {heads.map((h) => (
-          <span key={h}>{h}</span>
-        ))}
+        {heads.map((h, col) => {
+          const on = sort?.col === col;
+          return (
+            <span key={h}>
+              <button
+                type="button"
+                className={`disc-sort ${on ? 'disc-sort--on' : ''}`}
+                onClick={() => setSort(on ? { col, desc: !sort.desc } : { col, desc: true })}
+                title={`Sort by ${h}`}
+                aria-sort={on ? (sort.desc ? 'descending' : 'ascending') : undefined}
+              >
+                {h}
+                <span aria-hidden>{on ? (sort.desc ? '↓' : '↑') : '↕'}</span>
+              </button>
+            </span>
+          );
+        })}
         <span className="disc-row__actions-head">Actions</span>
       </div>
       {loading && !rows
@@ -215,7 +261,7 @@ function PoolTable({ rows, loading, error, onRetry, heads, cells, action, empty 
                 <span className="new-row__token">
                   <PairIcons tokens={tokens} size={28} />
                   <span>
-                    <strong>{tokens.map((t) => t.symbol).join(' / ')}</strong>
+                    <strong title={tokens.map((t) => t.symbol).join(' / ')}>{tokens.map((t) => t.symbol).join(' / ')}</strong>
                     <small>
                       <span className={`kind kind--${r.label.toLowerCase()}`}>{r.label}</span>{' '}
                       {r.feePercent > 0 && `${formatPercent(r.feePercent, r.feePercent < 0.1 ? 3 : 2)} fee`}
@@ -299,18 +345,22 @@ function HotPairs({ filters, onFilters }) {
         onFilters={onFilters}
       />
       <PoolTable
+        key={by}
+        variant="hot"
         rows={rows}
         loading={data.loading}
         error={data.error}
         onRetry={data.reload}
-        heads={[`Volume ${w}`, `Trades ${w}`, `Price ${w}`, 'Volume 24H', 'TVL']}
+        heads={['Pair age', `Volume ${w}`, `Trades ${w}`, `Price ${w}`, 'Volume 24H', 'TVL']}
         cells={(r) => [
+          <PairAge key="age" at={r.activity?.createdAt} />,
           formatUsd(r.activity.volume[window]),
           (r.activity.trades[window] || 0).toLocaleString(),
           <Change key="c" value={r.activity.change[window]} />,
           formatUsd(r.activity.volume.h24 || r.volume24h),
           formatUsd(r.tvl)
         ]}
+        values={(r) => [r.activity?.createdAt, r.activity.volume[window], r.activity.trades[window], r.activity.change[window], r.activity.volume.h24 || r.volume24h, r.tvl]}
         action={(r) => (
           <>
             <Link className="button button--outline button--sm" to={`${poolPath(r.id)}?tab=add`}>
@@ -349,12 +399,15 @@ function BestToLp({ filters, onFilters }) {
         onFilters={onFilters}
       />
       <PoolTable
+        key={mode}
+        variant="yield"
         rows={rows}
         loading={data.loading}
         error={data.error}
         onRetry={data.reload}
-        heads={[`Fees ${w}`, `Yield ${w}`, 'APR (1-day)', `Price ${w}`, 'TVL']}
+        heads={['Pair age', `Fees ${w}`, `Yield ${w}`, 'APR (1-day)', `Price ${w}`, 'TVL']}
         cells={(r) => [
+          <PairAge key="age" at={r.activity?.createdAt} />,
           formatUsd(r.fees),
           <b key="y" className="up" title={`Fees over ${w} ÷ TVL: what $100 of liquidity earned`}>
             {formatPercent(r.yieldPct, 2)}
@@ -366,6 +419,7 @@ function BestToLp({ filters, onFilters }) {
           </span>,
           formatUsd(r.tvl)
         ]}
+        values={(r) => [r.activity?.createdAt, r.fees, r.yieldPct, r.apy + r.farmApy, r.change, r.tvl]}
         action={(r) => (
           <Link className="button button--outline button--sm" to={`${poolPath(r.id)}?tab=add`}>
             Add LP
@@ -410,6 +464,22 @@ export default function Discover({ defaultTab = 'lp' }) {
   };
   const [pre, accent, post] = TITLES[tab];
 
+  // The tables' label row sticks just below the sticky category bar, whose height varies.
+  const navRef = useRef(null);
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return undefined;
+    const measure = () => nav.parentElement?.style.setProperty('--disc-nav-h', `${nav.offsetHeight}px`);
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    observer?.observe(nav);
+    window.addEventListener('resize', measure);
+    measure();
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, []);
+
   return (
     <div className="page new-page disc-page">
       <section className="disc-banner">
@@ -427,7 +497,7 @@ export default function Discover({ defaultTab = 'lp' }) {
       </section>
 
 
-      <div className="disc-nav">
+      <div className="disc-nav" ref={navRef}>
         <Tabs
           tabs={TABS.map((t) => ({ key: t.key, label: <TabLabel tab={t} />, count: t.key === 'watchlist' ? list.length || undefined : undefined }))}
           value={tab}
