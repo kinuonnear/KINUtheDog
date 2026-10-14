@@ -6140,64 +6140,6 @@ a.dt-row:hover {
   }
 }
 
-/* Create pool */
-.create-pool-button {
-  margin-top: 14px;
-}
-
-.create-types {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.create-types--page {
-  max-width: 560px;
-}
-
-.create-type {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 16px 18px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface-2);
-  color: var(--text);
-  text-align: left;
-}
-
-.create-type:hover {
-  border-color: rgba(184, 255, 61, 0.4);
-}
-
-.create-type > span:first-child {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.create-type strong {
-  color: var(--accent);
-  font-size: 16px;
-}
-
-.create-type small {
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.create-type__arrow {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--border-strong);
-  border-radius: 8px;
-}
-
 /* Create pool — "pool forge": hero, type cards, step track, form panel and live spec. */
 .forge-hero {
   position: relative;

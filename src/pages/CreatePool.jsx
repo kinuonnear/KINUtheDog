@@ -4,12 +4,12 @@
 // The CLMM flow is laid out as a "pool forge": a step track, the form, and a live
 // spec panel showing exactly what will be deployed.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../state.jsx';
 import { useAsync } from '../hooks.js';
 import { Link, navigate, poolPath, useLocation } from '../router.jsx';
 import TokenPicker from '../components/TokenPicker.jsx';
-import { Modal, Spinner, TokenIcon } from '../components/ui.jsx';
+import { Spinner, TokenIcon } from '../components/ui.jsx';
 import { asPoolToken, priceOf } from '../lib/tokens.js';
 import { pointToPrice } from '../lib/dclLiquidity.js';
 import {
@@ -50,35 +50,6 @@ const TYPES = [
     cost: '0.05 NEAR'
   }
 ];
-
-/** "Select the type of the liquidity pool" — a modal version of the Create page's choice. */
-export function CreatePoolChooser({ onClose }) {
-  return (
-    <Modal title="Create a pool" subtitle="Select the type of liquidity pool." onClose={onClose}>
-      <div className="create-types">
-        {TYPES.map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            className="create-type"
-            onClick={() => {
-              onClose();
-              navigate(`/create-pool?type=${t.key}`);
-            }}
-          >
-            <span>
-              <strong>{t.title}</strong>
-              <small>{t.text}</small>
-            </span>
-            <span className="create-type__arrow" aria-hidden>
-              →
-            </span>
-          </button>
-        ))}
-      </div>
-    </Modal>
-  );
-}
 
 function TokenSelect({ token, onClick, label, placeholder = 'Select token' }) {
   return (
@@ -255,7 +226,12 @@ function CreateClmm() {
 
   const tiers = useAsync(() => getDclPoolsForPair(tokenA.id, tokenB.id), [tokenA?.id, tokenB?.id], { enabled: Boolean(pairReady) });
   const tier = (tiers.data || DCL_FEE_TIERS).find((t) => t.fee === fee);
-  const existing = tiers.data?.find((t) => t.fee === fee)?.pool;
+  // While a new pair loads, the previous pair's tiers are still in `data`: don't use them.
+  const existing = tiers.loading ? null : tiers.data?.find((t) => t.fee === fee)?.pool;
+  const checked = Boolean(pairReady && tiers.data && !tiers.loading && !tiers.error);
+
+  // A start price belongs to one pair: a new pair starts with an empty price.
+  useEffect(() => setPriceText(''), [tokenA?.id, tokenB?.id]);
 
   const marketPrice = useMemo(() => {
     if (!pairReady) return null;
@@ -291,7 +267,7 @@ function CreateClmm() {
 
   const stages = [
     { label: 'Token pair', done: Boolean(pairReady) },
-    { label: 'Fee tier', done: Boolean(pairReady && fee && !existing && !tiers.loading) },
+    { label: 'Fee tier', done: Boolean(checked && fee && !existing) },
     { label: 'Start price', done: step === 2 && priceValid && initPoint !== null },
     { label: 'Deploy', done: false }
   ];
@@ -316,6 +292,7 @@ function CreateClmm() {
                     className={`forge-tier ${fee === t.fee ? 'forge-tier--active' : ''} ${t.pool ? 'forge-tier--exists' : ''}`}
                     onClick={() => setFee(t.fee)}
                     disabled={!pairReady}
+                    aria-pressed={fee === t.fee}
                   >
                     <span className="forge-tier__fee">{t.label}</span>
                     <span className="forge-tier__hint">{t.hint}</span>
@@ -325,13 +302,22 @@ function CreateClmm() {
                       ))}
                     </span>
                     <span className="forge-tier__state">
-                      {!pairReady ? '—' : tiers.loading ? <Spinner size={10} /> : t.pool ? (t.tvl !== null ? `${formatUsd(t.tvl)} TVL` : 'Exists') : 'Available'}
+                      {!pairReady || tiers.error ? '—' : tiers.loading ? <Spinner size={10} /> : t.pool ? (t.tvl !== null ? `${formatUsd(t.tvl)} TVL` : 'Exists') : 'Available'}
                     </span>
                   </button>
                 ))}
               </div>
 
-              {existing ? (
+              {pairReady && tiers.error ? (
+                <div className="notice notice--error">
+                  <span>
+                    Couldn&apos;t check which pools already exist for this pair (network busy).{' '}
+                    <button type="button" className="link-button" onClick={tiers.reload}>
+                      Try again
+                    </button>
+                  </span>
+                </div>
+              ) : existing ? (
                 <div className="forge-exists">
                   <span className="forge-exists__icon" aria-hidden>
                     !
@@ -359,7 +345,7 @@ function CreateClmm() {
                 <button
                   type="button"
                   className="button button--primary button--block button--lg forge-cta"
-                  disabled={!pairReady || !fee || tiers.loading}
+                  disabled={!checked || !fee}
                   onClick={() => setStep(2)}
                 >
                   Continue →
@@ -410,6 +396,9 @@ function CreateClmm() {
                   </span>
                   <b>{marketGap.toFixed(2)}%</b>
                 </div>
+              )}
+              {priceValid && initPoint === null && (
+                <div className="notice notice--error">This price is outside the range a CLMM pool can start at. Check the number.</div>
               )}
               {marketGap !== null && marketGap > 5 && (
                 <div className="notice notice--warn">
@@ -517,7 +506,12 @@ function CreateClassic() {
         )}
 
         <PanelHead index="03" title="Deploy" text="Creation fee 0.05 NEAR (+ token storage if needed)." />
-        <button type="button" className="button button--primary button--block button--lg forge-cta" disabled={!pairReady || submitting} onClick={create}>
+        <button
+          type="button"
+          className="button button--primary button--block button--lg forge-cta"
+          disabled={!pairReady || existing.loading || submitting}
+          onClick={create}
+        >
           {submitting ? <Spinner size={14} /> : !accountId ? 'Connect wallet' : 'Create pool'}
         </button>
         <p className="hint">After the pool is created you&apos;ll land on its page to add the first liquidity.</p>

@@ -8,7 +8,7 @@ import { CONTRACTS } from '../config.js';
 import { view } from './rpc.js';
 import { searchPools } from './rhea.js';
 import { ensureStorageTx, functionCall, transaction } from './tx.js';
-import { priceToPoint } from './dclLiquidity.js';
+import { POINT_MAX, POINT_MIN, priceToPoint } from './dclLiquidity.js';
 
 /** CLMM fee tiers (contract units: 1e-6, so 2000 = 0.2%). */
 export const DCL_FEE_TIERS = [
@@ -43,11 +43,15 @@ export function dclPoolId(a, b, fee) {
   return `${sortedPair(a, b).join('|')}|${fee}`;
 }
 
-/** Existing CLMM pools for a pair: [{ fee, label, pool | null, tvl }]. */
+/**
+ * Existing CLMM pools for a pair: [{ fee, label, pool | null, tvl }].
+ * get_pool returns null for a pool that doesn't exist; an RPC failure throws, so a failed
+ * check is never mistaken for "not created" (TVL is only decoration and may be missing).
+ */
 export async function getDclPoolsForPair(tokenA, tokenB) {
   const [{ list }, pools] = await Promise.all([
     searchPools({ type: 'dcl', tokenList: tokenA, hideLow: false, limit: 100 }).catch(() => ({ list: [] })),
-    Promise.all(DCL_FEE_TIERS.map((t) => view(CONTRACTS.dcl, 'get_pool', { pool_id: dclPoolId(tokenA, tokenB, t.fee) }).catch(() => null)))
+    Promise.all(DCL_FEE_TIERS.map((t) => view(CONTRACTS.dcl, 'get_pool', { pool_id: dclPoolId(tokenA, tokenB, t.fee) })))
   ]);
   const tvlById = new Map(list.map((p) => [p.id, p.tvl]));
   return DCL_FEE_TIERS.map((tier, i) => {
@@ -67,13 +71,15 @@ export async function getClassicPoolsForPair(tokenA, tokenB) {
 /**
  * Initial point for a new CLMM pool. `price` is "1 tokenA = price tokenB" in human units;
  * the point is expressed for the sorted pair (token X = alphabetically first).
+ * null when the price is outside what the contract can represent (it would reject it).
  */
 export function initPointFor({ tokenA, tokenB, price }) {
   const [x] = sortedPair(tokenA.id, tokenB.id);
   const aIsX = tokenA.id === x;
   const priceYperX = aIsX ? price : 1 / price;
   const [decX, decY] = aIsX ? [tokenA.decimals, tokenB.decimals] : [tokenB.decimals, tokenA.decimals];
-  return Math.round(priceToPoint(priceYperX, decX, decY));
+  const point = Math.round(priceToPoint(priceYperX, decX, decY));
+  return Number.isFinite(point) && point >= POINT_MIN && point <= POINT_MAX ? point : null;
 }
 
 /** Rhea's contract must be able to receive both tokens, and so must the user. */
