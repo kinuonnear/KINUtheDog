@@ -653,8 +653,17 @@ export default function Pools() {
   return (
     <div className="page page--discover page--pools">
       <header className="pt-hero">
-        <h1 className="pt-title">Pools</h1>
+        <h1 className="pt-title">Liquidity Pools</h1>
         <p>Find a Pool, Manage Liquidity Made Simple in One Click.</p>
+        <Link to="/start-lp" className="pt-start">
+          <span className="pt-start__icon" aria-hidden>
+            ?
+          </span>
+          How To Start LP?
+          <span className="pt-start__arrow" aria-hidden>
+            →
+          </span>
+        </Link>
       </header>
       {/* The title scrolls away; the stats band stays under the top bar and the list passes under it. */}
       <div className="pt-band" ref={bandRef}>

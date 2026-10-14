@@ -14,6 +14,7 @@ import Pools from './pages/Pools.jsx';
 import PoolDetail from './pages/PoolDetail.jsx';
 import Portfolio from './pages/Portfolio.jsx';
 import CreatePool from './pages/CreatePool.jsx';
+import StartLp from './pages/StartLp.jsx';
 import MoreMenu from './components/MoreMenu.jsx';
 import RangeAlerts from './components/RangeAlerts.jsx';
 import Security from './pages/Security.jsx';
@@ -24,7 +25,7 @@ import Token from './pages/Token.jsx';
 // Liquidity first: Pools (and Create) right after Home. Docs and the rest live under More.
 const NAV = [
   { to: '/app', label: 'Home', match: ['app'] },
-  { to: '/pools', label: 'Pools', match: ['pools', 'pool'] },
+  { to: '/pools', label: 'Pools', match: ['pools', 'pool', 'starter'] },
   { to: '/discover', label: 'Discover', match: ['discover', 'new', 'token'] },
   { to: '/swap', label: 'Swap', match: ['swap'] },
   { to: '/portfolio', label: 'Portfolio', match: ['portfolio'] }
@@ -43,6 +44,7 @@ const TITLES = {
   pool: 'Pool · KINU',
   portfolio: 'Portfolio · KINU',
   create: 'Create pool · KINU',
+  starter: 'How to start LP · KINU',
   security: 'Security & transparency · KINU',
   new: 'New on Rhea · KINU',
   discover: 'Discover · KINU',
@@ -131,6 +133,9 @@ export default function App() {
       break;
     case 'create':
       page = <CreatePool />;
+      break;
+    case 'starter':
+      page = <StartLp />;
       break;
     case 'security':
       page = <Security />;

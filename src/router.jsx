@@ -35,6 +35,7 @@ const ROUTES = [
   { name: 'pools', pattern: /^\/pools$/ },
   { name: 'pool', pattern: /^\/pools\/([^/]+)$/ },
   { name: 'create', pattern: /^\/create-pool$/ },
+  { name: 'starter', pattern: /^\/start-lp$/ },
   { name: 'portfolio', pattern: /^\/portfolio$/ },
   { name: 'security', pattern: /^\/security$/ },
   { name: 'docs', pattern: /^\/docs(?:\/([^/]+))?$/ },
