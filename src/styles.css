@@ -7872,3 +7872,57 @@ button.nav__link.nav__link--active {
   background: var(--accent-soft);
   color: var(--accent);
 }
+
+/* ---- Portfolio history: LP positions / swaps ---- */
+.history-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 4px 0 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.history-bar > div:first-child {
+  display: grid;
+  gap: 2px;
+}
+.history-bar strong {
+  font-size: 16px;
+}
+.history-kind button {
+  padding: 8px 16px;
+  font-size: 13px;
+}
+.swap-hist-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.8fr) minmax(200px, 1.6fr) minmax(200px, 1.6fr) minmax(90px, 0.7fr) minmax(70px, 0.5fr);
+  align-items: center;
+  gap: 12px;
+  min-width: 760px;
+  padding: 12px 14px;
+  font-variant-numeric: tabular-nums;
+}
+.swap-hist-row + .swap-hist-row {
+  border-top: 1px solid var(--border);
+}
+.swap-hist__legs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.swap-hist__leg {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+}
+.swap-hist__legs.down .swap-hist__leg b {
+  color: var(--danger);
+}
+.swap-hist__legs.up .swap-hist__leg b {
+  color: var(--accent);
+}

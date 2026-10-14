@@ -10,7 +10,7 @@ import { formatAmount, formatPrice, formatUsd, shortAccount, toNumber } from '..
 import { CONTRACTS, ENDPOINTS, NATIVE_NEAR } from '../config.js';
 import LiquidityTable from '../components/LiquidityTable.jsx';
 import { ClosedPositions, PnlDashboard, PnlValue, useLpHistory } from '../components/LpPnl.jsx';
-import { AvgCell, rowPnl, SoldTokens, TokenPnlSummary, useTokenPnl } from '../components/TokenPnl.jsx';
+import { AvgCell, rowPnl, SoldTokens, SwapHistory, TokenPnlSummary, useTokenPnl } from '../components/TokenPnl.jsx';
 import { fetchTokenInfo } from '../lib/intear.js';
 import { tokenShareCard } from '../lib/shareCard.js';
 import ShareButton from '../components/ShareCard.jsx';
@@ -95,6 +95,8 @@ export default function Portfolio() {
   const ownPortfolio = Boolean(accountId) && viewed === accountId;
   const readOnly = viewed !== accountId;
   const [tab, setTab] = useState('tokens');
+  // History: closed LP positions or swaps, shown apart.
+  const [historyKind, setHistoryKind] = useState('lp');
   const [showDust, setShowDust] = useState(false);
 
   const data = useAsync(() => loadPortfolio(viewed), [viewed], { enabled: Boolean(viewed), refreshMs: 45_000 });
@@ -172,6 +174,8 @@ export default function Portfolio() {
   const history = useLpHistory(viewed, model?.dclRows, prices);
 
   const tokenPnl = useTokenPnl(viewed, prices);
+  // Transactions that were liquidity actions: kept out of the swap history.
+  const lpHashes = useMemo(() => new Set((history.events || []).map((e) => e.hash)), [history.events]);
 
   // 24h price change per held token (Intear), shown under the price.
   const heldIds = model ? model.walletRows.filter((r) => r.usd >= DUST_USD).map((r) => (r.id === NATIVE_NEAR.id ? CONTRACTS.wrapNear : r.id)) : [];
@@ -387,7 +391,29 @@ export default function Portfolio() {
           />
         </>
       ) : tab === 'history' ? (
-        <ClosedPositions history={history} />
+        <>
+          <div className="history-bar">
+            <div>
+              <strong>{historyKind === 'lp' ? 'Closed LP positions' : 'Swap history'}</strong>
+              <span className="muted small">
+                {historyKind === 'lp' ? 'Fully removed CLMM positions with their realized PnL.' : 'Every swap from this wallet, newest first.'}
+              </span>
+            </div>
+            <div className="segmented history-kind" role="tablist" aria-label="History type">
+              <button type="button" role="tab" aria-selected={historyKind === 'lp'} className={historyKind === 'lp' ? 'active' : ''} onClick={() => setHistoryKind('lp')}>
+                LP positions{history.model ? ` · ${history.model.closed.length}` : ''}
+              </button>
+              <button type="button" role="tab" aria-selected={historyKind === 'swap'} className={historyKind === 'swap' ? 'active' : ''} onClick={() => setHistoryKind('swap')}>
+                Swaps
+              </button>
+            </div>
+          </div>
+          {historyKind === 'lp' ? (
+            <ClosedPositions history={history} />
+          ) : (
+            <SwapHistory tokenPnl={tokenPnl} lpHashes={lpHashes} prices={prices} />
+          )}
+        </>
       ) : (
         <section className="card asset-table">
           {model.depositRows.length ? (

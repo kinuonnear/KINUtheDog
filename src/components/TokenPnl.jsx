@@ -5,10 +5,12 @@ import { useMemo, useState } from 'react';
 import { useAsync } from '../hooks.js';
 import { getTokens } from '../lib/tokens.js';
 import { loadNearlyPnl, loadTokenPnl, replayTrades } from '../lib/tokenPnl.js';
-import { formatPrice, formatUsd } from '../lib/format.js';
-import { CONTRACTS, NATIVE_NEAR } from '../config.js';
+import { formatAmount, formatPrice, formatUsd, toNumber } from '../lib/format.js';
+import { priceAt } from '../lib/lpHistory.js';
+import { isQuoteToken } from '../lib/intear.js';
+import { CONTRACTS, ENDPOINTS, NATIVE_NEAR } from '../config.js';
 import { PnlValue } from './LpPnl.jsx';
-import { Skeleton, Spinner, TokenIcon } from './ui.jsx';
+import { EmptyState, Skeleton, Spinner, TokenIcon } from './ui.jsx';
 
 /** NEAR is the currency trades are paid in (and pays gas / storage), so it has no PnL of its own. */
 export const isBaseAsset = (id) => id === NATIVE_NEAR.id || id === CONTRACTS.wrapNear;
@@ -31,6 +33,9 @@ export function useTokenPnl(account, prices) {
     book,
     nearly: nearly.data || null,
     tokens: raw.data?.tokens || {},
+    // Every token-moving transaction and the price candles: the History tab's swap list.
+    txs: raw.data?.txs || null,
+    priceHistory: raw.data?.history || null,
     complete: raw.data?.complete ?? true,
     loading: raw.loading && !raw.data,
     nearlyLoading: nearly.loading && !nearly.data,
@@ -204,4 +209,124 @@ export function SoldTokens({ pnl, heldIds }) {
 export function AvgCell({ info, loading }) {
   if (info?.avg) return <span>{formatPrice(info.avg)}</span>;
   return loading ? <Spinner size={12} /> : <span className="muted">—</span>;
+}
+
+const swapDate = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+/**
+ * The account's swaps, newest first: transactions where tokens went out and other tokens came in.
+ * Liquidity actions (add, remove, claim, compound, rebalance — `lpHashes`, from the LP history)
+ * are left out; they are in the LP list. Values use the price at the time of the swap.
+ */
+export function SwapHistory({ tokenPnl, lpHashes, prices }) {
+  const { txs, tokens, priceHistory, loading, error, reload } = tokenPnl;
+  const [shown, setShown] = useState(50);
+  const rows = useMemo(() => {
+    if (!txs) return null;
+    const meta = (id) => tokens[id] || { id, symbol: id.slice(0, 6), decimals: 0 };
+    return txs
+      .filter((t) => !lpHashes?.has(t.hash))
+      .map((t) => {
+        const legs = Object.entries(t.legs).map(([id, raw]) => {
+          const token = meta(id);
+          const amount = toNumber(raw.replace('-', ''), token.decimals);
+          const price = priceAt(priceHistory, prices, id, t.ts);
+          return { id, token, amount, out: raw.startsWith('-'), usd: amount * price };
+        });
+        return { ...t, outs: legs.filter((l) => l.out), ins: legs.filter((l) => !l.out) };
+      })
+      .filter((t) => t.outs.length && t.ins.length)
+      .map((t) => {
+        // Valued by the NEAR / stablecoin side when there is one (the reliable price).
+        const anchored = [...t.outs, ...t.ins].find((l) => isQuoteToken(l.id));
+        const side = anchored ? (anchored.out ? t.outs : t.ins) : t.outs;
+        return { ...t, usd: side.reduce((s, l) => s + l.usd, 0) };
+      })
+      .reverse();
+  }, [txs, tokens, priceHistory, prices, lpHashes]);
+
+  if (error && !rows) {
+    return (
+      <div className="card">
+        <EmptyState
+          title="Swap history unavailable"
+          action={
+            <button type="button" className="button button--ghost" onClick={reload}>
+              Retry
+            </button>
+          }
+        >
+          {error.message}
+        </EmptyState>
+      </div>
+    );
+  }
+  if (loading || !rows) {
+    return (
+      <div className="card">
+        {[0, 1, 2].map((i) => (
+          <div className="asset-row" key={i}>
+            <Skeleton width="40%" height={20} />
+            <Skeleton width={80} />
+            <Skeleton width={80} />
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (!rows.length) {
+    return (
+      <div className="card">
+        <EmptyState icon="⇄" title="No swaps yet">
+          Swaps made from this wallet show up here.
+        </EmptyState>
+      </div>
+    );
+  }
+  const leg = (l) => (
+    <span className="swap-hist__leg" key={l.id}>
+      <TokenIcon token={l.token} size={18} />
+      <b>{formatAmount(l.amount)}</b> {l.token.symbol}
+    </span>
+  );
+  return (
+    <section className="card lp-table-card">
+      <div className="hist-table">
+        <div className="swap-hist-row hist-row--head">
+          <span>Time</span>
+          <span>Paid</span>
+          <span>Received</span>
+          <span>Value</span>
+          <span>Tx</span>
+        </div>
+        {rows.slice(0, shown).map((t) => (
+          <div className="swap-hist-row" key={t.hash}>
+            <span data-label="Time" className="muted">
+              {swapDate.format(t.ts)}
+            </span>
+            <span data-label="Paid" className="swap-hist__legs down">
+              {t.outs.map(leg)}
+            </span>
+            <span data-label="Received" className="swap-hist__legs up">
+              {t.ins.map(leg)}
+            </span>
+            <span data-label="Value">{t.usd > 0 ? formatUsd(t.usd) : '—'}</span>
+            <span data-label="Tx">
+              <a href={`${ENDPOINTS.explorer}/txns/${t.hash}`} target="_blank" rel="noopener noreferrer">
+                View ↗
+              </a>
+            </span>
+          </div>
+        ))}
+      </div>
+      {rows.length > shown && (
+        <div className="center">
+          <button type="button" className="button button--ghost button--sm" onClick={() => setShown((n) => n + 50)}>
+            Show more ({shown} of {rows.length})
+          </button>
+        </div>
+      )}
+      <p className="hint lp-hint">Values use USD prices at the time of each swap. Wrapping NEAR ⇄ wNEAR and liquidity actions are not listed here.</p>
+    </section>
+  );
 }
