@@ -1,6 +1,7 @@
 // Market data for one token on NEAR, for the Swap page:
-//   GeckoTerminal -> the token's pools (TVL, 24h volume, buys / sells), its profile (logo,
-//                    links, verified), and each pool's recent trades (top traders)
+//   DexScreener   -> the token's pools (TVL, 24h volume, buys / sells) and links
+//   GeckoTerminal -> pools when DexScreener has none, logo / links / verified, and each pool's
+//                    recent trades (top traders)
 //   FastNEAR      -> the top holders
 // GeckoTerminal's public API allows ~30 requests a minute per visitor, so every read is cached
 // and identical reads share one request.
@@ -52,46 +53,87 @@ function pairPoolAddresses(a, b) {
  */
 export function getTokenPools(tokenId, counterId = null) {
   return cached(`pools:${tokenId}:${counterId || ''}`, 60_000, async () => {
-    const [listed, paired] = await Promise.all([
-      getJson(`${GECKO}/tokens/${encodeURIComponent(tokenId)}/pools?page=1`),
-      counterId && counterId !== tokenId
-        ? getJson(`${GECKO}/pools/multi/${pairPoolAddresses(tokenId, counterId).map(encodeURIComponent).join(',')}`).catch(() => ({ data: [] }))
-        : { data: [] }
-    ]);
-    const seen = new Set();
-    return [...(paired.data || []), ...(listed.data || [])]
-      .filter((p) => {
-        const address = p.attributes?.address;
-        if (!address || seen.has(address)) return false;
-        seen.add(address);
-        return true;
-      })
-      .map((p) => {
-        const a = p.attributes || {};
-        const r = p.relationships || {};
-        const dex = r.dex?.data?.id || '';
-        const tx = a.transactions?.h24 || {};
-        const name = String(a.name || '');
-        const rheaId = rheaPoolId(String(a.address || ''), dex);
-        // CLMM fee from the pool id ("x|y|2000" = 0.2%), else from the name ("… 0.3%").
-        const clmmFee = rheaId?.includes('|') ? Number(rheaId.split('|')[2]) / 10_000 : null;
-        const fee = clmmFee ?? name.match(/(\d+(?:\.\d+)?)%/)?.[1];
-        return {
-          address: a.address,
-          rheaId,
-          name: name.replace(/\s+\d+(?:\.\d+)?%$/, ''),
-          dex,
-          fee: fee ? `${fee}%` : null,
-          baseId: stripNetwork(r.base_token?.data?.id),
-          quoteId: stripNetwork(r.quote_token?.data?.id),
-          tvl: Number(a.reserve_in_usd) || 0,
-          volume24: Number(a.volume_usd?.h24) || 0,
-          buys24: Number(tx.buys) || 0,
-          sells24: Number(tx.sells) || 0
-        };
-      })
-      .sort((a, b) => b.tvl - a.tvl);
+    // DexScreener first: same pool addresses as GeckoTerminal, a far roomier rate limit
+    // (~300 requests a minute), and every pair of the token. GeckoTerminal is the fallback.
+    const dex = await dexScreenerPools(tokenId).catch(() => null);
+    if (dex?.length) return dex;
+    return geckoTokenPools(tokenId, counterId);
   });
+}
+
+/** The token's pairs on NEAR from DexScreener (one request, shared by pools and profile). */
+function dexScreenerPairs(tokenId) {
+  return cached(`dexs:${tokenId}`, 30_000, async () => {
+    const json = await getJson(`${ENDPOINTS.dexscreener}/latest/dex/tokens/${encodeURIComponent(tokenId)}`);
+    return (json.pairs || []).filter((p) => p.chainId === 'near');
+  });
+}
+
+async function dexScreenerPools(tokenId) {
+  const pairs = await dexScreenerPairs(tokenId);
+  const seen = new Set();
+  return pairs
+    .filter((p) => p.pairAddress && !seen.has(p.pairAddress) && seen.add(p.pairAddress))
+    .map((p) => {
+      const rheaId = rheaPoolId(String(p.pairAddress), p.dexId);
+      const clmmFee = rheaId?.includes('|') ? Number(rheaId.split('|')[2]) / 10_000 : null;
+      return {
+        address: p.pairAddress,
+        rheaId,
+        name: `${p.baseToken?.symbol || '?'} / ${p.quoteToken?.symbol || '?'}`,
+        dex: p.dexId,
+        fee: clmmFee !== null ? `${clmmFee}%` : null,
+        baseId: p.baseToken?.address || '',
+        quoteId: p.quoteToken?.address || '',
+        tvl: Number(p.liquidity?.usd) || 0,
+        volume24: Number(p.volume?.h24) || 0,
+        buys24: Number(p.txns?.h24?.buys) || 0,
+        sells24: Number(p.txns?.h24?.sells) || 0
+      };
+    })
+    .sort((a, b) => b.tvl - a.tvl);
+}
+
+async function geckoTokenPools(tokenId, counterId) {
+  const [listed, paired] = await Promise.all([
+    getJson(`${GECKO}/tokens/${encodeURIComponent(tokenId)}/pools?page=1`),
+    counterId && counterId !== tokenId
+      ? getJson(`${GECKO}/pools/multi/${pairPoolAddresses(tokenId, counterId).map(encodeURIComponent).join(',')}`).catch(() => ({ data: [] }))
+      : { data: [] }
+  ]);
+  const seen = new Set();
+  return [...(paired.data || []), ...(listed.data || [])]
+    .filter((p) => {
+      const address = p.attributes?.address;
+      if (!address || seen.has(address)) return false;
+      seen.add(address);
+      return true;
+    })
+    .map((p) => {
+      const a = p.attributes || {};
+      const r = p.relationships || {};
+      const dex = r.dex?.data?.id || '';
+      const tx = a.transactions?.h24 || {};
+      const name = String(a.name || '');
+      const rheaId = rheaPoolId(String(a.address || ''), dex);
+      // CLMM fee from the pool id ("x|y|2000" = 0.2%), else from the name ("… 0.3%").
+      const clmmFee = rheaId?.includes('|') ? Number(rheaId.split('|')[2]) / 10_000 : null;
+      const fee = clmmFee ?? name.match(/(\d+(?:\.\d+)?)%/)?.[1];
+      return {
+        address: a.address,
+        rheaId,
+        name: name.replace(/\s+\d+(?:\.\d+)?%$/, ''),
+        dex,
+        fee: fee ? `${fee}%` : null,
+        baseId: stripNetwork(r.base_token?.data?.id),
+        quoteId: stripNetwork(r.quote_token?.data?.id),
+        tvl: Number(a.reserve_in_usd) || 0,
+        volume24: Number(a.volume_usd?.h24) || 0,
+        buys24: Number(tx.buys) || 0,
+        sells24: Number(tx.sells) || 0
+      };
+    })
+    .sort((a, b) => b.tvl - a.tvl);
 }
 
 /** Logo, links and verified flag from GeckoTerminal (null when the token isn't indexed). */
@@ -105,8 +147,7 @@ const handleOf = (url, host) => {
  * DexScreener token profile) rather than on GeckoTerminal. Also the token's DexScreener page.
  */
 async function dexScreenerProfile(tokenId) {
-  const json = await getJson(`${ENDPOINTS.dexscreener}/latest/dex/tokens/${encodeURIComponent(tokenId)}`);
-  const pairs = (json.pairs || []).filter((p) => p.chainId === 'near');
+  const pairs = await dexScreenerPairs(tokenId);
   const info = pairs.find((p) => p.info)?.info;
   const socials = info?.socials || [];
   const social = (type) => socials.find((s) => s.type === type)?.url || null;

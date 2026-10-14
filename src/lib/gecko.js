@@ -25,8 +25,8 @@ export const ESTIMATED_WINDOWS = new Set(['h4', 'h12']);
 /* ------------------------------------------------------------------ */
 
 // Gecko's public API allows about 30 requests a minute per IP. Every Gecko call in the app goes
-// through this lane: a small burst, then one request every ~2.2 s; after a rate limit, everything
-// waits (15 s, doubling up to 2 min) instead of hammering it. A 429 is sent without CORS headers,
+// through this lane: a small burst, then one request every ~2.2 s; after a rate limit, Gecko gets
+// a rest (15 s, doubling up to 2 min) instead of more requests. A 429 is sent without CORS headers,
 // so the browser reports it as a network failure: both count as a rate limit here.
 const BURST = 5;
 const REFILL_MS = 2_200;
@@ -34,7 +34,6 @@ let tokens = BURST;
 let refilledAt = Date.now();
 let pausedUntil = 0;
 let backoffMs = 0;
-let lane = Promise.resolve();
 
 const sleep = (ms, signal) =>
   new Promise((resolve, reject) => {
@@ -46,33 +45,42 @@ const sleep = (ms, signal) =>
     });
   });
 
+// Nobody waits long in the lane: a caller that would wait more than this (or arrives during a
+// rate-limit pause) gets a `rateLimited` error at once and shows its fallback (e.g. the chart's
+// Intear candles) instead of a spinner.
+const MAX_WAIT_MS = 2_500;
+
 async function takeSlot(signal) {
   for (;;) {
     const now = Date.now();
+    if (pausedUntil > now) throw busy();
     tokens = Math.min(BURST, tokens + (now - refilledAt) / REFILL_MS);
     refilledAt = now;
-    const wait = Math.max(pausedUntil - now, tokens >= 1 ? 0 : (1 - tokens) * REFILL_MS);
-    if (wait <= 0) {
+    if (tokens >= 1) {
       tokens -= 1;
       return;
     }
+    const wait = (1 - tokens) * REFILL_MS;
+    if (wait > MAX_WAIT_MS) throw busy();
     await sleep(wait, signal);
   }
 }
 
-function rateLimited() {
-  backoffMs = backoffMs ? Math.min(backoffMs * 2, 120_000) : 15_000;
-  pausedUntil = Date.now() + backoffMs;
+function busy() {
   const error = new Error('GeckoTerminal is busy — retrying shortly.');
   error.rateLimited = true;
   return error;
 }
 
+function rateLimited() {
+  backoffMs = backoffMs ? Math.min(backoffMs * 2, 120_000) : 15_000;
+  pausedUntil = Date.now() + backoffMs;
+  return busy();
+}
+
 /** fetch() for GeckoTerminal through the shared lane. Throws `rateLimited` errors on a 429. */
 export async function geckoFetch(url, { signal } = {}) {
-  const slot = lane.then(() => takeSlot(signal));
-  lane = slot.catch(() => {});
-  await slot;
+  await takeSlot(signal);
   let response;
   try {
     response = await fetch(url, { signal, headers: { accept: 'application/json' } });

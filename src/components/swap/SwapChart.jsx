@@ -41,10 +41,13 @@ export default function SwapChart({ token, counter, pools, height }) {
   const supply = info.data?.circulatingSupply;
 
   const lastGoodRef = useRef(null);
+  // The chart doesn't wait for the pool list (GeckoTerminal, often slow): it opens on Intear's
+  // market candles and moves to the pool's own candles once the list names a pool.
+  const viewOf = `${tokenId}|${pool?.address}|${resolution}|${unit}`;
   const loaded = useAsync(
     async () => {
-      const memo = lastGood(lastGoodRef, `${tokenId}|${pool?.address}|${resolution}|${unit}`);
-      const keep = (value) => memo.keep(value, (a, b) => a.source === b.source && a.usd === b.usd && sameCandles(a.candles, b.candles));
+      const memo = lastGood(lastGoodRef, viewOf);
+      const keep = (value) => memo.keep({ ...value, view: viewOf }, (a, b) => a.source === b.source && a.usd === b.usd && sameCandles(a.candles, b.candles));
       if (pool) {
         const usd = unit === 'usd';
         const res = await fetchPoolOhlc({ address: pool.address, tokenId, resolution, usd, countBack: CHART_BARS }).catch(() => null);
@@ -55,10 +58,13 @@ export default function SwapChart({ token, counter, pools, height }) {
       }
       return keep({ source: 'market', usd: true, candles: await fetchOhlc({ tokenId, resolution, countBack: CHART_BARS }) });
     },
-    [tokenId, pool?.address, resolution, unit],
-    { enabled: Boolean(tokenId) && pools !== undefined, refreshMs: REFRESH_MS }
+    [viewOf],
+    { enabled: Boolean(tokenId), refreshMs: REFRESH_MS }
   );
-  const data = loaded.data;
+  // Never show the previous token's candles while the new ones load. Moving from market to pool
+  // candles of the same token keeps the market chart up until the pool's arrive.
+  const sameToken = loaded.data?.view?.split('|')[0] === tokenId && loaded.data?.view?.split('|').slice(2).join('|') === `${resolution}|${unit}`;
+  const data = sameToken ? loaded.data : undefined;
   const usdView = data ? data.usd : unit === 'usd';
   const multiplier = mode === 'mcap' ? supply || 0 : 1;
 
