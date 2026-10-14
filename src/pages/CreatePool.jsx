@@ -1,6 +1,8 @@
 // Create a Rhea pool: CLMM (pick pair + fee tier, then set the starting price) or
 // Classic (pick pair + fee). Existing pools are shown per fee tier so nobody pays
 // for a create_pool that the contract would reject as "pool already exist".
+// The CLMM flow is laid out as a "pool forge": a step track, the form, and a live
+// spec panel showing exactly what will be deployed.
 
 import { useMemo, useState } from 'react';
 import { useApp } from '../state.jsx';
@@ -15,6 +17,7 @@ import {
   buildCreateDclPoolTransactions,
   CLASSIC_FEES,
   createdClassicPoolId,
+  DCL_FEE_TIERS,
   dclPoolId,
   getClassicPoolsForPair,
   getDclPoolsForPair,
@@ -31,16 +34,24 @@ const TYPES = [
   {
     key: 'clmm',
     title: 'CLMM Pool',
-    text: 'Liquidity inside a price range you choose. More fees per dollar; best for active strategies.'
+    tag: 'Concentrated',
+    glyph: '◆',
+    text: 'Liquidity inside a price range you choose. More fees per dollar; best for active strategies.',
+    chips: ['Custom price range', 'Capital efficient', '4 fee tiers', 'Smart LP setup'],
+    cost: '0.1 NEAR'
   },
   {
     key: 'classic',
     title: 'Classic Pool',
-    text: 'Liquidity across the full price range. Simple and steady fee earning for passive LPs.'
+    tag: 'Full range',
+    glyph: '●',
+    text: 'Liquidity across the full price range. Simple and steady fee earning for passive LPs.',
+    chips: ['x·y=k full range', 'Set & forget', 'Custom swap fee'],
+    cost: '0.05 NEAR'
   }
 ];
 
-/** "Select the type of the liquidity pool" — used on the Pools page and here. */
+/** "Select the type of the liquidity pool" — a modal version of the Create page's choice. */
 export function CreatePoolChooser({ onClose }) {
   return (
     <Modal title="Create a pool" subtitle="Select the type of liquidity pool." onClose={onClose}>
@@ -69,18 +80,23 @@ export function CreatePoolChooser({ onClose }) {
   );
 }
 
-function TokenSelect({ token, onClick, placeholder = 'Select token' }) {
+function TokenSelect({ token, onClick, label, placeholder = 'Select token' }) {
   return (
-    <button type="button" className="token-select create-token" onClick={onClick}>
-      {token ? (
-        <>
-          <TokenIcon token={asPoolToken(token)} size={24} />
-          <strong>{asPoolToken(token).symbol}</strong>
-        </>
-      ) : (
-        <span className="muted">{placeholder}</span>
-      )}
-      <span aria-hidden>▾</span>
+    <button type="button" className="forge-token" onClick={onClick}>
+      <small>{label}</small>
+      <span>
+        {token ? (
+          <>
+            <TokenIcon token={asPoolToken(token)} size={26} />
+            <strong>{asPoolToken(token).symbol}</strong>
+          </>
+        ) : (
+          <span className="muted">{placeholder}</span>
+        )}
+        <span className="forge-token__caret" aria-hidden>
+          ▾
+        </span>
+      </span>
     </button>
   );
 }
@@ -89,10 +105,12 @@ function PairPicker({ tokenA, tokenB, setTokenA, setTokenB }) {
   const [picking, setPicking] = useState(null);
   return (
     <>
-      <div className="create-pair">
-        <TokenSelect token={tokenA} onClick={() => setPicking('a')} />
-        <span className="muted">+</span>
-        <TokenSelect token={tokenB} onClick={() => setPicking('b')} />
+      <div className="forge-pair">
+        <TokenSelect label="Token A" token={tokenA} onClick={() => setPicking('a')} />
+        <span className="forge-pair__link" aria-hidden>
+          ⇌
+        </span>
+        <TokenSelect label="Token B" token={tokenB} onClick={() => setPicking('b')} />
       </div>
       {picking && (
         <TokenPicker
@@ -106,22 +124,122 @@ function PairPicker({ tokenA, tokenB, setTokenA, setTokenB }) {
   );
 }
 
-function Steps({ step }) {
+/** Horizontal step track: each stage lights up once it is done. */
+function StepTrack({ stages }) {
+  const current = stages.findIndex((s) => !s.done);
   return (
-    <ol className="create-steps card">
-      {[
-        ['Step 1', 'Select token pair and fee tier'],
-        ['Step 2', 'Set the starting price and create the pool']
-      ].map(([label, text], i) => (
-        <li key={label} className={step === i + 1 ? 'active' : step > i + 1 ? 'done' : ''}>
-          <b>{step > i + 1 ? '✓' : i + 1}</b>
-          <span>
-            <small>{label}</small>
-            {text}
-          </span>
+    <ol className="forge-track">
+      {stages.map((s, i) => (
+        <li key={s.label} className={s.done ? 'done' : i === current ? 'active' : ''}>
+          <b>{s.done ? '✓' : String(i + 1).padStart(2, '0')}</b>
+          <span>{s.label}</span>
         </li>
       ))}
     </ol>
+  );
+}
+
+function PanelHead({ index, title, text }) {
+  return (
+    <div className="forge-head">
+      <span className="forge-head__index">{index}</span>
+      <div>
+        <h2>{title}</h2>
+        {text && <p>{text}</p>}
+      </div>
+    </div>
+  );
+}
+
+/** The live spec of the pool being configured, terminal style. */
+function PoolSpec({ tokenA, tokenB, tier, fee, existing, pairReady, startPrice, marketPrice, marketGap, step, priceValid }) {
+  const a = tokenA ? asPoolToken(tokenA) : null;
+  const b = tokenB ? asPoolToken(tokenB) : null;
+  const status = !pairReady
+    ? ['AWAITING PAIR', 'idle']
+    : existing
+      ? ['POOL EXISTS', 'warn']
+      : !fee
+        ? ['SELECT FEE TIER', 'idle']
+        : step === 1
+          ? ['CONFIGURING', 'busy']
+          : !priceValid
+            ? ['SET START PRICE', 'busy']
+            : marketGap !== null && marketGap > 5
+              ? ['PRICE OFF MARKET', 'warn']
+              : ['READY TO DEPLOY', 'ok'];
+  const line = (key, value, tone) => (
+    <div key={key}>
+      <dt>{key}</dt>
+      <dd className={tone || ''}>{value ?? <span className="forge-spec__nil">—</span>}</dd>
+    </div>
+  );
+  return (
+    <aside className="forge-spec">
+      <div className="forge-spec__bar">
+        <span className="forge-spec__dots" aria-hidden>
+          <i />
+          <i />
+          <i />
+        </span>
+        <span>pool.spec</span>
+        <span className={`forge-spec__status forge-spec__status--${status[1]}`}>{status[0]}</span>
+      </div>
+      <div className="forge-spec__pair">
+        <span className="forge-spec__icons">
+          {a ? <TokenIcon token={a} size={34} /> : <span className="forge-spec__ghost" />}
+          {b ? <TokenIcon token={b} size={34} /> : <span className="forge-spec__ghost" />}
+        </span>
+        <div>
+          <strong>
+            {a?.symbol || '???'} / {b?.symbol || '???'}
+          </strong>
+          <small>CLMM · {tier?.label || 'fee —'}</small>
+        </div>
+      </div>
+      <dl className="forge-spec__lines">
+        {line('contract', CONTRACTS.dcl)}
+        {line(
+          'pool_id',
+          pairReady && fee ? (
+            <span className="forge-spec__id">
+              {/* Wrap only after a "|", never inside an account name. */}
+              {dclPoolId(tokenA.id, tokenB.id, fee)
+                .split('|')
+                .map((part, i, all) => (
+                  <span key={i}>
+                    {part}
+                    {i < all.length - 1 && (
+                      <>
+                        |<wbr />
+                      </>
+                    )}
+                  </span>
+                ))}
+            </span>
+          ) : null
+        )}
+        {line('fee', tier ? `${tier.label} · ${tier.hint}` : null)}
+        {line('state', existing ? 'already deployed' : pairReady && fee ? 'new pool' : null, existing ? 'warn' : pairReady && fee ? 'ok' : '')}
+        {line('market', marketPrice && a && b ? `1 ${a.symbol} ≈ ${formatAmount(marketPrice)} ${b.symbol}` : null)}
+        {line('start', startPrice && a && b ? `1 ${a.symbol} = ${formatAmount(startPrice)} ${b.symbol}` : null)}
+        {line(
+          'deviation',
+          marketGap !== null ? `${marketGap.toFixed(2)}%` : null,
+          marketGap === null ? '' : marketGap > 5 ? 'warn' : 'ok'
+        )}
+        {line('cost', '0.1 NEAR + storage')}
+      </dl>
+      <p className="forge-spec__prompt">
+        <span>&gt;</span> {existing ? 'pool found — open it to add liquidity' : status[1] === 'ok' ? 'deploy when ready' : 'waiting for input'}
+        <i className="forge-spec__cursor" aria-hidden />
+      </p>
+      {existing && (
+        <Link to={poolPath(existing.pool_id)} className="forge-spec__open">
+          Open pool →
+        </Link>
+      )}
+    </aside>
   );
 }
 
@@ -136,8 +254,8 @@ function CreateClmm() {
   const pairReady = tokenA && tokenB && tokenA.id !== tokenB.id;
 
   const tiers = useAsync(() => getDclPoolsForPair(tokenA.id, tokenB.id), [tokenA?.id, tokenB?.id], { enabled: Boolean(pairReady) });
-  const tier = tiers.data?.find((t) => t.fee === fee);
-  const existing = tier?.pool;
+  const tier = (tiers.data || DCL_FEE_TIERS).find((t) => t.fee === fee);
+  const existing = tiers.data?.find((t) => t.fee === fee)?.pool;
 
   const marketPrice = useMemo(() => {
     if (!pairReady) return null;
@@ -171,137 +289,167 @@ function CreateClmm() {
     if (ok) navigate(poolPath(dclPoolId(tokenA.id, tokenB.id, fee)));
   };
 
+  const stages = [
+    { label: 'Token pair', done: Boolean(pairReady) },
+    { label: 'Fee tier', done: Boolean(pairReady && fee && !existing && !tiers.loading) },
+    { label: 'Start price', done: step === 2 && priceValid && initPoint !== null },
+    { label: 'Deploy', done: false }
+  ];
+
   return (
-    <div className="create-layout">
-      <Steps step={step} />
-      <section className="card create-card">
-        {step === 1 ? (
-          <>
-            <h2>Select pair</h2>
-            <p className="muted small">Choose the two tokens of the pool.</p>
-            <PairPicker tokenA={tokenA} tokenB={tokenB} setTokenA={setTokenA} setTokenB={setTokenB} />
+    <div className="forge">
+      <StepTrack stages={stages} />
+      <div className="forge-grid">
+        <section className="forge-panel">
+          {step === 1 ? (
+            <>
+              <PanelHead index="01" title="Select pair" text="Choose the two tokens of the pool." />
+              <PairPicker tokenA={tokenA} tokenB={tokenB} setTokenA={setTokenA} setTokenB={setTokenB} />
+              {pairReady === false && tokenA && tokenB && <div className="notice notice--error">Pick two different tokens.</div>}
 
-            <h3>Fee tier</h3>
-            <p className="muted small">What traders pay and LPs earn per swap. Pick one that suits the pair&apos;s volatility.</p>
-            <div className="fee-tiers">
-              {(tiers.data || [
-                { fee: 100, label: '0.01%' },
-                { fee: 400, label: '0.04%' },
-                { fee: 2000, label: '0.2%' },
-                { fee: 10000, label: '1%' }
-              ]).map((t) => (
-                <button
-                  key={t.fee}
-                  type="button"
-                  className={`fee-tier ${fee === t.fee ? 'fee-tier--active' : ''} ${t.pool ? 'fee-tier--exists' : ''}`}
-                  onClick={() => setFee(t.fee)}
-                  disabled={!pairReady}
-                >
-                  <strong>{t.label}</strong>
-                  <small>
-                    {!pairReady ? '—' : tiers.loading ? <Spinner size={10} /> : t.pool ? (t.tvl !== null ? `${formatUsd(t.tvl)} TVL` : 'Exists') : 'Not created'}
-                  </small>
-                </button>
-              ))}
-            </div>
+              <PanelHead index="02" title="Fee tier" text="What traders pay and LPs earn per swap. Pick one that suits the pair's volatility." />
+              <div className="forge-tiers">
+                {(tiers.data || DCL_FEE_TIERS).map((t, i) => (
+                  <button
+                    key={t.fee}
+                    type="button"
+                    className={`forge-tier ${fee === t.fee ? 'forge-tier--active' : ''} ${t.pool ? 'forge-tier--exists' : ''}`}
+                    onClick={() => setFee(t.fee)}
+                    disabled={!pairReady}
+                  >
+                    <span className="forge-tier__fee">{t.label}</span>
+                    <span className="forge-tier__hint">{t.hint}</span>
+                    <span className="forge-tier__vol" title="Volatility it suits" aria-hidden>
+                      {[0, 1, 2, 3].map((n) => (
+                        <i key={n} className={n <= i ? 'on' : ''} />
+                      ))}
+                    </span>
+                    <span className="forge-tier__state">
+                      {!pairReady ? '—' : tiers.loading ? <Spinner size={10} /> : t.pool ? (t.tvl !== null ? `${formatUsd(t.tvl)} TVL` : 'Exists') : 'Available'}
+                    </span>
+                  </button>
+                ))}
+              </div>
 
-            {existing ? (
-              <div className="notice notice--warn">
-                <span>
-                  This pool already exists{existing.whitelist?.length ? ' (liquidity is whitelist only)' : ''} — choose another fee tier, or{' '}
-                  <Link to={poolPath(existing.pool_id)}>go to this pool</Link>.
-                </span>
-              </div>
-            ) : (
-              <div className="notice notice--info">
-                <span>
-                  <b>Creating a new pool.</b> New pools start with no liquidity, so prices can move a lot until LPs join. Adding to an
-                  existing pool is usually safer.
-                </span>
-              </div>
-            )}
-            {pairReady === false && tokenA && tokenB && <div className="notice notice--error">Pick two different tokens.</div>}
-
-            <button type="button" className="button button--primary button--block button--lg" disabled={!pairReady || !fee || Boolean(existing) || tiers.loading} onClick={() => setStep(2)}>
-              Continue
-            </button>
-          </>
-        ) : (
-          <>
-            <h2>Set the starting price</h2>
-            <p className="muted small">
-              A new pool needs an initial exchange rate. It should match the market — anyone can trade against a wrong price as soon as
-              liquidity is added.
-            </p>
-            <div className="start-price">
-              <span>
-                1 <TokenIcon token={asPoolToken(tokenA)} size={18} /> {asPoolToken(tokenA).symbol} =
-              </span>
-              <input
-                inputMode="decimal"
-                placeholder="0.0"
-                value={priceText}
-                onChange={(e) => {
-                  const v = e.target.value.replace(',', '.');
-                  if (/^\d*\.?\d*(e-?\d*)?$/i.test(v)) setPriceText(v);
-                }}
-              />
-              <span>
-                <TokenIcon token={asPoolToken(tokenB)} size={18} /> {asPoolToken(tokenB).symbol}
-              </span>
-            </div>
-            {marketPrice && (
-              <p className="small">
-                Market: 1 {asPoolToken(tokenA).symbol} ≈ {formatAmount(marketPrice)} {asPoolToken(tokenB).symbol}{' '}
-                <button type="button" className="link-button" onClick={() => setPriceText(String(Number(marketPrice.toPrecision(8))))}>
-                  Use market price
-                </button>
-              </p>
-            )}
-            {marketGap !== null && marketGap > 5 && (
-              <div className="notice notice--warn">
-                Your price is {marketGap.toFixed(1)}% away from the market. Arbitrage would trade against the first liquidity at this
-                price.
-              </div>
-            )}
-
-            <dl className="kv">
-              <div>
-                <dt>Pair</dt>
-                <dd>
-                  {asPoolToken(tokenA).symbol} / {asPoolToken(tokenB).symbol}
-                </dd>
-              </div>
-              <div>
-                <dt>Fee tier</dt>
-                <dd>{tier?.label}</dd>
-              </div>
-              {startPrice && (
-                <div>
-                  <dt>Pool starts at</dt>
-                  <dd>
-                    1 {asPoolToken(tokenA).symbol} = {formatAmount(startPrice)} {asPoolToken(tokenB).symbol}
-                  </dd>
+              {existing ? (
+                <div className="forge-exists">
+                  <span className="forge-exists__icon" aria-hidden>
+                    !
+                  </span>
+                  <span>
+                    <b>This pool already exists</b>
+                    {existing.whitelist?.length ? ' (liquidity is whitelist only)' : ''}. Open it to add liquidity, or choose another fee tier
+                    to create a new pool.
+                  </span>
+                </div>
+              ) : (
+                <div className="notice notice--info">
+                  <span>
+                    <b>Creating a new pool.</b> New pools start with no liquidity, so prices can move a lot until LPs join. Adding to an
+                    existing pool is usually safer.
+                  </span>
                 </div>
               )}
-              <div>
-                <dt>Creation fee</dt>
-                <dd>0.1 NEAR (+ token storage if needed)</dd>
-              </div>
-            </dl>
 
-            <div className="create-actions">
-              <button type="button" className="button button--ghost button--lg" onClick={() => setStep(1)}>
-                Back
-              </button>
-              <button type="button" className="button button--primary button--lg" disabled={!priceValid || initPoint === null || submitting} onClick={create}>
-                {submitting ? <Spinner size={14} /> : !accountId ? 'Connect wallet' : 'Create pool'}
-              </button>
-            </div>
-            <p className="hint">After the pool is created you&apos;ll land on its page to add liquidity with Smart LP setup.</p>
-          </>
-        )}
-      </section>
+              {existing ? (
+                <Link to={poolPath(existing.pool_id)} className="button button--primary button--block button--lg forge-cta">
+                  Go to this pool →
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  className="button button--primary button--block button--lg forge-cta"
+                  disabled={!pairReady || !fee || tiers.loading}
+                  onClick={() => setStep(2)}
+                >
+                  Continue →
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              <PanelHead
+                index="03"
+                title="Set the starting price"
+                text="A new pool needs an initial exchange rate. It should match the market — anyone can trade against a wrong price as soon as liquidity is added."
+              />
+              <div className="forge-price">
+                <span className="forge-price__side">
+                  1 <TokenIcon token={asPoolToken(tokenA)} size={20} /> {asPoolToken(tokenA).symbol} =
+                </span>
+                <input
+                  inputMode="decimal"
+                  placeholder="0.0"
+                  value={priceText}
+                  autoFocus
+                  onChange={(e) => {
+                    const v = e.target.value.replace(',', '.');
+                    if (/^\d*\.?\d*(e-?\d*)?$/i.test(v)) setPriceText(v);
+                  }}
+                />
+                <span className="forge-price__side">
+                  <TokenIcon token={asPoolToken(tokenB)} size={20} /> {asPoolToken(tokenB).symbol}
+                </span>
+              </div>
+              {marketPrice && (
+                <p className="forge-market">
+                  <span>
+                    Market · 1 {asPoolToken(tokenA).symbol} ≈ {formatAmount(marketPrice)} {asPoolToken(tokenB).symbol}
+                  </span>
+                  <button type="button" className="link-button" onClick={() => setPriceText(String(Number(marketPrice.toPrecision(8))))}>
+                    Use market price
+                  </button>
+                </p>
+              )}
+              {marketGap !== null && (
+                <div className={`forge-gap ${marketGap > 5 ? 'forge-gap--warn' : ''}`}>
+                  <span>Deviation from market</span>
+                  <span className="forge-gap__bar">
+                    <i style={{ width: `${(Math.min(marketGap, 20) / 20) * 100}%` }} />
+                    <em style={{ left: '25%' }} title="5% warning line" />
+                  </span>
+                  <b>{marketGap.toFixed(2)}%</b>
+                </div>
+              )}
+              {marketGap !== null && marketGap > 5 && (
+                <div className="notice notice--warn">
+                  Your price is {marketGap.toFixed(1)}% away from the market. Arbitrage would trade against the first liquidity at this
+                  price.
+                </div>
+              )}
+
+              <PanelHead index="04" title="Deploy" text="Creation fee 0.1 NEAR (+ token storage if needed), paid to the Rhea CLMM contract." />
+              <div className="create-actions">
+                <button type="button" className="button button--ghost button--lg" onClick={() => setStep(1)}>
+                  ← Back
+                </button>
+                <button
+                  type="button"
+                  className="button button--primary button--lg forge-cta"
+                  disabled={!priceValid || initPoint === null || submitting}
+                  onClick={create}
+                >
+                  {submitting ? <Spinner size={14} /> : !accountId ? 'Connect wallet' : 'Create pool'}
+                </button>
+              </div>
+              <p className="hint">After the pool is created you&apos;ll land on its page to add liquidity with Smart LP setup.</p>
+            </>
+          )}
+        </section>
+        <PoolSpec
+          tokenA={tokenA}
+          tokenB={tokenB}
+          tier={tier}
+          fee={fee}
+          existing={existing}
+          pairReady={Boolean(pairReady)}
+          startPrice={step === 2 ? startPrice : null}
+          marketPrice={marketPrice}
+          marketGap={step === 2 ? marketGap : null}
+          step={step}
+          priceValid={priceValid}
+        />
+      </div>
     </div>
   );
 }
@@ -331,17 +479,21 @@ function CreateClassic() {
   };
 
   return (
-    <div className="create-layout create-layout--single">
-      <section className="card create-card">
-        <h2>Create a classic pool</h2>
-        <p className="muted small">Full-range liquidity (x·y=k). Anyone can add to it once it exists.</p>
+    <div className="forge forge--single">
+      <section className="forge-panel">
+        <PanelHead index="01" title="Select pair" text="Full-range liquidity (x·y=k). Anyone can add to it once it exists." />
         <PairPicker tokenA={tokenA} tokenB={tokenB} setTokenA={setTokenA} setTokenB={setTokenB} />
 
-        <h3>Swap fee</h3>
-        <div className="fee-tiers">
+        <PanelHead index="02" title="Swap fee" />
+        <div className="forge-tiers">
           {CLASSIC_FEES.map((f) => (
-            <button key={f.bps} type="button" className={`fee-tier ${feeBps === f.bps ? 'fee-tier--active' : ''}`} onClick={() => setFeeBps(f.bps)}>
-              <strong>{f.label}</strong>
+            <button
+              key={f.bps}
+              type="button"
+              className={`forge-tier forge-tier--compact ${feeBps === f.bps ? 'forge-tier--active' : ''}`}
+              onClick={() => setFeeBps(f.bps)}
+            >
+              <span className="forge-tier__fee">{f.label}</span>
             </button>
           ))}
         </div>
@@ -364,13 +516,8 @@ function CreateClassic() {
           </div>
         )}
 
-        <dl className="kv">
-          <div>
-            <dt>Creation fee</dt>
-            <dd>0.05 NEAR (+ token storage if needed)</dd>
-          </div>
-        </dl>
-        <button type="button" className="button button--primary button--block button--lg" disabled={!pairReady || submitting} onClick={create}>
+        <PanelHead index="03" title="Deploy" text="Creation fee 0.05 NEAR (+ token storage if needed)." />
+        <button type="button" className="button button--primary button--block button--lg forge-cta" disabled={!pairReady || submitting} onClick={create}>
           {submitting ? <Spinner size={14} /> : !accountId ? 'Connect wallet' : 'Create pool'}
         </button>
         <p className="hint">After the pool is created you&apos;ll land on its page to add the first liquidity.</p>
@@ -379,36 +526,66 @@ function CreateClassic() {
   );
 }
 
+function CreateHome() {
+  return (
+    <>
+      <section className="forge-hero">
+        <span className="forge-kicker">// POOL FACTORY · BUILT ON RHEA · NEAR</span>
+        <h1 className="forge-title">Create</h1>
+        <p>Forge a new market on NEAR — deployed straight to Rhea.</p>
+      </section>
+      <div className="forge-types">
+        {TYPES.map((t) => (
+          <Link key={t.key} to={`/create-pool?type=${t.key}`} className={`forge-type forge-type--${t.key}`}>
+            <span className="forge-type__head">
+              <span className="forge-type__glyph" aria-hidden>
+                {t.glyph}
+              </span>
+              <span>
+                <strong>{t.title}</strong>
+                <small>{t.tag}</small>
+              </span>
+              <span className="forge-type__arrow" aria-hidden>
+                →
+              </span>
+            </span>
+            <span className="forge-type__text">{t.text}</span>
+            <span className="forge-type__chips">
+              {t.chips.map((c) => (
+                <span key={c}>{c}</span>
+              ))}
+            </span>
+            <span className="forge-type__foot">
+              <span>Creation fee</span>
+              <b>{t.cost}</b>
+            </span>
+          </Link>
+        ))}
+      </div>
+    </>
+  );
+}
+
 export default function CreatePool() {
   const { search } = useLocation();
   const type = search.get('type');
+  if (type !== 'clmm' && type !== 'classic') {
+    return (
+      <div className="page page--create">
+        <CreateHome />
+      </div>
+    );
+  }
   return (
     <div className="page page--create">
-      <header className="page-head">
-        <Link to="/pools" className="link-button">
-          ← All pools
+      <header className="forge-pagehead">
+        <Link to="/create-pool" className="link-button">
+          ← Create
         </Link>
-        <h1>{type === 'classic' ? 'Create classic pool' : type === 'clmm' ? 'Create CLMM pool' : 'Create a pool'}</h1>
+        <span className="forge-kicker">// {type === 'clmm' ? 'CONCENTRATED LIQUIDITY · RHEA DCL' : 'FULL RANGE · RHEA CLASSIC'}</span>
+        <h1>{type === 'classic' ? 'Create classic pool' : 'Create CLMM pool'}</h1>
       </header>
-      {type === 'clmm' ? (
-        <CreateClmm />
-      ) : type === 'classic' ? (
-        <CreateClassic />
-      ) : (
-        <div className="create-types create-types--page">
-          {TYPES.map((t) => (
-            <Link key={t.key} to={`/create-pool?type=${t.key}`} className="create-type card">
-              <span>
-                <strong>{t.title}</strong>
-                <small>{t.text}</small>
-              </span>
-              <span className="create-type__arrow" aria-hidden>
-                →
-              </span>
-            </Link>
-          ))}
-        </div>
-      )}
+      {type === 'clmm' ? <CreateClmm /> : <CreateClassic />}
     </div>
   );
 }

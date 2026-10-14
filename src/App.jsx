@@ -13,7 +13,7 @@ import Swap from './pages/Swap.jsx';
 import Pools from './pages/Pools.jsx';
 import PoolDetail from './pages/PoolDetail.jsx';
 import Portfolio from './pages/Portfolio.jsx';
-import CreatePool, { CreatePoolChooser } from './pages/CreatePool.jsx';
+import CreatePool from './pages/CreatePool.jsx';
 import MoreMenu from './components/MoreMenu.jsx';
 import RangeAlerts from './components/RangeAlerts.jsx';
 import Security from './pages/Security.jsx';
@@ -102,9 +102,6 @@ function AccountMenu() {
 export default function App() {
   const { pathname } = useLocation();
   const route = matchRoute(pathname);
-  const [showCreate, setShowCreate] = useState(false);
-  // The pool-type chooser closes once a type is picked (it navigates to the create page).
-  useEffect(() => setShowCreate(false), [pathname]);
 
   const appView = route.name === 'pool' && route.params[0]?.includes('|');
 
@@ -191,19 +188,14 @@ export default function App() {
               </Link>
               {/* Create sits right next to Pools. */}
               {item.to === '/pools' && (
-                <button
-                  type="button"
-                  className={`nav__link nav__create ${route.name === 'create' ? 'nav__link--active' : ''}`}
-                  onClick={() => setShowCreate(true)}
-                >
+                <Link to="/create-pool" className={`nav__link nav__create ${route.name === 'create' ? 'nav__link--active' : ''}`}>
                   Create
-                </button>
+                </Link>
               )}
             </Fragment>
           ))}
           <MoreMenu active={MORE_ROUTES.has(route.name)} />
         </nav>
-        {showCreate && <CreatePoolChooser onClose={() => setShowCreate(false)} />}
         <GlobalSearch />
         <AccountMenu />
       </header>
