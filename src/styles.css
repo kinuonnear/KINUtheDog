@@ -12638,3 +12638,52 @@ a.pair-tiers__row:hover {
 .amount-row__zapinput input {
   margin-top: 2px;
 }
+
+/* ── Interaction polish ─────────────────────────────────────────────────────────────── */
+/* Button-like controls: their text can't be selected, so a click or double-click never leaves a
+   text caret or a highlighted word on them (rows stay selectable: contract ids can be copied). */
+button,
+.chip,
+.tab,
+.segmented button,
+.mini-button,
+.link-button {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Touch: no grey flash on tap, no double-tap zoom on controls. */
+a,
+button,
+[role='button'],
+[role='link'] {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Touch screens: inputs at 16px, so iOS Safari doesn't zoom the page when one is focused. */
+@media (hover: none) and (pointer: coarse) {
+  .gsearch__field input,
+  .search-field input,
+  .disc-search input,
+  .price-edge__row input,
+  .slp-lookup input,
+  .slp-filter input,
+  .slp-filter select,
+  .slp-inline input,
+  .slp-inline select,
+  .follow-bar__form input,
+  .ctool--select {
+    font-size: 16px;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  /* The typed text is 16px (no iOS zoom); the hint keeps its smaller size so it fits. */
+  .gsearch__field input::placeholder,
+  .search-field input::placeholder,
+  .disc-search input::placeholder,
+  .slp-lookup input::placeholder {
+    font-size: 13px;
+  }
+}

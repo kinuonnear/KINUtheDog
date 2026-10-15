@@ -219,6 +219,10 @@ function WalletTable({ wallets }) {
   );
 }
 
+// Number filters are text inputs that keep only digits and one dot: no spinner arrows, and the mouse
+// wheel never changes them while the page scrolls.
+const decimalOnly = (v) => v.replace(',', '.').replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1');
+
 function NumberFilter({ label, value, onChange, hint, placeholder = '' }) {
   return (
     <label className="slp-filter">
@@ -226,7 +230,7 @@ function NumberFilter({ label, value, onChange, hint, placeholder = '' }) {
         {label}
         {hint && <i aria-hidden> ⓘ</i>}
       </span>
-      <input type="number" min="0" inputMode="decimal" value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
+      <input type="text" inputMode="decimal" value={value} placeholder={placeholder} onChange={(e) => onChange(decimalOnly(e.target.value))} />
     </label>
   );
 }
@@ -343,7 +347,7 @@ export default function SmartLpBoard() {
             </label>
             <label title="Share of closed positions that made money">
               <span>Min win rate %</span>
-              <input type="number" min="0" max="100" inputMode="decimal" value={f.minWinRate} onChange={(e) => set({ minWinRate: e.target.value })} />
+              <input type="text" inputMode="decimal" value={f.minWinRate} onChange={(e) => set({ minWinRate: decimalOnly(e.target.value) })} />
             </label>
           </span>
         </div>
