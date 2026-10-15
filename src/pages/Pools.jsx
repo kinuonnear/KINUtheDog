@@ -31,7 +31,8 @@ export function usePoolTokens(pools) {
     pool.tokenIds.map((id, i) => asPoolToken(getCachedToken(id) || { id, symbol: pool.symbols?.[i] || id.slice(0, 4) }));
 }
 
-export function PoolRow({ pool, tokensOf }) {
+/** One pool in a table. `usdOpts` (optional) is passed to formatUsd for TVL and volume. */
+export function PoolRow({ pool, tokensOf, usdOpts }) {
   const tokens = tokensOf(pool);
   const totalApr = pool.apy + pool.farmApy;
   return (
@@ -48,10 +49,10 @@ export function PoolRow({ pool, tokensOf }) {
         </span>
       </span>
       <span className="pool-row__num" data-label="TVL">
-        {formatUsd(pool.tvl)}
+        {formatUsd(pool.tvl, usdOpts)}
       </span>
       <span className="pool-row__num" data-label="Volume 24h">
-        {formatUsd(pool.volume24h)}
+        {formatUsd(pool.volume24h, usdOpts)}
       </span>
       <span className="pool-row__num pool-row__apr" data-label="APR">
         {formatPercent(totalApr)}

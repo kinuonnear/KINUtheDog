@@ -1,0 +1,66 @@
+/* ── App top bar, in the landing palette ─────────────────────────────────────────────
+   Near-black glass, the emblem with the KINU wordmark, ivory for the active tab and the
+   main button, a calm green dot for a connected wallet. Shown on every app page. */
+
+.shell .topbar {
+  background: rgba(4, 6, 11, 0.82);
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+
+.shell .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #f2f3ee;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+}
+
+.shell .brand img {
+  width: 30px;
+  height: 30px;
+}
+
+.shell .nav__link--active {
+  color: #f2f3ee;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.shell .topbar .button--primary {
+  border-radius: 999px;
+  background: #f2f3ee;
+  color: #0a0c0f;
+  box-shadow: none;
+}
+
+.shell .topbar .button--primary:hover:not(:disabled) {
+  background: #ffffff;
+}
+
+.shell .gsearch__field {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.shell .gsearch__field:focus-within {
+  border-color: rgba(255, 255, 255, 0.32);
+}
+
+.shell .account-button {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.shell .account-button:hover {
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.shell .account-button__dot {
+  background: #8fd3a8;
+  box-shadow: none;
+}
+
+.shell .account-button__id {
+  background: rgba(255, 255, 255, 0.07);
+}

@@ -12,6 +12,7 @@ import Home from './pages/Home.jsx';
 import Pools from './pages/Pools.jsx';
 import MoreMenu from './components/MoreMenu.jsx';
 import RangeAlerts from './components/RangeAlerts.jsx';
+import './topbar.css';
 
 // The landing pages (Welcome, Home, Pools) ship in the main bundle; every other page loads its own
 // code when first opened, so a visitor only downloads the pages they use.
@@ -44,7 +45,7 @@ const FULL_WIDTH_ROUTES = new Set(['app', 'pool', 'pools', 'swap', 'portfolio', 
 
 const TITLES = {
   home: 'KINU × RHEA — The Dog That Follows the Flow',
-  app: 'KINU Terminal — DeFi on NEAR',
+  app: 'KINU — Liquidity on NEAR',
   swap: 'Swap · KINU',
   pools: 'Pools · KINU',
   pool: 'Pool · KINU',
@@ -194,10 +195,11 @@ export default function App() {
   }
 
   return (
-    <div className={`shell ${appView ? 'shell--app' : ''}`}>
+    <div className={`shell ${appView ? 'shell--app' : ''} ${route.name === 'app' ? 'shell--home' : ''}`}>
       <header className="topbar">
-        <Link to="/app" className="brand" aria-label="KINU Terminal home">
-          <img src="/kinu-logo.png" alt="KINU" />
+        <Link to="/app" className="brand" aria-label="KINU home">
+          <img src="/site/kinu-emblem.svg" alt="" width="30" height="30" />
+          <span>KINU</span>
         </Link>
         <nav className="nav">
           {NAV.map((item) => (

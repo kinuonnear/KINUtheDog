@@ -1,24 +1,53 @@
+// App home (/app): where you land after opening KINU. A short hero with your CLMM positions at a
+// glance (before a wallet is connected, or with no positions: where the Smart LPs are), live
+// prices with their 24h move, quick actions, the three LP steps, and Rhea's deepest and most
+// traded pools.
+
+import { useMemo } from 'react';
 import { useApp } from '../state.jsx';
 import { useAsync } from '../hooks.js';
-import { Link } from '../router.jsx';
-import { searchPools } from '../lib/rhea.js';
-import { getTokens } from '../lib/tokens.js';
-import { formatPrice, formatUsd } from '../lib/format.js';
-import { NATIVE_NEAR } from '../config.js';
+import { Link, poolPath } from '../router.jsx';
+import { getDclPositions, searchPools } from '../lib/rhea.js';
+import { getTokens, priceOf } from '../lib/tokens.js';
+import { enrichTokens } from '../lib/trending.js';
+import { loadSmartLps } from '../lib/smartMoney.js';
+import { formatPrice, formatUsd, shortAccount } from '../lib/format.js';
+import { CONTRACTS, NATIVE_NEAR } from '../config.js';
 import { ErrorNotice, Skeleton, TokenIcon } from '../components/ui.jsx';
+import { loadBoard } from '../components/SmartLp.jsx';
+import { FlowLines } from '../components/FlowLines.jsx';
 import { PoolRow, PoolRowsSkeleton, usePoolTokens } from './Pools.jsx';
+import '../home.css';
 
-const TICKER_TOKENS = [
-  NATIVE_NEAR.id,
-  'kinu-3.nearlytrade.near',
-  'token.rhealab.near',
-  'meta-pool.near',
-  'nbtc.bridge.near'
-];
+// Dollar amounts here read compact from $1K ($661.9K, $13.68M) so the columns line up.
+const K = { compactAbove: 1e3 };
+const SMART_MONEY_PATH = '/discover?tab=smartmoney';
+
+const TICKER_TOKENS = [NATIVE_NEAR.id, 'kinu-3.nearlytrade.near', 'token.rhealab.near', 'meta-pool.near', 'nbtc.bridge.near'];
+const marketId = (id) => (id === NATIVE_NEAR.id ? CONTRACTS.wrapNear : id);
+
+/** A price short enough for a chip: compact from $1K, full precision for tiny prices. */
+const chipPrice = (p) => (p >= 1000 ? formatUsd(p, K) : formatPrice(p));
+
+function Change({ value }) {
+  if (!Number.isFinite(value)) return null;
+  return (
+    <small className={value > 0 ? 'up' : value < 0 ? 'down' : ''}>
+      {value > 0 ? '+' : ''}
+      {value.toFixed(1)}%
+    </small>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Live prices                                                          */
+/* ------------------------------------------------------------------ */
 
 function Ticker() {
   const { prices } = useApp();
   const tokens = useAsync(() => getTokens(TICKER_TOKENS), []);
+  const market = useAsync(() => enrichTokens(TICKER_TOKENS.map(marketId)), [], { refreshMs: 120_000 });
+  const changeOf = (id) => market.data?.find((m) => m.id === marketId(id))?.change24h;
   const items = (copy) =>
     TICKER_TOKENS.map((id) => {
       const token = id === NATIVE_NEAR.id ? NATIVE_NEAR : tokens.data?.[id];
@@ -32,7 +61,8 @@ function Ticker() {
         >
           <TokenIcon token={token || { symbol: prices?.get(id)?.symbol || '?' }} size={22} />
           <span>{token?.symbol || prices?.get(id)?.symbol || '…'}</span>
-          <strong>{price ? formatPrice(price) : <Skeleton width={50} />}</strong>
+          <strong>{price ? chipPrice(price) : <Skeleton width={50} />}</strong>
+          <Change value={changeOf(id)} />
         </Link>
       );
     });
@@ -50,6 +80,164 @@ function Ticker() {
   );
 }
 
+/* ------------------------------------------------------------------ */
+/* Hero panel: your positions, or where the Smart LPs are               */
+/* ------------------------------------------------------------------ */
+
+function PanelSkeleton({ title }) {
+  return (
+    <aside className="hm-panel">
+      <div className="hm-panel__head">
+        <span>{title}</span>
+      </div>
+      <Skeleton width="70%" height={28} />
+      <Skeleton width="100%" height={18} />
+      <Skeleton width="100%" height={18} />
+      <Skeleton width="80%" height={18} />
+    </aside>
+  );
+}
+
+/** The connected account's CLMM positions: value, unclaimed fees, in range or not, per pool. */
+function PositionsPanel({ accountId, fallback }) {
+  const { prices } = useApp();
+  const positions = useAsync(() => getDclPositions(accountId), [accountId], { refreshMs: 120_000 });
+  const list = positions.data || [];
+  const ids = useMemo(() => [...new Set(list.flatMap((p) => [p.tokenX, p.tokenY]))].sort(), [list]);
+  const tokens = useAsync(() => getTokens(ids), [ids.join(',')], { enabled: ids.length > 0 });
+
+  const summary = useMemo(() => {
+    if (!tokens.data || !list.length) return null;
+    const usdOf = (id, raw) => (Number(raw) / 10 ** (tokens.data[id]?.decimals ?? 24)) * priceOf(prices, id);
+    const pools = new Map();
+    for (const p of list) {
+      const value = usdOf(p.tokenX, p.amountX) + usdOf(p.tokenY, p.amountY);
+      const fees = usdOf(p.tokenX, p.unclaimedFeeX) + usdOf(p.tokenY, p.unclaimedFeeY);
+      const row = pools.get(p.poolId) || { poolId: p.poolId, tokens: [p.tokenX, p.tokenY], value: 0, fees: 0, total: 0, inRange: 0 };
+      row.value += value;
+      row.fees += fees;
+      row.total += 1;
+      row.inRange += p.inRange ? 1 : 0;
+      pools.set(p.poolId, row);
+    }
+    const rows = [...pools.values()].sort((a, b) => b.value - a.value);
+    return {
+      rows,
+      value: rows.reduce((s, r) => s + r.value, 0),
+      fees: rows.reduce((s, r) => s + r.fees, 0),
+      total: list.length,
+      inRange: list.filter((p) => p.inRange).length
+    };
+  }, [list, tokens.data, prices]);
+
+  if (positions.loading && !positions.data) return <PanelSkeleton title="Your positions" />;
+  if (positions.error && !positions.data) return fallback;
+  if (!list.length) return fallback;
+  if (!summary) return <PanelSkeleton title="Your positions" />;
+
+  const out = summary.total - summary.inRange;
+  const symbol = (id) => (id === CONTRACTS.wrapNear ? 'NEAR' : tokens.data[id]?.symbol || '…');
+  return (
+    <aside className="hm-panel">
+      <div className="hm-panel__head">
+        <span>Your positions</span>
+        <Link to="/portfolio">Portfolio →</Link>
+      </div>
+      <dl className="hm-panel__stats">
+        <div>
+          <dt>Value</dt>
+          <dd>{formatUsd(summary.value, K)}</dd>
+        </div>
+        <div>
+          <dt>Unclaimed fees</dt>
+          <dd className="up">{formatUsd(summary.fees, K)}</dd>
+        </div>
+        <div>
+          <dt>In range</dt>
+          <dd>
+            {summary.inRange}
+            <small> / {summary.total}</small>
+          </dd>
+        </div>
+      </dl>
+      <ul className="hm-panel__list">
+        {summary.rows.slice(0, 3).map((r) => (
+          <li key={r.poolId}>
+            <Link to={poolPath(r.poolId)}>
+              <i className={r.inRange === r.total ? 'is-in' : r.inRange ? 'is-part' : 'is-out'} aria-hidden="true" />
+              <b>{r.tokens.map(symbol).join(' / ')}</b>
+              <small>
+                {r.inRange === r.total ? 'In range' : r.inRange ? `${r.inRange} of ${r.total} in range` : 'Out of range'}
+              </small>
+              <span>{formatUsd(r.value, K)}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+      {out > 0 && (
+        <p className="hm-panel__note">
+          {out === 1 ? 'One position is' : `${out} positions are`} out of range and earning nothing.{' '}
+          <Link to="/portfolio">Rebalance →</Link>
+        </p>
+      )}
+    </aside>
+  );
+}
+
+/** The tokens the Smart LP wallets hold the most liquidity in, right now. */
+function SmartMoneyPanel() {
+  const board = useAsync(loadBoard, []);
+  const lps = useAsync(() => loadSmartLps(board.data), [board.data?.generatedAt], { enabled: Boolean(board.data) });
+  const top = useMemo(
+    () =>
+      lps.data
+        ? [...lps.data.entries()]
+            .filter(([id]) => id !== CONTRACTS.wrapNear)
+            .sort((a, b) => b[1].lps.length - a[1].lps.length || b[1].valueUsd - a[1].valueUsd)
+            .slice(0, 4)
+        : null,
+    [lps.data]
+  );
+  const ids = top ? top.map(([id]) => id) : [];
+  const market = useAsync(() => enrichTokens(ids), [ids.join(',')], { enabled: ids.length > 0 });
+  const byId = useMemo(() => new Map((market.data || []).map((m) => [m.id, m])), [market.data]);
+
+  if (!top) return <PanelSkeleton title="Smart money is in" />;
+  return (
+    <aside className="hm-panel">
+      <div className="hm-panel__head">
+        <span>Smart money is in</span>
+        <Link to={SMART_MONEY_PATH}>See all →</Link>
+      </div>
+      <ul className="hm-panel__list hm-panel__list--tokens">
+        {top.map(([id, smart]) => {
+          const m = byId.get(id);
+          const token = m?.token || { id, symbol: id.split('.')[0].toUpperCase() };
+          return (
+            <li key={id}>
+              <Link to={SMART_MONEY_PATH}>
+                <TokenIcon token={token} size={28} />
+                <b>{token.symbol}</b>
+                <small>
+                  {m?.price ? formatPrice(m.price) : '—'} <Change value={m?.change24h} />
+                </small>
+                <span>
+                  {smart.lps.length} <em>Smart LPs</em>
+                </span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="hm-panel__note">Wallets from the Smart LP board with liquidity in these tokens’ pools now.</p>
+    </aside>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Pools                                                                */
+/* ------------------------------------------------------------------ */
+
 function TopPools({ title, sort }) {
   const result = useAsync(() => searchPools({ sort, limit: 5 }), [sort], { refreshMs: 60_000 });
   const tokensOf = usePoolTokens(result.data?.list);
@@ -63,15 +251,32 @@ function TopPools({ title, sort }) {
       </div>
       <ErrorNotice error={result.error} onRetry={result.reload} />
       <div className="pool-table pool-table--compact">
+        <div className="pool-row hm-pool-head" aria-hidden="true">
+          <span>Pool</span>
+          <span>TVL</span>
+          <span>Vol 24h</span>
+          <span>APR</span>
+        </div>
         {result.loading && !result.data ? (
           <PoolRowsSkeleton rows={5} />
         ) : (
-          result.data?.list.map((pool) => <PoolRow key={pool.id} pool={pool} tokensOf={tokensOf} />)
+          result.data?.list.map((pool) => <PoolRow key={pool.id} pool={pool} tokensOf={tokensOf} usdOpts={K} />)
         )}
       </div>
     </section>
   );
 }
+
+const ACTIONS = [
+  ['⇄', 'Swap', 'The best route across Rhea', '/swap'],
+  ['◎', 'Smart LP', 'The wallets that earn as LPs', '/discover?tab=smartlp'],
+  ['≋', 'Pools', 'Every Rhea pool, by fees earned', '/pools'],
+  ['◔', 'Portfolio & PnL', 'Positions, fees and PnL in one view', '/portfolio']
+];
+
+/* ------------------------------------------------------------------ */
+/* Page                                                                 */
+/* ------------------------------------------------------------------ */
 
 export default function Home() {
   const { accountId, connect, walletReady } = useApp();
@@ -81,87 +286,69 @@ export default function Home() {
 
   return (
     <div className="home">
-      <section className="hero">
-        <div className="hero__bg" aria-hidden />
-        <div className="hero__content">
-          <span className="eyebrow eyebrow--glow">KINU · DeFi terminal on NEAR</span>
-          <h1>
-            Manage Liquidity, Made Simple.
-            <br />
-            <em>Swap &amp; Add Liquidity. All in One Place.</em>
-          </h1>
-          <p>
-            Find the pools that pay LPs the most, draw your range on the chart or zap in with one token, then rebalance and
-            compound in one click — with fees and PnL tracked live. Swaps compare Rhea&apos;s SmartRouter with direct CLMM
-            routes for the best output. Non-custodial: you sign every action in your own wallet.
-          </p>
-          <div className="hero__actions">
-            <Link to="/discover" className="button button--primary button--lg">
-              Explore Top Yields
-            </Link>
-            <Link to="/pools" className="button button--outline button--lg">
-              Add liquidity
-            </Link>
-            {accountId ? (
-              <Link to="/portfolio" className="button button--ghost button--lg">
-                View portfolio
-              </Link>
-            ) : (
-              <button type="button" className="button button--ghost button--lg" onClick={connect} disabled={!walletReady}>
-                Connect wallet
-              </button>
+      <section className="hero hm-hero">
+        <FlowLines />
+        <div className="hm-hero__grid">
+          <div className="hero__content">
+            <span className="hm-kicker">
+              <i aria-hidden /> KINU · Built on Rhea
+            </span>
+            {accountId && (
+              <p className="hm-welcome">
+                Welcome back, <b>{shortAccount(accountId, 14, 6)}</b>
+              </p>
             )}
+            <h1>
+              Liquidity, with a <em>sense of direction.</em>
+            </h1>
+            <p>Find the pools that pay, draw your range or zap in with one token, then rebalance and compound in one click.</p>
+            <div className="hero__actions">
+              <Link to="/discover" className="button button--primary button--lg">
+                Explore Top Yields
+              </Link>
+              <Link to="/pools" className="button button--outline button--lg">
+                Add liquidity
+              </Link>
+              {!accountId && (
+                <button type="button" className="button button--ghost button--lg" onClick={connect} disabled={!walletReady}>
+                  Connect wallet
+                </button>
+              )}
+            </div>
+            <div className="hero__stats">
+              <div>
+                <span>TVL · top 100 pools</span>
+                <strong>{trackedTvl !== undefined ? formatUsd(trackedTvl) : <Skeleton width={110} height={26} />}</strong>
+              </div>
+              <div>
+                <span>24h volume</span>
+                <strong>{trackedVolume !== undefined ? formatUsd(trackedVolume) : <Skeleton width={110} height={26} />}</strong>
+              </div>
+              <div>
+                <span>Rhea pools</span>
+                <strong>{totals.data ? totals.data.total.toLocaleString() : <Skeleton width={60} height={26} />}</strong>
+              </div>
+            </div>
           </div>
-          <div className="hero__stats">
-            <div>
-              <span>TVL · top 100 pools</span>
-              <strong>{trackedTvl !== undefined ? formatUsd(trackedTvl) : <Skeleton width={110} height={26} />}</strong>
-            </div>
-            <div>
-              <span>24h volume</span>
-              <strong>{trackedVolume !== undefined ? formatUsd(trackedVolume) : <Skeleton width={110} height={26} />}</strong>
-            </div>
-            <div>
-              <span>Rhea pools</span>
-              <strong>{totals.data ? totals.data.total.toLocaleString() : <Skeleton width={60} height={26} />}</strong>
-            </div>
-          </div>
+          {accountId ? <PositionsPanel accountId={accountId} fallback={<SmartMoneyPanel />} /> : <SmartMoneyPanel />}
         </div>
       </section>
 
       <Ticker />
 
-      <section className="features features--four">
-        <Link to="/swap" className="feature card">
-          <span className="feature__icon">⇄</span>
-          <h3>Swap aggregator</h3>
-          <p>
-            Rhea SmartRouter and direct CLMM routes up to three hops, quoted side by side — the best output wins. Real price
-            impact, gas estimate and a route picker.
-          </p>
-          <span className="feature__cta">Swap now →</span>
-        </Link>
-        <Link to="/pools" className="feature card feature--highlight">
-          <span className="feature__icon">◇</span>
-          <h3>Smart LP setup</h3>
-          <p>
-            Drag your price range on the chart, choose Spot, Curve or Bid-Ask, and see the pool&apos;s depth as you shape it — or
-            zap in with a single token.
-          </p>
-          <span className="feature__cta">Set up a position →</span>
-        </Link>
-        <Link to="/pools" className="feature card">
-          <span className="feature__icon">≋</span>
-          <h3>Liquidity</h3>
-          <p>AMM, CLMM, ALMM, Stable and Farm pools with fees by 1–24h windows and top performers. Add or remove in one flow.</p>
-          <span className="feature__cta">Explore pools →</span>
-        </Link>
-        <Link to="/portfolio" className="feature card">
-          <span className="feature__icon">◔</span>
-          <h3>Portfolio &amp; PnL</h3>
-          <p>Token PnL from your real buys and sells, LP PnL with fees and win rate, and the history of every closed position.</p>
-          <span className="feature__cta">Open portfolio →</span>
-        </Link>
+      <section className="hm-actions">
+        {ACTIONS.map(([icon, title, text, to]) => (
+          <Link key={title} to={to} className="hm-action card">
+            <span className="hm-action__icon" aria-hidden="true">
+              {icon}
+            </span>
+            <span>
+              <b>{title}</b>
+              <small>{text}</small>
+            </span>
+            <i aria-hidden="true">→</i>
+          </Link>
+        ))}
       </section>
 
       <section className="lp-steps card">

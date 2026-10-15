@@ -16,6 +16,7 @@ import { CONTRACTS, NATIVE_NEAR } from '../config.js';
 import { loadBoard } from '../components/SmartLp.jsx';
 import { CopyButton, TokenIcon } from '../components/ui.jsx';
 import { AgentBot } from '../components/AgentBot.jsx';
+import { FlowLines } from '../components/FlowLines.jsx';
 import '../landing.css';
 
 const KINU = 'kinu-3.nearlytrade.near';
@@ -701,42 +702,6 @@ function Markets({ pools }) {
 /* ------------------------------------------------------------------ */
 /* Hero: flow lines and the app preview                                 */
 /* ------------------------------------------------------------------ */
-
-// Liquidity drifting left to right behind the headline: faint base curves with a light pulse
-// travelling along each one.
-const FLOWS = [
-  'M-40 330 C 260 250, 470 420, 760 330 S 1220 230, 1480 300',
-  'M-40 390 C 300 330, 520 470, 800 390 S 1200 300, 1480 360',
-  'M-40 270 C 240 200, 520 330, 780 260 S 1180 180, 1480 230',
-  'M-40 450 C 320 410, 560 520, 820 450 S 1240 380, 1480 430',
-  'M-40 210 C 280 160, 500 260, 760 200 S 1200 130, 1480 170'
-];
-
-// Ivory and a calm mint: one per light, in turn.
-const FLOW_COLORS = ['#f2f3ee', '#8fd3a8'];
-
-function FlowLines() {
-  return (
-    <svg className="lx-flow" viewBox="0 0 1440 640" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-      <defs>
-        {FLOW_COLORS.map((c, k) => (
-          <linearGradient key={c} id={`lx-flow-fade-${k}`} x1="0" x2="1">
-            <stop offset="0" stopColor={c} stopOpacity="0" />
-            <stop offset="0.3" stopColor={c} stopOpacity="0.9" />
-            <stop offset="0.7" stopColor={c} stopOpacity="0.9" />
-            <stop offset="1" stopColor={c} stopOpacity="0" />
-          </linearGradient>
-        ))}
-      </defs>
-      {FLOWS.map((d, i) => (
-        <g key={i} style={{ '--i': i }}>
-          <path className="lx-flow__base" d={d} />
-          <path className="lx-flow__pulse" d={d} pathLength="1000" style={{ stroke: `url(#lx-flow-fade-${i % FLOW_COLORS.length})` }} />
-        </g>
-      ))}
-    </svg>
-  );
-}
 
 const MAIN_TOKENS = FEATURED[0][1];
 const NO_LPS = { lps: [], profitable: [], valueUsd: 0 };
