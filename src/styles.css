@@ -12592,3 +12592,38 @@ a.pair-tiers__row:hover {
   text-transform: uppercase;
   vertical-align: 2px;
 }
+
+/* CLMM amount: quick percent buttons above the input, on the right */
+.amount-row__field {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  min-width: 0;
+}
+
+.amount-row__field input {
+  width: 100%;
+}
+
+.amount-row__pcts {
+  display: flex;
+  gap: 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.amount-row__pcts button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.amount-row__pcts button:hover {
+  text-decoration: underline;
+}

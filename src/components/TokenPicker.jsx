@@ -109,7 +109,7 @@ export default function TokenPicker({ title, selectedId, onSelect, onClose }) {
   };
 
   return (
-    <Modal title={title} subtitle="Search by name, symbol or paste a contract address" onClose={onClose}>
+    <Modal title={title} subtitle="Search by name, symbol or paste a contract address" onClose={onClose} width={520}>
       <div className="search-field search-field--lg">
         <span aria-hidden>⌕</span>
         <input

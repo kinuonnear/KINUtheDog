@@ -613,30 +613,33 @@ export default function DclCreatePosition({ pool, x, y, rangeState, onDone, retr
           <TokenIcon token={token} size={26} />
           <div>
             <strong>{token.symbol}</strong>
-            {/* Shown without a wallet too: then a percent button connects one first. */}
-            <small>
-              {accountId ? formatRawAmount(spendable[index].toString(), token.decimals) : <span title="Connect a wallet to see your balance">—</span>}
-              {!disabled &&
-                PERCENTS.map((f) => (
-                  <button
-                    key={f}
-                    type="button"
-                    onClick={() => (accountId ? setFraction(which, f) : connect())}
-                    title={accountId ? undefined : 'Connect a wallet to use your balance'}
-                  >
-                    {f === 1 ? 'MAX' : `${f * 100}%`}
-                  </button>
-                ))}
-            </small>
+            <small>{accountId ? formatRawAmount(spendable[index].toString(), token.decimals) : <span title="Connect a wallet to see your balance">—</span>}</small>
           </div>
         </div>
-        <input
-          inputMode="decimal"
-          placeholder={disabled ? 'Not needed' : '0.0'}
-          disabled={disabled}
-          value={disabled ? '' : value}
-          onChange={(e) => setAmount(which, e.target.value)}
-        />
+        <div className="amount-row__field">
+          {/* Quick amounts above the input; shown without a wallet too (they connect one first). */}
+          {!disabled && (
+            <span className="amount-row__pcts">
+              {PERCENTS.map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => (accountId ? setFraction(which, f) : connect())}
+                  title={accountId ? undefined : 'Connect a wallet to use your balance'}
+                >
+                  {f === 1 ? 'MAX' : `${f * 100}%`}
+                </button>
+              ))}
+            </span>
+          )}
+          <input
+            inputMode="decimal"
+            placeholder={disabled ? 'Not needed' : '0.0'}
+            disabled={disabled}
+            value={disabled ? '' : value}
+            onChange={(e) => setAmount(which, e.target.value)}
+          />
+        </div>
       </div>
     );
   };
