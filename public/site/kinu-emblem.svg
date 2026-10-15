@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="KINU">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="36%" r="64%">
+      <stop offset="0" stop-color="#121820"/>
+      <stop offset="1" stop-color="#030508"/>
+    </radialGradient>
+    <!-- Old copper fading into charcoal -->
+    <linearGradient id="fur" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8f3f17"/>
+      <stop offset="0.55" stop-color="#5a260d"/>
+      <stop offset="1" stop-color="#241109"/>
+    </linearGradient>
+    <linearGradient id="furDark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2a140b"/>
+      <stop offset="1" stop-color="#0d0705"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffb066"/>
+      <stop offset="1" stop-color="#e2681f"/>
+    </linearGradient>
+    <linearGradient id="cream" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#d8bc98"/>
+      <stop offset="1" stop-color="#8a6747"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ddff8a"/>
+      <stop offset="0.5" stop-color="#b8ff3d"/>
+      <stop offset="1" stop-color="#5f9a12"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="eyeGlow" x="-200%" y="-200%" width="500%" height="500%">
+      <feGaussianBlur stdDeviation="3.2" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <clipPath id="disc"><circle cx="256" cy="256" r="226"/></clipPath>
+  </defs>
+
+  <circle cx="256" cy="256" r="226" fill="url(#bg)"/>
+
+  <g clip-path="url(#disc)">
+    <g fill="none" stroke="#b8ff3d" stroke-opacity="0.07" stroke-width="2">
+      <path d="M20 176 C 140 156, 220 202, 330 174 S 470 156, 500 170"/>
+      <path d="M20 212 C 150 192, 240 232, 350 206 S 470 190, 500 202"/>
+    </g>
+
+    <!-- Chest -->
+    <polygon points="146,376 366,376 414,512 98,512" fill="url(#fur)"/>
+    <polygon points="146,376 256,376 232,512 98,512" fill="url(#furDark)" opacity="0.6"/>
+    <polygon points="222,412 290,412 306,512 206,512" fill="url(#cream)" opacity="0.85"/>
+
+    <!-- Ears -->
+    <polygon points="144,212 172,96 244,164" fill="url(#fur)"/>
+    <polygon points="144,212 172,96 188,166" fill="url(#furDark)" opacity="0.8"/>
+    <polygon points="164,192 178,124 226,166" fill="#0a0504"/>
+    <polygon points="368,212 340,96 268,164" fill="url(#fur)"/>
+    <polygon points="368,212 340,96 324,166" fill="url(#furDark)" opacity="0.55"/>
+    <polygon points="348,192 334,124 286,166" fill="#0a0504"/>
+
+    <!-- Head: broad, with cheek ruffs -->
+    <polygon points="150,204 238,162 274,162 362,204 392,258 386,318 348,364 298,394 256,400 214,394 164,364 126,318 120,258" fill="url(#fur)"/>
+    <polygon points="150,204 238,162 216,228 172,254" fill="url(#furDark)" opacity="0.55"/>
+    <polygon points="120,258 172,254 188,290 162,330 126,318" fill="url(#furDark)" opacity="0.75"/>
+    <polygon points="126,318 162,330 196,374 164,364" fill="url(#furDark)" opacity="0.9"/>
+    <polygon points="274,162 362,204 392,258 340,254 296,228" fill="#c25a1f" opacity="0.35"/>
+    <polygon points="238,162 274,162 292,224 256,246 220,224" fill="#b4531d" opacity="0.55"/>
+
+    <!-- Orange accent: light catching the facet edges -->
+    <g fill="none" stroke="url(#accent)" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M144 212 L172 96 L244 164" stroke-width="2.5" stroke-opacity="0.9"/>
+      <path d="M368 212 L340 96 L268 164" stroke-width="2.5" stroke-opacity="0.9"/>
+      <path d="M238 162 L274 162 L292 224 L256 246 L220 224 Z" stroke-width="2" stroke-opacity="0.55"/>
+      <path d="M274 162 L362 204 L392 258" stroke-width="2.5" stroke-opacity="0.75"/>
+      <path d="M150 204 L238 162" stroke-width="2" stroke-opacity="0.5"/>
+      <path d="M392 258 L386 318 L348 364" stroke-width="2" stroke-opacity="0.35"/>
+    </g>
+
+    <!-- Brows: sharp blades driving down to the centre -->
+    <polygon points="172,206 236,232 230,244 168,222" fill="url(#accent)"/>
+    <polygon points="340,206 276,232 282,244 344,222" fill="url(#accent)"/>
+
+    <!-- Eyes: narrow slits with a hard lid line -->
+    <path d="M176 248 L238 264 L228 274 Q200 272 176 248 Z" fill="#020304"/>
+    <path d="M336 248 L274 264 L284 274 Q312 272 336 248 Z" fill="#020304"/>
+    <path d="M174 244 L240 260" stroke="#020304" stroke-width="4" stroke-linecap="round"/>
+    <path d="M338 244 L272 260" stroke="#020304" stroke-width="4" stroke-linecap="round"/>
+    <g filter="url(#eyeGlow)" fill="#c8ff52">
+      <ellipse cx="216" cy="265" rx="6.5" ry="3.6"/>
+      <ellipse cx="296" cy="265" rx="6.5" ry="3.6"/>
+    </g>
+
+    <!-- Mask over the lower face, in shadow -->
+    <polygon points="160,326 188,288 222,272 256,284 290,272 324,288 352,326 320,372 256,394 192,372" fill="url(#cream)"/>
+    <polygon points="160,326 188,288 222,272 256,284 256,394 192,372" fill="#3a2414" opacity="0.4"/>
+    <!-- Nose and a flat, set mouth -->
+    <path d="M236 298 L276 298 Q268 318 256 320 Q244 318 236 298 Z" fill="#020304"/>
+    <path d="M256 320 L256 332 M236 340 L276 340" fill="none" stroke="#020304" stroke-width="5" stroke-linecap="round"/>
+
+    <!-- Bandana, wider -->
+    <polygon points="132,388 380,388 256,500" fill="#070a0f" stroke="#b8ff3d" stroke-width="5" stroke-linejoin="round"/>
+    <polygon points="362,392 408,372 396,424" fill="#070a0f" stroke="#b8ff3d" stroke-width="5" stroke-linejoin="round"/>
+    <g fill="none" stroke="#b8ff3d" stroke-linecap="round" filter="url(#eyeGlow)">
+      <path d="M200 424 C 228 406, 258 438, 312 416" stroke-width="10"/>
+      <path d="M214 452 C 236 440, 260 464, 298 448" stroke-width="7.5" stroke-opacity="0.7"/>
+    </g>
+  </g>
+
+  <circle cx="256" cy="256" r="236" fill="none" stroke="url(#ring)" stroke-width="7" filter="url(#glow)"/>
+  <circle cx="256" cy="256" r="222" fill="none" stroke="#b8ff3d" stroke-opacity="0.18" stroke-width="1.5"/>
+</svg>
