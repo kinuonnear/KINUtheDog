@@ -2,23 +2,121 @@
 // PnL, fees earned, win rate, average invested, positions (open / closed), results by period and
 // by pool, the profit history and every position. Read-only; opened from Discover → Smart LP.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../state.jsx';
 import { useAsync } from '../hooks.js';
+import { getPoolRadar } from '../lib/poolRadar.js';
+import { judgeDclHolding } from '../lib/agent.js';
 import { Link, poolPath } from '../router.jsx';
 import { loadDclPositions, markDclRows } from '../lib/smartLp.js';
 import { formatAge as duration } from '../lib/lpHistory.js';
-import { PERIODS } from '../lib/lpStats.js';
 import { formatUsd } from '../lib/format.js';
 import { ENDPOINTS } from '../config.js';
 import { ClosedPositions, ProfitChart, RANGES, useLpHistory } from '../components/LpPnl.jsx';
 import LiquidityTable from '../components/LiquidityTable.jsx';
-import { DayBars, feeSharePct, LpWatchStar, signedUsd } from '../components/SmartLp.jsx';
-import { CopyButton, EmptyState, PairIcons, Skeleton, Spinner } from '../components/ui.jsx';
+import { feeSharePct, HolderNote, LpBadges, LpWatchStar, signedUsd } from '../components/SmartLp.jsx';
+import { CopyButton, EmptyState, Skeleton, Spinner } from '../components/ui.jsx';
 
 const tone = (v) => (v > 0 ? 'up' : v < 0 ? 'down' : '');
 const pct = (v) => (Number.isFinite(v) ? `${v.toFixed(v >= 99.95 ? 0 : 1)}%` : '—');
-const date = (t) => (t ? new Date(t).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' }) : '—');
+
+const POOL_TYPES = [
+  { key: 'clmm', label: 'CLMM' },
+  { key: 'amm', label: 'AMM', soon: true }
+];
+
+/** "Type Pool ▾": which kind of position the lists below show. */
+function PoolTypeMenu({ value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const close = (e) => !ref.current?.contains(e.target) && setOpen(false);
+    document.addEventListener('pointerdown', close);
+    return () => document.removeEventListener('pointerdown', close);
+  }, [open]);
+  const current = POOL_TYPES.find((t) => t.key === value);
+  return (
+    <div className="lpp-type" ref={ref}>
+      <button type="button" className="lpp-type__button" onClick={() => setOpen((o) => !o)} aria-haspopup="listbox" aria-expanded={open}>
+        Type Pool: <b>{current.label}</b> <span aria-hidden>▾</span>
+      </button>
+      {open && (
+        <ul className="lpp-type__menu" role="listbox" aria-label="Pool type">
+          {POOL_TYPES.map((t) => (
+            <li key={t.key}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={t.key === value}
+                className={t.key === value ? 'lpp-type__opt--on' : ''}
+                onClick={() => {
+                  onChange(t.key);
+                  setOpen(false);
+                }}
+              >
+                {t.label}
+                {t.soon && <em className="lpp-type__soon">Soon</em>}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The open positions at a glance, in the Position header: value now, unrealized PnL, and fees —
+ * with a split bar of what was already claimed vs. what is still waiting in the positions.
+ */
+function OpenSummary({ model }) {
+  const open = [...model.open.values()];
+  if (!open.length) return null;
+  const value = open.reduce((s, o) => s + o.value, 0);
+  const unclaimed = open.reduce((s, o) => s + o.unclaimed, 0);
+  const claimed = open.reduce((s, o) => s + (o.ledger?.feesUsd || 0), 0);
+  const known = open.filter((o) => o.known);
+  const pnl = known.reduce((s, o) => s + o.pnl, 0);
+  const gross = known.reduce((s, o) => s + o.ledger.investedUsd, 0);
+  const fees = claimed + unclaimed;
+  const claimedPct = fees > 0 ? (claimed / fees) * 100 : 0;
+  return (
+    <div className="lpp-sum">
+      <span className="lpp-sum__pill">
+        <small>Open value</small>
+        <b>{formatUsd(value)}</b>
+      </span>
+      <span className="lpp-sum__pill">
+        <small>uPnL</small>
+        <b className={tone(pnl)}>
+          {known.length ? signedUsd(pnl) : '—'}
+          {gross > 0 && <em> {pct((pnl / gross) * 100)}</em>}
+        </b>
+      </span>
+      <span className="lpp-sum__pill lpp-sum__pill--fees" title="Fees of the open positions: already claimed, and still unclaimed in the positions">
+        <span className="lpp-sum__main">
+          <small>Total fee</small>
+          <b className="up">{formatUsd(fees)}</b>
+        </span>
+        <span className="lpp-sum__side">
+          <span className="lpp-sum__split" aria-hidden>
+            <i className="lpp-sum__claimed" style={{ width: `${claimedPct}%` }} />
+            <i className="lpp-sum__unclaimed" style={{ width: `${100 - claimedPct}%` }} />
+          </span>
+          <span className="lpp-sum__legend">
+            <span>
+              <i className="lpp-sum__dot lpp-sum__dot--claimed" /> claimed {formatUsd(claimed)}
+            </span>
+            <span>
+              <i className="lpp-sum__dot lpp-sum__dot--unclaimed" /> unclaimed {formatUsd(unclaimed)}
+            </span>
+          </span>
+        </span>
+      </span>
+    </div>
+  );
+}
 
 function Metric({ label, hint, children, busy, className = '' }) {
   return (
@@ -32,7 +130,9 @@ function Metric({ label, hint, children, busy, className = '' }) {
   );
 }
 
-export default function LpProfile({ account }) {
+export default function LpProfile({ account: raw }) {
+  // NEAR account ids are lowercase: /lp/Alex.near is alex.near.
+  const account = raw.trim().toLowerCase();
   const { prices } = useApp();
   const positions = useAsync(() => loadDclPositions(account), [account], { refreshMs: 60_000 });
   const rows = useMemo(() => (positions.data ? markDclRows(positions.data.dcl, positions.data.tokens, prices) : null), [positions.data, prices]);
@@ -42,27 +142,52 @@ export default function LpProfile({ account }) {
   const busy = !model;
   const [mode, setMode] = useState('pnl');
   const [range, setRange] = useState('30d');
+  const [poolType, setPoolType] = useState('clmm');
   const link = `${window.location.origin}/lp/${encodeURIComponent(account)}`;
   const failed = (positions.error && !positions.data) || (history.error && !model);
+  // KINU Agent's call on each pool (same rules as /agent), with the pool's live activity.
+  const radar = useAsync(getPoolRadar, []);
+  const radarById = useMemo(() => new Map((radar.data || []).map((r) => [String(r.id), r])), [radar.data]);
+  const groupExtra = (g) => {
+    const call = judgeDclHolding({ positions: g.positions, usd: { value: g.summary.usd, fees: g.summary.feeUsd }, radarRow: radarById.get(g.poolId) });
+    const left = Math.min(...g.positions.map((p) => p.leftPoint));
+    const right = Math.max(...g.positions.map((p) => p.rightPoint));
+    return (
+      <>
+        <span className={`ag-verdict ag-verdict--${call.verdict.toLowerCase()}`} title={`KINU Agent: ${call.reasons.join(' ')}`}>
+          {call.verdict}
+        </span>
+        <Link
+          to={`${poolPath(g.poolId)}?tab=add&left=${left}&right=${right}`}
+          className="button button--outline button--sm"
+          title="Open this pool's Add liquidity form with the same price range — you choose the amount and sign"
+        >
+          Use this range
+        </Link>
+      </>
+    );
+  };
 
   return (
     <div className="page lpp">
       <Link to="/discover?tab=smartlp" className="lpp__back">
-        ← Smart LP
+        <span aria-hidden>←</span> Back to Smart LP
       </Link>
       <header className="lpp__head">
         <div>
-          <span className="eyebrow">LP wallet · Rhea CLMM</span>
           <h1 className="mono">{account}</h1>
+          {s && <LpBadges stats={s} />}
           <div className="lpp__actions">
             <LpWatchStar account={account} label />
             <CopyButton text={link} label="⧉ Copy profile link" />
-            <a href={`${ENDPOINTS.explorer}/address/${account}`} target="_blank" rel="noopener noreferrer" className="link-button">
+            <a href={`${ENDPOINTS.explorer}/address/${encodeURIComponent(account)}`} target="_blank" rel="noopener noreferrer" className="link-button">
               Explorer ↗
             </a>
             <Link to={`/portfolio?account=${encodeURIComponent(account)}`} className="link-button">
               Full portfolio →
             </Link>
+            <span className="lpp__chip">LP wallet · Rhea CLMM</span>
+            <HolderNote compact />
           </div>
         </div>
         {busy && !failed && (
@@ -74,7 +199,7 @@ export default function LpProfile({ account }) {
 
       <p className="lpp__note">
         PnL is rebuilt from this wallet&apos;s on-chain CLMM events, valued at USD prices at the time of each deposit and withdrawal.
-        Classic AMM / Stable / ALMM pools are not included{model && !model.complete ? '; only the most recent 2,000 CLMM transactions are read' : ''}.
+        Classic AMM / Stable / ALMM pools are not included{model && !model.complete ? '; only the most recent 1,000 CLMM transactions are read' : ''}.
       </p>
 
       {failed ? (
@@ -178,80 +303,35 @@ export default function LpProfile({ account }) {
             </div>
           </section>
 
-          <div className="lpp-row">
-            <section className="card lpp-periods">
-              <h2>By period</h2>
-              {busy ? (
-                <Skeleton height={90} />
+          <div className="lpp__section-head">
+            <h2 className="lpp__section">
+              Position
+              {model && model.open.size > 0 && poolType === 'clmm' && <small className="muted"> · {model.open.size} open</small>}
+            </h2>
+            {model && poolType === 'clmm' && <OpenSummary model={model} />}
+            <PoolTypeMenu value={poolType} onChange={setPoolType} />
+          </div>
+          {poolType === 'amm' ? (
+            <div className="card">
+              <EmptyState icon="◷" title="AMM · coming soon">
+                PnL for AMM / Stable / ALMM pools is on the way. Until then, this wallet&apos;s classic pool positions are in its{' '}
+                <Link to={`/portfolio?account=${encodeURIComponent(account)}`}>full portfolio</Link>.
+              </EmptyState>
+            </div>
+          ) : (
+            <>
+              {rows ? (
+                <LiquidityTable classicRows={[]} dclRows={rows} depositUsd={0} readOnly history={history} sortBy="age" showTotal rangeBar groupExtra={groupExtra} />
               ) : (
-                <>
-                  <div className="slp-periods">
-                    <span>Time</span>
-                    <span>Positions opened</span>
-                    <span>Realized</span>
-                    {s.periods.map((p) => (
-                      <span key={p.key} className="slp-periods__row">
-                        <b>{PERIODS.find((x) => x.key === p.key)?.label}</b>
-                        <span>{p.positions}</span>
-                        <span className={tone(p.pnl)}>{signedUsd(p.pnl)}</span>
-                      </span>
-                    ))}
-                  </div>
-                  <div className="lpp-periods__bars">
-                    <span className="muted small">Last 7 days</span>
-                    <DayBars values={s.last7} />
-                  </div>
-                  <p className="muted small">
-                    First activity {date(s.firstActivity)} · last activity {date(s.lastActivity)}
-                  </p>
-                </>
-              )}
-            </section>
-
-            <section className="card lpp-pools">
-              <h2>By pool</h2>
-              {busy ? (
-                <Skeleton height={90} />
-              ) : !model.pools.length ? (
-                <p className="muted small">No CLMM positions yet.</p>
-              ) : (
-                <div className="lpp-pools__table">
-                  <span>Pool</span>
-                  <span>Positions</span>
-                  <span>Invested</span>
-                  <span>Fees</span>
-                  <span>PnL</span>
-                  {model.pools.map((p) => (
-                    <Link key={p.poolId} to={poolPath(p.poolId)} className="lpp-pools__row">
-                      <span className="lpp-pools__pair">
-                        <PairIcons tokens={[p.x, p.y]} size={20} />
-                        {p.x.symbol} / {p.y.symbol}
-                      </span>
-                      <span>
-                        {p.positions}
-                        {p.open > 0 && <small className="muted"> · {p.open} open</small>}
-                      </span>
-                      <span>{formatUsd(p.invested, { compactAbove: 1e5 })}</span>
-                      <span className="up">{formatUsd(p.fees, { compactAbove: 1e5 })}</span>
-                      <span className={tone(p.pnl)}>{signedUsd(p.pnl)}</span>
-                    </Link>
-                  ))}
+                <div className="card">
+                  <Skeleton height={60} />
                 </div>
               )}
-            </section>
-          </div>
 
-          <h2 className="lpp__section">Open positions</h2>
-          {rows ? (
-            <LiquidityTable classicRows={[]} dclRows={rows} depositUsd={0} readOnly history={history} />
-          ) : (
-            <div className="card">
-              <Skeleton height={60} />
-            </div>
+              <h2 className="lpp__section">Historical positions</h2>
+              <ClosedPositions history={history} />
+            </>
           )}
-
-          <h2 className="lpp__section">Historical positions</h2>
-          <ClosedPositions history={history} />
         </>
       )}
     </div>

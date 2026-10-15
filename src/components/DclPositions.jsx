@@ -43,8 +43,66 @@ export function summarizeDclGroup(positions, x, y, prices) {
     inRange: positions.some((p) => p.inRange),
     minPrice: pointToPrice(left, x.decimals, y.decimals),
     maxPrice: pointToPrice(right, x.decimals, y.decimals),
+    // The pool's price now (every position of a pool shares it).
+    price: Number.isFinite(positions[0]?.currentPoint) ? pointToPrice(positions[0].currentPoint, x.decimals, y.decimals) : null,
     fullRange: left <= -790000 && right >= 790000
   };
+}
+
+/**
+ * Where the price sits against the range: { inside, pct, side } — inside: % to the nearest edge;
+ * outside: % past the edge ('above' / 'below'). Null without a price or for full range.
+ */
+export function rangeDistance(summary) {
+  const { minPrice: lo, maxPrice: hi, price } = summary;
+  if (summary.fullRange || !(price > 0) || !(hi > lo)) return null;
+  if (price < lo) return { inside: false, side: 'below', pct: ((lo - price) / lo) * 100 };
+  if (price > hi) return { inside: false, side: 'above', pct: ((price - hi) / hi) * 100 };
+  return { inside: true, pct: (Math.min(price - lo, hi - price) / price) * 100 };
+}
+
+/** "In range · 8.4% to edge" / "Out of range · 3.1% above" (amber when under 5% to an edge). */
+export function RangeStatus({ summary }) {
+  const d = rangeDistance(summary);
+  const inside = d ? d.inside : summary.inRange;
+  const close = d?.inside && d.pct < 5;
+  const pct = d ? `${d.pct < 10 ? d.pct.toFixed(1) : Math.round(d.pct)}%` : '';
+  return (
+    <span className={`range-badge ${inside ? 'range-badge--in' : ''} ${close ? 'range-badge--edge' : ''}`} title="Distance from the price now to the edge of the range">
+      {inside ? 'In range' : 'Out of range'}
+      {d && (d.inside ? ` · ${pct} to edge` : ` · ${pct} ${d.side}`)}
+    </span>
+  );
+}
+
+/**
+ * The range as a small diagram: min – max on a track, with a marker at the pool's price now
+ * (the range is green while the price is inside it, amber when it has left).
+ */
+export function RangeBar({ summary }) {
+  const { minPrice: lo, maxPrice: hi, price } = summary;
+  if (summary.fullRange || !(hi > lo)) return null;
+  const now = Number.isFinite(price) && price > 0 ? price : null;
+  const from = Math.min(lo, now ?? lo);
+  const to = Math.max(hi, now ?? hi);
+  const pad = (to - from) * 0.12;
+  const at = (v) => ((v - (from - pad)) / (to - from + 2 * pad)) * 100;
+  const inside = now !== null && now >= lo && now <= hi;
+  return (
+    <span className={`range-bar ${inside ? 'range-bar--in' : 'range-bar--out'}`} title={now !== null ? `Price now ${formatAmount(now)}` : undefined}>
+      {/* Min and max at the track's edges: long prices never overlap or run out of the cell. */}
+      <span className="range-bar__labels range-bar__labels--edges">
+        <b style={{ left: `${at(lo)}%` }}>{formatAmount(lo)}</b>
+        <b style={{ left: `${at(hi)}%` }}>{formatAmount(hi)}</b>
+      </span>
+      <span className="range-bar__track">
+        <i className="range-bar__fill" style={{ left: `${at(lo)}%`, width: `${at(hi) - at(lo)}%` }} />
+        <i className="range-bar__end" style={{ left: `${at(lo)}%` }} />
+        <i className="range-bar__end" style={{ left: `${at(hi)}%` }} />
+        {now !== null && <i className="range-bar__now" style={{ left: `${at(now)}%` }} />}
+      </span>
+    </span>
+  );
 }
 
 export function RangeText({ summary, x, y }) {

@@ -244,7 +244,7 @@ export function PnlDashboard({ history, shareable = false }) {
         <span className="pnl-dash__legend muted small">
           <i style={{ background: UP }} /> daily {mode === 'fees' ? 'fees claimed' : 'realized PnL'} <i style={{ background: '#ffb547' }} />{' '}
           cumulative
-          {model && !model.complete && ' · showing the most recent 2,000 CLMM transactions'}
+          {model && !model.complete && ' · showing the most recent 1,000 CLMM transactions'}
         </span>
       </div>
     </section>

@@ -63,7 +63,8 @@ function trimDecimals(text) {
 /* Range state (shared by chart and form)                              */
 /* ------------------------------------------------------------------ */
 
-export function useDclRange(pool, x, y) {
+/** `initial`: { left, right } points to start from (e.g. "Use this range" on Smart LP). */
+export function useDclRange(pool, x, y, initial = null) {
   const delta = pool.point_delta;
   const current = pool.current_point;
   const currentPrice = pointToPrice(current, x.decimals, y.decimals);
@@ -81,8 +82,12 @@ export function useDclRange(pool, x, y) {
     [currentPrice, delta, toPoint]
   );
 
-  const [preset, setPresetKey] = useState('10');
-  const [range, setRangeState] = useState(() => presetRange('10'));
+  const [preset, setPresetKey] = useState(initial ? 'custom' : '10');
+  const [range, setRangeState] = useState(() => {
+    if (!initial) return presetRange('10');
+    const left = alignPoint(initial.left, delta, 'floor');
+    return { left, right: Math.max(alignPoint(initial.right, delta, 'ceil'), left + delta) };
+  });
 
   const setPreset = (key) => {
     setPresetKey(key);

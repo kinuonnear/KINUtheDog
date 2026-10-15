@@ -2,11 +2,13 @@
 // from the published snapshot (lib/smartLp.js). A card opens the wallet's live profile (/lp/…).
 
 import { useMemo, useState } from 'react';
+import { useApp } from '../state.jsx';
 import { useAsync, useLocalStorage } from '../hooks.js';
-import { navigate } from '../router.jsx';
+import { Link, navigate } from '../router.jsx';
 import { useLpWatchlist } from '../lib/watchlist.js';
-import { ACTIVE_WINDOWS, BOARD_URL, DEFAULT_FILTERS, FEE_CHECK_MIN, filterBoard, SORTS, sortBoard } from '../lib/smartLp.js';
-import { formatAge as since, formatUsd, shortAccount } from '../lib/format.js';
+import { ACTIVE_WINDOWS, BOARD_URL, DEFAULT_FILTERS, FEE_CHECK_MIN, filterBoard, getKinuHolding, lpBadges, SMART_LP_MIN_KINU, SORTS, sortBoard } from '../lib/smartLp.js';
+import { formatAge as since, formatAmount, formatUsd, shortAccount } from '../lib/format.js';
+import { KINU_TOKEN, NATIVE_NEAR } from '../config.js';
 import { formatAge as duration } from '../lib/lpHistory.js';
 import { EmptyState, ErrorNotice, Skeleton } from './ui.jsx';
 
@@ -49,6 +51,70 @@ export function LpWatchStar({ account, label = false }) {
   );
 }
 
+/** Style badges (🎯 Sharpshooter, 🌾 Fee Farmer…) for a wallet's stats. */
+export function LpBadges({ stats }) {
+  const badges = lpBadges(stats);
+  if (!badges.length) return null;
+  return (
+    <span className="slp-badges">
+      {badges.map((b) => (
+        <span key={b.key} className={`slp-badge slp-badge--${b.key}`} title={b.hint}>
+          <span aria-hidden>{b.icon}</span> {b.label}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/**
+ * "Lock soon · Holder feature": Smart LP is free during launch and will later need
+ * SMART_LP_MIN_KINU KINU. With a wallet connected it says where that wallet stands.
+ */
+export function HolderNote({ compact = false }) {
+  const { accountId } = useApp();
+  const holding = useAsync(() => getKinuHolding(accountId), [accountId], { enabled: Boolean(accountId) });
+  const need = SMART_LP_MIN_KINU;
+  const have = holding.data?.total ?? null;
+  const ok = have !== null && have >= need;
+  const buy = `/swap?from=${NATIVE_NEAR.id}&to=${encodeURIComponent(KINU_TOKEN)}`;
+  if (compact) {
+    return (
+      <span className={`slp-lock slp-lock--chip ${ok ? 'slp-lock--ok' : ''}`} title={`Free during launch. Later: hold ≥ ${formatAmount(need)} KINU (wallet or KINU liquidity).`}>
+        🔒 Lock soon · Holder feature
+      </span>
+    );
+  }
+  return (
+    <section className={`slp-lock ${ok ? 'slp-lock--ok' : ''}`} aria-label="Smart LP access">
+      <span className="slp-lock__tag">🔒 Lock soon · Holder feature</span>
+      <span className="slp-lock__text">
+        Smart LP is <b>free during launch</b>. It will become a feature for wallets holding <b>≥ {formatAmount(need)} KINU</b> — in the
+        wallet or in KINU liquidity.
+      </span>
+      <span className="slp-lock__me">
+        {!accountId ? (
+          <span className="muted">Connect a wallet to check your access.</span>
+        ) : holding.loading && !holding.data ? (
+          <span className="muted">Checking your KINU…</span>
+        ) : have === null ? (
+          <span className="muted">Couldn&apos;t read your KINU right now.</span>
+        ) : ok ? (
+          <span className="up">You hold {formatAmount(have)} KINU ✓ you&apos;re set</span>
+        ) : (
+          <>
+            <span>
+              You hold {formatAmount(have)} KINU · {formatAmount(need - have)} to go
+            </span>
+            <Link to={buy} className="button button--outline button--sm">
+              Get KINU
+            </Link>
+          </>
+        )}
+      </span>
+    </section>
+  );
+}
+
 /** The last 7 days of booked PnL as small bars around a zero line. */
 export function DayBars({ values }) {
   const max = Math.max(...values.map((v) => Math.abs(v || 0)), 0);
@@ -63,19 +129,18 @@ export function DayBars({ values }) {
   );
 }
 
-function PeriodTable({ periods }) {
+/** All-time positions and realized PnL (closed out + fees claimed) on one line. */
+function AllTime({ w }) {
+  const all = w.periods.find((p) => p.key === 'all');
   return (
-    <div className="slp-periods">
-      <span>Time</span>
-      <span>Positions</span>
-      <span title="Closed out + fees claimed in the period">Realized</span>
-      {periods.map((p) => (
-        <span key={p.key} className="slp-periods__row">
-          <b>{p.key === 'all' ? 'ALL' : p.key.toUpperCase()}</b>
-          <span>{p.positions}</span>
-          <span className={tone(p.pnl)}>{signedUsd(p.pnl)}</span>
-        </span>
-      ))}
+    <div className="slp-alltime">
+      <span>
+        Positions <b>{w.totalPositions}</b>
+        <small className="muted"> · {w.openCount} open</small>
+      </span>
+      <span title="Closed out + fees claimed">
+        Realized <b className={tone(all?.pnl)}>{signedUsd(all?.pnl)}</b>
+      </span>
     </div>
   );
 }
@@ -88,8 +153,17 @@ function WalletCard({ w, rank }) {
         <strong className="mono" title={w.account}>
           {shortAccount(w.account, 14, 6)}
         </strong>
+        {!w.complete && (
+          <span className="slp-card__partial" title="Only part of this wallet's history could be read: older positions are left out of its stats">
+            partial
+          </span>
+        )}
         <LpWatchStar account={w.account} />
       </header>
+      {/* A fixed-height row, so cards with and without badges line up. */}
+      <div className="slp-card__badges">
+        <LpBadges stats={w} />
+      </div>
       <div className="slp-card__win">
         <div>
           <span>Win rate</span>
@@ -131,7 +205,7 @@ function WalletCard({ w, rank }) {
           <dd className={tone(w.totalPnl)}>{signedUsd(w.totalPnl)}</dd>
         </div>
       </dl>
-      <PeriodTable periods={w.periods} />
+      <AllTime w={w} />
       <footer className="slp-card__foot">
         <span>
           First activity <b>{date(w.firstActivity)}</b>
@@ -161,7 +235,7 @@ function WalletTable({ wallets }) {
         <span>Last active</span>
       </div>
       {wallets.map((w, i) => (
-        <div className="slp-trow" key={w.account} onClick={() => navigate(lpPath(w.account))} role="link" tabIndex={0}>
+        <div className="slp-trow" key={w.account} onClick={() => navigate(lpPath(w.account))} onKeyDown={(e) => e.key === 'Enter' && navigate(lpPath(w.account))} role="link" tabIndex={0}>
           <span className="muted">{i + 1}</span>
           <span className="slp-trow__wallet">
             <LpWatchStar account={w.account} />
@@ -239,7 +313,7 @@ export default function SmartLpBoard() {
 
   const wallets = useMemo(() => {
     const all = board.data?.wallets || [];
-    return sortBoard(filterBoard(all, f, { watched }), sort);
+    return sortBoard(filterBoard(all, f, { watched, now: board.data?.generatedAt }), sort);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [board.data, JSON.stringify(f), sort, watched]);
 
@@ -247,23 +321,9 @@ export default function SmartLpBoard() {
 
   return (
     <div className="slp">
+      <HolderNote />
+
       <section className="card slp-filters" aria-label="Smart LP filters">
-        <div className="slp-filters__row">
-          <label className="slp-filter">
-            <span>Active</span>
-            <select value={f.active} onChange={(e) => set({ active: e.target.value })}>
-              {ACTIVE_WINDOWS.map((w) => (
-                <option key={w.key} value={w.key}>
-                  {w.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <NumberFilter label="Min win rate (%)" value={f.minWinRate} onChange={(v) => set({ minWinRate: v })} hint="Share of closed positions that made money" />
-          <NumberFilter label="Min positions" value={f.minPositions} onChange={(v) => set({ minPositions: v })} />
-          <NumberFilter label="Min avg age (hrs)" value={f.minAvgHoldH} onChange={(v) => set({ minAvgHoldH: v })} hint="Average time a closed position was held" />
-          <LookUp />
-        </div>
         {more && (
           <div className="slp-filters__row">
             <NumberFilter label="Min total PnL ($)" value={f.minPnl} onChange={(v) => set({ minPnl: v })} placeholder="any" />
@@ -280,6 +340,7 @@ export default function SmartLpBoard() {
           <label className="slp-check">
             <input type="checkbox" checked={f.watchOnly} onChange={(e) => set({ watchOnly: e.target.checked })} /> ★ My watchlist ({watched.length})
           </label>
+          <LookUp />
           <button type="button" className="button button--ghost button--sm" onClick={() => setFilters(DEFAULT_FILTERS)}>
             Clear
           </button>
@@ -292,12 +353,34 @@ export default function SmartLpBoard() {
           {SORTS.map((s) => {
             const on = sort.key === s.key;
             return (
-              <button key={s.key} type="button" className={`slp-chip ${on ? 'slp-chip--on' : ''}`} onClick={() => setSort(on ? { key: s.key, desc: !sort.desc } : { key: s.key, desc: true })}>
+              <button
+                key={s.key}
+                type="button"
+                title={s.hint}
+                className={`slp-chip ${on ? 'slp-chip--on' : ''}`}
+                onClick={() => setSort(on ? { key: s.key, desc: !sort.desc } : { key: s.key, desc: true })}
+              >
                 {on && <span aria-hidden>{sort.desc ? '↓ ' : '↑ '}</span>}
                 {s.label}
               </button>
             );
           })}
+          <span className="slp-inline">
+            <label>
+              <span>Active</span>
+              <select value={f.active} onChange={(e) => set({ active: e.target.value })}>
+                {ACTIVE_WINDOWS.map((w) => (
+                  <option key={w.key} value={w.key}>
+                    {w.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label title="Share of closed positions that made money">
+              <span>Min win rate %</span>
+              <input type="number" min="0" max="100" inputMode="decimal" value={f.minWinRate} onChange={(e) => set({ minWinRate: e.target.value })} />
+            </label>
+          </span>
         </div>
         <div className="segmented disc-seg">
           {[

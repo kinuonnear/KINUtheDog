@@ -22,8 +22,9 @@ import { toNumber } from './format.js';
 import { getTransactions } from './fastnearTx.js';
 
 const NEARBLOCKS = 'https://api.nearblocks.io/v1';
-const PAGE_SIZE = 250;
-const MAX_PAGES = 8; // 2,000 most recent DCL transactions
+// NearBlocks' free API rejects pages above 25 transactions (HTTP 429).
+const PAGE_SIZE = 25;
+const MAX_PAGES = 40; // 1,000 most recent DCL transactions
 const TX_BATCH = 20; // FastNEAR limit per request
 // v2: liquidity_append events are kept too (v1 caches skipped them, so history is re-read once).
 const CACHE_PREFIX = 'kinu.lphist.v2.';
@@ -150,6 +151,16 @@ async function listViaNearblocks(account, cache) {
 }
 
 const big = (v) => Number(v || 0);
+
+/** a − b for raw token amounts (strings), never below 0. */
+function minusRaw(a, b) {
+  try {
+    const d = BigInt(a || '0') - BigInt(b || '0');
+    return (d > 0n ? d : 0n).toString();
+  } catch {
+    return a || '0';
+  }
+}
 
 /** dcl.ref events owned by `account` from a batch of transactions. */
 async function fetchEvents(account, hashes) {
@@ -377,7 +388,9 @@ export function buildHistory(events, meta, history, prices) {
     const before = Math.max(l.liquidity, big(e.delta) + big(e.cur));
     const share = before > 0 ? Math.min(1, big(e.delta) / before) : 0;
     const released = l.costUsd * share;
-    const out = usd(e.x, e.y);
+    // liquidity_removed's refund_token_x / _y already include the fees claimed with it (a claim is a
+    // removal of 0 whose refund equals claim_fee): the principal coming back is refund − fees.
+    const out = usd(minusRaw(e.x, e.feeX), minusRaw(e.y, e.feeY));
     const fees = usd(e.feeX, e.feeY);
     l.costUsd -= released;
     l.withdrawnUsd += out;

@@ -9,7 +9,7 @@ import { searchPools } from '../lib/rhea.js';
 import { buildDclClaimTransactions } from '../lib/dclLiquidity.js';
 import { formatAmount, formatPercent, formatUsd } from '../lib/format.js';
 import { formatAge } from '../lib/lpHistory.js';
-import { DclActions, depositTitle, RangeText, summarizeDclGroup } from './DclPositions.jsx';
+import { DclActions, depositTitle, RangeBar, RangeStatus, RangeText, summarizeDclGroup } from './DclPositions.jsx';
 import RebalanceButton from './Rebalance.jsx';
 import { groupDeposits } from '../lib/lpPositions.js';
 import { PnlValue } from './LpPnl.jsx';
@@ -82,7 +82,7 @@ function PerfCells({ p, loading, value, amounts }) {
         <strong>{formatUsd(value)}</strong>
         {amounts && <small className="muted">{amounts}</small>}
       </span>
-      <span data-label="Fees">
+      <span data-label="Total fee">
         {p ? (
           <span className="lp-fees">
             <b className={p.fees > 0 ? 'up' : ''}>{formatUsd(p.fees)}</b>
@@ -97,7 +97,12 @@ function PerfCells({ p, loading, value, amounts }) {
   );
 }
 
-export default function LiquidityTable({ classicRows, dclRows, depositUsd, readOnly, history, onDone }) {
+/**
+ * `sortBy`: 'value' (largest first) or 'age' (newest CLMM position first); `showTotal` adds a Total
+ * row under the positions (invested, value, fees, uPnL); `rangeBar` draws each price range as a
+ * small diagram with the price now; `groupExtra(group)` adds to a CLMM pool's action cell.
+ */
+export default function LiquidityTable({ classicRows, dclRows, depositUsd, readOnly, history, onDone, sortBy = 'value', showTotal = false, rangeBar = false, groupExtra = null }) {
   const { prices, accountId, execute } = useApp();
   const [claimingAll, setClaimingAll] = useState(false);
   const [expanded, setExpanded] = useState(() => new Set());
@@ -131,6 +136,12 @@ export default function LiquidityTable({ classicRows, dclRows, depositUsd, readO
   }, 0);
   const feesUsd = dclGroups.reduce((s, g) => s + g.summary.feeUsd, 0);
   const claimable = dclGroups.filter((g) => g.summary.hasFees);
+  // Newest first: by when each pool's position was opened (unknown ages last).
+  const groups =
+    sortBy === 'age' && open
+      ? [...dclGroups].sort((a, b) => (perf(b.positions, open)?.openedAt ?? -Infinity) - (perf(a.positions, open)?.openedAt ?? -Infinity))
+      : dclGroups;
+  const total = showTotal ? perf(dclRows, open) : null;
 
   const claimAll = async () => {
     setClaimingAll(true);
@@ -186,17 +197,17 @@ export default function LiquidityTable({ classicRows, dclRows, depositUsd, readO
       <div className="lp-table">
         <div className="lp-row lp-row--head">
           <span>Position / Pool</span>
-          <span>Age</span>
+          <span className={sortBy === 'age' ? 'lp-row__sorted' : ''}>{sortBy === 'age' ? '↓ Age' : 'Age'}</span>
           <span>Price range</span>
           <span>Invested</span>
           <span>Value</span>
-          <span>Fees</span>
+          <span title="Claimed + still unclaimed">Total fee</span>
           <span>uPnL</span>
           <span>Pool APR</span>
           <span>Action</span>
         </div>
 
-        {dclGroups.map((g) => {
+        {groups.map((g) => {
           const p = perf(g.positions, open);
           const isOpen = expanded.has(g.poolId);
           return (
@@ -226,8 +237,12 @@ export default function LiquidityTable({ classicRows, dclRows, depositUsd, readO
                 </span>
                 <AgeCell p={p} loading={histLoading} />
                 <span className="lp-row__range" data-label="Price range">
-                  <RangeText summary={g.summary} x={g.x} y={g.y} />
-                  <span className={`range-badge ${g.summary.inRange ? 'range-badge--in' : ''}`}>{g.summary.inRange ? 'In range' : 'Out of range'}</span>
+                  {rangeBar && !g.summary.fullRange ? <RangeBar summary={g.summary} /> : <RangeText summary={g.summary} x={g.x} y={g.y} />}
+                  {rangeBar ? (
+                    <RangeStatus summary={g.summary} />
+                  ) : (
+                    <span className={`range-badge ${g.summary.inRange ? 'range-badge--in' : ''}`}>{g.summary.inRange ? 'In range' : 'Out of range'}</span>
+                  )}
                 </span>
                 <PerfCells
                   p={p}
@@ -237,6 +252,7 @@ export default function LiquidityTable({ classicRows, dclRows, depositUsd, readO
                 />
                 <span data-label="Pool APR">{apr(g.poolId)}</span>
                 <span className="lp-row__actions">
+                  {groupExtra?.(g)}
                   <DclActions
                     poolId={g.poolId}
                     positions={g.positions}
@@ -274,7 +290,7 @@ export default function LiquidityTable({ classicRows, dclRows, depositUsd, readO
                       </span>
                       <AgeCell p={dp} loading={histLoading} />
                       <span className="lp-row__range" data-label="Price range">
-                        <RangeText summary={ds} x={g.x} y={g.y} />
+                        {rangeBar && !ds.fullRange ? <RangeBar summary={ds} /> : <RangeText summary={ds} x={g.x} y={g.y} />}
                       </span>
                       <PerfCells
                         p={dp}
@@ -330,7 +346,7 @@ export default function LiquidityTable({ classicRows, dclRows, depositUsd, readO
               <strong>{formatUsd(r.usd)}</strong>
               <small className="muted">{r.parts.map((p) => `${formatAmount(p.amount)} ${p.token.symbol}`).join(' + ')}</small>
             </span>
-            <span data-label="Fees">
+            <span data-label="Total fee">
               <span
                 className="muted small auto-compound"
                 title="AMM, Stable and ALMM fees and profits are auto-compounded and don’t require claiming: every swap’s fee goes back into the pool, so your LP shares grow in value. They come out with your liquidity when you withdraw."
@@ -360,6 +376,18 @@ export default function LiquidityTable({ classicRows, dclRows, depositUsd, readO
             </span>
           </div>
         ))}
+        {showTotal && (
+          <div className="lp-row lp-row--total">
+            <span className="lp-row__pool">
+              <strong>Total</strong>
+            </span>
+            <span />
+            <span />
+            <PerfCells p={total} loading={histLoading} value={poolsUsd} />
+            <span />
+            <span />
+          </div>
+        )}
       </div>
     </section>
   );

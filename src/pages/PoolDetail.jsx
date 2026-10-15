@@ -438,7 +438,14 @@ function useDockedColumns(gridRef) {
 /** CLMM page body: draggable range chart + Meteora-style create form. */
 function DclWorkspace({ poolId, pool, x, y, reserves, positions, onAdd, onDone }) {
   const { accountId } = useApp();
-  const rangeState = useDclRange(pool, x, y);
+  // ?left=&right= (points): open the form on that range — Smart LP's "Use this range".
+  const { search } = useLocation();
+  const [initialRange] = useState(() => {
+    const left = Number(search.get('left'));
+    const right = Number(search.get('right'));
+    return search.has('left') && search.has('right') && Number.isInteger(left) && Number.isInteger(right) && right > left ? { left, right } : null;
+  });
+  const rangeState = useDclRange(pool, x, y, initialRange);
   const onDrag = (side, price) => rangeState.setEdge(side, { price });
   const gridRef = useRef(null);
   useDockedColumns(gridRef);
