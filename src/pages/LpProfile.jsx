@@ -66,6 +66,9 @@ function PoolTypeMenu({ value, onChange }) {
   );
 }
 
+// Amounts in the pills use K / M from $10K up ($149.63K): short enough to never crowd a pill.
+const short = (v) => formatUsd(v, { compactAbove: 1e4 });
+
 /**
  * The open positions at a glance, in the Position header: value now, unrealized PnL, and fees —
  * with a split bar of what was already claimed vs. what is still waiting in the positions.
@@ -85,7 +88,7 @@ function OpenSummary({ model }) {
     <div className="lpp-sum">
       <span className="lpp-sum__pill">
         <small>Open value</small>
-        <b>{formatUsd(value)}</b>
+        <b title={formatUsd(value)}>{short(value)}</b>
       </span>
       <span className="lpp-sum__pill">
         <small>uPnL</small>
@@ -97,7 +100,7 @@ function OpenSummary({ model }) {
       <span className="lpp-sum__pill lpp-sum__pill--fees" title="Fees of the open positions: already claimed, and still unclaimed in the positions">
         <span className="lpp-sum__main">
           <small>Total fee</small>
-          <b className="up">{formatUsd(fees)}</b>
+          <b className="up" title={formatUsd(fees)}>{short(fees)}</b>
         </span>
         <span className="lpp-sum__side">
           <span className="lpp-sum__split" aria-hidden>
@@ -106,10 +109,10 @@ function OpenSummary({ model }) {
           </span>
           <span className="lpp-sum__legend">
             <span>
-              <i className="lpp-sum__dot lpp-sum__dot--claimed" /> claimed {formatUsd(claimed)}
+              <i className="lpp-sum__dot lpp-sum__dot--claimed" /> claimed {short(claimed)}
             </span>
             <span>
-              <i className="lpp-sum__dot lpp-sum__dot--unclaimed" /> unclaimed {formatUsd(unclaimed)}
+              <i className="lpp-sum__dot lpp-sum__dot--unclaimed" /> unclaimed {short(unclaimed)}
             </span>
           </span>
         </span>

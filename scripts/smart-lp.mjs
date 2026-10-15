@@ -5,8 +5,10 @@
 //
 //   npm run smart-lp                 last 90 days
 //   npm run smart-lp -- --days 30    a shorter window
+//   npm run smart-lp -- --reuse      refresh the wallets already on the board (no discovery: spares
+//                                    NearBlocks' small free quota)
 
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { getPrices } from '../src/lib/tokens.js';
 import { buildLpModel, loadLpHistory } from '../src/lib/lpStats.js';
 import { dclRowsFor, discoverLpWallets, walletCard } from '../src/lib/smartLp.js';
@@ -16,8 +18,13 @@ const argDays = process.argv.indexOf('--days');
 const DAYS = argDays > 0 ? Number(process.argv[argDays + 1]) || 90 : 90;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const accounts = await discoverLpWallets({ days: DAYS, onPage: (page, found, note) => console.log(`  page ${page}: ${found} wallets${note ? ` (${note})` : ""}`) });
-console.log(`${accounts.length} wallets added CLMM liquidity in the last ${DAYS} days`);
+const reuse = process.argv.includes('--reuse');
+const previous = reuse ? JSON.parse(await readFile(FILE, 'utf8')) : null;
+const days = previous?.days || DAYS;
+const accounts = previous
+  ? previous.wallets.map((w) => w.account)
+  : await discoverLpWallets({ days: DAYS, onPage: (page, found, note) => console.log(`  page ${page}: ${found} wallets${note ? ` (${note})` : ""}`) });
+console.log(previous ? `Refreshing ${accounts.length} wallets from the current board` : `${accounts.length} wallets added CLMM liquidity in the last ${DAYS} days`);
 const prices = await getPrices();
 
 const wallets = [];
@@ -42,6 +49,6 @@ for (const [i, account] of accounts.entries()) {
 }
 
 await mkdir(new URL('./', FILE), { recursive: true });
-await writeFile(FILE, `${JSON.stringify({ version: 1, generatedAt: Date.now(), days: DAYS, wallets })}\n`);
+await writeFile(FILE, `${JSON.stringify({ version: 1, generatedAt: Date.now(), days, wallets })}\n`);
 console.log(`Wrote ${wallets.length} wallets to public/smart-lp/board.json`);
 process.exit(0);

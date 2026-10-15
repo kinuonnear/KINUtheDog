@@ -2819,33 +2819,6 @@ a.trades__row:hover {
   font-size: 11px;
 }
 
-.range-bar {
-  position: relative;
-  height: 28px;
-  border-radius: 8px;
-  background: var(--surface-2);
-  overflow: hidden;
-}
-
-.range-bar__band {
-  position: absolute;
-  top: 6px;
-  bottom: 6px;
-  border-radius: 4px;
-  background: linear-gradient(90deg, rgba(184, 255, 61, 0.25), rgba(61, 220, 151, 0.25));
-  border: 1px solid rgba(184, 255, 61, 0.5);
-}
-
-.range-bar__now {
-  position: absolute;
-  top: 2px;
-  bottom: 2px;
-  width: 2px;
-  margin-left: -1px;
-  background: var(--text);
-  box-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
-}
-
 .dcl-positions {
   display: flex;
   flex-direction: column;
@@ -11726,7 +11699,7 @@ a.pair-tiers__row:hover {
 }
 
 /* CLMM price range as a diagram (LP profiles). */
-.range-bar {
+.lp-range {
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -11734,14 +11707,14 @@ a.pair-tiers__row:hover {
   max-width: 190px;
 }
 
-.range-bar__labels {
+.lp-range__labels {
   position: relative;
   height: 13px;
   font-family: var(--mono);
   font-size: 10px;
 }
 
-.range-bar__labels b {
+.lp-range__labels b {
   position: absolute;
   top: 0;
   color: var(--text);
@@ -11750,38 +11723,38 @@ a.pair-tiers__row:hover {
   transform: translateX(-50%);
 }
 
-.range-bar__labels b:first-child {
+.lp-range__labels b:first-child {
   transform: translateX(-30%);
 }
 
-.range-bar__labels b:last-child {
+.lp-range__labels b:last-child {
   transform: translateX(-70%);
 }
 
-.range-bar__track {
+.lp-range__track {
   position: relative;
   height: 4px;
   border-radius: 999px;
   background: var(--surface-3);
 }
 
-.range-bar__track i {
+.lp-range__track i {
   position: absolute;
   top: 0;
   height: 100%;
 }
 
-.range-bar__fill {
+.lp-range__fill {
   border-radius: 999px;
   background: var(--accent);
   opacity: 0.85;
 }
 
-.range-bar--out .range-bar__fill {
+.lp-range--out .lp-range__fill {
   background: var(--warn);
 }
 
-.range-bar__end {
+.lp-range__end {
   top: -3px !important;
   width: 8px;
   height: 10px !important;
@@ -11790,7 +11763,7 @@ a.pair-tiers__row:hover {
   background: var(--sky);
 }
 
-.range-bar__now {
+.lp-range__now {
   top: -4px !important;
   width: 3px;
   height: 12px !important;
@@ -11800,12 +11773,12 @@ a.pair-tiers__row:hover {
   box-shadow: 0 0 6px rgba(255, 212, 71, 0.7);
 }
 
-.range-bar__labels--edges b:first-child {
+.lp-range__labels--edges b:first-child {
   left: 0 !important;
   transform: none;
 }
 
-.range-bar__labels--edges b:last-child {
+.lp-range__labels--edges b:last-child {
   right: 0;
   left: auto !important;
   transform: none;
@@ -12166,7 +12139,7 @@ a.pair-tiers__row:hover {
 }
 
 /* Range labels: a wrapping row (min left, max right) — long prices never touch. */
-.range-bar__labels--edges {
+.lp-range__labels--edges {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
@@ -12174,7 +12147,7 @@ a.pair-tiers__row:hover {
   height: auto;
 }
 
-.range-bar__labels--edges b {
+.lp-range__labels--edges b {
   position: static;
 }
 
@@ -12240,4 +12213,82 @@ a.pair-tiers__row:hover {
   border-color: var(--border-strong);
   background: var(--surface-2);
   color: var(--accent);
+}
+
+/* Range diagram: labels clear of the handles, handles at the track ends (under the labels). */
+.lp-range {
+  gap: 8px;
+}
+
+.lp-range__track {
+  margin: 0 5px;
+}
+
+/* Profile positions on mobile: the range across the full width under the pair, then the numbers
+   in even pairs (Age | Invested, Value | Total fee, uPnL | Pool APR). */
+@media (max-width: 1080px) {
+  .lpp .lp-table .lp-row > * {
+    order: 2;
+  }
+
+  .lpp .lp-table .lp-row > .lp-row__pool {
+    order: 0;
+  }
+
+  .lpp .lp-table .lp-row > .lp-row__range {
+    order: 1;
+    grid-column: 1 / -1;
+  }
+
+  .lpp .lp-table .lp-row > .lp-row__actions {
+    order: 3;
+  }
+
+  .lpp .lp-range {
+    max-width: none;
+  }
+}
+
+@media (max-width: 1080px) {
+  /* The Total row has no age / range / APR / action: no empty cells between its numbers. */
+  .lp-row--total > span:empty {
+    display: none;
+  }
+}
+
+@media (max-width: 700px) {
+  /* Long fee amounts wrap instead of pushing the page wider than the screen. */
+  .lpp-sum__pill--fees {
+    height: auto;
+    min-height: 50px;
+    padding: 8px 14px;
+  }
+
+  .lpp-sum__side {
+    min-width: 0;
+  }
+
+  .lpp-sum__split {
+    min-width: 0;
+  }
+
+  .lpp-sum__legend {
+    flex-wrap: wrap;
+    gap: 2px 10px;
+    white-space: normal;
+  }
+}
+
+/* Token amounts under the range status (profiles: the Value column keeps only the USD value). */
+.lp-row__amounts {
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
+}
+
+.lp-row__amounts {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

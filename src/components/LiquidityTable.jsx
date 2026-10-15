@@ -52,6 +52,9 @@ function perf(positions, open) {
   };
 }
 
+// Token amounts under the range diagram: K / M from 10,000 up, so they stay on one line.
+const K = { compactAbove: 1e4 };
+
 const placeholder = (loading) => (loading ? <Spinner size={12} /> : <span className="muted">—</span>);
 
 function AgeCell({ p, loading }) {
@@ -239,7 +242,12 @@ export default function LiquidityTable({ classicRows, dclRows, depositUsd, readO
                 <span className="lp-row__range" data-label="Price range">
                   {rangeBar && !g.summary.fullRange ? <RangeBar summary={g.summary} /> : <RangeText summary={g.summary} x={g.x} y={g.y} />}
                   {rangeBar ? (
-                    <RangeStatus summary={g.summary} />
+                    <>
+                      <RangeStatus summary={g.summary} />
+                      <small className="lp-row__amounts">
+                        {formatAmount(g.summary.amountX, K)} {g.x.symbol} + {formatAmount(g.summary.amountY, K)} {g.y.symbol}
+                      </small>
+                    </>
                   ) : (
                     <span className={`range-badge ${g.summary.inRange ? 'range-badge--in' : ''}`}>{g.summary.inRange ? 'In range' : 'Out of range'}</span>
                   )}
@@ -248,7 +256,7 @@ export default function LiquidityTable({ classicRows, dclRows, depositUsd, readO
                   p={p}
                   loading={histLoading}
                   value={g.summary.usd}
-                  amounts={`${formatAmount(g.summary.amountX)} ${g.x.symbol} + ${formatAmount(g.summary.amountY)} ${g.y.symbol}`}
+                  amounts={rangeBar ? null : `${formatAmount(g.summary.amountX)} ${g.x.symbol} + ${formatAmount(g.summary.amountY)} ${g.y.symbol}`}
                 />
                 <span data-label="Pool APR">{apr(g.poolId)}</span>
                 <span className="lp-row__actions">
@@ -291,12 +299,17 @@ export default function LiquidityTable({ classicRows, dclRows, depositUsd, readO
                       <AgeCell p={dp} loading={histLoading} />
                       <span className="lp-row__range" data-label="Price range">
                         {rangeBar && !ds.fullRange ? <RangeBar summary={ds} /> : <RangeText summary={ds} x={g.x} y={g.y} />}
+                        {rangeBar && (
+                          <small className="lp-row__amounts">
+                            {formatAmount(ds.amountX, K)} {g.x.symbol} + {formatAmount(ds.amountY, K)} {g.y.symbol}
+                          </small>
+                        )}
                       </span>
                       <PerfCells
                         p={dp}
                         loading={histLoading}
                         value={ds.usd}
-                        amounts={`${formatAmount(ds.amountX)} ${g.x.symbol} + ${formatAmount(ds.amountY)} ${g.y.symbol}`}
+                        amounts={rangeBar ? null : `${formatAmount(ds.amountX)} ${g.x.symbol} + ${formatAmount(ds.amountY)} ${g.y.symbol}`}
                       />
                       <span />
                       <span className="lp-row__actions">

@@ -85,21 +85,23 @@ export function RangeBar({ summary }) {
   const now = Number.isFinite(price) && price > 0 ? price : null;
   const from = Math.min(lo, now ?? lo);
   const to = Math.max(hi, now ?? hi);
-  const pad = (to - from) * 0.12;
+  // The range fills the track (its ends sit right under the min / max labels); a price outside it
+  // gets a little room past the end.
+  const pad = now !== null && (now < lo || now > hi) ? (to - from) * 0.06 : 0;
   const at = (v) => ((v - (from - pad)) / (to - from + 2 * pad)) * 100;
   const inside = now !== null && now >= lo && now <= hi;
   return (
-    <span className={`range-bar ${inside ? 'range-bar--in' : 'range-bar--out'}`} title={now !== null ? `Price now ${formatAmount(now)}` : undefined}>
+    <span className={`lp-range ${inside ? 'lp-range--in' : 'lp-range--out'}`} title={now !== null ? `Price now ${formatAmount(now)}` : undefined}>
       {/* Min and max at the track's edges: long prices never overlap or run out of the cell. */}
-      <span className="range-bar__labels range-bar__labels--edges">
+      <span className="lp-range__labels lp-range__labels--edges">
         <b style={{ left: `${at(lo)}%` }}>{formatAmount(lo)}</b>
         <b style={{ left: `${at(hi)}%` }}>{formatAmount(hi)}</b>
       </span>
-      <span className="range-bar__track">
-        <i className="range-bar__fill" style={{ left: `${at(lo)}%`, width: `${at(hi) - at(lo)}%` }} />
-        <i className="range-bar__end" style={{ left: `${at(lo)}%` }} />
-        <i className="range-bar__end" style={{ left: `${at(hi)}%` }} />
-        {now !== null && <i className="range-bar__now" style={{ left: `${at(now)}%` }} />}
+      <span className="lp-range__track">
+        <i className="lp-range__fill" style={{ left: `${at(lo)}%`, width: `${at(hi) - at(lo)}%` }} />
+        <i className="lp-range__end" style={{ left: `${at(lo)}%` }} />
+        <i className="lp-range__end" style={{ left: `${at(hi)}%` }} />
+        {now !== null && <i className="lp-range__now" style={{ left: `${at(now)}%` }} />}
       </span>
     </span>
   );

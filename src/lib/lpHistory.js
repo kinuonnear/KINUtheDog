@@ -72,12 +72,14 @@ const FALLBACK_PAGES = 2; // 400 most recent signed transactions
 /**
  * Fallback when NearBlocks is rate-limited: the account's recent signed transactions from
  * FastNEAR. That list carries no receiver or method, so every new one is read (fetchEvents
- * keeps only DCL liquidity events); it never claims the history is complete.
+ * keeps only DCL liquidity events). It counts as complete only when it reached the account's first
+ * signed transaction (a small wallet's whole history fits in its pages).
  */
 async function listViaFastnear(account, cache) {
   const seen = new Set(cache.seen);
   const fresh = [];
   let resume = null;
+  let reachedEnd = false;
   for (let page = 0; page < FALLBACK_PAGES; page += 1) {
     const json = await fetchJson(
       FASTNEAR_ACCOUNT,
@@ -97,10 +99,14 @@ async function listViaFastnear(account, cache) {
       }
       fresh.push({ hash: t.transaction_hash, relevant: t.is_success !== false });
     }
-    if (caughtUp || !json.resume_token || txs.length < 200) break;
+    if (caughtUp) break;
+    if (!json.resume_token || txs.length < 200) {
+      reachedEnd = true;
+      break;
+    }
     resume = json.resume_token;
   }
-  return { fresh, complete: cache.complete };
+  return { fresh, complete: cache.complete || reachedEnd };
 }
 
 /** New successful liquidity transactions (newest first) not in `seen`; FastNEAR if NearBlocks is busy. */
