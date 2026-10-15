@@ -16,7 +16,7 @@ import { lpShareCard } from '../lib/shareCard.js';
 import ShareButton from './ShareCard.jsx';
 import { ENDPOINTS } from '../config.js';
 
-const UP = '#b8ff3d';
+const UP = '#22e283';
 const DOWN = '#ff5d6c';
 
 /**
@@ -115,7 +115,7 @@ export function ProfitChart({ days, mode, range, short = false }) {
       data.map((d) => ({
         time: d.time,
         value: d.value,
-        color: d.value >= 0 ? 'rgba(184,255,61,0.75)' : 'rgba(255,93,108,0.75)'
+        color: d.value >= 0 ? 'rgba(34,226,131,0.75)' : 'rgba(255,93,108,0.75)'
       }))
     );
     const line = chart.addSeries(LineSeries, {

@@ -1,0 +1,110 @@
+/* ── App theme: the landing palette on every app page ────────────────────────────────────
+   The app's colour variables, re-pointed once for the whole app shell: blue-black page and
+   cards, ivory where the app used lime, and clear signals (green up, yellow moving, red down).
+   Page files (home.css, pools.css, create.css, …) only add what is particular to a page. */
+
+html:has(.shell),
+body:has(.shell) {
+  background: #03050a;
+}
+
+.shell {
+  --bg: #03050a;
+  --bg-glow: #070b14;
+  --surface: #080b12;
+  --surface-2: #0c1018;
+  --surface-3: #111622;
+  --border: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.13);
+  --text: #f2f3ee;
+  --muted: #9a9a94;
+  --faint: #6b6b65;
+  --accent: #f2f3ee;
+  --accent-hover: #ffffff;
+  --accent-ink: #0a0c0f;
+  --accent-soft: rgba(255, 255, 255, 0.08);
+  --mint: #5fe3a1;
+  --sky: #4aa3ff;
+  --danger: #ff6b6b;
+  --danger-soft: rgba(255, 107, 107, 0.1);
+  --warn: #ffd447;
+  --up: #5fe3a1;
+  background: var(--bg);
+}
+
+/* Signals */
+.shell .up {
+  color: var(--up);
+}
+
+.shell .down {
+  color: var(--danger);
+}
+
+/* Buys vs sells bar (Swap): buys in bright green */
+.shell .token-flow__bar span {
+  background: var(--up);
+}
+
+/* Pool-type badges: neutral, CLMM green */
+.shell .kind {
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.shell .kind--clmm {
+  color: #7ff0b5;
+  background: rgba(95, 227, 161, 0.12);
+}
+
+.shell .kind--mine,
+.shell .kind--mine-partial {
+  color: #7ff0b5;
+  background: rgba(95, 227, 161, 0.12);
+}
+
+.shell .kind--mine-out {
+  color: var(--warn);
+  background: rgba(255, 212, 71, 0.1);
+}
+
+.shell .kind--nofee {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+/* 24h move: calm white, moving yellow, volatile red */
+.shell .swing--low {
+  color: #ffffff;
+}
+
+.shell .swing--mid {
+  color: var(--warn);
+}
+
+.shell .swing--high {
+  color: var(--danger);
+}
+
+/* Fees and APR read as earnings */
+.shell .dt-apr,
+.shell .dt-fees {
+  color: var(--up);
+}
+
+/* Page titles across the app: the headline face */
+.shell .main h1 {
+  font-family: 'Inter Tight', var(--font);
+  letter-spacing: -0.035em;
+}
+
+/* Links inside docs and long text: ivory like the text, so they get a quiet underline */
+.shell .docs-content a {
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.35);
+  text-underline-offset: 3px;
+}
+
+.shell .docs-content a:hover {
+  text-decoration-color: currentColor;
+}

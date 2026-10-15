@@ -15,6 +15,8 @@ import { formatPercent, formatUsd } from '../lib/format.js';
 import { PairIcons, Spinner } from '../components/ui.jsx';
 import { usePoolTokens } from './Pools.jsx';
 import { AgentBot } from '../components/AgentBot.jsx';
+import { FlowLines } from '../components/FlowLines.jsx';
+import '../agent.css';
 
 const SCAN_MS = 90_000;
 const FEED_MAX = 40;
@@ -310,6 +312,7 @@ export default function Agent() {
   return (
     <div className="page page--agent">
       <header className="ag-hero">
+        <FlowLines />
         <div>
           <span className="ag-badge">
             <i className="ag-pulse" aria-hidden /> Live · beta

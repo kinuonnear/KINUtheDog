@@ -26,6 +26,8 @@ import {
 } from '../lib/createPool.js';
 import { formatAmount, formatUsd } from '../lib/format.js';
 import { CONTRACTS, NATIVE_NEAR } from '../config.js';
+import { FlowLines } from '../components/FlowLines.jsx';
+import '../create.css';
 
 /** Pools are made of NEP-141 tokens: native NEAR is used as wNEAR. */
 const poolToken = (token) => (token?.native || token?.id === NATIVE_NEAR.id ? { ...token, id: CONTRACTS.wrapNear, native: false } : token);
@@ -524,9 +526,10 @@ function CreateHome() {
   return (
     <>
       <section className="forge-hero">
-        <span className="forge-kicker">// POOL FACTORY · BUILT ON RHEA · NEAR</span>
+        <FlowLines />
+        <span className="forge-kicker">Pool factory · Built on Rhea</span>
         <h1 className="forge-title">Create</h1>
-        <p>Forge a new market on NEAR — deployed straight to Rhea.</p>
+        <p>Open a new market on NEAR, deployed straight to Rhea.</p>
       </section>
       <div className="forge-types">
         {TYPES.map((t) => (
@@ -576,7 +579,7 @@ export default function CreatePool() {
         <Link to="/create-pool" className="link-button">
           ← Create
         </Link>
-        <span className="forge-kicker">// {type === 'clmm' ? 'CONCENTRATED LIQUIDITY · RHEA DCL' : 'FULL RANGE · RHEA CLASSIC'}</span>
+        <span className="forge-kicker">{type === 'clmm' ? 'Concentrated liquidity · Rhea CLMM' : 'Full range · Rhea classic'}</span>
         <h1>{type === 'classic' ? 'Create classic pool' : 'Create CLMM pool'}</h1>
       </header>
       {type === 'clmm' ? <CreateClmm /> : <CreateClassic />}

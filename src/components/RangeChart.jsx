@@ -19,7 +19,7 @@ import { drawAll, hitTest, TOOLS } from './chart/drawings.js';
 import { DrawingToolbar, ToolIcon, useDrawingKeys } from './chart/DrawingTools.jsx';
 import { Spinner, TokenIcon } from './ui.jsx';
 
-const UP = '#b8ff3d';
+const UP = '#22e283';
 const DOWN = '#ff5d6c';
 const MAX_BIN_LINES = 80;
 
@@ -335,7 +335,7 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
     if (indicators.includes('volume')) {
       const vol = chart.addSeries(HistogramSeries, { priceFormat: { type: 'volume' }, priceScaleId: 'volume', lastValueVisible: false, priceLineVisible: false });
       chart.priceScale('volume').applyOptions({ scaleMargins: { top: 0.84, bottom: 0 } });
-      vol.setData(data.map((c) => ({ time: c.time, value: c.volume || 0, color: c.close >= c.open ? 'rgba(184,255,61,0.25)' : 'rgba(255,93,108,0.25)' })));
+      vol.setData(data.map((c) => ({ time: c.time, value: c.volume || 0, color: c.close >= c.open ? 'rgba(34,226,131,0.25)' : 'rgba(255,93,108,0.25)' })));
     }
     // Indicators never drive the price scale (e.g. a Bollinger band can go negative after a spike).
     const lineOpts = (color) => ({

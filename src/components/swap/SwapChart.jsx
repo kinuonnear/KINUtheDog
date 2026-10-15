@@ -14,7 +14,7 @@ import { formatChartPrice, formatUsd } from '../../lib/format.js';
 import { attachDrawings, DrawingToolbar, useDrawingKeys } from '../chart/DrawingTools.jsx';
 import { Spinner } from '../ui.jsx';
 
-const UP = '#b8ff3d';
+const UP = '#22e283';
 const DOWN = '#ff5d6c';
 const REFRESH_MS = 60_000;
 
@@ -132,7 +132,7 @@ export default function SwapChart({ token, counter, pools, height }) {
     const volume = chart.addSeries(HistogramSeries, { priceFormat: { type: 'volume' }, priceScaleId: 'volume', lastValueVisible: false, priceLineVisible: false });
     chart.priceScale('volume').applyOptions({ scaleMargins: { top: 0.84, bottom: 0 } });
     series.setData(scaled.map(({ time, open, high, low, close }) => ({ time, open, high, low, close })));
-    volume.setData(scaled.map((c) => ({ time: c.time, value: c.volume, color: c.close >= c.open ? 'rgba(184,255,61,0.28)' : 'rgba(255,93,108,0.28)' })));
+    volume.setData(scaled.map((c) => ({ time: c.time, value: c.volume, color: c.close >= c.open ? 'rgba(34,226,131,0.28)' : 'rgba(255,93,108,0.28)' })));
     liveBarRef.current = { series, bar: scaled[scaled.length - 1], line: false };
 
     // High / Low of the loaded range, as on Jupiter.

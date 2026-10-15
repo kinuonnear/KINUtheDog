@@ -1,26 +1,7 @@
-/* ── Pools (/pools), in the landing palette ─────────────────────────────────────────────
-   The app's colour variables are re-pointed for this page only (the shell gets .shell--pools):
-   blue-black page and cards, ivory where the app used lime, green only for positive numbers. */
+/* ── Pools (/pools): what is particular to this page; the palette itself is in theme.css ── */
 
 .shell--pools {
-  --bg: #03050a;
-  --surface: #080b12;
-  --surface-2: #0c1018;
-  --surface-3: #111622;
-  --border: rgba(255, 255, 255, 0.07);
-  --border-strong: rgba(255, 255, 255, 0.13);
-  --text: #f2f3ee;
-  --muted: #9a9a94;
-  --faint: #6b6b65;
-  --accent: #f2f3ee;
-  --accent-hover: #ffffff;
-  --accent-ink: #0a0c0f;
-  --accent-soft: rgba(255, 255, 255, 0.08);
-  --mint: #5fe3a1;
-  --warn: #ffd447;
-  --danger: #ff6b6b;
-  --pl-up: #5fe3a1;
-  background: var(--bg);
+  --pl-up: var(--up);
 }
 
 .shell--pools .page--pools {

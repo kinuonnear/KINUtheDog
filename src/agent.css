@@ -1,0 +1,164 @@
+/* ── KINU Agent (/agent): what is particular to this page; palette in theme.css ──────────
+   The agent's scanning colour is the bright green (radar, wins, "worth it" calls); the
+   rest follows the app: ivory for what is selected, blue-black glass. */
+
+.shell .page--agent::before {
+  background:
+    radial-gradient(ellipse 40% 55% at 25% 40%, rgba(214, 238, 222, 0.06), transparent 70%),
+    radial-gradient(ellipse 40% 50% at 75% 30%, rgba(56, 88, 164, 0.12), transparent 70%);
+}
+
+/* Header */
+.shell .ag-hero h1 {
+  font-family: 'Inter Tight', var(--font);
+  font-weight: 600;
+  letter-spacing: -0.045em;
+  background: linear-gradient(180deg, #f2f3ee 35%, #a3a39c);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+.shell .ag-badge {
+  border-color: rgba(95, 227, 161, 0.4);
+  background: rgba(95, 227, 161, 0.1);
+  color: var(--up);
+}
+
+.shell .ag-pulse {
+  background: var(--up);
+}
+
+.shell .ag-method summary > span,
+.shell .ag-method summary::after {
+  color: var(--text);
+}
+
+/* Personas: ivory when chosen */
+.shell .ag-persona:hover {
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.shell .ag-persona--on {
+  box-shadow: 0 0 0 1px var(--accent), 0 0 30px rgba(255, 255, 255, 0.05);
+}
+
+.shell .ag-persona__icon {
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.shell .ag-persona small {
+  color: var(--muted);
+}
+
+/* Calls: "worth it" in green */
+.shell .ag-call--up {
+  --ag-tone: var(--up);
+}
+
+.shell .ag-verdict--hold,
+.shell .ag-verdict--enter,
+.shell .ag-verdict--compound {
+  color: var(--up);
+}
+
+/* The robot: ivory bandana, green eyes (as on the landing page) */
+.shell .ag-bot {
+  filter: drop-shadow(0 0 22px rgba(95, 227, 161, 0.16));
+}
+
+.shell .ag-bot stop[stop-color='#b8ff3d'] {
+  stop-color: #f2f3ee;
+}
+
+.shell .ag-bot stop[stop-color='#3ddc97'] {
+  stop-color: #9d9b94;
+}
+
+.shell .ag-bot [fill='#b8ff3d'] {
+  fill: var(--up);
+}
+
+.shell .ag-bot [fill='#3ddc97'] {
+  fill: #9d9b94;
+}
+
+.shell .ag-bot [stroke='rgba(184,255,61,0.35)'] {
+  stroke: rgba(255, 255, 255, 0.22);
+}
+
+/* Radar: bright green */
+.shell .ag-radar__screen {
+  border-color: rgba(95, 227, 161, 0.35);
+  background:
+    linear-gradient(rgba(95, 227, 161, 0.14), rgba(95, 227, 161, 0.14)) center / 1px 100% no-repeat,
+    linear-gradient(90deg, rgba(95, 227, 161, 0.14), rgba(95, 227, 161, 0.14)) center / 100% 1px no-repeat,
+    repeating-radial-gradient(circle, transparent 0 calc(25% - 1px), rgba(95, 227, 161, 0.16) calc(25% - 1px) 25%),
+    radial-gradient(circle, rgba(95, 227, 161, 0.08), #04060b 72%);
+  box-shadow:
+    inset 0 0 30px rgba(0, 0, 0, 0.8),
+    0 0 30px rgba(95, 227, 161, 0.1);
+}
+
+.shell .ag-radar__sweep {
+  background: conic-gradient(from 0deg, transparent 0deg 285deg, rgba(95, 227, 161, 0.12) 320deg, rgba(95, 227, 161, 0.55) 360deg);
+}
+
+.shell .ag-radar__core,
+.shell .ag-radar__blip--win {
+  background: var(--up);
+  box-shadow: 0 0 10px var(--up);
+}
+
+.shell .ag-radar__legend .win {
+  background: var(--up);
+}
+
+.shell .ag-hero__note a:hover {
+  color: #ffffff;
+}
+
+/* Header: flow lines in the open space between the text and the robot */
+.shell .ag-hero {
+  position: relative;
+  isolation: isolate;
+}
+
+.shell .ag-hero .lx-flow {
+  top: -150px;
+  left: 0;
+  width: 100%;
+  height: 460px;
+  transform: none;
+  -webkit-mask-image: radial-gradient(ellipse 22% 50% at 56% 50%, #000 30%, transparent 85%);
+  mask-image: radial-gradient(ellipse 22% 50% at 56% 50%, #000 30%, transparent 85%);
+}
+
+@media (max-width: 720px) {
+  .shell .ag-hero .lx-flow {
+    display: none;
+  }
+}
+
+/* Activity feed: kept in its original colours (the app palette does not touch it) */
+.shell .ag-log time {
+  color: #5b6678;
+}
+
+.shell .ag-log span {
+  color: #8a96a8;
+}
+
+.shell .ag-log--scan span {
+  color: #5ec8ff;
+}
+
+.shell .ag-feed__note {
+  color: #5b6678;
+}
+
+/* Right panel scrollbar: white */
+@media (min-width: 1001px) {
+  .shell .ag-feed {
+    scrollbar-color: rgba(255, 255, 255, 0.55) transparent;
+  }
+}

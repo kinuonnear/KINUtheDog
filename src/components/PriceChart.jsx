@@ -8,7 +8,7 @@ import { Link } from '../router.jsx';
 import { attachDrawings, DrawingToolbar, useDrawingKeys } from './chart/DrawingTools.jsx';
 import { CopyButton, Spinner, TokenIcon } from './ui.jsx';
 
-const UP = '#b8ff3d';
+const UP = '#22e283';
 const DOWN = '#ff5d6c';
 const LIVE_REFRESH_MS = 15_000;
 
@@ -134,7 +134,7 @@ export default function PriceChart({ tokenIn, tokenOut, side, onSideChange }) {
     const toVolume = (c) => ({
       time: c.time,
       value: c.volume,
-      color: c.close >= c.open ? 'rgba(184,255,61,0.28)' : 'rgba(255,93,108,0.28)'
+      color: c.close >= c.open ? 'rgba(34,226,131,0.28)' : 'rgba(255,93,108,0.28)'
     });
     series.setData(scaled.map(({ time, open, high, low, close }) => ({ time, open, high, low, close })));
     volume.setData(scaled.map(toVolume));

@@ -16,7 +16,7 @@ export const FIB_LEVELS = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
 const FIB_COLORS = ['#8a96a8', '#ff5d6c', '#ffb547', '#3ddc97', '#5ec8ff', '#c792ff', '#8a96a8'];
 
 const LINE = '#5ec8ff';
-const SELECTED = '#b8ff3d';
+const SELECTED = '#f2f3ee';
 
 function label(ctx, text, x, y, { bg = 'rgba(13,18,16,0.92)', fg = '#e6edf5', align = 'left' } = {}) {
   ctx.font = '11px "JetBrains Mono", ui-monospace, monospace';
@@ -78,17 +78,17 @@ export function drawAll(ctx, drawings, geo, selectedId) {
     if (d.type === 'rect' || d.type === 'measure') {
       const [a, b] = pts;
       const up = b.price >= a.price;
-      const fill = d.type === 'measure' ? (up ? 'rgba(184,255,61,0.12)' : 'rgba(255,93,108,0.12)') : 'rgba(94,200,255,0.10)';
+      const fill = d.type === 'measure' ? (up ? 'rgba(34,226,131,0.12)' : 'rgba(255,93,108,0.12)') : 'rgba(94,200,255,0.10)';
       ctx.fillStyle = fill;
       ctx.fillRect(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.abs(b.x - a.x), Math.abs(b.y - a.y));
-      ctx.strokeStyle = d.type === 'measure' ? (up ? '#b8ff3d' : '#ff5d6c') : color;
+      ctx.strokeStyle = d.type === 'measure' ? (up ? '#22e283' : '#ff5d6c') : color;
       ctx.strokeRect(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.abs(b.x - a.x), Math.abs(b.y - a.y));
       if (d.type === 'measure') {
         const diff = b.price - a.price;
         const pct = a.price ? (diff / a.price) * 100 : 0;
         const bars = geo.barsBetween ? geo.barsBetween(a.time, b.time) : null;
         const text = `${diff >= 0 ? '+' : ''}${geo.formatPrice(diff)} (${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%)${bars !== null ? ` · ${bars} bars` : ''}`;
-        label(ctx, text, (a.x + b.x) / 2, Math.min(a.y, b.y) - 14, { align: 'center', bg: up ? '#b8ff3d' : '#ff5d6c', fg: '#0b1204' });
+        label(ctx, text, (a.x + b.x) / 2, Math.min(a.y, b.y) - 14, { align: 'center', bg: up ? '#22e283' : '#ff5d6c', fg: '#0b1204' });
       }
       if (selected) [a, b].forEach((p) => handle(ctx, p.x, p.y));
     }

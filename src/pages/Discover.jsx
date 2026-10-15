@@ -17,19 +17,21 @@ import AprValue from '../components/AprValue.jsx';
 import LiveFeed from '../components/LiveFeed.jsx';
 import SmartLpBoard from '../components/SmartLp.jsx';
 import SmartMoneyIn from '../components/SmartMoney.jsx';
+import { FlowLines } from '../components/FlowLines.jsx';
+import '../discover.css';
 
 // KINU is a liquidity platform: where to earn as an LP comes first. Each tab has a small
-// animated emoji (styles.css .disc-ico--*; still when the visitor prefers reduced motion).
+// monochrome glyph (styles in discover.css).
 const TABS = [
-  { key: 'lp', label: 'Top Yields', icon: '💰', anim: 'coin' },
-  { key: 'smartlp', label: 'Smart LP', icon: '🧠', anim: 'rise', badge: 'New' },
-  { key: 'smartmoney', label: 'Smart Money In', icon: '💸', anim: 'coin', badge: 'New' },
-  { key: 'hot', label: 'Hot pairs', icon: '🔥', anim: 'fire' },
-  { key: 'trending', label: 'Trending', icon: '📈', anim: 'rise' },
-  { key: 'gainers', label: 'Gainers', icon: '🚀', anim: 'rocket' },
-  { key: 'new', label: 'New launches', icon: '✨', anim: 'sparkle' },
+  { key: 'lp', label: 'Top Yields', icon: '%', anim: 'still' },
+  { key: 'smartlp', label: 'Smart LP', icon: '◎', anim: 'still', badge: 'New' },
+  { key: 'smartmoney', label: 'Smart Money In', icon: '◆', anim: 'still', badge: 'New' },
+  { key: 'hot', label: 'Hot pairs', icon: '≋', anim: 'still' },
+  { key: 'trending', label: 'Trending', icon: '↗', anim: 'still' },
+  { key: 'gainers', label: 'Gainers', icon: '⇡', anim: 'still' },
+  { key: 'new', label: 'New launches', icon: '✦', anim: 'still' },
   { key: 'feed', label: 'Live feed', icon: null, anim: 'live' },
-  { key: 'watchlist', label: 'Watchlist', icon: '⭐', anim: 'star' }
+  { key: 'watchlist', label: 'Watchlist', icon: '☆', anim: 'still' }
 ];
 
 function TabLabel({ tab }) {
@@ -56,9 +58,9 @@ const TITLES = {
   feed: ['Live ', 'feed', ''],
   hot: ['Hot pairs on ', 'Rhea', ''],
   gainers: ['Top gainers on ', 'Rhea', ''],
-  lp: ['Manage ', 'Liquidity', ', Made Simple.'],
+  lp: ['Top ', 'yields', ' on Rhea'],
   smartlp: ['Smart ', 'LP', ' on Rhea'],
-  smartmoney: ['Smart Money ', 'In', ''],
+  smartmoney: ['Smart money ', 'in', ''],
   new: ['New on ', 'Rhea', ''],
   watchlist: ['Your ', 'watchlist', '']
 };
@@ -492,8 +494,7 @@ export default function Discover({ defaultTab = 'lp' }) {
   return (
     <div className="page new-page disc-page">
       <section className="disc-banner">
-        <div className="disc-banner__img" aria-hidden="true" />
-        <div className="disc-banner__shade" aria-hidden="true" />
+        <FlowLines />
         <header className="page-head disc-banner__head" key={tab}>
           <span className="eyebrow">Discover</span>
           <h1>

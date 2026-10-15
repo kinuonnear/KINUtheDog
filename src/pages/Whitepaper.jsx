@@ -37,7 +37,7 @@ function Table({ head, rows }) {
 
 const FLOW = [
   ['User', 'opens kinudefi.com'],
-  ['KINU Terminal', 'reads prices, pools and history from NEAR RPC, Rhea, Intear, Nearly'],
+  ['KINU app', 'reads prices, pools and history from NEAR RPC, Rhea, Intear, Nearly'],
   ['Transaction guard', 'checks every transaction before the wallet opens'],
   ['User’s wallet', 'Meteor · Intear · HOT · MyNearWallet — the user signs'],
   ['Rhea contracts', 'v2.ref-finance · dclv2.ref-labs · aggregatedex']
@@ -54,7 +54,7 @@ export const WHITEPAPER = (
       pools, and new tokens with copied names appear every day.
     </p>
     <p>
-      <strong>KINU DeFi</strong> is a web terminal, live at <code>kinudefi.com</code>, built on top of Rhea’s contracts. It
+      <strong>KINU DeFi</strong> is a web app, live at <code>kinudefi.com</code>, built on top of Rhea’s contracts. It
       compares routes before every swap, opens CLMM positions from a single token (<strong>Zap In</strong>), moves liquidity
       back around the price in one request (<strong>Rebalance</strong>), and reports honest profit and loss for tokens and LP
       positions. Every transaction is checked before the user’s own wallet is asked to sign it.
@@ -84,7 +84,7 @@ export const WHITEPAPER = (
       </li>
     </ul>
 
-    <h3>2. The KINU Terminal</h3>
+    <h3>2. The KINU app</h3>
     <Table
       head={['Feature', 'What it does', 'Status']}
       rows={[
@@ -135,9 +135,9 @@ export const WHITEPAPER = (
       ]}
     />
     <p>
-      $KINU is the community token and the terminal’s flagship pair. It does <strong>not</strong> grant any claim on revenue,
+      $KINU is the community token and the app’s flagship pair. It does <strong>not</strong> grant any claim on revenue,
       governance rights or yield. Ideas under discussion <Proposed />: no platform fee on $KINU swaps, holder perks in the
-      terminal, and a KINU/RHEA LP leaderboard.
+      app, and a KINU/RHEA LP leaderboard.
     </p>
 
     <h3>6. Revenue &amp; treasury</h3>
@@ -182,7 +182,7 @@ export const WHITEPAPER = (
     <h3>7. Governance &amp; transparency</h3>
     <ul>
       <li>The $KINU contract, the creator account and the treasury are public and can be checked on any NEAR explorer.</li>
-      <li>The terminal’s source code is public; reviews and fixes are summarized on the security page.</li>
+      <li>KINU’s source code is public; reviews and fixes are summarized on the security page.</li>
       <li>Fee changes, treasury decisions and new features are announced on @KINUonNEAR and reflected in these docs.</li>
       <li>
         A treasury page showing balances and fee income from the chain <Proposed />.

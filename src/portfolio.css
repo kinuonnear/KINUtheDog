@@ -1,0 +1,76 @@
+/* ── Portfolio (/portfolio): what is particular to this page; palette in theme.css ─────── */
+
+.shell .page--portfolio {
+  --pf-line: rgba(255, 255, 255, 0.07);
+  --pf-line-strong: rgba(255, 255, 255, 0.12);
+  --pf-glass: linear-gradient(180deg, #0a0d15, #05070c);
+  --pf-label: #9a9a94;
+}
+
+/* Light behind the header: ivory and a little blue, no lime */
+.shell .page--portfolio::before {
+  background:
+    radial-gradient(ellipse 45% 55% at 25% 40%, rgba(214, 238, 222, 0.06), transparent 70%),
+    radial-gradient(ellipse 40% 50% at 75% 30%, rgba(56, 88, 164, 0.12), transparent 70%);
+}
+
+/* Account name: the headline face */
+.shell .page--portfolio .page-head h1 {
+  font-family: 'Inter Tight', var(--font);
+  font-weight: 600;
+  letter-spacing: -0.04em;
+}
+
+/* Net worth card and the account gate: ivory light instead of lime */
+.shell .net-worth,
+.shell .page--portfolio .net-worth {
+  background:
+    radial-gradient(500px 240px at 0% 0%, rgba(214, 238, 222, 0.05), transparent 70%),
+    var(--pf-glass, var(--surface));
+}
+
+.shell .page--portfolio .net-worth::before {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+}
+
+.shell .portfolio-gate {
+  background:
+    radial-gradient(400px 200px at 100% 0%, rgba(214, 238, 222, 0.06), transparent 70%),
+    var(--surface);
+}
+
+.shell .page--portfolio .hist-row:not(.hist-row--head):hover {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.015) 60%, transparent);
+}
+
+/* Position range bar: the current price marker in bright green */
+.shell .pos-dist__bar--cur {
+  background: var(--up);
+}
+
+.shell .share-card__x-hint {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+/* Header: flow lines across the open space between the account name and the buttons */
+.shell .pf-head {
+  position: relative;
+}
+
+.shell .pf-head .lx-flow {
+  top: -150px;
+  left: 0;
+  width: 100%;
+  height: 380px;
+  transform: none;
+  -webkit-mask-image: radial-gradient(ellipse 34% 55% at 58% 55%, #000 30%, transparent 80%);
+  mask-image: radial-gradient(ellipse 34% 55% at 58% 55%, #000 30%, transparent 80%);
+}
+
+@media (max-width: 720px) {
+  .shell .pf-head .lx-flow {
+    opacity: 0.6;
+    -webkit-mask-image: radial-gradient(ellipse 50% 40% at 85% 60%, #000 30%, transparent 80%);
+    mask-image: radial-gradient(ellipse 50% 40% at 85% 60%, #000 30%, transparent 80%);
+  }
+}

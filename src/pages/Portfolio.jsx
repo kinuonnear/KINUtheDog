@@ -16,6 +16,8 @@ import { tokenShareCard } from '../lib/shareCard.js';
 import ShareButton from '../components/ShareCard.jsx';
 import DustSweeper from '../components/DustSweeper.jsx';
 import { EmptyState, ErrorNotice, Skeleton, Spinner, Stat, Tabs, TokenIcon } from '../components/ui.jsx';
+import { FlowLines } from '../components/FlowLines.jsx';
+import '../portfolio.css';
 
 const DUST_USD = 0.01;
 const ALLOCATION_COLORS = ['#b8ff3d', '#3ddc97', '#5ec8ff', '#ffb547', '#c792ff', '#5a6470'];
@@ -277,7 +279,8 @@ export default function Portfolio() {
 
   return (
     <div className="page page--portfolio">
-      <header className="page-head page-head--split">
+      <header className="page-head page-head--split pf-head">
+        <FlowLines />
         <div>
           <span className="eyebrow">Portfolio{readOnly ? ' · read-only' : ''}</span>
           <h1 className="account-title">

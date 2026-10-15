@@ -71,7 +71,7 @@ export default function Security() {
         <span className="eyebrow">Security &amp; transparency</span>
         <h1>Safe by design, open by default.</h1>
         <p>
-          What $KINU is, how the KINU Terminal protects every transaction, what was audited, and the risks that remain — in
+          What $KINU is, how KINU protects every transaction, what was audited, and the risks that remain — in
           plain words.
         </p>
       </header>
@@ -100,7 +100,7 @@ export default function Security() {
       <section className="sec-grid">
         <div className="card sec-section">
           <h2>How every transaction is protected</h2>
-          <p className="muted">Before your wallet ever opens, the terminal checks what it is about to ask you to sign.</p>
+          <p className="muted">Before your wallet ever opens, KINU checks what it is about to ask you to sign.</p>
           <ul className="sec-checks">
             {GUARD.map(([title, text]) => (
               <li key={title}>
@@ -148,7 +148,7 @@ export default function Security() {
           ))}
         </div>
         <p className="muted small">
-          This is an internal review of the KINU Terminal front-end, not a third-party audit of Rhea Finance or NEAR contracts.
+          This is an internal review of the KINU front-end, not a third-party audit of Rhea Finance or NEAR contracts.
         </p>
       </section>
 
@@ -166,7 +166,7 @@ export default function Security() {
               before it receives any platform income.
             </p>
           )}
-          <p className="muted small">The terminal charges no platform fee today. Any future fee will be shown before you sign.</p>
+          <p className="muted small">KINU charges no platform fee today. Any future fee will be shown before you sign.</p>
         </div>
         <div className="card sec-section">
           <h2>Report a problem</h2>

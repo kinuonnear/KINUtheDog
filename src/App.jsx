@@ -12,6 +12,7 @@ import Home from './pages/Home.jsx';
 import Pools from './pages/Pools.jsx';
 import MoreMenu from './components/MoreMenu.jsx';
 import RangeAlerts from './components/RangeAlerts.jsx';
+import './theme.css';
 import './topbar.css';
 
 // The landing pages (Welcome, Home, Pools) ship in the main bundle; every other page loads its own

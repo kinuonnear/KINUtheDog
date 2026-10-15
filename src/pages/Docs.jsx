@@ -50,18 +50,18 @@ const DOCS = [
     group: 'Start here',
     slug: 'whitepaper',
     title: 'Whitepaper',
-    summary: 'KINU DeFi: the terminal, the $KINU token, revenue and roadmap.',
+    summary: 'KINU DeFi: the app, the $KINU token, revenue and roadmap.',
     body: WHITEPAPER
   },
   {
     group: 'Start here',
     slug: 'introduction',
     title: 'Introduction',
-    summary: 'What the KINU Terminal is and what you can do with it.',
+    summary: 'What KINU is and what you can do with it.',
     body: (
       <>
         <p>
-          The <strong>KINU Terminal</strong> is a non-custodial DeFi app on NEAR, built by the KINU community on top of{' '}
+          The <strong>KINU app</strong> is a non-custodial DeFi app on NEAR, built by the KINU community on top of{' '}
           <strong>Rhea Finance</strong> liquidity, with market data from <strong>Intear</strong>: Swap &amp; Add Liquidity, made simple — all in one place.
         </p>
         <Terms
@@ -90,7 +90,7 @@ const DOCS = [
         <Steps
           items={[
             <>
-              <strong>Get a NEAR wallet.</strong> The terminal supports Meteor, Intear, HOT and MyNearWallet.
+              <strong>Get a NEAR wallet.</strong> KINU supports Meteor, Intear, HOT and MyNearWallet.
             </>,
             <>
               <strong>Keep some NEAR for fees.</strong> Every transaction costs a little gas, and the first time you use a
@@ -140,7 +140,7 @@ const DOCS = [
         />
         <p>Quick buttons fill <strong>25% · 50% · 80% · 100%</strong> of your balance. With NEAR, a small amount is kept for gas.</p>
         <Note kind="warn" title="Unverified tokens">
-          Anyone can create a token called “USDC”. The terminal warns you when a token is not on Rhea’s whitelist — always
+          Anyone can create a token called “USDC”. KINU warns you when a token is not on Rhea’s whitelist — always
           check the contract address.
         </Note>
         <h3>Funds waiting in the swap router</h3>
@@ -231,14 +231,14 @@ const DOCS = [
             </>,
             <>
               <strong>Enter amounts</strong> — the other side fills in automatically — or <strong>zap in</strong> with a
-              single token and let the terminal swap the right share for you.
+              single token and let KINU swap the right share for you.
             </>,
             <>Review the cost breakdown and confirm in your wallet.</>
           ]}
         />
         <h3>Deposits that land</h3>
         <p>
-          The terminal watches the <strong>live pool price</strong> while you fill in the form and sizes minimum amounts from
+          KINU watches the <strong>live pool price</strong> while you fill in the form and sizes minimum amounts from
           your slippage. If the price moves beyond your slippage, an <strong>Accept new price</strong> button appears so you
           can confirm the updated amounts instead of sending a deposit that would fail.
         </p>
@@ -264,14 +264,14 @@ const DOCS = [
         />
         <p>
           Amounts are sized from minimums, so a small remainder may stay in your wallet. If the swap would move the pool price
-          more than your slippage, or the pool can’t fill it, the terminal stops before anything is signed and tells you why.
+          more than your slippage, or the pool can’t fill it, KINU stops before anything is signed and tells you why.
         </p>
         <Note kind="warn" title="Impermanent loss">
           Providing liquidity can be worth less than simply holding the two tokens when prices move. Fees can make up for it
           — or not.
         </Note>
         <Note title="Whitelist-only pools">
-          Some Rhea pools only accept liquidity from approved accounts. The terminal tells you before you try.
+          Some Rhea pools only accept liquidity from approved accounts. KINU tells you before you try.
         </Note>
       </>
     )
@@ -425,7 +425,7 @@ const DOCS = [
     summary: 'How every transaction is protected.',
     body: (
       <>
-        <p>Before your wallet opens, the terminal checks every transaction it is about to ask you to sign:</p>
+        <p>Before your wallet opens, KINU checks every transaction it is about to ask you to sign:</p>
         <ul>
           <li>Only Rhea’s contracts and the exact methods KINU uses are allowed.</li>
           <li>Tokens can only be sent into Rhea — never to any other account.</li>
@@ -450,7 +450,7 @@ const DOCS = [
           items={[
             ['My transaction failed — where are my tokens?', 'Failed swaps and deposits are refunded by Rhea. If tokens landed inside Rhea instead of your wallet, open Portfolio → Rhea deposits and withdraw them. A router notice on the Swap page means the same for swaps.'],
             ['Why do I pay a storage fee?', 'NEAR charges storage for each token account you hold. It is paid once per token (usually 0.00125 NEAR) and is shown in the cost breakdown.'],
-            ['Why does a deposit attach so much gas?', 'Since Rhea’s October 2026 upgrade a CLMM deposit uses about 420–430 TGas; the terminal attaches 600 TGas so it never runs out. You only pay for the gas used (about 0.04 NEAR) — the rest is refunded.'],
+            ['Why does a deposit attach so much gas?', 'Since Rhea’s October 2026 upgrade a CLMM deposit uses about 420–430 TGas; KINU attaches 600 TGas so it never runs out. You only pay for the gas used (about 0.04 NEAR) — the rest is refunded.'],
             ['The price moved while I was depositing.', 'Use Accept new price to confirm updated amounts, or widen your slippage in ⚙.'],
             ['Does KINU charge a fee?', 'No platform fee today. Pool fees go to liquidity providers. Any future fee will be shown before you sign.'],
             ['Why APR and not APY?', 'APR is the last 24h of fees annualised without compounding (fees ÷ TVL × 365). Rhea labels the same number “APY”, but it is not compounded — so KINU calls it APR. A ≈ in front means KINU estimated it because Rhea gives none for that pool.'],
@@ -472,17 +472,17 @@ const DOCS = [
     group: 'Legal',
     slug: 'terms',
     title: 'Terms of Service',
-    summary: 'The terms for using the KINU Terminal. Last updated 14 October 2026.',
+    summary: 'The terms for using KINU. Last updated 14 October 2026.',
     body: (
       <>
         <p>
-          These terms apply to your use of the KINU Terminal at kinudefi.com (the “Terminal”). By using the Terminal you agree to
+          These terms apply to your use of the KINU app at kinudefi.com (the “App”). By using the App you agree to
           them. If you do not agree, do not use it.
         </p>
 
-        <h3>1. What the Terminal is</h3>
+        <h3>1. What the App is</h3>
         <p>
-          The Terminal is a free, non-custodial interface to public smart contracts on the NEAR blockchain — mainly the pools of{' '}
+          The App is a free, non-custodial interface to public smart contracts on the NEAR blockchain — mainly the pools of{' '}
           <strong>Rhea Finance</strong>. KINU does not operate those contracts, does not run an exchange and does not hold, move or
           control your funds. Every transaction is built in your browser, shown in your own wallet, and only happens if you sign it
           there.
@@ -496,9 +496,9 @@ const DOCS = [
 
         <h3>3. No advice</h3>
         <p>
-          Nothing on the Terminal — prices, APRs, yields, rankings such as Top Yields, Trending or Hot pairs, or any other content — is
+          Nothing on the App — prices, APRs, yields, rankings such as Top Yields, Trending or Hot pairs, or any other content — is
           financial, investment, legal or tax advice, or a recommendation to buy, sell or provide liquidity for any token. A token or
-          pool appearing on the Terminal is not an endorsement. Do your own research.
+          pool appearing on the App is not an endorsement. Do your own research.
         </p>
 
         <h3>4. Risks</h3>
@@ -508,7 +508,7 @@ const DOCS = [
             ['Impermanent loss', 'Liquidity you provide changes in value as prices move, and can be worth less than simply holding the tokens.'],
             ['Concentrated liquidity', 'A CLMM range stops earning fees when the price leaves it, and then holds only one of the two tokens.'],
             ['Volatile tokens', 'New and small tokens can lose most of their value quickly, have thin liquidity, or be abandoned by their creators.'],
-            ['Token taxes', 'Some tokens (e.g. launched on Nearly) charge a transfer tax on buys and sells; the Terminal accounts for known taxes but cannot guarantee them.'],
+            ['Token taxes', 'Some tokens (e.g. launched on Nearly) charge a transfer tax on buys and sells; the App accounts for known taxes but cannot guarantee them.'],
             ['Smart contracts', 'Contracts can contain bugs or be upgraded by their operators; KINU does not control or audit third-party contracts.'],
             ['APR and yield', 'APRs are estimates from past fees (often a single day) and are not a promise of future returns.'],
             ['Network', 'Transactions can fail, be delayed or cost gas; wallets and RPC services can be unavailable or rate-limited.']
@@ -530,21 +530,21 @@ const DOCS = [
 
         <h3>7. Acceptable use</h3>
         <p>
-          You may not use the Terminal in breach of any law that applies to you, including sanctions, or to interfere with the
-          Terminal or other users. You are responsible for knowing whether using DeFi is allowed where you live, and for any taxes
+          You may not use the App in breach of any law that applies to you, including sanctions, or to interfere with the
+          App or other users. You are responsible for knowing whether using DeFi is allowed where you live, and for any taxes
           you owe.
         </p>
 
         <h3>8. No warranty and limitation of liability</h3>
         <p>
-          The Terminal is provided “as is” and “as available”, without warranties of any kind. To the fullest extent permitted by law,
-          the KINU contributors are not liable for any loss or damage arising from your use of the Terminal, the blockchain, third-party
+          The App is provided “as is” and “as available”, without warranties of any kind. To the fullest extent permitted by law,
+          the KINU contributors are not liable for any loss or damage arising from your use of the App, the blockchain, third-party
           contracts or third-party data.
         </p>
 
         <h3>9. Changes</h3>
         <p>
-          These terms may be updated; the date above shows the latest version. Continuing to use the Terminal after a change means you
+          These terms may be updated; the date above shows the latest version. Continuing to use the App after a change means you
           accept the updated terms.
         </p>
 

@@ -1,0 +1,88 @@
+/* ── Create pool (/create-pool): what is particular to this page; palette in theme.css ── */
+
+/* Header: a soft ivory and blue light over the faint grid, ivory-silver title */
+.shell .forge-hero::before {
+  background:
+    radial-gradient(ellipse 50% 70% at 50% 40%, rgba(214, 238, 222, 0.07), transparent 70%),
+    radial-gradient(ellipse 40% 60% at 70% 30%, rgba(56, 88, 164, 0.12), transparent 70%),
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px) 0 0 / 32px 32px,
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px) 0 0 / 32px 32px;
+}
+
+.shell .forge-kicker {
+  color: var(--muted);
+}
+
+.shell .forge-title {
+  font-family: 'Inter Tight', var(--font);
+  font-weight: 600;
+  letter-spacing: -0.045em;
+  background: linear-gradient(180deg, #f2f3ee 35%, #a3a39c);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+/* The two pool types: CLMM green, Classic blue */
+.shell .forge-type--clmm {
+  --forge-tone: var(--up);
+}
+
+.shell .forge-type--classic {
+  --forge-tone: var(--sky);
+}
+
+/* Steps, inputs and fee tiers: ivory focus, green when done */
+.shell .forge-track li.active {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.shell .forge-track li.done b {
+  color: var(--up);
+}
+
+.shell .forge-track li.done::after {
+  background: var(--up);
+}
+
+.shell .forge-head__index {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.shell .forge-token:hover,
+.shell .forge-tier:not(:disabled):hover {
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.shell .forge-tier--active {
+  box-shadow: 0 0 0 1px var(--accent), 0 0 24px rgba(255, 255, 255, 0.06);
+}
+
+.shell .forge-cta:not(:disabled) {
+  box-shadow: none;
+}
+
+/* The pool spec panel: green for what is ready */
+.shell .forge-spec__status--ok {
+  color: var(--up);
+  box-shadow: none;
+}
+
+.shell .forge-spec__lines dd.ok {
+  color: var(--up);
+}
+
+/* Header: flow lines on both sides of the centred title, fading out before the text */
+.shell .forge-hero {
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.shell .forge-hero .lx-flow {
+  top: -160px;
+  left: 0;
+  width: 100%;
+  height: 520px;
+  transform: none;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 12%, transparent 34%, transparent 66%, #000 88%, transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0%, #000 12%, transparent 34%, transparent 66%, #000 88%, transparent 100%);
+}
