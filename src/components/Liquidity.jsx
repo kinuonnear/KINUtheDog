@@ -86,16 +86,36 @@ export function useWrapAmount(tokenIds, raws) {
   return maxBig(0n, toBigInt(raws[index]) - toBigInt(balances[CONTRACTS.wrapNear] || '0')).toString();
 }
 
-export function AmountField({ token, value, onChange, spendable, onMax, disabled, note }) {
-  const { accountId } = useApp();
+/**
+ * One token amount. `onPercent(fraction)` (optional) adds 25 / 50 / 75 / MAX above the input, as on CLMM
+ * pools; they show without a wallet too and ask to connect one first.
+ */
+export function AmountField({ token, value, onChange, spendable, onMax, onPercent, disabled, note }) {
+  const { accountId, connect } = useApp();
   return (
     <div className={`swap-field ${disabled ? 'swap-field--disabled' : ''}`}>
       <div className="swap-field__top">
         <span>
           {token?.symbol}
           {note && <small className="muted"> · {note}</small>}
+          {onPercent && accountId && spendable !== undefined && (
+            <small className="muted"> · Balance {formatRawAmount(spendable.toString(), token?.decimals ?? 0)}</small>
+          )}
         </span>
-        {accountId && spendable !== undefined && (
+        {onPercent && !disabled ? (
+          <span className="amount-row__pcts">
+            {[0.25, 0.5, 0.75, 1].map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => (accountId ? onPercent(f) : connect())}
+                title={accountId ? undefined : 'Connect a wallet to use your balance'}
+              >
+                {f === 1 ? 'MAX' : `${f * 100}%`}
+              </button>
+            ))}
+          </span>
+        ) : accountId && spendable !== undefined && (
           <span className="swap-field__balance">
             Balance {formatRawAmount(spendable.toString(), token?.decimals ?? 0)}
             {onMax && !disabled && (
@@ -194,10 +214,10 @@ function AmmAdd({ pool, tokens, onDone }) {
     );
   };
 
-  const setMax = (index) => {
+  const setMax = (index, fraction = 1) => {
     if (pool.tokenIds.length !== 2) return;
     const other = 1 - index;
-    let amount = spendable[index];
+    let amount = (spendable[index] * BigInt(Math.round(fraction * 100))) / 100n;
     if (toBigInt(pairedAmount(pool, index, other, amount.toString())) > spendable[other]) {
       amount = toBigInt(pairedAmount(pool, other, index, spendable[other].toString()));
     }
@@ -230,13 +250,16 @@ function AmmAdd({ pool, tokens, onDone }) {
   return (
     <div className="liq-form">
       {pool.tokenIds.length === 2 && (
-        <div className="segmented liq-mode">
-          <button type="button" className={!zapMode ? 'active' : ''} onClick={() => setZapMode(false)}>
-            Both tokens
-          </button>
-          <button type="button" className={zapMode ? 'active' : ''} onClick={() => setZapMode(true)}>
-            ⚡ Zap in
-          </button>
+        <div className="create-pos__head">
+          <h3>Amount</h3>
+          <div className="segmented">
+            <button type="button" className={!zapMode ? 'active' : ''} onClick={() => setZapMode(false)}>
+              Dual tokens
+            </button>
+            <button type="button" className={zapMode ? 'active' : ''} onClick={() => setZapMode(true)}>
+              ⚡ Zap in
+            </button>
+          </div>
         </div>
       )}
       {zapMode ? (
@@ -252,6 +275,7 @@ function AmmAdd({ pool, tokens, onDone }) {
           onChange={(text) => setAmount(i, text)}
           spendable={spendable[i]}
           onMax={() => setMax(i)}
+          onPercent={pool.tokenIds.length === 2 ? (f) => setMax(i, f) : undefined}
           note={id === CONTRACTS.wrapNear ? 'NEAR auto-wraps' : null}
         />
       ))}

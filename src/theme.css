@@ -108,3 +108,24 @@ body:has(.shell) {
 .shell .docs-content a:hover {
   text-decoration-color: currentColor;
 }
+
+/* Pool page: the add form flashes when "New position" / "Add" points to it */
+.shell .is-flash {
+  animation: kinu-flash 1.2s ease-out;
+}
+
+@keyframes kinu-flash {
+  0%,
+  35% {
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.55), 0 0 40px rgba(95, 227, 161, 0.18);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell .is-flash {
+    animation: none;
+  }
+}

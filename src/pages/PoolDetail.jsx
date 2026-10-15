@@ -327,7 +327,20 @@ function DclPool({ poolId, initialTab }) {
   };
   // A wallet that finished a request after reporting it closed or failed (state.jsx follow-up).
   useChainUpdates(refresh);
-  const scrollToForm = () => document.getElementById('new-position')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // On wide screens the form is already in view in the side panel, so scrolling alone shows nothing:
+  // the form also flashes, and (from a button, on desktop) its first amount field takes the focus.
+  const scrollToForm = ({ focus = false } = {}) => {
+    const form = document.getElementById('new-position');
+    if (!form) return;
+    form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    form.classList.remove('is-flash');
+    void form.offsetWidth; // restart the animation
+    form.classList.add('is-flash');
+    setTimeout(() => form.classList.remove('is-flash'), 1300);
+    if (focus && window.matchMedia('(min-width: 1081px)').matches) {
+      setTimeout(() => form.querySelector('input:not([disabled])')?.focus({ preventScroll: true }), 350);
+    }
+  };
 
   // Deep link from the portfolio "Add" button: /pools/<id>?tab=add
   useEffect(() => {
@@ -384,7 +397,7 @@ function DclPool({ poolId, initialTab }) {
           [y, totalY, usdY]
         ]}
         positions={shownPositions}
-        onAdd={scrollToForm}
+        onAdd={() => scrollToForm({ focus: true })}
         onDone={refresh}
       />
       <MobileAddCta targetId="new-position" />

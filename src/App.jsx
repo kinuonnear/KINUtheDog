@@ -198,10 +198,14 @@ export default function App() {
   return (
     <div className={`shell ${appView ? 'shell--app' : ''} ${route.name === 'app' ? 'shell--home' : ''} ${route.name === 'pools' ? 'shell--pools' : ''}`}>
       <header className="topbar">
-        <Link to="/app" className="brand" aria-label="KINU home">
-          <img src="/site/kinu-emblem.svg" alt="" width="30" height="30" />
-          <span>KINU</span>
-        </Link>
+        {/* Brand and wallet share one row: on phones only this row stays pinned (topbar.css). */}
+        <div className="topbar__bar">
+          <Link to="/app" className="brand" aria-label="KINU home">
+            <img src="/site/kinu-emblem.svg" alt="" width="30" height="30" />
+            <span>KINU</span>
+          </Link>
+          <AccountMenu />
+        </div>
         <nav className="nav">
           {NAV.map((item) => (
             <Fragment key={item.to}>
@@ -219,7 +223,6 @@ export default function App() {
           <MoreMenu active={MORE_ROUTES.has(route.name)} />
         </nav>
         <GlobalSearch />
-        <AccountMenu />
       </header>
 
       <main className={FULL_WIDTH_ROUTES.has(route.name) ? 'main main--full' : 'main'}>
