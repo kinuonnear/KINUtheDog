@@ -472,7 +472,7 @@ const DOCS = [
     group: 'Legal',
     slug: 'terms',
     title: 'Terms of Service',
-    summary: 'The terms for using KINU. Last updated 14 October 2026.',
+    summary: 'The terms for using KINU. Last updated 15 October 2026.',
     body: (
       <>
         <p>
