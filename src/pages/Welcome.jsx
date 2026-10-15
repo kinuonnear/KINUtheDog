@@ -45,6 +45,29 @@ const START = [
 ];
 const WALLETS = ['Meteor', 'HOT', 'Intear', 'MyNEAR'];
 
+// Small line icons for the four security points.
+const svg = (children) => (
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    {children}
+  </svg>
+);
+const SAFETY_ICONS = [
+  svg(
+    <>
+      <circle cx="8" cy="15" r="4" />
+      <path d="M11 12l8-8M16 7l3 3M14 9l2 2" />
+    </>
+  ),
+  svg(<path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3zM9 12l2 2 4-4" />),
+  svg(<path d="M9 8l-4 4 4 4M15 8l4 4-4 4M13 6l-2 12" />),
+  svg(
+    <>
+      <circle cx="12" cy="12" r="8" />
+      <path d="M8 16L16 8" />
+    </>
+  )
+];
+
 const SAFETY = [
   ['Non-custodial', 'Your funds stay in your wallet. Nothing moves until you sign it.'],
   ['Transaction guard', 'Every request is checked before your wallet sees it: tokens only go to Rhea’s own contracts.'],
@@ -825,6 +848,7 @@ function AppPreview({ board }) {
 /* ------------------------------------------------------------------ */
 
 export default function Welcome() {
+  const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => {
     const root = document.documentElement;
     const before = root.style.scrollBehavior;
@@ -860,7 +884,7 @@ export default function Welcome() {
             <img src={EMBLEM} alt="" width="28" height="28" />
             <span>KINU</span>
           </a>
-          <div className="lx-nav__links">
+          <div className={`lx-nav__links${menuOpen ? ' is-open' : ''}`} onClick={() => setMenuOpen(false)}>
             <a href="#product">Product</a>
             <a href="#agent">Agent</a>
             <a href="#markets">Markets</a>
@@ -868,9 +892,20 @@ export default function Welcome() {
             <a href="#token">$KINU</a>
             <Link to="/docs">Docs</Link>
           </div>
-          <Link className="lx-btn lx-btn--primary lx-btn--sm" to={APP_PATH}>
-            Launch app
-          </Link>
+          <div className="lx-nav__end">
+            <Link className="lx-btn lx-btn--primary lx-btn--sm" to={APP_PATH}>
+              Launch app
+            </Link>
+            <button
+              type="button"
+              className="lx-nav__toggle"
+              aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen((o) => !o)}
+            >
+              <span aria-hidden="true">{menuOpen ? '×' : '☰'}</span>
+            </button>
+          </div>
         </nav>
       </header>
 
@@ -951,10 +986,10 @@ export default function Welcome() {
             </Link>
           </div>
           <div className="lx-safety">
-            {SAFETY.map(([title, text]) => (
+            {SAFETY.map(([title, text], i) => (
               <div key={title}>
                 <span className="lx-safety__icon" aria-hidden>
-                  ◆
+                  {SAFETY_ICONS[i]}
                 </span>
                 <h3>{title}</h3>
                 <p>{text}</p>
