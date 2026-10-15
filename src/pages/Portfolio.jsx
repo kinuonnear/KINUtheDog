@@ -52,6 +52,60 @@ async function loadPortfolio(account) {
   return { wallet, deposits, dclAssets, lostFound, aggregator, classic, dcl, tokens };
 }
 
+/** ⧉ copy the token contract · ↗ open it in the explorer (next to the contract id). */
+function ContractLinks({ id }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <span className="contract-links" onClick={(e) => e.stopPropagation()}>
+      <button
+        type="button"
+        className="contract-links__btn"
+        title={copied ? 'Copied' : 'Copy contract address'}
+        aria-label="Copy contract address"
+        onClick={async () => {
+          try {
+            await navigator.clipboard.writeText(id);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1400);
+          } catch {
+            // clipboard blocked
+          }
+        }}
+      >
+        {copied ? '✓' : '⧉'}
+      </button>
+      <a className="contract-links__btn" href={`${ENDPOINTS.explorer}/address/${encodeURIComponent(id)}`} target="_blank" rel="noopener noreferrer" title="Open in explorer" aria-label="Open in explorer">
+        ↗
+      </a>
+    </span>
+  );
+}
+
+/**
+ * The contract id under a token's symbol, with copy + explorer. Native NEAR has no contract:
+ * it gets a link to trade it on the Swap page instead.
+ */
+function ContractId({ id }) {
+  if (id === NATIVE_NEAR.id) {
+    return (
+      <small className="asset-row__id">
+        <span>Native</span>
+        <span className="contract-links">
+          <Link to={`/swap?from=${NATIVE_NEAR.id}`} className="contract-links__btn" title="Trade NEAR on Swap" aria-label="Trade NEAR on Swap">
+            ⇄
+          </Link>
+        </span>
+      </small>
+    );
+  }
+  return (
+    <small className="asset-row__id">
+      <span title={id}>{shortAccount(id, 14, 8)}</span>
+      <ContractLinks id={id} />
+    </small>
+  );
+}
+
 function AccountPrompt() {
   const { connect, walletReady } = useApp();
   const [value, setValue] = useState('');
@@ -331,7 +385,7 @@ export default function Portfolio() {
                   <TokenIcon token={r.token} size={32} />
                   <span>
                     <strong>{r.token.symbol}</strong>
-                    <small>{r.id === NATIVE_NEAR.id ? 'Native' : shortAccount(r.id, 14, 8)}</small>
+                    <ContractId id={r.id} />
                   </span>
                 </span>
                 <span data-label="Price" className="price-cell">
@@ -440,7 +494,7 @@ export default function Portfolio() {
                     <TokenIcon token={r.token} size={32} />
                     <span>
                       <strong>{r.token.symbol}</strong>
-                      <small>{shortAccount(r.id, 14, 8)}</small>
+                      <ContractId id={r.id} />
                     </span>
                   </span>
                   <span className="muted small">{DEPOSIT_SOURCES[r.source]}</span>
