@@ -62,14 +62,15 @@ function AgeCell({ p, loading }) {
 }
 
 /** Invested · Value · Fees · uPnL cells. */
-function PerfCells({ p, loading, value, amounts }) {
+function PerfCells({ p, loading, value, amounts, short = false }) {
   const dash = placeholder(loading);
+  const usd = (v) => formatUsd(v, short ? K : undefined);
   return (
     <>
       <span data-label="Invested">
         {p?.known ? (
           <>
-            {formatUsd(p.invested)}
+            {usd(p.invested)}
             {p.partial && (
               <small className="muted" title="Some positions predate the loaded history">
                 {' '}
@@ -82,20 +83,20 @@ function PerfCells({ p, loading, value, amounts }) {
         )}
       </span>
       <span className="lp-row__value" data-label="Value">
-        <strong>{formatUsd(value)}</strong>
+        <strong>{usd(value)}</strong>
         {amounts && <small className="muted">{amounts}</small>}
       </span>
       <span data-label="Total fee">
         {p ? (
           <span className="lp-fees">
-            <b className={p.fees > 0 ? 'up' : ''}>{formatUsd(p.fees)}</b>
-            {p.unclaimed > 0 && p.fees - p.unclaimed > 0.005 && <small className="muted">{formatUsd(p.unclaimed)} unclaimed</small>}
+            <b className={p.fees > 0 ? 'up' : ''}>{usd(p.fees)}</b>
+            {p.unclaimed > 0 && p.fees - p.unclaimed > 0.005 && <small className="muted">{usd(p.unclaimed)} unclaimed</small>}
           </span>
         ) : (
           dash
         )}
       </span>
-      <span data-label="uPnL">{p?.known ? <PnlValue value={p.pnl} pct={p.pnlPct} /> : dash}</span>
+      <span data-label="uPnL">{p?.known ? <PnlValue value={p.pnl} pct={p.pnlPct} short={short} /> : dash}</span>
     </>
   );
 }
@@ -103,9 +104,10 @@ function PerfCells({ p, loading, value, amounts }) {
 /**
  * `sortBy`: 'value' (largest first) or 'age' (newest CLMM position first); `showTotal` adds a Total
  * row under the positions (invested, value, fees, uPnL); `rangeBar` draws each price range as a
- * small diagram with the price now; `groupExtra(group)` adds to a CLMM pool's action cell.
+ * small diagram with the price now; `groupExtra(group)` adds to a CLMM pool's action cell; `short`
+ * shows amounts from $10K in K / M.
  */
-export default function LiquidityTable({ classicRows, dclRows, depositUsd, readOnly, history, onDone, sortBy = 'value', showTotal = false, rangeBar = false, groupExtra = null }) {
+export default function LiquidityTable({ classicRows, dclRows, depositUsd, readOnly, history, onDone, sortBy = 'value', showTotal = false, rangeBar = false, groupExtra = null, short = false }) {
   const { prices, accountId, execute } = useApp();
   const [claimingAll, setClaimingAll] = useState(false);
   const [expanded, setExpanded] = useState(() => new Set());
@@ -254,6 +256,7 @@ export default function LiquidityTable({ classicRows, dclRows, depositUsd, readO
                 </span>
                 <PerfCells
                   p={p}
+                  short={short}
                   loading={histLoading}
                   value={g.summary.usd}
                   amounts={rangeBar ? null : `${formatAmount(g.summary.amountX)} ${g.x.symbol} + ${formatAmount(g.summary.amountY)} ${g.y.symbol}`}
@@ -307,6 +310,7 @@ export default function LiquidityTable({ classicRows, dclRows, depositUsd, readO
                       </span>
                       <PerfCells
                         p={dp}
+                        short={short}
                         loading={histLoading}
                         value={ds.usd}
                         amounts={rangeBar ? null : `${formatAmount(ds.amountX)} ${g.x.symbol} + ${formatAmount(ds.amountY)} ${g.y.symbol}`}
@@ -396,7 +400,7 @@ export default function LiquidityTable({ classicRows, dclRows, depositUsd, readO
             </span>
             <span />
             <span />
-            <PerfCells p={total} loading={histLoading} value={poolsUsd} />
+            <PerfCells p={total} short={short} loading={histLoading} value={poolsUsd} />
             <span />
             <span />
           </div>

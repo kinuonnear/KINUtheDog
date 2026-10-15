@@ -6,7 +6,7 @@ import { useApp } from '../state.jsx';
 import { useAsync, useLocalStorage } from '../hooks.js';
 import { Link, navigate } from '../router.jsx';
 import { useLpWatchlist } from '../lib/watchlist.js';
-import { ACTIVE_WINDOWS, BOARD_URL, DEFAULT_FILTERS, FEE_CHECK_MIN, filterBoard, getKinuHolding, lpBadges, SMART_LP_MIN_KINU, SORTS, sortBoard } from '../lib/smartLp.js';
+import { ACTIVE_WINDOWS, BOARD_URL, DEFAULT_FILTERS, FEE_CHECK_MIN, filterBoard, getKinuHolding, isNearAccount, lpBadges, SMART_LP_MIN_KINU, SORTS, sortBoard } from '../lib/smartLp.js';
 import { formatAge as since, formatAmount, formatUsd, shortAccount } from '../lib/format.js';
 import { KINU_TOKEN, NATIVE_NEAR } from '../config.js';
 import { formatAge as duration } from '../lib/lpHistory.js';
@@ -284,16 +284,34 @@ function NumberFilter({ label, value, onChange, hint, placeholder = '' }) {
 
 function LookUp() {
   const [value, setValue] = useState('');
+  const [bad, setBad] = useState(false);
   return (
     <form
       className="slp-lookup"
       onSubmit={(e) => {
         e.preventDefault();
         const account = value.trim().toLowerCase();
-        if (account) navigate(lpPath(account));
+        if (!account) return;
+        if (!isNearAccount(account)) {
+          setBad(true);
+          return;
+        }
+        navigate(lpPath(account));
       }}
     >
-      <input value={value} onChange={(e) => setValue(e.target.value)} placeholder="Look up any wallet · account.near" spellCheck={false} aria-label="Look up an LP wallet" />
+      <input
+        value={value}
+        onChange={(e) => {
+          setValue(e.target.value);
+          setBad(false);
+        }}
+        placeholder="Look up any wallet · account.near"
+        spellCheck={false}
+        aria-label="Look up an LP wallet"
+        aria-invalid={bad}
+        className={bad ? 'slp-lookup__bad' : ''}
+        title={bad ? 'Not a NEAR account id (e.g. alex.near)' : undefined}
+      />
       <button type="submit" className="button button--ghost button--sm">
         View
       </button>

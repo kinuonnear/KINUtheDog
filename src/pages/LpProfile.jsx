@@ -8,7 +8,7 @@ import { useAsync } from '../hooks.js';
 import { getPoolRadar } from '../lib/poolRadar.js';
 import { judgeDclHolding } from '../lib/agent.js';
 import { Link, poolPath } from '../router.jsx';
-import { loadDclPositions, markDclRows } from '../lib/smartLp.js';
+import { isNearAccount, loadDclPositions, markDclRows } from '../lib/smartLp.js';
 import { formatAge as duration } from '../lib/lpHistory.js';
 import { formatUsd } from '../lib/format.js';
 import { ENDPOINTS } from '../config.js';
@@ -136,10 +136,12 @@ function Metric({ label, hint, children, busy, className = '' }) {
 export default function LpProfile({ account: raw }) {
   // NEAR account ids are lowercase: /lp/Alex.near is alex.near.
   const account = raw.trim().toLowerCase();
+  const valid = isNearAccount(account);
   const { prices } = useApp();
-  const positions = useAsync(() => loadDclPositions(account), [account], { refreshMs: 60_000 });
+  // Nothing is read for an id that can't be a NEAR account.
+  const positions = useAsync(() => loadDclPositions(account), [account], { refreshMs: 60_000, enabled: valid });
   const rows = useMemo(() => (positions.data ? markDclRows(positions.data.dcl, positions.data.tokens, prices) : null), [positions.data, prices]);
-  const history = useLpHistory(account, rows, prices);
+  const history = useLpHistory(valid ? account : null, rows, prices);
   const model = history.model;
   const s = model?.stats;
   const busy = !model;
@@ -148,6 +150,8 @@ export default function LpProfile({ account: raw }) {
   const [poolType, setPoolType] = useState('clmm');
   const link = `${window.location.origin}/lp/${encodeURIComponent(account)}`;
   const failed = (positions.error && !positions.data) || (history.error && !model);
+  // Read fine, but this wallet never provided CLMM liquidity on Rhea.
+  const inactive = Boolean(model && rows && model.stats.totalPositions === 0);
   // KINU Agent's call on each pool (same rules as /agent), with the pool's live activity.
   const radar = useAsync(getPoolRadar, []);
   const radarById = useMemo(() => new Map((radar.data || []).map((r) => [String(r.id), r])), [radar.data]);
@@ -193,7 +197,7 @@ export default function LpProfile({ account: raw }) {
             <HolderNote compact />
           </div>
         </div>
-        {busy && !failed && (
+        {valid && busy && !failed && (
           <span className="muted small lpp__loading">
             <Spinner size={12} /> Reading on-chain position history…
           </span>
@@ -205,7 +209,21 @@ export default function LpProfile({ account: raw }) {
         Classic AMM / Stable / ALMM pools are not included{model && !model.complete ? '; only the most recent 1,000 CLMM transactions are read' : ''}.
       </p>
 
-      {failed ? (
+      {!valid ? (
+        <div className="card">
+          <EmptyState icon="?" title="That isn't a NEAR account">
+            Account ids look like <b>alex.near</b>, a 64-character implicit id, or an 0x address. Check the link, or look the
+            wallet up from <Link to="/discover?tab=smartlp">Smart LP</Link>.
+          </EmptyState>
+        </div>
+      ) : inactive ? (
+        <div className="card">
+          <EmptyState icon="◎" title="No Rhea CLMM activity yet">
+            This wallet hasn&apos;t provided concentrated liquidity on Rhea (or not in its most recent transactions). Its other
+            assets are in its <Link to={`/portfolio?account=${encodeURIComponent(account)}`}>full portfolio</Link>.
+          </EmptyState>
+        </div>
+      ) : failed ? (
         <div className="card">
           <EmptyState
             title="Couldn't read this wallet right now"
@@ -240,16 +258,16 @@ export default function LpProfile({ account: raw }) {
               </div>
               <div className="lpp-dash__grid">
                 <Metric label="LP value now" busy={busy}>
-                  {s && formatUsd(s.openValue)}
+                  {s && short(s.openValue)}
                 </Metric>
                 <Metric label="Fees earned" busy={busy} className="up" hint="Claimed + still unclaimed">
-                  {s && formatUsd(s.fees)}
+                  {s && short(s.fees)}
                 </Metric>
                 <Metric label="Win rate" busy={busy} hint="Closed positions that made money (fees included)" className={s ? (s.winRate >= 70 ? 'up' : s.winRate !== null && s.winRate < 50 ? 'down' : '') : ''}>
                   {s && pct(s.winRate)}
                 </Metric>
                 <Metric label="Avg invested" busy={busy} hint="Average USD value put into a position">
-                  {s && (s.avgInvested === null ? '—' : formatUsd(s.avgInvested))}
+                  {s && (s.avgInvested === null ? '—' : short(s.avgInvested))}
                 </Metric>
                 <Metric label="Total positions" busy={busy}>
                   {s && (
@@ -301,7 +319,7 @@ export default function LpProfile({ account: raw }) {
                   <Spinner />
                 </div>
               ) : (
-                <ProfitChart days={model.days} mode={mode} range={range} />
+                <ProfitChart days={model.days} mode={mode} range={range} short />
               )}
             </div>
           </section>
@@ -324,7 +342,7 @@ export default function LpProfile({ account: raw }) {
           ) : (
             <>
               {rows ? (
-                <LiquidityTable classicRows={[]} dclRows={rows} depositUsd={0} readOnly history={history} sortBy="age" showTotal rangeBar groupExtra={groupExtra} />
+                <LiquidityTable classicRows={[]} dclRows={rows} depositUsd={0} readOnly history={history} sortBy="age" showTotal rangeBar groupExtra={groupExtra} short />
               ) : (
                 <div className="card">
                   <Skeleton height={60} />
@@ -332,7 +350,7 @@ export default function LpProfile({ account: raw }) {
               )}
 
               <h2 className="lpp__section">Historical positions</h2>
-              <ClosedPositions history={history} />
+              <ClosedPositions history={history} short />
             </>
           )}
         </>

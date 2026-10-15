@@ -41,13 +41,14 @@ export function useLpHistory(account, dclRows, prices) {
 
 const signed = (v) => (v > 0 ? 'up' : v < 0 ? 'down' : '');
 
-export function PnlValue({ value, pct, compact }) {
+/** `short`: K / M from $10K up ($37.45K) — for pages that show large wallets (Smart LP). */
+export function PnlValue({ value, pct, compact, short = false }) {
   if (value === null || value === undefined || !Number.isFinite(value)) return <span className="muted">—</span>;
   return (
     <span className={`pnl ${signed(value)}`}>
       <b>
         {value > 0 ? '+' : value < 0 ? '−' : ''}
-        {formatUsd(Math.abs(value))}
+        {formatUsd(Math.abs(value), short ? { compactAbove: 1e4 } : undefined)}
       </b>
       {pct !== null && pct !== undefined && Number.isFinite(pct) && (
         <small>
@@ -66,7 +67,7 @@ export const RANGES = [
   { key: 'all', label: 'All', days: Infinity }
 ];
 
-export function ProfitChart({ days, mode, range }) {
+export function ProfitChart({ days, mode, range, short = false }) {
   const ref = useRef(null);
   const data = useMemo(() => {
     const span = RANGES.find((r) => r.key === range)?.days ?? Infinity;
@@ -104,7 +105,7 @@ export function ProfitChart({ days, mode, range }) {
       handleScroll: false,
       handleScale: false,
       crosshair: { horzLine: { visible: false } },
-      localization: { priceFormatter: (v) => formatUsd(v) }
+      localization: { priceFormatter: (v) => formatUsd(v, short ? { compactAbove: 1e4 } : undefined) }
     });
     const bars = chart.addSeries(HistogramSeries, {
       priceLineVisible: false,
@@ -274,7 +275,8 @@ const dateFmt = new Intl.DateTimeFormat('en-US', {
   minute: '2-digit'
 });
 
-export function ClosedPositions({ history }) {
+export function ClosedPositions({ history, short = false }) {
+  const usd = (v) => formatUsd(v, short ? { compactAbove: 1e4 } : undefined);
   const { model, loading, error, reload } = history;
   if (error && !model) {
     return (
@@ -347,13 +349,13 @@ export function ClosedPositions({ history }) {
               {dateFmt.format(c.closedAt)}
             </span>
             <span data-label="Duration">{formatAge(c.closedAt - c.openedAt)}</span>
-            <span data-label="Invested">{formatUsd(c.investedUsd)}</span>
-            <span data-label="Withdrawn">{formatUsd(c.withdrawnUsd)}</span>
+            <span data-label="Invested">{usd(c.investedUsd)}</span>
+            <span data-label="Withdrawn">{usd(c.withdrawnUsd)}</span>
             <span data-label="Fees" className="up">
-              {formatUsd(c.feesUsd)}
+              {usd(c.feesUsd)}
             </span>
             <span data-label="PnL">
-              <PnlValue value={c.pnl} pct={c.pnlPct} />
+              <PnlValue value={c.pnl} pct={c.pnlPct} short={short} />
             </span>
             <span data-label="Explorer" className="hist-tx">
               {c.openHash && (

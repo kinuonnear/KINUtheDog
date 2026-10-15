@@ -14,6 +14,16 @@ import { CONTRACTS, KINU_TOKEN } from '../config.js';
 export const BOARD_URL = '/smart-lp/board.json';
 
 /**
+ * A NEAR account id: named (2–64 chars, parts of a–z 0–9 joined by - or _, separated by dots),
+ * implicit (64 hex) or an ETH-implicit 0x address.
+ */
+export function isNearAccount(id) {
+  if (!id || id.length < 2 || id.length > 64) return false;
+  if (/^[0-9a-f]{64}$/.test(id) || /^0x[0-9a-f]{40}$/.test(id)) return true;
+  return /^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/.test(id);
+}
+
+/**
  * Smart LP is free during launch; it will become a holder feature for wallets with at least this
  * much KINU (in the wallet or in KINU liquidity). The bar is meant to come down step by step.
  */

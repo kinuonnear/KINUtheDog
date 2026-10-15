@@ -12292,3 +12292,7 @@ a.pair-tiers__row:hover {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+.slp-lookup input.slp-lookup__bad {
+  border-color: rgba(255, 93, 108, 0.6);
+}
