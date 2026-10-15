@@ -25,12 +25,13 @@ const Docs = lazy(() => import('./pages/Docs.jsx'));
 const Discover = lazy(() => import('./pages/Discover.jsx'));
 const Token = lazy(() => import('./pages/Token.jsx'));
 const Agent = lazy(() => import('./pages/Agent.jsx'));
+const LpProfile = lazy(() => import('./pages/LpProfile.jsx'));
 
 // Liquidity first: Pools (and Create) right after Home. Docs and the rest live under More.
 const NAV = [
   { to: '/app', label: 'Home', match: ['app'] },
   { to: '/pools', label: 'Pools', match: ['pools', 'pool', 'starter'] },
-  { to: '/discover', label: 'Discover', match: ['discover', 'new', 'token'] },
+  { to: '/discover', label: 'Discover', match: ['discover', 'new', 'token', 'lp'] },
   { to: '/swap', label: 'Swap', match: ['swap'] },
   { to: '/portfolio', label: 'Portfolio', match: ['portfolio'] },
   { to: '/agent', label: 'Agent', match: ['agent'] }
@@ -39,7 +40,7 @@ const MORE_ROUTES = new Set(['docs', 'security']);
 
 // Trading screens use the full window width (like Meteora / Intear). CLMM pool
 // pages are an app-style workspace that fills the viewport, so they have no footer.
-const FULL_WIDTH_ROUTES = new Set(['app', 'pool', 'pools', 'swap', 'portfolio', 'new', 'discover', 'token', 'agent']);
+const FULL_WIDTH_ROUTES = new Set(['app', 'pool', 'pools', 'swap', 'portfolio', 'new', 'discover', 'token', 'agent', 'lp']);
 
 const TITLES = {
   home: 'KINU × RHEA — The Dog That Follows the Flow',
@@ -55,6 +56,7 @@ const TITLES = {
   new: 'New on Rhea · KINU',
   discover: 'Discover · KINU',
   token: 'Token · KINU',
+  lp: 'LP wallet · Smart LP · KINU',
   notfound: 'Not found · KINU'
 };
 
@@ -157,6 +159,9 @@ export default function App() {
       break;
     case 'discover':
       page = <Discover />;
+      break;
+    case 'lp':
+      page = <LpProfile key={route.params[0]} account={route.params[0]} />;
       break;
     case 'token':
       page = <Token key={route.params[0]} id={route.params[0]} />;

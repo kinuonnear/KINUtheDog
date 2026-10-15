@@ -6,8 +6,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createChart, HistogramSeries, LineSeries } from 'lightweight-charts';
 import { useAsync } from '../hooks.js';
 import { Link, poolPath } from '../router.jsx';
-import { asPoolToken, getTokens, priceOf } from '../lib/tokens.js';
-import { buildHistory, formatAge, loadDclEvents, loadPriceHistory } from '../lib/lpHistory.js';
+import { priceOf } from '../lib/tokens.js';
+import { buildHistory, formatAge, loadPriceHistory } from '../lib/lpHistory.js';
+import { buildLpModel, loadLpHistory } from '../lib/lpStats.js';
 import { pointToPrice } from '../lib/dclLiquidity.js';
 import { formatAmount, formatPercent, formatUsd, toNumber } from '../lib/format.js';
 import { EmptyState, PairIcons, Skeleton, Spinner } from './ui.jsx';
@@ -18,116 +19,16 @@ import { ENDPOINTS } from '../config.js';
 const UP = '#b8ff3d';
 const DOWN = '#ff5d6c';
 
-async function loadHistory(account) {
-  const { events, complete } = await loadDclEvents(account);
-  const tokenIds = [...new Set(events.flatMap((e) => e.pool.split('|').slice(0, 2)))];
-  const since = events.length ? events[0].ts : Date.now();
-  const [tokens, priceHistory] = await Promise.all([getTokens(tokenIds), loadPriceHistory(tokenIds, since)]);
-  return { events, complete, tokens, priceHistory };
-}
-
 /**
  * Position ledgers for an account. `dclRows` are the live positions (with
  * amounts / unclaimed fees) so open positions can be marked to market.
  */
 export function useLpHistory(account, dclRows, prices) {
-  const raw = useAsync(() => loadHistory(account), [account], {
+  const raw = useAsync(() => loadLpHistory(account), [account], {
     enabled: Boolean(account)
   });
 
-  const model = useMemo(() => {
-    if (!raw.data || !dclRows) return null;
-    const { events, complete, tokens, priceHistory } = raw.data;
-    const meta = (id) => tokens[id] || { id, symbol: id.slice(0, 6), decimals: 0 };
-    const { ledgers, days } = buildHistory(events, meta, priceHistory, prices);
-
-    const openIds = new Set(dclRows.map((r) => r.id));
-    const open = new Map();
-    dclRows.forEach((r) => {
-      const l = ledgers.get(r.id);
-      const value = r.usd;
-      const unclaimed = r.feeUsd || 0;
-      if (!l || !l.complete) {
-        open.set(r.id, {
-          position: r,
-          ledger: l || null,
-          value,
-          unclaimed,
-          known: false
-        });
-        return;
-      }
-      const pnl = value + unclaimed - l.costUsd + l.realizedUsd + l.feesUsd;
-      open.set(r.id, {
-        position: r,
-        ledger: l,
-        value,
-        unclaimed,
-        known: true,
-        invested: l.costUsd,
-        fees: l.feesUsd + unclaimed,
-        pnl,
-        pnlPct: l.investedUsd > 0 ? (pnl / l.investedUsd) * 100 : null
-      });
-    });
-
-    const closed = [...ledgers.values()]
-      .filter((l) => l.closedAt !== null && !openIds.has(l.lptId) && l.complete)
-      .map((l) => {
-        const pnl = l.withdrawnUsd + l.feesUsd - l.investedUsd;
-        return {
-          ...l,
-          x: asPoolToken(meta(l.tokenX)),
-          y: asPoolToken(meta(l.tokenY)),
-          pnl,
-          pnlPct: l.investedUsd > 0 ? (pnl / l.investedUsd) * 100 : null
-        };
-      })
-      .sort((a, b) => b.closedAt - a.closedAt);
-
-    const openKnown = [...open.values()].filter((o) => o.known);
-    const realized = closed.reduce((s, c) => s + c.pnl, 0);
-    const unrealized = openKnown.reduce((s, o) => s + o.pnl, 0);
-    const fees =
-      closed.reduce((s, c) => s + c.feesUsd, 0) + [...open.values()].reduce((s, o) => s + (o.ledger?.feesUsd || 0) + o.unclaimed, 0);
-    const invested = [...closed.map((c) => c.investedUsd), ...openKnown.map((o) => o.ledger.investedUsd)];
-    const holds = closed.map((c) => c.closedAt - c.openedAt);
-    const wins = closed.filter((c) => c.pnl > 0).length;
-    // For the share card: what is in the pools now, the return on everything put in, and the pool
-    // the account is most in (largest open position, else the largest closed one).
-    const grossInvested = closed.reduce((s, c) => s + c.investedUsd, 0) + openKnown.reduce((s, o) => s + o.ledger.investedUsd, 0);
-    const openList = [...open.values()];
-    const biggestOpen = openList.reduce((best, o) => (!best || o.value > best.value ? o : best), null);
-    const biggestClosed = closed.reduce((best, c) => (!best || c.investedUsd > best.investedUsd ? c : best), null);
-    const mainPair = biggestOpen
-      ? [biggestOpen.position.x, biggestOpen.position.y]
-      : biggestClosed
-        ? [biggestClosed.x, biggestClosed.y]
-        : null;
-    const poolCount = new Set([...openList.map((o) => o.position.poolId), ...closed.map((c) => `${c.tokenX}|${c.tokenY}`)]).size;
-
-    return {
-      complete,
-      open,
-      closed,
-      days,
-      stats: {
-        totalPnl: realized + unrealized,
-        realized,
-        unrealized,
-        fees,
-        closedCount: closed.length,
-        winRate: closed.length ? (wins / closed.length) * 100 : null,
-        avgInvested: invested.length ? invested.reduce((s, v) => s + v, 0) / invested.length : null,
-        avgHold: holds.length ? holds.reduce((s, v) => s + v, 0) / holds.length : null,
-        totalInvested: openKnown.reduce((s, o) => s + o.invested, 0),
-        openValue: openList.reduce((s, o) => s + o.value + o.unclaimed, 0),
-        returnPct: grossInvested > 0 ? ((realized + unrealized) / grossInvested) * 100 : null,
-        mainPair,
-        poolCount
-      }
-    };
-  }, [raw.data, dclRows, prices]);
+  const model = useMemo(() => (raw.data && dclRows ? buildLpModel(raw.data, dclRows, prices) : null), [raw.data, dclRows, prices]);
 
   return {
     model,
@@ -159,13 +60,13 @@ export function PnlValue({ value, pct, compact }) {
   );
 }
 
-const RANGES = [
+export const RANGES = [
   { key: '7d', label: '7D', days: 7 },
   { key: '30d', label: '1M', days: 30 },
   { key: 'all', label: 'All', days: Infinity }
 ];
 
-function ProfitChart({ days, mode, range }) {
+export function ProfitChart({ days, mode, range }) {
   const ref = useRef(null);
   const data = useMemo(() => {
     const span = RANGES.find((r) => r.key === range)?.days ?? Infinity;

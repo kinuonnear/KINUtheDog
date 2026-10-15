@@ -1,5 +1,5 @@
-// Discover (/discover, /new): Trending on Rhea, Hot pairs, top Gainers, Best to LP,
-// New launches and your Watchlist.
+// Discover (/discover, /new): Trending on Rhea, Hot pairs, top Gainers, Best to LP, Smart LP
+// (LP wallets ranked by their on-chain results), New launches and your Watchlist.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAsync, useLocalStorage } from '../hooks.js';
@@ -15,11 +15,13 @@ import { NewLaunches } from './NewOnRhea.jsx';
 import { usePoolTokens } from './Pools.jsx';
 import AprValue from '../components/AprValue.jsx';
 import LiveFeed from '../components/LiveFeed.jsx';
+import SmartLpBoard from '../components/SmartLp.jsx';
 
 // KINU is a liquidity platform: where to earn as an LP comes first. Each tab has a small
 // animated emoji (styles.css .disc-ico--*; still when the visitor prefers reduced motion).
 const TABS = [
   { key: 'lp', label: 'Top Yields', icon: '💰', anim: 'coin' },
+  { key: 'smartlp', label: 'Smart LP', icon: '🧠', anim: 'rise', badge: 'New' },
   { key: 'hot', label: 'Hot pairs', icon: '🔥', anim: 'fire' },
   { key: 'trending', label: 'Trending', icon: '📈', anim: 'rise' },
   { key: 'gainers', label: 'Gainers', icon: '🚀', anim: 'rocket' },
@@ -39,6 +41,7 @@ function TabLabel({ tab }) {
         <i className="disc-ico disc-ico--live" aria-hidden="true" />
       )}
       {tab.label}
+      {tab.badge && <em className="disc-tab__badge">{tab.badge}</em>}
     </span>
   );
 }
@@ -52,6 +55,7 @@ const TITLES = {
   hot: ['Hot pairs on ', 'Rhea', ''],
   gainers: ['Top gainers on ', 'Rhea', ''],
   lp: ['Manage ', 'Liquidity', ', Made Simple.'],
+  smartlp: ['Smart ', 'LP', ' on Rhea'],
   new: ['New on ', 'Rhea', ''],
   watchlist: ['Your ', 'watchlist', '']
 };
@@ -62,6 +66,7 @@ const INTROS = {
   hot: 'The pairs traded most right now, over the last hour, 6 hours or day.',
   gainers: 'Biggest 24h moves among actively traded Rhea tokens with at least $10K liquidity.',
   lp: `Pools that paid their liquidity providers the most fees per dollar (TVL ≥ $${LP_MIN_TVL / 1000}K), next to how much the price moved — the bigger the move, the more impermanent loss.`,
+  smartlp: 'Liquidity providers who earn on Rhea CLMM pools, ranked by on-chain PnL, fees earned and win rate. Open a wallet to see every position it holds and closed.',
   new: 'The newest tokens with a Rhea pool, launched on Nearly. Live every minute, with the facts that matter before you buy.',
   watchlist: 'Tokens you starred, with live prices.'
 };
@@ -513,6 +518,8 @@ export default function Discover({ defaultTab = 'lp' }) {
           <LiveFeed />
         ) : tab === 'new' ? (
           <NewLaunches />
+        ) : tab === 'smartlp' ? (
+          <SmartLpBoard />
         ) : tab === 'watchlist' ? (
           <Watchlist />
         ) : tab === 'hot' ? (

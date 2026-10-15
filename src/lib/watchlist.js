@@ -1,5 +1,6 @@
 // Lists the viewer keeps in this browser only (no account needed):
-//   Watchlist — starred token ids;   Following — trader accounts followed in the Live feed.
+//   Watchlist — starred token ids;   Following — trader accounts followed in the Live feed;
+//   LP watchlist — LP wallets starred on Smart LP.
 // One shared store per list so every star on the page updates together.
 
 import { useSyncExternalStore } from 'react';
@@ -55,3 +56,4 @@ function createListStore(key, max) {
 
 export const useWatchlist = createListStore('kinu.watchlist', 100);
 export const useFollowing = createListStore('kinu.following', 200);
+export const useLpWatchlist = createListStore('kinu.smartlp.watch', 200);

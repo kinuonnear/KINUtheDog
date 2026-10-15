@@ -42,7 +42,8 @@ const ROUTES = [
   { name: 'docs', pattern: /^\/docs(?:\/([^/]+))?$/ },
   { name: 'new', pattern: /^\/new$/ },
   { name: 'discover', pattern: /^\/discover$/ },
-  { name: 'token', pattern: /^\/token\/([^/]+)$/ }
+  { name: 'token', pattern: /^\/token\/([^/]+)$/ },
+  { name: 'lp', pattern: /^\/lp\/([^/]+)$/ }
 ];
 
 export function matchRoute(pathname) {
