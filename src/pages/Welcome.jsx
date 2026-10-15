@@ -85,8 +85,8 @@ function AreaChart({ values, id }) {
     <svg className="lx-area" viewBox="0 0 300 100" preserveAspectRatio="none" aria-hidden="true">
       <defs>
         <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#7fdcb4" stopOpacity="0.32" />
-          <stop offset="1" stopColor="#7fdcb4" stopOpacity="0" />
+          <stop offset="0" stopColor="#8fd3a8" stopOpacity="0.32" />
+          <stop offset="1" stopColor="#8fd3a8" stopOpacity="0" />
         </linearGradient>
       </defs>
       <path d={area} fill={`url(#${id})`} />
@@ -712,8 +712,8 @@ const FLOWS = [
   'M-40 210 C 280 160, 500 260, 760 200 S 1200 130, 1480 170'
 ];
 
-// Mint and the emblem's copper: one per light, in turn.
-const FLOW_COLORS = ['#7fdcb4', '#e8925a'];
+// Ivory and a calm mint: one per light, in turn.
+const FLOW_COLORS = ['#f2f3ee', '#8fd3a8'];
 
 function FlowLines() {
   return (

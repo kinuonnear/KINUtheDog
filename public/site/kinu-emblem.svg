@@ -23,12 +23,12 @@
       <stop offset="1" stop-color="#8a6747"/>
     </linearGradient>
     <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#ddff8a"/>
-      <stop offset="0.5" stop-color="#b8ff3d"/>
-      <stop offset="1" stop-color="#5f9a12"/>
+      <stop offset="0" stop-color="#e3efc2"/>
+      <stop offset="0.5" stop-color="#c2da86"/>
+      <stop offset="1" stop-color="#6c8a38"/>
     </linearGradient>
     <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
-      <feGaussianBlur stdDeviation="5" result="b"/>
+      <feGaussianBlur stdDeviation="3.5" result="b"/>
       <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
     <filter id="eyeGlow" x="-200%" y="-200%" width="500%" height="500%">
@@ -41,7 +41,7 @@
   <circle cx="256" cy="256" r="226" fill="url(#bg)"/>
 
   <g clip-path="url(#disc)">
-    <g fill="none" stroke="#b8ff3d" stroke-opacity="0.07" stroke-width="2">
+    <g fill="none" stroke="#c2da86" stroke-opacity="0.07" stroke-width="2">
       <path d="M20 176 C 140 156, 220 202, 330 174 S 470 156, 500 170"/>
       <path d="M20 212 C 150 192, 240 232, 350 206 S 470 190, 500 202"/>
     </g>
@@ -86,7 +86,7 @@
     <path d="M336 248 L274 264 L284 274 Q312 272 336 248 Z" fill="#020304"/>
     <path d="M174 244 L240 260" stroke="#020304" stroke-width="4" stroke-linecap="round"/>
     <path d="M338 244 L272 260" stroke="#020304" stroke-width="4" stroke-linecap="round"/>
-    <g filter="url(#eyeGlow)" fill="#c8ff52">
+    <g filter="url(#eyeGlow)" fill="#d2ea92">
       <ellipse cx="216" cy="265" rx="6.5" ry="3.6"/>
       <ellipse cx="296" cy="265" rx="6.5" ry="3.6"/>
     </g>
@@ -99,14 +99,14 @@
     <path d="M256 320 L256 332 M236 340 L276 340" fill="none" stroke="#020304" stroke-width="5" stroke-linecap="round"/>
 
     <!-- Bandana, wider -->
-    <polygon points="132,388 380,388 256,500" fill="#070a0f" stroke="#b8ff3d" stroke-width="5" stroke-linejoin="round"/>
-    <polygon points="362,392 408,372 396,424" fill="#070a0f" stroke="#b8ff3d" stroke-width="5" stroke-linejoin="round"/>
-    <g fill="none" stroke="#b8ff3d" stroke-linecap="round" filter="url(#eyeGlow)">
+    <polygon points="132,388 380,388 256,500" fill="#070a0f" stroke="#c2da86" stroke-width="5" stroke-linejoin="round"/>
+    <polygon points="362,392 408,372 396,424" fill="#070a0f" stroke="#c2da86" stroke-width="5" stroke-linejoin="round"/>
+    <g fill="none" stroke="#c2da86" stroke-linecap="round" filter="url(#eyeGlow)">
       <path d="M200 424 C 228 406, 258 438, 312 416" stroke-width="10"/>
       <path d="M214 452 C 236 440, 260 464, 298 448" stroke-width="7.5" stroke-opacity="0.7"/>
     </g>
   </g>
 
   <circle cx="256" cy="256" r="236" fill="none" stroke="url(#ring)" stroke-width="7" filter="url(#glow)"/>
-  <circle cx="256" cy="256" r="222" fill="none" stroke="#b8ff3d" stroke-opacity="0.18" stroke-width="1.5"/>
+  <circle cx="256" cy="256" r="222" fill="none" stroke="#c2da86" stroke-opacity="0.12" stroke-width="1.5"/>
 </svg>
