@@ -79,7 +79,7 @@ export function HolderNote({ compact = false }) {
   const buy = `/swap?from=${NATIVE_NEAR.id}&to=${encodeURIComponent(KINU_TOKEN)}`;
   if (compact) {
     return (
-      <span className={`slp-lock slp-lock--chip ${ok ? 'slp-lock--ok' : ''}`} title={`Free during launch. Later: hold ≥ ${formatAmount(need)} KINU (wallet or KINU liquidity).`}>
+      <span className={`slp-lock slp-lock--chip ${ok ? 'slp-lock--ok' : ''}`} title={`Free during launch. Later: hold ≥ ${formatAmount(need)} KINU (wallet or KINU liquidity) — the amount will be adjusted over time.`}>
         🔒 Lock soon · Holder feature
       </span>
     );
@@ -89,7 +89,7 @@ export function HolderNote({ compact = false }) {
       <span className="slp-lock__tag">🔒 Lock soon · Holder feature</span>
       <span className="slp-lock__text">
         Smart LP is <b>free during launch</b>. It will become a feature for wallets holding <b>≥ {formatAmount(need)} KINU</b> — in the
-        wallet or in KINU liquidity.
+        wallet or in KINU liquidity. The amount will be adjusted over time.
       </span>
       <span className="slp-lock__me">
         {!accountId ? (
