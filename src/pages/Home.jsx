@@ -173,6 +173,13 @@ function PositionsPanel({ accountId, fallback }) {
             </Link>
           </li>
         ))}
+        {summary.rows.length > 3 && (
+          <li className="hm-panel__more">
+            <Link to="/portfolio">
+              +{summary.rows.length - 3} more pool{summary.rows.length - 3 === 1 ? '' : 's'} · Portfolio →
+            </Link>
+          </li>
+        )}
       </ul>
       {out > 0 && (
         <p className="hm-panel__note">

@@ -35,9 +35,9 @@
 .shell--home .home .hm-hero .lx-flow {
   top: -120px;
   height: 640px;
-  /* the lines live on the right, where the hero is open, and fade out before the text */
-  -webkit-mask-image: radial-gradient(ellipse 50% 75% at 74% 52%, #000 30%, transparent 80%);
-  mask-image: radial-gradient(ellipse 50% 75% at 74% 52%, #000 30%, transparent 80%);
+  /* the lines run between the text and the panel and around it, fading out before the text */
+  -webkit-mask-image: radial-gradient(ellipse 46% 95% at 73% 55%, #000 38%, transparent 80%);
+  mask-image: radial-gradient(ellipse 46% 95% at 73% 55%, #000 38%, transparent 80%);
 }
 
 .shell--home .home .hero__content {
@@ -307,9 +307,10 @@
   padding: 20px;
   border: 1px solid var(--hm-line-strong);
   border-radius: 20px;
-  background: rgba(8, 11, 18, 0.92);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  /* a little see-through, so the light keeps flowing behind it */
+  background: rgba(8, 11, 18, 0.74);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
 }
 
@@ -585,4 +586,18 @@
   .shell--home .home .hm-panel__stats dd {
     font-size: 17px;
   }
+}
+
+/* "+N more pools" under the three largest */
+.shell--home .home .hm-panel__list .hm-panel__more a {
+  display: block;
+  padding: 10px 4px 2px;
+  color: var(--hm-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.shell--home .home .hm-panel__list .hm-panel__more a:hover {
+  background: none;
+  color: var(--hm-text);
 }
