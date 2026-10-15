@@ -28,6 +28,7 @@ export async function enrichTokens(ids) {
     liquidityUsd: infos[i]?.liquidityUsd ?? null,
     volume24hUsd: infos[i]?.volume24hUsd ?? null,
     holders: infos[i]?.holders ?? null,
+    createdAt: infos[i]?.createdAt ?? null,
     official: id === KINU_TOKEN
   }));
 }

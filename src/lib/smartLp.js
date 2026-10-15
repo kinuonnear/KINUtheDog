@@ -6,10 +6,10 @@
 //   Profile  — /lp/<account>: one wallet, read live in the visitor's browser (same engine as the
 //              Portfolio's LP history: on-chain dcl.ref events, valued at the time of each event).
 
-import { getClassicPositions, getDclPositions } from './rhea.js';
-import { asPoolToken, getFtBalance, getTokens, priceOf } from './tokens.js';
+import { getDclPositions } from './rhea.js';
+import { asPoolToken, getTokens, priceOf } from './tokens.js';
 import { toNumber } from './format.js';
-import { CONTRACTS, KINU_TOKEN } from '../config.js';
+import { CONTRACTS } from '../config.js';
 
 export const BOARD_URL = '/smart-lp/board.json';
 
@@ -21,34 +21,6 @@ export function isNearAccount(id) {
   if (!id || id.length < 2 || id.length > 64) return false;
   if (/^[0-9a-f]{64}$/.test(id) || /^0x[0-9a-f]{40}$/.test(id)) return true;
   return /^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/.test(id);
-}
-
-/**
- * Smart LP is free during launch; it will become a holder feature for wallets with at least this
- * much KINU (in the wallet or in KINU liquidity). The bar is meant to come down step by step.
- */
-export const SMART_LP_MIN_KINU = 1_000_000;
-
-/** KINU an account holds: in the wallet and inside its Rhea liquidity (CLMM + classic). */
-export async function getKinuHolding(account) {
-  const [walletRaw, dcl, classic, tokens] = await Promise.all([
-    getFtBalance(KINU_TOKEN, account).catch(() => '0'),
-    getDclPositions(account).catch(() => []),
-    getClassicPositions(account).catch(() => []),
-    getTokens([KINU_TOKEN])
-  ]);
-  const decimals = tokens[KINU_TOKEN]?.decimals ?? 18;
-  const wallet = toNumber(walletRaw, decimals);
-  let inLp = 0;
-  dcl.forEach((p) => {
-    if (p.tokenX === KINU_TOKEN) inLp += p.amountX / 10 ** decimals;
-    if (p.tokenY === KINU_TOKEN) inLp += p.amountY / 10 ** decimals;
-  });
-  classic.forEach((c) => {
-    const i = c.pool.tokenIds.indexOf(KINU_TOKEN);
-    if (i >= 0) inLp += toNumber(c.amounts[i], decimals);
-  });
-  return { wallet, inLp, total: wallet + inLp };
 }
 
 /**

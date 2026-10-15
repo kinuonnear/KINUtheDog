@@ -14,7 +14,7 @@ import { formatUsd } from '../lib/format.js';
 import { ENDPOINTS } from '../config.js';
 import { ClosedPositions, ProfitChart, RANGES, useLpHistory } from '../components/LpPnl.jsx';
 import LiquidityTable from '../components/LiquidityTable.jsx';
-import { feeSharePct, HolderNote, LpBadges, LpWatchStar, signedUsd } from '../components/SmartLp.jsx';
+import { feeSharePct, LpBadges, LpWatchStar, signedUsd } from '../components/SmartLp.jsx';
 import { CopyButton, EmptyState, Skeleton, Spinner } from '../components/ui.jsx';
 
 const tone = (v) => (v > 0 ? 'up' : v < 0 ? 'down' : '');
@@ -194,7 +194,6 @@ export default function LpProfile({ account: raw }) {
               Full portfolio →
             </Link>
             <span className="lpp__chip">LP wallet · Rhea CLMM</span>
-            <HolderNote compact />
           </div>
         </div>
         {valid && busy && !failed && (

@@ -2,17 +2,15 @@
 // from the published snapshot (lib/smartLp.js). A card opens the wallet's live profile (/lp/…).
 
 import { useMemo, useState } from 'react';
-import { useApp } from '../state.jsx';
 import { useAsync, useLocalStorage } from '../hooks.js';
-import { Link, navigate } from '../router.jsx';
+import { navigate } from '../router.jsx';
 import { useLpWatchlist } from '../lib/watchlist.js';
-import { ACTIVE_WINDOWS, BOARD_URL, DEFAULT_FILTERS, FEE_CHECK_MIN, filterBoard, getKinuHolding, isNearAccount, lpBadges, SMART_LP_MIN_KINU, SORTS, sortBoard } from '../lib/smartLp.js';
-import { formatAge as since, formatAmount, formatUsd, shortAccount } from '../lib/format.js';
-import { KINU_TOKEN, NATIVE_NEAR } from '../config.js';
+import { ACTIVE_WINDOWS, BOARD_URL, DEFAULT_FILTERS, FEE_CHECK_MIN, filterBoard, isNearAccount, lpBadges, SORTS, sortBoard } from '../lib/smartLp.js';
+import { formatAge as since, formatUsd, shortAccount } from '../lib/format.js';
 import { formatAge as duration } from '../lib/lpHistory.js';
 import { EmptyState, ErrorNotice, Skeleton } from './ui.jsx';
 
-const loadBoard = async () => {
+export const loadBoard = async () => {
   const response = await fetch(BOARD_URL, { cache: 'no-cache' });
   if (response.status === 404) return null;
   if (!response.ok) throw new Error(`Smart LP HTTP ${response.status}`);
@@ -63,55 +61,6 @@ export function LpBadges({ stats }) {
         </span>
       ))}
     </span>
-  );
-}
-
-/**
- * "Lock soon · Holder feature": Smart LP is free during launch and will later need
- * SMART_LP_MIN_KINU KINU. With a wallet connected it says where that wallet stands.
- */
-export function HolderNote({ compact = false }) {
-  const { accountId } = useApp();
-  const holding = useAsync(() => getKinuHolding(accountId), [accountId], { enabled: Boolean(accountId) });
-  const need = SMART_LP_MIN_KINU;
-  const have = holding.data?.total ?? null;
-  const ok = have !== null && have >= need;
-  const buy = `/swap?from=${NATIVE_NEAR.id}&to=${encodeURIComponent(KINU_TOKEN)}`;
-  if (compact) {
-    return (
-      <span className={`slp-lock slp-lock--chip ${ok ? 'slp-lock--ok' : ''}`} title={`Free during launch. Later: hold ≥ ${formatAmount(need)} KINU (wallet or KINU liquidity) — the amount will be adjusted over time.`}>
-        🔒 Lock soon · Holder feature
-      </span>
-    );
-  }
-  return (
-    <section className={`slp-lock ${ok ? 'slp-lock--ok' : ''}`} aria-label="Smart LP access">
-      <span className="slp-lock__tag">🔒 Lock soon · Holder feature</span>
-      <span className="slp-lock__text">
-        Smart LP is <b>free during launch</b>. It will become a feature for wallets holding <b>≥ {formatAmount(need)} KINU</b> — in the
-        wallet or in KINU liquidity. The amount will be adjusted over time.
-      </span>
-      <span className="slp-lock__me">
-        {!accountId ? (
-          <span className="muted">Connect a wallet to check your access.</span>
-        ) : holding.loading && !holding.data ? (
-          <span className="muted">Checking your KINU…</span>
-        ) : have === null ? (
-          <span className="muted">Couldn&apos;t read your KINU right now.</span>
-        ) : ok ? (
-          <span className="up">You hold {formatAmount(have)} KINU ✓ you&apos;re set</span>
-        ) : (
-          <>
-            <span>
-              You hold {formatAmount(have)} KINU · {formatAmount(need - have)} to go
-            </span>
-            <Link to={buy} className="button button--outline button--sm">
-              Get KINU
-            </Link>
-          </>
-        )}
-      </span>
-    </section>
   );
 }
 
@@ -339,8 +288,6 @@ export default function SmartLpBoard() {
 
   return (
     <div className="slp">
-      <HolderNote />
-
       <section className="card slp-filters" aria-label="Smart LP filters">
         {more && (
           <div className="slp-filters__row">

@@ -16,12 +16,14 @@ import { usePoolTokens } from './Pools.jsx';
 import AprValue from '../components/AprValue.jsx';
 import LiveFeed from '../components/LiveFeed.jsx';
 import SmartLpBoard from '../components/SmartLp.jsx';
+import SmartMoneyIn from '../components/SmartMoney.jsx';
 
 // KINU is a liquidity platform: where to earn as an LP comes first. Each tab has a small
 // animated emoji (styles.css .disc-ico--*; still when the visitor prefers reduced motion).
 const TABS = [
   { key: 'lp', label: 'Top Yields', icon: '💰', anim: 'coin' },
   { key: 'smartlp', label: 'Smart LP', icon: '🧠', anim: 'rise', badge: 'New' },
+  { key: 'smartmoney', label: 'Smart Money In', icon: '💸', anim: 'coin', badge: 'New' },
   { key: 'hot', label: 'Hot pairs', icon: '🔥', anim: 'fire' },
   { key: 'trending', label: 'Trending', icon: '📈', anim: 'rise' },
   { key: 'gainers', label: 'Gainers', icon: '🚀', anim: 'rocket' },
@@ -56,6 +58,7 @@ const TITLES = {
   gainers: ['Top gainers on ', 'Rhea', ''],
   lp: ['Manage ', 'Liquidity', ', Made Simple.'],
   smartlp: ['Smart ', 'LP', ' on Rhea'],
+  smartmoney: ['Smart Money ', 'In', ''],
   new: ['New on ', 'Rhea', ''],
   watchlist: ['Your ', 'watchlist', '']
 };
@@ -67,6 +70,7 @@ const INTROS = {
   gainers: 'Biggest 24h moves among actively traded Rhea tokens with at least $10K liquidity.',
   lp: `Pools that paid their liquidity providers the most fees per dollar (TVL ≥ $${LP_MIN_TVL / 1000}K), next to how much the price moved — the bigger the move, the more impermanent loss.`,
   smartlp: 'Liquidity providers who earn on Rhea CLMM pools, ranked by on-chain PnL, fees earned and win rate. Open a wallet to see every position it holds and closed.',
+  smartmoney: 'The Rhea tokens to watch: our featured picks first, then the most traded tokens by 24h volume — with the Smart LP wallets in their pools and every pool with real liquidity.',
   new: 'The newest tokens with a Rhea pool, launched on Nearly. Live every minute, with the facts that matter before you buy.',
   watchlist: 'Tokens you starred, with live prices.'
 };
@@ -520,6 +524,8 @@ export default function Discover({ defaultTab = 'lp' }) {
           <NewLaunches />
         ) : tab === 'smartlp' ? (
           <SmartLpBoard />
+        ) : tab === 'smartmoney' ? (
+          <SmartMoneyIn />
         ) : tab === 'watchlist' ? (
           <Watchlist />
         ) : tab === 'hot' ? (

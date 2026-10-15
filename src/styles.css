@@ -11855,54 +11855,6 @@ a.pair-tiers__row:hover {
   color: #c792ff;
 }
 
-/* Holder access note */
-.slp-lock {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 14px;
-  padding: 12px 16px;
-  border: 1px solid rgba(199, 146, 255, 0.3);
-  border-radius: var(--radius);
-  background: linear-gradient(90deg, rgba(199, 146, 255, 0.08), rgba(184, 255, 61, 0.04));
-  font-size: 13px;
-}
-
-.slp-lock__tag {
-  padding: 3px 10px;
-  border-radius: 999px;
-  background: rgba(199, 146, 255, 0.16);
-  color: #dcc2ff;
-  font-size: 11.5px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.slp-lock__text {
-  flex: 1;
-  min-width: 240px;
-  color: var(--muted);
-}
-
-.slp-lock__text b {
-  color: var(--text);
-}
-
-.slp-lock__me {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.slp-lock--chip {
-  display: inline-block;
-  padding: 3px 10px;
-  border-radius: 999px;
-  color: #dcc2ff;
-  font-size: 11px;
-  font-weight: 600;
-}
-
 /* Active + min win rate, inline after the sort chips */
 .slp-inline {
   display: inline-flex;
@@ -12295,4 +12247,348 @@ a.pair-tiers__row:hover {
 
 .slp-lookup input.slp-lookup__bad {
   border-color: rgba(255, 93, 108, 0.6);
+}
+
+/* ── Smart Money In (Discover) ─────────────────────────────────────────────────────── */
+.smi {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.smi-table {
+  padding: 4px 0;
+  overflow-x: auto;
+}
+
+.smi-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 2.2fr) 60px minmax(100px, 1fr) repeat(3, minmax(80px, 0.9fr)) minmax(130px, 1.2fr) minmax(100px, 1fr) 120px;
+  gap: 12px;
+  align-items: center;
+  min-width: 1080px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.smi-row > span:nth-child(n + 2):not(:last-child) {
+  text-align: right;
+}
+
+.smi-row:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.smi-row--head {
+  border-top: 0;
+  border-bottom: 1px solid var(--border-strong);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: default;
+}
+
+.smi-row--head:hover {
+  background: none;
+}
+
+.smi-row--head + .smi-group > .smi-row,
+.smi-row--head + .smi-row {
+  border-top: 0;
+}
+
+.smi-row__token {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.smi-row__token > span:last-child {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.smi-row__token b {
+  font-size: 14px;
+}
+
+.smi-row__token small {
+  overflow: hidden;
+  color: var(--faint);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.smi-caret {
+  display: inline-block;
+  width: 12px;
+  color: var(--faint);
+  font-size: 11px;
+  transition: transform 0.15s;
+}
+
+.smi-group--open .smi-caret {
+  transform: rotate(90deg);
+  color: var(--accent);
+}
+
+.smi-group--open > .smi-row {
+  background: rgba(184, 255, 61, 0.03);
+}
+
+.smi-price {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.smi-price small {
+  font-size: 11px;
+}
+
+.smi-row__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Smart LP avatars */
+.smi-lps {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.smi-avatars {
+  display: inline-flex;
+}
+
+.smi-av {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-left: -6px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: hsl(var(--h) 65% 55%);
+  color: #0b0e14;
+  font-size: 9.5px;
+  font-weight: 800;
+}
+
+.smi-av:first-child {
+  margin-left: 0;
+}
+
+.smi-av:hover {
+  z-index: 1;
+  transform: scale(1.15);
+}
+
+.smi-lps b {
+  font-size: 14px;
+}
+
+.smi-star {
+  color: #ffd447;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* A token's pools */
+.smi-pools {
+  min-width: 1080px;
+  padding: 6px 18px 12px 58px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.smi-prow {
+  display: grid;
+  grid-template-columns: minmax(220px, 2fr) repeat(4, minmax(80px, 0.9fr)) minmax(110px, 1fr) 190px;
+  gap: 12px;
+  align-items: center;
+  padding: 9px 0;
+  border-top: 1px dashed var(--border);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.smi-prow > span:nth-child(n + 2):not(:last-child) {
+  text-align: right;
+}
+
+.smi-prow--head {
+  border-top: 0;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.smi-prow__pair {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.smi-prow__pair > span:last-child {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.smi-prow__pair small {
+  color: var(--faint);
+  font-size: 11px;
+}
+
+.smi-prow__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+/* Mobile: each token a stacked card; its pools as stacked cards inside */
+@media (max-width: 1080px) {
+  .smi-table {
+    overflow: visible;
+  }
+
+  .smi-row--head,
+  .smi-prow--head {
+    display: none;
+  }
+
+  .smi-row,
+  .smi-pools {
+    min-width: 0;
+  }
+
+  .smi-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 14px;
+  }
+
+  .smi-row__token,
+  .smi-row__actions {
+    grid-column: 1 / -1;
+  }
+
+  .smi-row > span:nth-child(n + 2):not(:last-child),
+  .smi-prow > span:nth-child(n + 2):not(:last-child) {
+    text-align: left;
+  }
+
+  .smi-price {
+    align-items: flex-start;
+  }
+
+  .smi-lps {
+    justify-content: flex-start;
+  }
+
+  .smi-row > [data-label]::before,
+  .smi-prow > [data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 2px;
+    color: var(--faint);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .smi-row__actions .button {
+    width: 100%;
+  }
+
+  .smi-pools {
+    padding: 4px 14px 12px;
+  }
+
+  .smi-prow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 14px;
+  }
+
+  .smi-prow__pair,
+  .smi-prow__actions {
+    grid-column: 1 / -1;
+  }
+
+  .smi-prow__actions {
+    justify-content: flex-start;
+  }
+}
+
+/* Smart Money In: tier headings (Main / Next / More by 24h volume) */
+.smi-tier {
+  min-width: 1080px;
+  padding: 10px 18px 6px;
+  border-top: 1px solid var(--border);
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.smi-tier--0 {
+  border-top: 0;
+  color: var(--accent);
+}
+
+.smi-tier--1 {
+  color: var(--sky);
+}
+
+.smi-tier + .smi-row {
+  border-top: 0;
+}
+
+@media (max-width: 1080px) {
+  .smi-tier {
+    min-width: 0;
+  }
+}
+
+/* KINU, our token: always on top, highlighted */
+.smi-group--ours > .smi-row {
+  position: relative;
+  background: linear-gradient(90deg, rgba(184, 255, 61, 0.09), rgba(184, 255, 61, 0.02) 60%, transparent);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.smi-group--ours > .smi-row:hover {
+  background: linear-gradient(90deg, rgba(184, 255, 61, 0.13), rgba(184, 255, 61, 0.03) 60%, transparent);
+}
+
+.smi-ours {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 9.5px;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  vertical-align: 2px;
 }
