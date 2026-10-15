@@ -12627,3 +12627,14 @@ a.pair-tiers__row:hover {
 .amount-row__pcts button:hover {
   text-decoration: underline;
 }
+
+/* The amount sits a little lower, clear of the percent buttons above it (dual tokens and zap). */
+.amount-row__field,
+.amount-row__zapinput {
+  gap: 8px;
+}
+
+.amount-row__field input,
+.amount-row__zapinput input {
+  margin-top: 2px;
+}

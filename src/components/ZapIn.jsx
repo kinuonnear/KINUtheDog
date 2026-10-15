@@ -46,7 +46,7 @@ export function useZapQuote({ enabled, token, amountRaw, x, y, pool, unitPlan, s
 }
 
 export function ZapInput({ token, setToken, text, setText, spendable, x, y }) {
-  const { accountId, prices } = useApp();
+  const { accountId, connect, prices } = useApp();
   const [picking, setPicking] = useState(false);
   const raw = tryParseUnits(text, token.decimals) || '0';
   const usd = toNumber(raw, token.decimals) * priceOf(prices, token.id);
@@ -63,6 +63,21 @@ export function ZapInput({ token, setToken, text, setText, spendable, x, y }) {
           <span aria-hidden>▾</span>
         </button>
         <div className="amount-row__zapinput">
+          {/* Quick amounts above the input; shown without a wallet too (they connect one first). */}
+          <span className="amount-row__pcts">
+            {[0.25, 0.5, 0.75, 1].map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() =>
+                  accountId ? setText(trimDecimals(formatUnits(((spendable * BigInt(f * 100)) / 100n).toString(), token.decimals))) : connect()
+                }
+                title={accountId ? undefined : 'Connect a wallet to use your balance'}
+              >
+                {f === 1 ? 'MAX' : `${f * 100}%`}
+              </button>
+            ))}
+          </span>
           <input
             inputMode="decimal"
             placeholder="0.0"
@@ -84,20 +99,7 @@ export function ZapInput({ token, setToken, text, setText, spendable, x, y }) {
             </button>
           ))}
         </div>
-        {accountId && (
-          <span className="zap-tools__balance">
-            {formatRawAmount(spendable.toString(), token.decimals)}
-            {[0.25, 0.5, 0.75, 1].map((f) => (
-              <button
-                key={f}
-                type="button"
-                onClick={() => setText(trimDecimals(formatUnits(((spendable * BigInt(f * 100)) / 100n).toString(), token.decimals)))}
-              >
-                {f === 1 ? 'MAX' : `${f * 100}%`}
-              </button>
-            ))}
-          </span>
-        )}
+        {accountId && <span className="zap-tools__balance">Balance {formatRawAmount(spendable.toString(), token.decimals)}</span>}
       </div>
       {picking && (
         <TokenPicker title="Zap in with" selectedId={token.id} onSelect={(t) => setToken(t)} onClose={() => setPicking(false)} />
