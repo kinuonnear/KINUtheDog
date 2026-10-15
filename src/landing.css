@@ -127,7 +127,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  max-width: 1320px;
+  max-width: none; /* as wide as the sections, so every left edge lines up */
   margin: 0 auto;
   padding: 8px 8px 8px 20px;
   border: 1px solid var(--lx-line);
@@ -1004,14 +1004,15 @@
   font-style: normal;
 }
 
+/* Same meaning as in the app: calm white, moving yellow */
 .lx-chip--calm {
-  background: rgba(255, 212, 71, 0.12);
-  color: #ffd447;
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
 }
 
 .lx-chip--moving {
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--lx-accent);
+  background: rgba(255, 212, 71, 0.12);
+  color: #ffd447;
 }
 
 /* Range: liquidity by price */
@@ -2511,5 +2512,13 @@
 
   .lx-footer__grid a {
     padding: 6px 0;
+  }
+}
+
+/* Desktop hero: the flow lines run on both sides and fade out before the centred text */
+@media (min-width: 761px) {
+  .lx-hero .lx-flow {
+    -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 6%, #000 12%, transparent 24%, transparent 76%, #000 88%, #000 94%, transparent 100%);
+    mask-image: linear-gradient(90deg, transparent 0%, #000 6%, #000 12%, transparent 24%, transparent 76%, #000 88%, #000 94%, transparent 100%);
   }
 }
