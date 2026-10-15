@@ -1,0 +1,278 @@
+/* ── Pools (/pools), in the landing palette ─────────────────────────────────────────────
+   The app's colour variables are re-pointed for this page only (the shell gets .shell--pools):
+   blue-black page and cards, ivory where the app used lime, green only for positive numbers. */
+
+.shell--pools {
+  --bg: #03050a;
+  --surface: #080b12;
+  --surface-2: #0c1018;
+  --surface-3: #111622;
+  --border: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.13);
+  --text: #f2f3ee;
+  --muted: #9a9a94;
+  --faint: #6b6b65;
+  --accent: #f2f3ee;
+  --accent-hover: #ffffff;
+  --accent-ink: #0a0c0f;
+  --accent-soft: rgba(255, 255, 255, 0.08);
+  --mint: #5fe3a1;
+  --warn: #ffd447;
+  --danger: #ff6b6b;
+  --pl-up: #5fe3a1;
+  background: var(--bg);
+}
+
+.shell--pools .page--pools {
+  --lux-line: rgba(255, 255, 255, 0.07);
+  --lux-line-strong: rgba(255, 255, 255, 0.12);
+  --lux-glass: linear-gradient(180deg, #0a0d15, #05070c);
+  --lux-label: #6b6b65;
+}
+
+/* Light behind the header: ivory and a little blue, no lime */
+.shell--pools .page--pools::before {
+  background:
+    radial-gradient(ellipse 45% 55% at 30% 40%, rgba(214, 238, 222, 0.06), transparent 70%),
+    radial-gradient(ellipse 40% 50% at 75% 30%, rgba(56, 88, 164, 0.12), transparent 70%);
+}
+
+/* Header */
+.shell--pools .pt-title {
+  font-family: 'Inter Tight', var(--font);
+  font-weight: 600;
+  letter-spacing: -0.045em;
+  background: linear-gradient(180deg, #f2f3ee 35%, #a3a39c);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+.shell--pools .pt-start {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  box-shadow: none;
+}
+
+.shell--pools .pt-start:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* The stats band stays under the top bar: same colour as the page */
+.shell--pools .pt-band {
+  background: var(--bg);
+  box-shadow: 0 0 0 100vmax var(--bg);
+}
+
+.shell--pools .pt-monitor::before {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.25), transparent);
+}
+
+/* Positive numbers: a calm green */
+.shell--pools .up,
+.shell--pools .pt-tile strong.up,
+.shell--pools .dt-apr,
+.shell--pools .dt-fees {
+  color: var(--pl-up);
+}
+
+/* TVL by pool type: clear, bright colours per type */
+.shell--pools .pt-seg--clmm {
+  background: #22e283;
+}
+
+.shell--pools .pt-seg--amm {
+  background: #ffffff;
+}
+
+.shell--pools .pt-seg--stable {
+  background: #4aa3ff;
+}
+
+.shell--pools .pt-seg--almm {
+  background: #ffd21f;
+}
+
+.shell--pools .pt-seg--farm {
+  background: #d8c4ff;
+}
+
+/* Filters */
+.shell--pools .pt-item--on::before {
+  box-shadow: none;
+}
+
+.shell--pools .pt-switch input:checked + i {
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.shell--pools .pt-switch input:checked + i::after {
+  box-shadow: none;
+}
+
+.shell--pools .pt-filter {
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+/* Table */
+.shell--pools .page--pools .dt-row--head {
+  background: #080b12;
+}
+
+.shell--pools .page--pools a.dt-row:hover {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.015) 60%, transparent);
+}
+
+.shell--pools .apr-meter b {
+  background: linear-gradient(90deg, rgba(95, 227, 161, 0.35), var(--pl-up));
+}
+
+.shell--pools .apr-meter--hot b {
+  background: linear-gradient(90deg, var(--pl-up), #ffd447);
+}
+
+.shell--pools a.dt-row:hover .dt-add {
+  border-color: rgba(255, 255, 255, 0.35);
+  color: var(--text);
+}
+
+.shell--pools .dt-add:hover {
+  border-color: var(--text);
+  background: var(--text);
+  color: var(--accent-ink);
+}
+
+/* 24h move: calm white, moving bright yellow, volatile red */
+.shell--pools .swing--low,
+.shell--pools .page--pools .swing--low {
+  color: #ffffff;
+}
+
+.shell--pools .swing--mid,
+.shell--pools .page--pools .swing--mid {
+  color: #ffd447;
+}
+
+.shell--pools .swing--high {
+  color: #ff6b6b;
+}
+
+/* Pool-type badges: neutral, CLMM a touch of green */
+.shell--pools .kind {
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.shell--pools .kind--clmm {
+  color: #7ff0b5;
+  background: rgba(95, 227, 161, 0.12);
+}
+
+.shell--pools .kind--mine,
+.shell--pools .kind--mine-partial {
+  color: #b9dcc6;
+  background: rgba(143, 211, 168, 0.1);
+}
+
+.shell--pools .kind--mine-out {
+  color: #d9bc8c;
+  background: rgba(217, 188, 140, 0.1);
+}
+
+.shell--pools .kind--nofee {
+  color: #e39a9a;
+  background: rgba(227, 154, 154, 0.1);
+}
+
+/* The 24h move and its chip stay on one line */
+.shell--pools .disc-swing {
+  flex-wrap: nowrap;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+/* 24h move: the percentage in a fixed, right-aligned slot and the chip at a fixed width, so the
+   numbers and chips line up row under row */
+.shell--pools .disc-swing {
+  justify-content: flex-end;
+}
+
+.shell--pools .disc-swing > :first-child {
+  min-width: 56px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.shell--pools .disc-swing .swing {
+  min-width: 64px;
+  text-align: center;
+}
+
+/* Header: flow lines on the open right side */
+.shell--pools .pt-hero {
+  position: relative;
+}
+
+.shell--pools .pt-hero .lx-flow {
+  top: -70px;
+  left: 0;
+  width: 100%;
+  height: 380px;
+  transform: none;
+  -webkit-mask-image: radial-gradient(ellipse 42% 85% at 70% 50%, #000 35%, transparent 80%);
+  mask-image: radial-gradient(ellipse 42% 85% at 70% 50%, #000 35%, transparent 80%);
+}
+
+/* Header numbers: clearer labels, a thicker split bar, brighter legend */
+.shell--pools .pt-tile > span {
+  color: #c9c7c0;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+}
+
+.shell--pools .pt-split {
+  height: 5px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+
+.shell--pools .pt-legend {
+  color: #c9c7c0;
+  font-size: 12px;
+}
+
+.shell--pools .pt-legend i {
+  width: 7px;
+  height: 7px;
+}
+
+.shell--pools .pt-top span {
+  color: #b4b2aa;
+}
+
+@media (max-width: 720px) {
+  .shell--pools .pt-tile > span {
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+  }
+}
+
+/* Table column titles: clearer and a little larger */
+.shell--pools .page--pools .dt-row--head {
+  color: #c9c7c0;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+}
+
+.shell--pools .page--pools .dt-row--head .th-sort:hover,
+.shell--pools .th-sort--active {
+  color: #ffffff;
+}
+
+.shell--pools .th-sort__arrow {
+  color: #9a9a94;
+}

@@ -10,6 +10,8 @@ import { swingLevel } from '../lib/poolRadar.js';
 import AprValue from '../components/AprValue.jsx';
 import { formatChartPrice, formatPercent, formatUsd } from '../lib/format.js';
 import { ErrorNotice, PairIcons, Skeleton } from '../components/ui.jsx';
+import { FlowLines } from '../components/FlowLines.jsx';
+import '../pools.css';
 
 const PAGE_SIZE = 25;
 
@@ -311,14 +313,14 @@ function DiscoverRow({ rank, pool, tokens, prices, info, stat, estimated, favori
         <SwingValue change={info?.change24h} />
       </span>
       <span className="dt-num" data-label="TVL">
-        {formatUsd(pool.tvl)}
+        {formatUsd(pool.tvl, USD_K)}
       </span>
       <span className="dt-num" data-label="Volume">
-        {pending ? <Skeleton width={60} /> : stat ? `${estimated ? '≈' : ''}${formatUsd(stat.volume)}` : '—'}
+        {pending ? <Skeleton width={60} /> : stat ? `${estimated ? '≈' : ''}${formatUsd(stat.volume, USD_K)}` : '—'}
         <small className="muted">{volTvl > 0 ? `${formatPercent(volTvl, 0)} of TVL` : ''}</small>
       </span>
       <span className="dt-num dt-fees" data-label="Fees">
-        {pending ? <Skeleton width={56} /> : stat ? `${estimated ? '≈' : ''}${formatUsd(stat.fees)}` : '—'}
+        {pending ? <Skeleton width={56} /> : stat ? `${estimated ? '≈' : ''}${formatUsd(stat.fees, USD_K)}` : '—'}
       </span>
       <span className="dt-num dt-apr" data-label="APR">
         <AprValue apr={pool.apy + pool.farmApy} move={info?.change24h} estimated={pool.apyEstimated} />
@@ -343,6 +345,9 @@ function DiscoverRow({ rank, pool, tokens, prices, info, stat, estimated, favori
   );
 }
 
+// Dollar amounts in the table and the header read compact from $1K, so the columns line up.
+const USD_K = { compactAbove: 1e3 };
+
 /** Pool types in the TVL split of the header card (labels from rhea.poolKindLabel). */
 const GLANCE_TYPES = [
   { key: 'clmm', label: 'CLMM' },
@@ -358,7 +363,7 @@ function PoolsMonitor({ ready, totals }) {
   const metrics = [
     { key: 'tvl', label: 'Total value locked', value: formatUsd(totals.tvl) },
     { key: 'vol', label: 'Volume 24h', value: formatUsd(totals.volume), hint: totals.tvl > 0 && `${((totals.volume / totals.tvl) * 100).toFixed(0)}% of TVL traded` },
-    { key: 'fees', label: 'Fees to LPs 24h', value: formatUsd(totals.fees), accent: true },
+    { key: 'fees', label: 'Fees to LPs 24h', value: formatUsd(totals.fees, USD_K), accent: true },
     { key: 'yield', label: 'Avg. daily yield', value: totals.tvl > 0 ? formatPercent((totals.fees / totals.tvl) * 100, 3) : '—', hint: `${totals.pools.toLocaleString()} active pools` }
   ];
   return (
@@ -390,7 +395,7 @@ function PoolsMonitor({ ready, totals }) {
           <Link to={poolPath(top.id)} className="pt-top">
             <span>Top fees today</span>
             <strong>{top.symbols.join(' / ')}</strong>
-            <b className="up">{formatUsd(top.feeVolume24h)}</b>
+            <b className="up">{formatUsd(top.feeVolume24h, USD_K)}</b>
             <em aria-hidden="true">→</em>
           </Link>
         )}
@@ -654,13 +659,11 @@ export default function Pools() {
   return (
     <div className="page page--discover page--pools">
       <header className="pt-hero">
-        <h1 className="pt-title">Liquidity Pools</h1>
-        <p>Find a Pool, Manage Liquidity Made Simple in One Click.</p>
+        <FlowLines />
+        <h1 className="pt-title">Pools</h1>
+        <p>Every pool on Rhea, sorted by what it pays LPs.</p>
         <Link to="/start-lp" className="pt-start">
-          <span className="pt-start__icon" aria-hidden>
-            ?
-          </span>
-          How To Start LP?
+          New to LP? Start here
           <span className="pt-start__arrow" aria-hidden>
             →
           </span>

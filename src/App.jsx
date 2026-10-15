@@ -195,7 +195,7 @@ export default function App() {
   }
 
   return (
-    <div className={`shell ${appView ? 'shell--app' : ''} ${route.name === 'app' ? 'shell--home' : ''}`}>
+    <div className={`shell ${appView ? 'shell--app' : ''} ${route.name === 'app' ? 'shell--home' : ''} ${route.name === 'pools' ? 'shell--pools' : ''}`}>
       <header className="topbar">
         <Link to="/app" className="brand" aria-label="KINU home">
           <img src="/site/kinu-emblem.svg" alt="" width="30" height="30" />
