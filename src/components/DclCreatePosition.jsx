@@ -366,6 +366,9 @@ function useSpendable(tokenIds) {
  *                  left there by an add that failed with E204 when the price moved) to the range
  *                  and strategy chosen here, at the current price — used by the balance notice.
  */
+// Quick amounts: a share of the spendable balance.
+const PERCENTS = [0.25, 0.5, 0.75, 1];
+
 export default function DclCreatePosition({ pool, x, y, rangeState, onDone, retryRef }) {
   const { accountId, connect, slippage, setSlippage, execute, balances, prices } = useApp();
   const [showSlippage, setShowSlippage] = useState(false);
@@ -610,21 +613,21 @@ export default function DclCreatePosition({ pool, x, y, rangeState, onDone, retr
           <TokenIcon token={token} size={26} />
           <div>
             <strong>{token.symbol}</strong>
-            {accountId && (
-              <small>
-                {formatRawAmount(spendable[index].toString(), token.decimals)}
-                {!disabled && (
-                  <>
-                    <button type="button" onClick={() => setFraction(which, 0.5)}>
-                      50%
-                    </button>
-                    <button type="button" onClick={() => setFraction(which, 1)}>
-                      MAX
-                    </button>
-                  </>
-                )}
-              </small>
-            )}
+            {/* Shown without a wallet too: then a percent button connects one first. */}
+            <small>
+              {accountId ? formatRawAmount(spendable[index].toString(), token.decimals) : <span title="Connect a wallet to see your balance">—</span>}
+              {!disabled &&
+                PERCENTS.map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => (accountId ? setFraction(which, f) : connect())}
+                    title={accountId ? undefined : 'Connect a wallet to use your balance'}
+                  >
+                    {f === 1 ? 'MAX' : `${f * 100}%`}
+                  </button>
+                ))}
+            </small>
           </div>
         </div>
         <input
