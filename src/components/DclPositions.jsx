@@ -801,6 +801,11 @@ export function DclGroupCard({ poolId, positions, deposits, x, y, pool, onDone, 
   return (
     <div className="lp-board">
       <div className="lp-board__bar">
+        {/* Every position in this pool together. */}
+        <div title={`${formatAmount(summary.amountX)} ${x.symbol} + ${formatAmount(summary.amountY)} ${y.symbol}`}>
+          <span>Total liquidity</span>
+          <strong>{formatUsd(summary.usd)}</strong>
+        </div>
         <div>
           <span>Claimable fees</span>
           <strong className={summary.hasFees ? 'up' : ''}>{formatUsd(summary.feeUsd)}</strong>
