@@ -35,7 +35,7 @@ const EMBLEM = '/site/kinu-emblem.svg';
 const ext = { target: '_blank', rel: 'noopener noreferrer' };
 const K = { compactAbove: 1e4 };
 
-const TRUST = ['Non-custodial', 'You sign every transaction', 'LP co-pilot', 'Built on Rhea', 'Live on-chain PnL', 'Transaction guard', 'No platform fee'];
+const TRUST = ['Non-custodial', 'You sign every transaction', 'LP co-pilot', 'Built on NEAR', 'Live on-chain PnL', 'Transaction guard', 'No platform fee'];
 
 // The closing timeline: how to start, in four words each.
 const START = [
@@ -71,9 +71,9 @@ const SAFETY_ICONS = [
 
 const SAFETY = [
   ['Non-custodial', 'Your funds stay in your wallet. Nothing moves until you sign it.'],
-  ['Transaction guard', 'Every request is checked before your wallet sees it: tokens only go to Rhea’s own contracts.'],
+  ['Transaction guard', 'Every request is checked before your wallet sees it: tokens only go to the DEX contracts (Rhea, Intear DEX) and swap output comes back to you.'],
   ['Open source', 'The code that builds your transactions is public. Read it, verify it.'],
-  ['No platform fee', 'KINU adds nothing on top of Rhea. You pay the pool fee and network gas, and that’s all.']
+  ['No platform fee', 'KINU adds nothing on top. You pay the pool fee and network gas, and that’s all.']
 ];
 
 /** True once the element has scrolled into view (then stays true). */
@@ -654,7 +654,7 @@ function Markets({ pools }) {
           Trade anything. <em>Pair everything.</em>
         </h2>
         <p>
-          NEAR, stables, majors and memes, all on Rhea. Swap any token on the best route, or provide liquidity to any pair.
+          Stables, majors and memes, all on NEAR. Swap any token on the best route across Rhea and Intear DEX, or provide liquidity to any pair.
         </p>
       </div>
 
@@ -702,10 +702,10 @@ function Markets({ pools }) {
 
       <div className="lx-markets__foot">
         <span>
-          <b>{pools ? pools.toLocaleString() : '—'}</b> pools on Rhea
+          <b>{pools ? pools.toLocaleString() : '—'}</b> pools on NEAR
         </span>
         <span>
-          <b>Best route</b> SmartRouter vs direct CLMM
+          <b>Best route</b> Rhea + Intear DEX, compared live
         </span>
         <span>
           <b>Any token</b> paste a contract to trade it
@@ -922,7 +922,7 @@ export default function Welcome() {
             <i />
           </div>
           <div className="lx-kicker">
-            <i /> Manage liquidity made simple · Built on Rhea
+            <i /> Manage liquidity made simple · Built on NEAR
           </div>
           <h1 className="lx-hero__title">
             Liquidity, with a <em>sense of direction.</em>
@@ -930,7 +930,7 @@ export default function Welcome() {
           <p className="lx-hero__sub">Earn where liquidity actually works.</p>
           <p className="lx-hero__text">
             KINU finds the pools that pay, shows you the LPs who are winning, and gets you in with one click. Non-custodial, on
-            Rhea.
+            NEAR.
           </p>
           <div className="lx-hero__cta">
             <Link className="lx-btn lx-btn--primary" to={APP_PATH}>
@@ -1079,7 +1079,7 @@ export default function Welcome() {
               <img src={EMBLEM} alt="" width="28" height="28" />
               <span>KINU</span>
             </a>
-            <p>Liquidity, with a sense of direction. Built on Rhea Finance, on NEAR.</p>
+            <p>Liquidity, with a sense of direction. Built on NEAR.</p>
           </div>
           <div>
             <h4>Product</h4>
@@ -1109,7 +1109,7 @@ export default function Welcome() {
           </div>
         </div>
         <div className="lx-footer__legal">
-          <span>© 2026 KINU. Liquidity and routing by Rhea Finance.</span>
+          <span>© 2026 KINU. Liquidity and routing by Rhea Finance and Intear DEX.</span>
           <span>Non-custodial software. DeFi carries risk, including loss of funds. Not financial advice.</span>
         </div>
       </footer>
