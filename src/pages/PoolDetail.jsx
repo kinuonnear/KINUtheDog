@@ -451,8 +451,10 @@ function useDockedColumns(gridRef) {
   }, [gridRef]);
 }
 
-/** CLMM page body: draggable range chart + Meteora-style create form. */
-/** `bar`: the pool bar, shown above the chart (the side panel reaches the top); `links`: Swap / Rhea in the panel head. */
+/**
+ * CLMM page body: draggable range chart + Meteora-style create form. `bar`: the pool bar, shown
+ * above the chart (the side panel reaches the top); `links`: Swap / Rhea in the panel head.
+ */
 function DclWorkspace({ bar, links, poolId, pool, x, y, reserves, positions, onAdd, onDone }) {
   const { accountId } = useApp();
   // ?left=&right= (points): open the form on that range — Smart LP's "Use this range".
@@ -487,6 +489,11 @@ function DclWorkspace({ bar, links, poolId, pool, x, y, reserves, positions, onA
   const toggleChart = (group) => {
     if (chartKey === group.key) setChartKey(null);
     else selectPosition(group);
+  };
+  // "+ New position": back to the Create position form first (a selected position shows its own panel).
+  const newPosition = () => {
+    setChartKey(null);
+    setTimeout(onAdd, 0);
   };
 
   // Resizable split between the chart and the bottom panel (desktop).
@@ -606,7 +613,7 @@ function DclWorkspace({ bar, links, poolId, pool, x, y, reserves, positions, onA
             value={panel}
             onChange={setPanel}
           />
-            <button type="button" className="button button--outline button--sm" onClick={onAdd} title="Open another position with its own range">
+            <button type="button" className="button button--outline button--sm" onClick={newPosition} title="Open another position with its own range">
               + New position
             </button>
           </div>
@@ -720,7 +727,6 @@ function PoolTrades({ poolId, x, y }) {
 
 /* ------------------------------------------------------------------ */
 
-/** Compact Meteora-style pool bar: pair, type, fee and live stats in one row. */
 /** Swap / Rhea ↗ beside the side panel's title (CLMM pools). */
 function PanelLinks({ links }) {
   return (
@@ -735,7 +741,7 @@ function PanelLinks({ links }) {
   );
 }
 
-/** `actions={false}` leaves out Swap / Rhea (shown elsewhere). */
+/** Compact Meteora-style pool bar: pair, type, fee and live stats in one row. `actions={false}` leaves out Swap / Rhea. */
 function PoolBar({ tokens, label, feePercent, rheaUrl, swapLink, stats, price, idText, actions = true }) {
   const [flipped, setFlipped] = useState(false);
   return (

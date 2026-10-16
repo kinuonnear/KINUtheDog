@@ -397,7 +397,8 @@ export function usePoolPnl(events, poolId, x, y, prices, failed = false) {
   }, [poolEvents, history.data, prices, x, y]);
 
   return (positions) => {
-    if (!ledgers) return failed || history.error ? { known: false } : null;
+    // Events loaded but none for this pool (e.g. opened elsewhere, indexer behind): nothing to price.
+    if (!ledgers) return failed || history.error || (poolEvents && !poolEvents.length) ? { known: false } : null;
     const px = priceOf(prices, x.id);
     const py = priceOf(prices, y.id);
     let pnl = 0;
