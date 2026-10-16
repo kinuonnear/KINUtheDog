@@ -1,15 +1,16 @@
-// Swap page chart, Jupiter-style: candles of the pool that pairs the charted token with the other
-// side of the swap (GeckoTerminal), priced in USD or in that pool's other token, as price or
-// market cap. Falls back to Intear's market candles when the pool has no history or GeckoTerminal
-// is busy. The view (zoom, scroll, price scale) survives the minute refreshes.
+// Swap page chart, Jupiter-style. By default the token's market price across every pool (Intear
+// API): deep history, in USD or NEAR, kept live over a WebSocket after every block. Any of the
+// token's pools can be picked instead (GeckoTerminal candles, refreshed every minute). Scrolling
+// back to the first candle loads the history before it; the chart never scrolls past it.
+// The view (zoom, scroll, price scale) survives refreshes.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createChart, CandlestickSeries, HistogramSeries } from 'lightweight-charts';
 import { useAsync, useLocalStorage } from '../../hooks.js';
 import { fetchOhlc, fetchTokenInfo, intearTokenId, RESOLUTIONS } from '../../lib/intear.js';
+import { fetchMarketCandles, subscribeCandles } from '../../lib/intearApi.js';
 import { fetchPoolOhlc } from '../../lib/gecko.js';
-import { CHART_BARS, lastGood, sameCandles, useBarClock } from '../../lib/candles.js';
-import { chartPoolFor } from '../../lib/tokenMarket.js';
+import { CHART_BARS, lastGood, sameCandles, useBarClock, useOlderCandles, withOlder } from '../../lib/candles.js';
 import { formatChartPrice, formatUsd } from '../../lib/format.js';
 import { attachDrawings, DrawingToolbar, useDrawingKeys } from '../chart/DrawingTools.jsx';
 import { Spinner } from '../ui.jsx';
@@ -17,11 +18,21 @@ import { Spinner } from '../ui.jsx';
 const UP = '#22e283';
 const DOWN = '#ff5d6c';
 const REFRESH_MS = 60_000;
+// Market candles load deeper than pool ones (Intear gives up to 5,000 per request).
+const MARKET_BARS = 3000;
+const MARKET = 'market';
+const WNEAR = 'wrap.near';
 
-/** The other token's symbol in a pool named like "QTC / wNEAR". */
+/** NEAR and wNEAR are one token here. */
+const sameSymbol = (a, b) => {
+  const norm = (v) => String(v || '').toUpperCase().replace(/^WNEAR$/, 'NEAR');
+  return norm(a) === norm(b);
+};
+
+/** The other token's symbol in a pool named like "QTC / wNEAR" (NEAR / wNEAR count as one). */
 function otherSymbol(pool, symbol) {
   const parts = String(pool?.name || '').split(' / ');
-  return parts.find((s) => s.toUpperCase() !== String(symbol).toUpperCase()) || parts[1] || '';
+  return parts.find((s) => !sameSymbol(s, symbol)) || parts[1] || '';
 }
 
 export default function SwapChart({ token, counter, pools, height }) {
@@ -30,20 +41,30 @@ export default function SwapChart({ token, counter, pools, height }) {
   const [resolution, setResolution] = useLocalStorage('kinu.chart.resolution', '60');
   const [unit, setUnit] = useLocalStorage('kinu.swap.unit', 'usd'); // 'usd' | 'quote'
   const [mode, setMode] = useState('price');
-  const [poolAddress, setPoolAddress] = useState(null);
-  useEffect(() => setPoolAddress(null), [tokenId, counterId]);
+  // MARKET (default): every pool, live; or a pool's address.
+  const [poolAddress, setPoolAddress] = useState(MARKET);
+  useEffect(() => setPoolAddress(MARKET), [tokenId, counterId]);
 
-  const pool = (pools || []).find((p) => p.address === poolAddress) || chartPoolFor(pools, counterId);
-  const quoteSymbol = otherSymbol(pool, token?.symbol);
+  const pool = poolAddress === MARKET ? null : (pools || []).find((p) => p.address === poolAddress) || null;
+  // Market prices come in USD or NEAR (wNEAR itself: USD only); a pool's in USD or its other token.
+  const quoteSymbol = pool ? otherSymbol(pool, token?.symbol) : tokenId === WNEAR ? '' : 'NEAR';
+  const marketQuote = unit === 'quote' && tokenId !== WNEAR ? 'near' : 'usd';
   const step = RESOLUTIONS.find((r) => r.key === resolution)?.seconds || 3600;
 
   const info = useAsync(() => fetchTokenInfo(tokenId), [tokenId], { enabled: Boolean(tokenId), refreshMs: 60_000 });
   const supply = info.data?.circulatingSupply;
 
   const lastGoodRef = useRef(null);
-  // The chart doesn't wait for the pool list (GeckoTerminal, often slow): it opens on Intear's
-  // market candles and moves to the pool's own candles once the list names a pool.
-  const viewOf = `${tokenId}|${pool?.address}|${resolution}|${unit}`;
+  const viewOf = `${tokenId}|${pool?.address || MARKET}|${resolution}|${unit}`;
+  const market = async () => {
+    try {
+      const candles = await fetchMarketCandles({ tokenId, resolution, quote: marketQuote, countBack: MARKET_BARS });
+      return { source: 'market', usd: marketQuote === 'usd', volumeUsd: true, candles };
+    } catch {
+      // Intear API down: the older price feed (USD only).
+      return { source: 'market', usd: true, volumeUsd: true, candles: await fetchOhlc({ tokenId, resolution, countBack: CHART_BARS }) };
+    }
+  };
   const loaded = useAsync(
     async () => {
       const memo = lastGood(lastGoodRef, viewOf);
@@ -56,7 +77,7 @@ export default function SwapChart({ token, counter, pools, height }) {
         const prev = memo.previous();
         if (!res && prev?.source === 'pool') return prev;
       }
-      return keep({ source: 'market', usd: true, candles: await fetchOhlc({ tokenId, resolution, countBack: CHART_BARS }) });
+      return keep(await market());
     },
     [viewOf],
     { enabled: Boolean(tokenId), refreshMs: REFRESH_MS }
@@ -64,15 +85,32 @@ export default function SwapChart({ token, counter, pools, height }) {
   // Never show the previous token's candles while the new ones load. Moving from market to pool
   // candles of the same token keeps the market chart up until the pool's arrive.
   const sameToken = loaded.data?.view?.split('|')[0] === tokenId && loaded.data?.view?.split('|').slice(2).join('|') === `${resolution}|${unit}`;
-  const data = sameToken ? loaded.data : undefined;
+  const base = sameToken ? loaded.data : undefined;
+
+  // History before the first candle, loaded as the view reaches it.
+  const history = useOlderCandles(`${viewOf}|${base?.source}`, async (firstTime) => {
+    if (!base) return [];
+    if (base.source === 'pool') {
+      if (resolution === '1W') return [];
+      const res = await fetchPoolOhlc({ address: pool.address, tokenId, resolution, usd: unit === 'usd', countBack: 1000, before: firstTime });
+      return res.candles;
+    }
+    return fetchMarketCandles({ tokenId, resolution, quote: base.usd ? 'usd' : 'near', countBack: MARKET_BARS, toMillis: firstTime * 1000 - 1 });
+  });
+  const data = useMemo(
+    () => (base ? { ...base, candles: withOlder(history.older, base.candles, step) } : undefined),
+    [base, history.older, step]
+  );
   const usdView = data ? data.usd : unit === 'usd';
   const multiplier = mode === 'mcap' ? supply || 0 : 1;
 
   // Volume always reads in USD: pool candles priced in the other token carry volume in it too.
+  // Only those need the token price, so a price refresh doesn't rebuild (and reset) other charts.
+  const volPrice = data?.usd || data?.volumeUsd ? null : info.data?.price;
   const scaled = useMemo(() => {
     if (!data?.candles?.length || !multiplier) return [];
     const last = data.candles[data.candles.length - 1].close;
-    const volToUsd = data.usd ? 1 : info.data?.price && last ? info.data.price / last : 0;
+    const volToUsd = data.usd || data.volumeUsd ? 1 : volPrice && last ? volPrice / last : 0;
     return data.candles.map((c) => ({
       time: c.time,
       open: c.open * multiplier,
@@ -81,7 +119,7 @@ export default function SwapChart({ token, counter, pools, height }) {
       close: c.close * multiplier,
       volume: (c.volume || 0) * volToUsd
     }));
-  }, [data, multiplier, info.data?.price]);
+  }, [data, multiplier, volPrice]);
 
   /* ---- chart ---- */
   const containerRef = useRef(null);
@@ -98,7 +136,7 @@ export default function SwapChart({ token, counter, pools, height }) {
   const [hidden, setHidden] = useState(false);
   const [selected, setSelected] = useState(null);
   const [drawings, setDrawings] = useLocalStorage(`kinu.draw.swap.${tokenId}.${mode}`, []);
-  live.current = { drawings, selected, hidden, tool, magnet, setDrawings, setSelected, setTool };
+  live.current = { drawings, selected, hidden, tool, magnet, setDrawings, setSelected, setTool, requestOlder: history.request, multiplier };
   useDrawingKeys(live, pendingRef, paintRef);
   useEffect(() => {
     paintRef.current?.();
@@ -114,7 +152,8 @@ export default function SwapChart({ token, counter, pools, height }) {
       layout: { background: { color: 'transparent' }, textColor: 'rgba(226, 234, 245, 0.55)', fontFamily: 'JetBrains Mono, ui-monospace, monospace', fontSize: 11, attributionLogo: false },
       grid: { vertLines: { color: 'rgba(255,255,255,0.03)' }, horzLines: { color: 'rgba(255,255,255,0.03)' } },
       rightPriceScale: { borderColor: 'rgba(255,255,255,0.06)', scaleMargins: { top: 0.08, bottom: 0.22 } },
-      timeScale: { borderColor: 'rgba(255,255,255,0.06)', timeVisible: true, secondsVisible: false, rightOffset: 6 },
+      // The view stops at the first candle (no blank space before the data); reaching it loads more.
+      timeScale: { borderColor: 'rgba(255,255,255,0.06)', timeVisible: true, secondsVisible: false, rightOffset: 6, fixLeftEdge: scaled.length >= 60 },
       crosshair: { mode: 0 },
       localization: { priceFormatter: formatChartPrice }
     });
@@ -133,7 +172,7 @@ export default function SwapChart({ token, counter, pools, height }) {
     chart.priceScale('volume').applyOptions({ scaleMargins: { top: 0.84, bottom: 0 } });
     series.setData(scaled.map(({ time, open, high, low, close }) => ({ time, open, high, low, close })));
     volume.setData(scaled.map((c) => ({ time: c.time, value: c.volume, color: c.close >= c.open ? 'rgba(34,226,131,0.28)' : 'rgba(255,93,108,0.28)' })));
-    liveBarRef.current = { series, bar: scaled[scaled.length - 1], line: false };
+    liveBarRef.current = { series, volume, bar: scaled[scaled.length - 1], line: false };
 
     // High / Low of the loaded range, as on Jupiter.
     const hi = scaled.reduce((m, c) => Math.max(m, c.high), -Infinity);
@@ -160,6 +199,10 @@ export default function SwapChart({ token, counter, pools, height }) {
       chart.timeScale().setVisibleLogicalRange({ from: Math.min(Math.max(0, scaled.length - 120), scaled.length - 60), to: scaled.length + 6 });
     }
 
+    chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+      if (range && range.from < 3) live.current.requestOlder?.(times[0]);
+    });
+
     const byTime = new Map(scaled.map((c) => [c.time, c]));
     chart.subscribeCrosshairMove((param) => setLegend(param?.time ? byTime.get(param.time) || null : null));
     const drawingLayer = attachDrawings({ chart, series, data: scaled, step, container, canvas: canvasRef.current, live, pendingRef });
@@ -184,11 +227,45 @@ export default function SwapChart({ token, counter, pools, height }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scaled]);
 
-  const last = scaled[scaled.length - 1];
+  // Market candles stay live: Intear pushes the latest candle after every block that moved it.
+  const [tick, setTick] = useState(null);
+  const liveSource = data?.source === 'market';
+  const liveQuote = data?.usd ? 'usd' : 'near';
+  useEffect(() => {
+    setTick(null);
+    if (!liveSource || !tokenId) return undefined;
+    return subscribeCandles(
+      { tokenIds: [tokenId], resolution, quote: liveQuote },
+      (byToken) => {
+        const bars = byToken[tokenId];
+        const bar0 = liveBarRef.current;
+        if (!bars?.length || !bar0) return;
+        const m = live.current.multiplier || 1;
+        bars.forEach((c) => {
+          if (c.time < bar0.bar.time) return; // the chart can only update its latest bar
+          const bar = { time: c.time, open: c.open * m, high: c.high * m, low: c.low * m, close: c.close * m, volume: c.volume };
+          try {
+            bar0.series.update({ time: bar.time, open: bar.open, high: bar.high, low: bar.low, close: bar.close });
+            bar0.volume?.update({ time: bar.time, value: bar.volume, color: bar.close >= bar.open ? 'rgba(34,226,131,0.28)' : 'rgba(255,93,108,0.28)' });
+            bar0.bar = bar;
+            setTick(bar);
+          } catch {
+            // the chart was rebuilt meanwhile
+          }
+        });
+      },
+      () => loaded.reload()
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveSource, tokenId, resolution, liveQuote]);
+
+  // The latest candle: the live one once the socket has pushed it.
+  const lastLoaded = scaled[scaled.length - 1];
+  const last = tick && lastLoaded && tick.time >= lastLoaded.time ? tick : lastLoaded;
   const shown = legend || last;
   const change = shown && shown.open ? ((shown.close - shown.open) / shown.open) * 100 : null;
   const pairLabel = `${token?.symbol}/${usdView ? 'USD' : quoteSymbol}`;
-  const sourceLabel = data?.source === 'pool' ? `${pool?.name}${pool?.fee ? ` ${pool.fee}` : ''} · GeckoTerminal` : 'market price · Intear';
+  const sourceLabel = data?.source === 'pool' ? `${pool?.name}${pool?.fee ? ` ${pool.fee}` : ''} · GeckoTerminal` : 'all pools · Intear · live';
   const loading = loaded.loading && !data;
   const message =
     mode === 'mcap' && !supply
@@ -217,7 +294,7 @@ export default function SwapChart({ token, counter, pools, height }) {
             MCap
           </button>
         </div>
-        {pool && quoteSymbol && (
+        {quoteSymbol && (
           <div className="segmented" role="group" aria-label="Quote currency">
             <button type="button" className={unit === 'usd' ? 'active' : ''} onClick={() => setUnit('usd')}>
               USD
@@ -231,7 +308,8 @@ export default function SwapChart({ token, counter, pools, height }) {
         {pools?.length > 0 && (
           <label className="swap-chart__pool">
             <span className="sr-only">Chart pool</span>
-            <select value={pool?.address || ''} onChange={(e) => setPoolAddress(e.target.value)}>
+            <select value={pool?.address || MARKET} onChange={(e) => setPoolAddress(e.target.value)}>
+              <option value={MARKET}>All pools · market price · live</option>
               {pools.map((p) => (
                 <option key={p.address} value={p.address}>
                   {p.name}

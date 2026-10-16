@@ -1,6 +1,7 @@
 // Shared helpers for the price charts (pool page, Swap page).
 
-import { useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { fillGaps } from './intearApi.js';
 
 /** Bars loaded per chart: 1m ≈ 16 h, 1h ≈ 41 days, 1D ≈ 2.7 years (Intear keeps full history). */
 export const CHART_BARS = 1000;
@@ -66,4 +67,54 @@ export function useBarClock(liveBarRef, step) {
     schedule();
     return () => clearTimeout(timer);
   }, [liveBarRef, step]);
+}
+
+/**
+ * History further back than the first load, fetched when a chart's view reaches its first candle.
+ * `key` identifies the view (token, pool, timeframe, unit…): a new key starts over.
+ * `load(firstTime)` resolves to the candles before `firstTime` (seconds), oldest first; an empty
+ * page means there is no more. Returns { older, done, request(firstTime) }.
+ */
+// One shared empty list: a chart rebuilds when its candles change identity, so "no history yet"
+// must stay the same object across renders (a new [] each render would reset the view mid-drag).
+const NONE = [];
+
+export function useOlderCandles(key, load) {
+  const [state, setState] = useState({ key, candles: NONE, done: false });
+  const busy = useRef(false);
+  const loadRef = useRef(load);
+  loadRef.current = load;
+  const current = state.key === key ? state : { key, candles: NONE, done: false };
+  const done = current.done;
+  const request = useCallback(
+    async (firstTime) => {
+      if (busy.current || done || !firstTime) return;
+      busy.current = true;
+      try {
+        const page = ((await loadRef.current(firstTime)) || []).filter((c) => c.time < firstTime);
+        setState((s) => {
+          const base = s.key === key ? s : { key, candles: NONE, done: false };
+          // An empty page only marks the end: the candles keep their identity (no rebuild).
+          if (!page.length) return { key, candles: base.candles, done: true };
+          return { key, candles: [...page, ...base.candles], done: false };
+        });
+      } catch {
+        // busy source (e.g. GeckoTerminal's rate limit): the next scroll tries again
+      } finally {
+        busy.current = false;
+      }
+    },
+    [key, done]
+  );
+  return { older: current.candles, done, request };
+}
+
+/** Older pages in front of the loaded candles, one candle per bucket across the join. */
+export function withOlder(older, candles, step) {
+  if (!older?.length || !candles?.length) return candles;
+  const first = candles[0].time;
+  const before = older.filter((c) => c.time < first);
+  if (!before.length) return candles;
+  const joined = fillGaps([...before, candles[0]], step);
+  return [...joined.slice(0, -1), ...candles];
 }

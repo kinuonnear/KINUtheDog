@@ -254,8 +254,10 @@ const OHLCV_FRAMES = {
  * the pool's other token, or in USD with `usd`. Volume is in USD with `usd`, else in the other token.
  * A pool's price only moves when it trades, so empty buckets carry the last close (volume 0).
  * `trades` is how many buckets had real trades (0 = no history in this pool yet).
+ * `before` (seconds): an older page, the candles before that time (for charts loading history as
+ * they scroll back); filled up to its own last candle, not to now.
  */
-export async function fetchPoolOhlc({ poolId, address, tokenId, resolution = '60', usd = false, countBack = 300, signal }) {
+export async function fetchPoolOhlc({ poolId, address, tokenId, resolution = '60', usd = false, countBack = 300, before = null, signal }) {
   const [frame, aggregate, step] = OHLCV_FRAMES[resolution] || OHLCV_FRAMES[60];
   const weekly = resolution === '1W';
   const params = new URLSearchParams({
@@ -264,6 +266,7 @@ export async function fetchPoolOhlc({ poolId, address, tokenId, resolution = '60
     currency: usd ? 'usd' : 'token',
     token: tokenId
   });
+  if (before) params.set('before_timestamp', String(Math.floor(before) - 1));
   // `address`: a GeckoTerminal pool address as listed (any DEX); else derived from a Rhea pool id.
   const pool = address || geckoPoolId({ id: poolId });
   const response = await geckoFetch(`${ENDPOINTS.geckoterminal}/networks/near/pools/${encodeURIComponent(pool)}/ohlcv/${frame}?${params}`, { signal });
@@ -283,13 +286,15 @@ export async function fetchPoolOhlc({ poolId, address, tokenId, resolution = '60
     });
     real = [...weeks.values()];
   }
-  return { candles: fillBuckets(real, step, countBack), trades: real.length };
+  if (before) real = real.filter((c) => c.time < before);
+  if (before && weekly) return { candles: [], trades: 0 }; // weekly bars are built from days: no paging
+  return { candles: fillBuckets(real, step, before ? 1e9 : countBack, before ? real[real.length - 1]?.time : null), trades: real.length };
 }
 
-/** One candle per bucket from the first trade (within the last `count` buckets) up to now. */
-function fillBuckets(real, step, count) {
+/** One candle per bucket from the first trade (within the last `count` buckets) up to now (or `until`). */
+function fillBuckets(real, step, count, until = null) {
   if (!real.length) return [];
-  const now = Math.floor(Date.now() / 1000 / step) * step;
+  const now = until ?? Math.floor(Date.now() / 1000 / step) * step;
   const start = Math.max(real[0].time, now - (count - 1) * step);
   const byTime = new Map(real.map((c) => [c.time, c]));
   // The close carried into the window: the last real candle before it starts.
