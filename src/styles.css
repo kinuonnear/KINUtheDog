@@ -11621,6 +11621,85 @@ a.pair-tiers__row:hover {
   background: var(--surface-2);
 }
 
+/* LP profile: the wallet's Nearly trading record */
+.lpp-trade__rank {
+  margin-left: 8px;
+  color: var(--accent, #5fe3a1);
+  font-weight: 600;
+}
+
+.lpp-trade__empty {
+  margin: 0 0 18px;
+}
+
+.lpp-trade__lists {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.lpp-trade__lists > div {
+  display: grid;
+  gap: 8px;
+}
+
+.lpp-trade__tokens,
+.lpp-trade__recent {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lpp-trade__tokens li,
+.lpp-trade__recent li {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) 1fr 1fr auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.lpp-trade__recent li {
+  grid-template-columns: 44px minmax(0, 1.4fr) 1fr auto;
+}
+
+.lpp-trade__tokens a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--text);
+}
+
+.lpp-trade__tokens img,
+.lpp-trade__tokens a i {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.lpp-trade__tokens b,
+.lpp-trade__recent b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lpp-trade__recent em {
+  font-style: normal;
+  font-weight: 600;
+}
+
 .lpp__section {
   margin: 8px 0 12px;
   font-size: 15px;

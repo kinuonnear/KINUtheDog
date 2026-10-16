@@ -10,7 +10,8 @@ import { judgeDclHolding } from '../lib/agent.js';
 import { Link, poolPath } from '../router.jsx';
 import { isNearAccount, loadDclPositions, markDclRows } from '../lib/smartLp.js';
 import { formatAge as duration } from '../lib/lpHistory.js';
-import { formatUsd } from '../lib/format.js';
+import { formatAge, formatUsd } from '../lib/format.js';
+import { getNearlyTrader } from '../lib/nearlyTrader.js';
 import { ENDPOINTS } from '../config.js';
 import { ClosedPositions, ProfitChart, RANGES, useLpHistory } from '../components/LpPnl.jsx';
 import LiquidityTable from '../components/LiquidityTable.jsx';
@@ -133,6 +134,130 @@ function Metric({ label, hint, children, busy, className = '' }) {
   );
 }
 
+const roiPct = (v) => (Number.isFinite(v) ? `${v >= 0 ? '+' : '−'}${Math.abs(v * 100).toFixed(1)}%` : '');
+const sinceDate = (ts) => (ts ? new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '—');
+
+/** The wallet's spot trading on Nearly launch tokens (Nearly's public API), next to its LP record. */
+function TradingRecord({ account }) {
+  const trader = useAsync(() => getNearlyTrader(account), [account], { refreshMs: 120_000 });
+  const t = trader.data;
+  const busy = !t && !trader.error;
+  const tokens = useMemo(() => (t ? [...t.tokens].sort((a, b) => Math.abs(b.pnlUsd) - Math.abs(a.pnlUsd)).slice(0, 8) : []), [t]);
+
+  if (trader.error) return null;
+  if (t && !t.trades) {
+    return (
+      <>
+        <h2 className="lpp__section">Trading PnL · Nearly tokens</h2>
+        <p className="muted small lpp-trade__empty">No trades of Nearly launch tokens from this wallet.</p>
+      </>
+    );
+  }
+  return (
+    <>
+      <div className="lpp__section-head">
+        <h2 className="lpp__section">
+          Trading PnL · Nearly tokens
+          {t?.rank && <small className="lpp-trade__rank"> 🏆 #{t.rank} trader</small>}
+        </h2>
+      </div>
+      <section className="card lpp-dash lpp-trade">
+        <div className="lpp-dash__stats">
+          <div className="lpp-dash__headline">
+            <span className="eyebrow">Total trading PnL</span>
+            {busy ? (
+              <Skeleton width={150} height={32} />
+            ) : (
+              <strong className={tone(t.pnlUsd)}>
+                {signedUsd(t.pnlUsd)} <small className="muted">{roiPct(t.roi)}</small>
+              </strong>
+            )}
+            <span className="muted small">Realized + unrealized, buys and sells of Nearly launch tokens</span>
+          </div>
+          <div className="lpp-dash__grid">
+            <Metric label="Invested" busy={busy}>
+              {t && (
+                <>
+                  {short(t.investedUsd)} <small className="muted">· {t.tokenCount} tokens</small>
+                </>
+              )}
+            </Metric>
+            <Metric label="Win rate" busy={busy} hint="Tokens traded at a profit" className={t ? (t.winRate >= 0.6 ? 'up' : t.winRate !== null && t.winRate < 0.4 ? 'down' : '') : ''}>
+              {t && pct(t.winRate === null ? null : t.winRate * 100)}
+            </Metric>
+            <Metric label="Best trade" busy={busy} className="up">
+              {t?.best ? (
+                <>
+                  {signedUsd(t.best.pnlUsd)} <small className="muted">· ${t.best.symbol}</small>
+                </>
+              ) : (
+                '—'
+              )}
+            </Metric>
+            <Metric label="Trades" busy={busy}>
+              {t && (
+                <>
+                  {t.trades.toLocaleString()} <small className="muted">· since {sinceDate(t.firstTs)}</small>
+                </>
+              )}
+            </Metric>
+            <Metric label="Realized" busy={busy} className={t ? tone(t.realizedUsd) : ''}>
+              {t && signedUsd(t.realizedUsd)}
+            </Metric>
+            <Metric label="Unrealized" busy={busy} hint="Tokens still held, at today's price" className={t ? tone(t.unrealizedUsd) : ''}>
+              {t && (
+                <>
+                  {signedUsd(t.unrealizedUsd)} <small className="muted">· {t.openCount} open</small>
+                </>
+              )}
+            </Metric>
+          </div>
+        </div>
+        <div className="lpp-trade__lists">
+          <div>
+            <span className="eyebrow">Biggest results</span>
+            {busy ? (
+              <Spinner />
+            ) : (
+              <ul className="lpp-trade__tokens">
+                {tokens.map((k) => (
+                  <li key={k.id}>
+                    <Link to={`/token/${encodeURIComponent(k.id)}`}>
+                      {k.icon ? <img src={k.icon} alt="" width="20" height="20" loading="lazy" /> : <i aria-hidden />}
+                      <b>${k.symbol}</b>
+                    </Link>
+                    <span className="muted">{short(k.basisUsd)} in</span>
+                    <strong className={tone(k.pnlUsd)}>{signedUsd(k.pnlUsd)}</strong>
+                    <small className={k.open ? 'up' : 'muted'}>{k.open ? 'Holding' : 'Closed'}</small>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          {t?.recent?.length > 0 && (
+            <div>
+              <span className="eyebrow">Recent trades</span>
+              <ul className="lpp-trade__recent">
+                {t.recent.slice(0, 6).map((x) => (
+                  <li key={`${x.ts}-${x.token}-${x.side}`}>
+                    <em className={x.side === 'buy' ? 'up' : 'down'}>{x.side === 'buy' ? 'Buy' : 'Sell'}</em>
+                    <b>${x.symbol}</b>
+                    <span>{short(x.usd)}</span>
+                    <small className="muted">{formatAge(x.ts)} ago</small>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      </section>
+      <p className="lpp__note">
+        Trading data: Nearly&apos;s public trader API (spot trades of Nearly launch tokens on Rhea). LP data above is KINU&apos;s own, read from the chain.
+      </p>
+    </>
+  );
+}
+
 export default function LpProfile({ account: raw }) {
   // NEAR account ids are lowercase: /lp/Alex.near is alex.near.
   const account = raw.trim().toLowerCase();
@@ -216,12 +341,15 @@ export default function LpProfile({ account: raw }) {
           </EmptyState>
         </div>
       ) : inactive ? (
-        <div className="card">
-          <EmptyState icon="◎" title="No Rhea CLMM activity yet">
-            This wallet hasn&apos;t provided concentrated liquidity on Rhea (or not in its most recent transactions). Its other
-            assets are in its <Link to={`/portfolio?account=${encodeURIComponent(account)}`}>full portfolio</Link>.
-          </EmptyState>
-        </div>
+        <>
+          <TradingRecord account={account} />
+          <div className="card">
+            <EmptyState icon="◎" title="No Rhea CLMM activity yet">
+              This wallet hasn&apos;t provided concentrated liquidity on Rhea (or not in its most recent transactions). Its other
+              assets are in its <Link to={`/portfolio?account=${encodeURIComponent(account)}`}>full portfolio</Link>.
+            </EmptyState>
+          </div>
+        </>
       ) : failed ? (
         <div className="card">
           <EmptyState
@@ -322,6 +450,8 @@ export default function LpProfile({ account: raw }) {
               )}
             </div>
           </section>
+
+          <TradingRecord account={account} />
 
           <div className="lpp__section-head">
             <h2 className="lpp__section">
