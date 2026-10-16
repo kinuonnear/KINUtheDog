@@ -202,7 +202,7 @@ function SlippageSettings({ slippage, setSlippage }) {
   );
 }
 
-function TokenField({ label, token, amount, onAmount, onPickToken, balance, usd, readOnly, loading, onMax, onHalf }) {
+function TokenField({ label, token, amount, onAmount, onPickToken, balance, usd, readOnly, loading, onMax, onHalf, bonus }) {
   return (
     <div className={`swap-field ${readOnly ? 'swap-field--readonly' : ''}`}>
       <div className="swap-field__top">
@@ -241,7 +241,14 @@ function TokenField({ label, token, amount, onAmount, onPickToken, balance, usd,
           <span aria-hidden>▾</span>
         </button>
       </div>
-      <div className="swap-field__bottom">{loading ? <Spinner size={12} /> : usd > 0 ? formatUsd(usd) : ' '}</div>
+      <div className="swap-field__bottom">
+        <span>{loading ? <Spinner size={12} /> : usd > 0 ? formatUsd(usd) : ' '}</span>
+        {!loading && bonus && (
+          <span className="swap-field__bonus" title="TEAR holder discount on Intear DEX fees, already included in the amount">
+            ✦ {bonus} bonus
+          </span>
+        )}
+      </div>
     </div>
   );
 }
@@ -399,6 +406,11 @@ export default function Swap() {
   const priceOut = priceOf(prices, tokenOut.id);
   const usdIn = amountInNum * priceIn;
   const usdOut = amountOutNum * priceOut;
+  // Intear DEX's fee discount for TEAR holders, shown under the amount (already part of it).
+  const tearBonus =
+    quote?.intear?.dexId === 'Plach' && toBigInt(quote.intear.discountOut || '0') > 0n
+      ? formatAmount(toNumber(quote.intear.discountOut, tokenOut.decimals))
+      : null;
   // Measured on the route itself (trade rate vs. a tiny trade's rate); USD prices only as a fallback,
   // since price lists can lag for small tokens.
   const measuredImpact = !wrapMode && Number.isFinite(quote?.priceImpact) ? quote.priceImpact : null;
@@ -683,6 +695,7 @@ export default function Swap() {
               onPickToken={() => setPicker('out')}
               balance={balanceOutRaw !== null ? toNumber(balanceOutRaw, tokenOut.decimals) : null}
               usd={usdOut}
+              bonus={tearBonus}
             />
 
             {quoteError && typedRaw && !quoting && <div className="notice notice--error">{quoteError}</div>}
@@ -753,6 +766,35 @@ export default function Swap() {
                       </small>
                     </dd>
                   </div>
+                  {/* Intear DEX pools charge TEAR holders less (10 / 1,000 / 100,000 TEAR: 10% / 25% / 75% off
+                      the pool fee); the aggregator already priced it in for the connected wallet. */}
+                  {quote.intear?.dexId === 'Plach' &&
+                    (toBigInt(quote.intear.discountOut || '0') > 0n ? (
+                      <div>
+                        <dt>TEAR holder discount</dt>
+                        <dd className="up" title="Intear DEX charges TEAR holders a lower pool fee: 10 TEAR = 10%, 1,000 = 25%, 100,000 = 75% off. Already included above.">
+                          +{formatAmount(toNumber(quote.intear.discountOut, tokenOut.decimals))} {tokenOut.symbol}
+                        </dd>
+                      </div>
+                    ) : (
+                      accountId && (
+                        <div>
+                          <dt>Fee discount</dt>
+                          <dd>
+                            <small className="muted">
+                              Hold 10+ TEAR for up to 75% off Intear DEX fees ·{' '}
+                              <button
+                                type="button"
+                                className="link-button"
+                                onClick={() => getToken('token.intear.near').then((t) => t && selectToken('out', t))}
+                              >
+                                Get TEAR
+                              </button>
+                            </small>
+                          </dd>
+                        </div>
+                      )
+                    ))}
                   {quote.compared?.length > 0 && (
                     <div>
                       <dt>Route provider</dt>

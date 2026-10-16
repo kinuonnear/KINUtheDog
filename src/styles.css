@@ -1391,6 +1391,15 @@ a.pool-row:hover + .pool-row {
   font-size: 12px;
 }
 
+/* TEAR holder bonus beside the USD value of "You receive". */
+.swap-field__bonus {
+  margin-right: auto; /* right after the USD value, like Intear DEX */
+  color: #5fe3a1;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
 .swap-field__bottom {
   min-height: 18px;
   font-family: var(--mono);

@@ -226,7 +226,9 @@ export async function getIntearQuotes({ tokenIn, tokenOut, amountIn, slippage, u
           gasUsage: String(route.estimated_gas_usage || '0'),
           maxGasCost: String(route.estimated_max_gas_cost || '0'),
           storage: String(route.storage_deposits || '0'),
-          taxIn
+          taxIn,
+          // Extra output from Intear's fee discount for TEAR holders (Intear DEX pools), raw, '0' if none.
+          discountOut: String(route.discount?.amount_out ?? '0')
         },
         user: user || null,
         fetchedAt: Date.now()
