@@ -10,7 +10,7 @@ import { useAsync, useLocalStorage } from '../../hooks.js';
 import { fetchOhlc, fetchTokenInfo, intearTokenId, RESOLUTIONS } from '../../lib/intear.js';
 import { fetchMarketCandles, subscribeCandles } from '../../lib/intearApi.js';
 import { fetchPoolOhlc } from '../../lib/gecko.js';
-import { CHART_BARS, lastGood, limitZoomOut, sameCandles, useBarClock, useOlderCandles, withOlder } from '../../lib/candles.js';
+import { CHART_BARS, lastGood, sameCandles, useBarClock, useOlderCandles, withOlder } from '../../lib/candles.js';
 import { formatChartPrice, formatUsd } from '../../lib/format.js';
 import { attachDrawings, DrawingToolbar, useDrawingKeys } from '../chart/DrawingTools.jsx';
 import { Spinner } from '../ui.jsx';
@@ -156,7 +156,7 @@ export default function SwapChart({ token, counter, pools, height }) {
   // The chart is built once per view (token, pool, timeframe, unit, price / market cap) and its
   // candles are replaced in place when they change (a refresh, older history). Replacing the data
   // keeps the user's zoom and scroll; rebuilding the chart would move the view.
-  const apiRef = useRef(null); // { chart, series, volume, lines, byTime, times, drawingLayer, unlimit, fresh }
+  const apiRef = useRef(null); // { chart, series, volume, lines, byTime, times, drawingLayer, fresh }
   const hasData = scaled.length > 0;
   useEffect(() => {
     const container = containerRef.current;
@@ -180,7 +180,7 @@ export default function SwapChart({ token, counter, pools, height }) {
     });
     const volume = chart.addSeries(HistogramSeries, { priceFormat: { type: 'volume' }, priceScaleId: 'volume', lastValueVisible: false, priceLineVisible: false });
     chart.priceScale('volume').applyOptions({ scaleMargins: { top: 0.84, bottom: 0 } });
-    const api = { chart, series, volume, container, lines: [], byTime: new Map(), times: [], drawingLayer: null, unlimit: () => {}, fresh: true };
+    const api = { chart, series, volume, container, lines: [], byTime: new Map(), times: [], drawingLayer: null, fresh: true };
     apiRef.current = api;
 
     // Reaching the first candle loads the history before it.
@@ -193,7 +193,6 @@ export default function SwapChart({ token, counter, pools, height }) {
       apiRef.current = null;
       paintRef.current = null;
       liveBarRef.current = null;
-      api.unlimit();
       api.drawingLayer?.dispose();
       chart.remove();
     };
@@ -220,11 +219,7 @@ export default function SwapChart({ token, counter, pools, height }) {
     const mark = { color: 'rgba(79,179,255,0.55)', lineWidth: 1, lineStyle: 3, axisLabelVisible: true, axisLabelColor: '#1b3b55', axisLabelTextColor: '#9fd3ff' };
     api.lines = [series.createPriceLine({ ...mark, price: hi, title: 'High' }), series.createPriceLine({ ...mark, price: lo, title: 'Low' })];
 
-    // The view stops at the first candle (no blank space before the data) and zooming out stops once
-    // every candle fits.
-    chart.timeScale().applyOptions({ fixLeftEdge: scaled.length >= 60 });
-    api.unlimit();
-    api.unlimit = limitZoomOut(chart, container, scaled.length, 6);
+    // Free zoom and scroll, as on TradingView: scrolling past the first candle loads older history.
     if (api.fresh) {
       api.fresh = false;
       chart.timeScale().setVisibleLogicalRange({ from: Math.min(Math.max(0, scaled.length - 120), scaled.length - 60), to: scaled.length + 6 });

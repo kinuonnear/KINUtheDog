@@ -12,7 +12,7 @@ import { useAsync, useClickOutside, useLocalStorage } from '../hooks.js';
 import { fetchOhlc, fetchPairOhlc, fetchTokenInfo, intearTokenId, RESOLUTIONS } from '../lib/intear.js';
 import { fetchMarketCandles, fetchMarketPair, subscribeCandles } from '../lib/intearApi.js';
 import { fetchPoolOhlc } from '../lib/gecko.js';
-import { CHART_BARS, lastGood, limitZoomOut, sameCandles, useBarClock, useOlderCandles, withOlder } from '../lib/candles.js';
+import { CHART_BARS, lastGood, sameCandles, useBarClock, useOlderCandles, withOlder } from '../lib/candles.js';
 import { useApp } from '../state.jsx';
 import { priceOf } from '../lib/tokens.js';
 import { bollinger, ema, INDICATORS, sma } from '../lib/indicators.js';
@@ -352,8 +352,8 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
       },
       grid: { vertLines: { color: 'rgba(255,255,255,0.03)' }, horzLines: { color: 'rgba(255,255,255,0.03)' } },
       rightPriceScale: { borderColor: 'rgba(255,255,255,0.06)', scaleMargins: { top: 0.1, bottom: indicators.includes('volume') ? 0.2 : 0.08 } },
-      // The view stops at the first candle (no blank space before the data); reaching it loads more.
-      timeScale: { borderColor: 'rgba(255,255,255,0.06)', timeVisible: true, secondsVisible: false, rightOffset: 8, fixLeftEdge: data.length >= 60 },
+      // Free zoom and scroll, as on TradingView: scrolling past the first candle loads older history.
+      timeScale: { borderColor: 'rgba(255,255,255,0.06)', timeVisible: true, secondsVisible: false, rightOffset: 8 },
       crosshair: { mode: 0 },
       localization: { priceFormatter: formatChartPrice }
     });
@@ -449,7 +449,6 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
         if (range && range.from < 3) live.current.requestOlder?.(times[0]);
       });
     }
-    let unlimit = noHistory ? () => {} : limitZoomOut(chart, container, data.length, 8);
 
     // Candles refresh every minute and rebuild the chart: keep the user's zoom, scroll and
     // price scale. The same bars stay in view; a view that followed the latest bar keeps following.
@@ -713,9 +712,6 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
       times = data.map((c) => c.time);
       lastIdx = times.length - 1;
       if (liveBarRef.current) liveBarRef.current = { ...liveBarRef.current, bar: data[data.length - 1] };
-      chart.timeScale().applyOptions({ fixLeftEdge: data.length >= 60 });
-      unlimit();
-      unlimit = limitZoomOut(chart, container, data.length, 8);
       paint();
     };
     chartApi.current = { chart, canvas, setDataAll };
@@ -732,7 +728,6 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
       canvas.removeEventListener('pointerdown', onCanvasDown);
       canvas.removeEventListener('pointermove', onCanvasMove);
       cleanups.forEach((fn) => fn());
-      unlimit();
       chart.remove();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
