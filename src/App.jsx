@@ -33,7 +33,7 @@ const IntearPools = lazy(() => import('./pages/IntearPools.jsx'));
 // Liquidity first: Pools (and Create) right after Home. Docs and the rest live under More.
 const NAV = [
   { to: '/app', label: 'Home', match: ['app'] },
-  { to: '/pools', label: 'Pools', match: ['pools', 'pool', 'starter'] },
+  { to: '/pools', label: 'Pools', match: ['pools', 'pool', 'starter', 'intear'] },
   { to: '/discover', label: 'Discover', match: ['discover', 'new', 'token', 'lp'] },
   { to: '/swap', label: 'Swap', match: ['swap'] },
   { to: '/portfolio', label: 'Portfolio', match: ['portfolio'] },

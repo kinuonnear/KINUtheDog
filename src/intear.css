@@ -1,27 +1,10 @@
-/* Intear DEX pools demo (/intear-dex): stats band, controls and the pool table. Theme colours
+/* Intear DEX pools (/intear-dex, the Intear DEX tab of Pools): stats band, controls and the pool table. Theme colours
    come from theme.css; the hero reuses the Pools page header (pools.css). */
 
 .page--intear {
   display: flex;
   flex-direction: column;
   gap: 16px;
-}
-
-.ix-badge {
-  position: relative;
-  display: inline-block;
-  align-self: flex-start;
-  width: fit-content;
-  margin-bottom: 10px;
-  padding: 4px 10px;
-  border: 1px solid rgba(95, 227, 161, 0.4);
-  border-radius: 999px;
-  background: rgba(95, 227, 161, 0.08);
-  color: var(--up);
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .ix-stats {

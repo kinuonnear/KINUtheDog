@@ -10,6 +10,7 @@ import { getTokens } from '../lib/tokens.js';
 import { formatAmount, formatPercent, formatUsd } from '../lib/format.js';
 import { ErrorNotice, PairIcons, Skeleton } from '../components/ui.jsx';
 import { FlowLines } from '../components/FlowLines.jsx';
+import PoolSourceTabs from '../components/PoolSourceTabs.jsx';
 import '../pools.css';
 import '../intear.css';
 
@@ -62,9 +63,10 @@ export default function IntearPools() {
     <div className="page page--discover page--pools page--intear">
       <header className="pt-hero">
         <FlowLines />
-        <span className="ix-badge">Demo · read-only</span>
-        <h1 className="pt-title">Intear DEX pools</h1>
-        <p>Plach AMM pools on Intear DEX, seen through KINU: fees, liquidity, volume and APY at a glance.</p>
+        <h1 className="pt-title">Pools</h1>
+        <p>Every pool on NEAR, sorted by what it pays LPs.</p>
+        <PoolSourceTabs active="intear" intear={pools.data ? { pools: all.length, tvl: totals.tvl } : undefined} />
+        <p>Plach AMM pools on Intear DEX: fees, liquidity, volume and APY at a glance.</p>
         <a className="pt-start" href="https://dex.intea.rs/pools" target="_blank" rel="noopener noreferrer">
           Open Intear DEX
           <span className="pt-start__arrow" aria-hidden>

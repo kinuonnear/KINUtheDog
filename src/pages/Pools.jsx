@@ -11,6 +11,7 @@ import AprValue from '../components/AprValue.jsx';
 import { formatChartPrice, formatPercent, formatUsd } from '../lib/format.js';
 import { ErrorNotice, PairIcons, Skeleton } from '../components/ui.jsx';
 import { FlowLines } from '../components/FlowLines.jsx';
+import PoolSourceTabs from '../components/PoolSourceTabs.jsx';
 import '../pools.css';
 
 const PAGE_SIZE = 25;
@@ -662,6 +663,7 @@ export default function Pools() {
         <FlowLines />
         <h1 className="pt-title">Pools</h1>
         <p>Every pool on NEAR, sorted by what it pays LPs.</p>
+        <PoolSourceTabs active="rhea" rhea={overview.data ? { pools: totals.pools, tvl: totals.tvl } : undefined} />
         <Link to="/start-lp" className="pt-start">
           New to LP? Start here
           <span className="pt-start__arrow" aria-hidden>
