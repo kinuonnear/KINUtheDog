@@ -260,6 +260,9 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
 
   useEffect(() => {
     paintRef.current?.();
+    // A new live price can move the auto-scaled axis on the chart's next frame: paint once more then.
+    const frame = requestAnimationFrame(() => paintRef.current?.());
+    return () => cancelAnimationFrame(frame);
   }, [minPrice, maxPrice, fullRange, drawings, selected, hidden, binPrices, currentPrice, hideRange]);
 
   // Showing / hiding your positions re-fits the price scale around them.
@@ -267,6 +270,17 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
   useEffect(() => {
     chartApi.current?.chart.priceScale('right').applyOptions({ autoScale: true });
     paintRef.current?.();
+    // The chart applies the re-fitted scale on its next frame; paint again once it has, or the
+    // lines stay at the old scale until the pointer moves over the chart.
+    let second = null;
+    const first = requestAnimationFrame(() => {
+      paintRef.current?.();
+      second = requestAnimationFrame(() => paintRef.current?.());
+    });
+    return () => {
+      cancelAnimationFrame(first);
+      if (second !== null) cancelAnimationFrame(second);
+    };
   }, [mineKey]);
 
   // Pool candles: the latest bar follows the pool's on-chain price between refreshes (a pool's
@@ -715,6 +729,7 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
       lastIdx = times.length - 1;
       if (liveBarRef.current) liveBarRef.current = { ...liveBarRef.current, bar: data[data.length - 1] };
       paint();
+      requestAnimationFrame(paint); // again once the chart has re-fitted its scale to the new bars
     };
     chartApi.current = { chart, canvas, setDataAll };
     applyScale(chart, live.current.scale);
