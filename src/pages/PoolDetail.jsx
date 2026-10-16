@@ -734,10 +734,10 @@ function PoolTrades({ poolId, x, y }) {
 function PanelLinks({ links }) {
   return (
     <div className="panel-links">
-      <Link to={links.swap} className="button button--ghost button--sm">
-        Swap
+      <Link to={links.swap} className="panel-link" title="Swap these tokens">
+        ⇄ Swap
       </Link>
-      <a className="button button--ghost button--sm" href={links.rhea} target="_blank" rel="noopener noreferrer">
+      <a className="panel-link" href={links.rhea} target="_blank" rel="noopener noreferrer" title="Open this pool on Rhea">
         Rhea {'↗'}
       </a>
     </div>

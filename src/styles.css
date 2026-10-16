@@ -3425,23 +3425,20 @@ a.trades__row:hover {
 }
 
 .price-edge__unit {
+  overflow: hidden;
   color: var(--faint);
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 11px;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* Phones: the price gets the full width; % and steppers go under it. */
+/* Phones: bigger − / + for fingers. */
 @media (max-width: 520px) {
-  .price-edges .price-edge__row {
-    flex-wrap: wrap;
-  }
-
-  .price-edges .price-edge__row input {
-    flex-basis: 100%;
-  }
-
-  .price-edges .price-edge__steps {
-    margin-left: auto;
+  .price-edge__step {
+    width: 34px;
+    height: 34px;
   }
 }
 
@@ -3465,11 +3462,19 @@ a.trades__row:hover {
   border-color: rgba(184, 255, 61, 0.45);
 }
 
+.price-edge__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+}
+
 .price-edge__label {
   color: var(--muted);
   font-size: 11px;
 }
 
+/* − price + : the steppers sit either side of the price, big enough to click. */
 .price-edge__row {
   display: flex;
   align-items: center;
@@ -3485,6 +3490,7 @@ a.trades__row:hover {
   font-family: var(--mono);
   font-size: 14px;
   font-weight: 600;
+  text-align: center;
 }
 
 .price-edge__pct {
@@ -3492,27 +3498,31 @@ a.trades__row:hover {
   font-size: 11px;
 }
 
-.price-edge__steps {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.price-edge__steps button {
-  width: 20px;
-  height: 16px;
+.price-edge__step {
+  display: grid;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  place-items: center;
   padding: 0;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 8px;
   background: var(--surface-3);
-  color: var(--muted);
-  font-size: 11px;
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 600;
   line-height: 1;
+  cursor: pointer;
 }
 
-.price-edge__steps button:hover:not(:disabled) {
-  color: var(--accent);
-  border-color: var(--accent);
+.price-edge__step:hover:not(:disabled) {
+  border-color: rgba(242, 243, 238, 0.45);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.price-edge__step:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 .create-pos__summary {
@@ -3891,7 +3901,7 @@ a.trades__row:hover {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .panel-head .card-title {
@@ -3900,7 +3910,26 @@ a.trades__row:hover {
 
 .panel-links {
   display: flex;
-  gap: 6px;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Small text links beside a panel title (Swap / Rhea on the pool page). */
+.panel-link {
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.panel-link:hover {
+  color: var(--text);
+}
+
+/* Dual tokens / Zap in: one slim row above the amounts. */
+.create-pos__mode button {
+  height: 30px;
+  font-size: 12.5px;
 }
 
 .pool-bar__actions {
@@ -9853,6 +9882,48 @@ a.pair-tiers__row:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Swap on desktop, like a trading app: the page itself doesn't scroll. The chart + activity column
+   and the swap column fill the window and each scrolls on its own, so scrolling over the swap
+   panel never moves the chart (and the other way round). */
+@media (min-width: 1081px) {
+  .shell--swap .footer {
+    display: none;
+  }
+
+  .shell--swap .swap-pro {
+    padding-bottom: 16px;
+  }
+
+  /* The column scrolls; its cards keep their own height. */
+  .swap-pro__grid:not(.swap-pro__grid--solo) > .swap-pro__main > * {
+    flex-shrink: 0;
+  }
+
+  /* The activity scrolls with its column (one scroll, not a box inside a box). */
+  .swap-pro__grid:not(.swap-pro__grid--solo) .activity__body {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .swap-pro__grid:not(.swap-pro__grid--solo) .activity {
+    overflow: visible;
+  }
+
+  .swap-pro__grid:not(.swap-pro__grid--solo) {
+    height: calc(100vh - 104px);
+    align-items: stretch;
+  }
+
+  .swap-pro__grid:not(.swap-pro__grid--solo) > .swap-pro__main,
+  .swap-pro__grid:not(.swap-pro__grid--solo) > .swap-pro__side {
+    position: static;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
 }
 
 /* Swap with the chart and history hidden: just the swap, centred. */

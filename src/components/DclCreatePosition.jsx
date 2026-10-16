@@ -374,8 +374,14 @@ function PriceEdge({ label, side, price, current, onCommit, onNudge, disabled, u
   };
   return (
     <div className="price-edge">
-      <span className="price-edge__label">{label}</span>
+      <div className="price-edge__top">
+        <span className="price-edge__label">{label}</span>
+        {!disabled && <span className={`price-edge__pct ${change >= 0 ? 'up' : 'down'}`}>{`${change >= 0 ? '+' : ''}${change.toFixed(2)}%`}</span>}
+      </div>
       <div className="price-edge__row">
+        <button type="button" className="price-edge__step" disabled={disabled} onClick={() => onNudge(-1)} aria-label={`Lower ${label}`}>
+          −
+        </button>
         <input
           inputMode="decimal"
           value={shown}
@@ -384,20 +390,14 @@ function PriceEdge({ label, side, price, current, onCommit, onNudge, disabled, u
           onBlur={commit}
           onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
         />
-        {!disabled && <span className={`price-edge__pct ${change >= 0 ? 'up' : 'down'}`}>{`${change >= 0 ? '+' : ''}${change.toFixed(2)}%`}</span>}
-        <div className="price-edge__steps">
-          <button type="button" disabled={disabled} onClick={() => onNudge(1)} aria-label={`Raise ${label}`}>
-            +
-          </button>
-          <button type="button" disabled={disabled} onClick={() => onNudge(-1)} aria-label={`Lower ${label}`}>
-            −
-          </button>
-        </div>
+        <button type="button" className="price-edge__step" disabled={disabled} onClick={() => onNudge(1)} aria-label={`Raise ${label}`}>
+          +
+        </button>
       </div>
+      {/* The unit is in the Price range heading above; here only this edge in USD, on one line. */}
       {unit && (
-        <span className="price-edge__unit">
-          {unit}
-          {!disabled && usd > 0 && ` · 1 ${base} ≈ ${formatUsd(usd)}`}
+        <span className="price-edge__unit" title={!disabled && usd > 0 ? `${unit} · 1 ${base} ≈ ${formatUsd(usd)}` : unit}>
+          {!disabled && usd > 0 ? `≈ ${formatUsd(usd)}` : unit}
         </span>
       )}
     </div>
@@ -724,16 +724,13 @@ export default function DclCreatePosition({ pool, x, y, rangeState, onDone, retr
   return (
     <div className="create-pos">
       <section>
-        <div className="create-pos__head">
-          <h3>Amount</h3>
-          <div className="segmented">
-            <button type="button" className={!zapMode ? 'active' : ''} onClick={() => setMode('dual')}>
-              Dual tokens
-            </button>
-            <button type="button" className={zapMode ? 'active' : ''} onClick={() => setMode('zap')}>
-              ⚡ Zap in
-            </button>
-          </div>
+        <div className="segmented segmented--full create-pos__mode" role="group" aria-label="Amount: dual tokens or zap in">
+          <button type="button" className={!zapMode ? 'active' : ''} onClick={() => setMode('dual')}>
+            Dual tokens
+          </button>
+          <button type="button" className={zapMode ? 'active' : ''} onClick={() => setMode('zap')}>
+            ⚡ Zap in
+          </button>
         </div>
         {zapMode ? (
           <>

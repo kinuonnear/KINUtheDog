@@ -206,7 +206,7 @@ export default function App() {
   }
 
   return (
-    <div className={`shell ${appView ? 'shell--app' : ''} ${route.name === 'app' ? 'shell--home' : ''} ${route.name === 'pools' ? 'shell--pools' : ''}`}>
+    <div className={`shell ${appView ? 'shell--app' : ''} ${route.name === 'app' ? 'shell--home' : ''} ${route.name === 'pools' ? 'shell--pools' : ''} ${route.name === 'swap' ? 'shell--swap' : ''}`}>
       <header className="topbar">
         {/* Brand and wallet share one row: on phones only this row stays pinned (topbar.css). */}
         <div className="topbar__bar">
