@@ -2,7 +2,7 @@
 // liquidity to that position on its own range, rebalance it or remove liquidity. "← New position" goes back to
 // the Create position form.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useApp } from '../state.jsx';
 import { pointToPrice } from '../lib/dclLiquidity.js';
 import { formatChartPrice } from '../lib/format.js';
@@ -10,10 +10,14 @@ import { AddToPositionForm } from './AddToPosition.jsx';
 import RebalanceButton from './Rebalance.jsx';
 import { DclRemoveForm, depositTitle, summarizeDclGroup } from './DclPositions.jsx';
 
-export default function PositionPanel({ group, x, y, loading, onBack, onDone }) {
+export default function PositionPanel({ group, x, y, loading, onBack, onDone, request = null }) {
   const { prices } = useApp();
   // What the lower part of the panel shows: the add form or the remove form.
-  const [view, setView] = useState('add');
+  const [view, setView] = useState(request?.view || 'add');
+  // The table's + / − buttons ask for a view (also when this position is already open).
+  useEffect(() => {
+    if (request?.view) setView(request.view);
+  }, [request?.nonce]);
   const removing = view === 'remove';
   const { positions } = group;
   const title = depositTitle(group, loading);

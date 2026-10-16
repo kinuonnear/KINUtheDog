@@ -376,7 +376,7 @@ function ActionIcon({ kind }) {
   );
 }
 
-export function DclActions({ poolId, positions, x, y, onDone, onAdd, readOnly, stacked = false, icons = false, claimOnly = false, extra = null }) {
+export function DclActions({ poolId, positions, x, y, onDone, onAdd, onRemove, readOnly, stacked = false, icons = false, claimOnly = false, extra = null }) {
   const { accountId, execute, prices } = useApp();
   const [removing, setRemoving] = useState(false);
   const [claiming, setClaiming] = useState(false);
@@ -426,7 +426,7 @@ export function DclActions({ poolId, positions, x, y, onDone, onAdd, readOnly, s
         >
           <ActionIcon kind="add" />
         </AddTag>
-        <button type="button" className="icon-action icon-action--remove" onClick={() => setRemoving(true)} title="Remove liquidity" aria-label="Remove liquidity">
+        <button type="button" className="icon-action icon-action--remove" onClick={onRemove || (() => setRemoving(true))} title="Remove liquidity" aria-label="Remove liquidity">
           <ActionIcon kind="remove" />
         </button>
         {removing && <DclRemoveModal positions={positions} x={x} y={y} onClose={() => setRemoving(false)} onDone={onDone} />}
@@ -717,8 +717,17 @@ function PositionRow({ poolId, group, x, y, pool, loading, pnl, onDone, onChart,
         {/* Earning state lives on the dot by the title (hover for bins and active share). */}
         <div className="lp-board__actions lp-board__actions--stack" data-label="Actions">
           <div className="lp-board__icons">
-            {/* + selects the position: adding happens in the side panel (the modal where there is none). */}
-            <DclActions poolId={poolId} positions={positions} x={x} y={y} onDone={onDone} onAdd={onSelect ? () => onSelect(group) : () => setAdding(true)} icons />
+            {/* + and − select the position: adding and removing happen in the side panel (modals where there is none). */}
+            <DclActions
+              poolId={poolId}
+              positions={positions}
+              x={x}
+              y={y}
+              onDone={onDone}
+              onAdd={onSelect ? () => onSelect(group, 'add') : () => setAdding(true)}
+              onRemove={onSelect ? () => onSelect(group, 'remove') : undefined}
+              icons
+            />
             <button type="button" className={`icon-action icon-action--more ${open ? 'open' : ''}`} onClick={() => setOpen((v) => !v)} title="Liquidity distribution" aria-expanded={open}>
               <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
                 <path d="M3 5l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />

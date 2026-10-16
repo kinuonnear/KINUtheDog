@@ -465,53 +465,73 @@ export default function Swap() {
   /**
    * Combined route (e.g. NEAR -> RHEA via the router, RHEA -> DIARHEA via CLMM): two wallet
    * requests. Step 2 spends exactly the bridge tokens step 1 delivered, never tokens the
-   * user already held.
+   * user already held. Each step starts from its own click: popup wallets (Intear, Meteor web,
+   * MyNearWallet) may only open a window right after a click, so step 2 waits for "Continue".
    */
-  const submitHybrid = async (route) => {
-    const bridge = { id: route.hybrid.mid };
-    const bridgeSymbol = (await getToken(route.hybrid.mid).catch(() => null))?.symbol || route.hybrid.mid;
-    const balanceOf = async () => toBigInt((await view(route.hybrid.mid, 'ft_balance_of', { account_id: accountId }, { fresh: true })) || '0');
-    const before = await balanceOf();
-    const first = await execute(() => buildSwapTransactions({ tokenIn, tokenOut: bridge, quote: route.hybrid.legs[0], accountId }), {
-      pending: `Step 1 of 2: ${tokenIn.symbol} → ${bridgeSymbol}`,
-      success: `Step 1 done — received ${bridgeSymbol}`
-    });
-    if (!first) return false;
-    return execute(
+  const [step2, setStep2] = useState(null); // { route, bridge, bridgeSymbol, before, tokenIn, tokenOut }
+  useEffect(() => setStep2(null), [tokenIn.id, tokenOut.id]);
+  const bridgeBalance = async (id) => toBigInt((await view(id, 'ft_balance_of', { account_id: accountId }, { fresh: true })) || '0');
+
+  const runStep2 = async () => {
+    const s2 = step2;
+    setSubmitting(true);
+    const ok = await execute(
       async () => {
-        const received = (await balanceOf()) - before;
-        if (received <= 0n) throw new Error(`No ${bridgeSymbol} arrived from step 1, so step 2 was not sent.`);
-        const second = await quoteHybridSecondLeg({ quote: route, tokenOut, amountIn: received.toString(), slippage, user: accountId });
-        return buildSwapTransactions({ tokenIn: bridge, tokenOut, quote: second, accountId });
+        const received = (await bridgeBalance(s2.bridge.id)) - s2.before;
+        if (received <= 0n) throw new Error(`No ${s2.bridgeSymbol} arrived from step 1, so step 2 was not sent.`);
+        const second = await quoteHybridSecondLeg({ quote: s2.route, tokenOut: s2.tokenOut, amountIn: received.toString(), slippage, user: accountId });
+        return buildSwapTransactions({ tokenIn: s2.bridge, tokenOut: s2.tokenOut, quote: second, accountId });
       },
-      { pending: `Step 2 of 2: ${bridgeSymbol} → ${tokenOut.symbol}`, success: 'Swap executed' }
+      { pending: `Step 2 of 2: ${s2.bridgeSymbol} → ${s2.tokenOut.symbol}`, success: 'Swap executed' }
     );
+    setSubmitting(false);
+    setSwapCount((n) => n + 1);
+    if (ok) {
+      setStep2(null);
+      setAmount('');
+      setQuote(null);
+    }
+    refreshTokenBalances([s2.tokenIn.id, s2.tokenOut.id, s2.bridge.id]);
   };
 
   const submit = async () => {
     if (!accountId) return connect();
+    if (step2) return runStep2();
     if (!wrapMode && quote?.hybrid) {
       setSubmitting(true);
-      // Fresh, user-bound quote before step 1.
-      const route =
-        quote.user === accountId && Date.now() - quote.fetchedAt <= QUOTE_MAX_AGE_MS && !stale
-          ? quote
-          : await getSwapQuote({ tokenIn, tokenOut, amountIn: typedRaw, slippage, user: accountId })
-              .then((q) => selectRoute(q, routeSource))
-              .catch(() => null);
-      if (route?.hybrid) {
-        const ok = await submitHybrid(route);
-        setSubmitting(false);
-        setSwapCount((n) => n + 1);
-        if (ok) {
-          setAmount('');
-          setQuote(null);
-        }
-        refreshTokenBalances([tokenIn.id, tokenOut.id, route.hybrid.mid]);
-        return undefined;
+      const bridgeLabel = viaSymbols[0] || 'the bridge token';
+      // The wallet window opens with this click (execute), before anything is read or quoted.
+      const ctx = {};
+      const first = await execute(
+        async () => {
+          // Fresh, user-bound quote before step 1.
+          const route =
+            quote.user === accountId && Date.now() - quote.fetchedAt <= QUOTE_MAX_AGE_MS && !stale
+              ? quote
+              : selectRoute(await getSwapQuote({ tokenIn, tokenOut, amountIn: typedRaw, slippage, user: accountId }), routeSource);
+          if (!route?.hybrid) {
+            // A direct route turned up meanwhile: one swap does it all.
+            ctx.direct = true;
+            return buildSwapTransactions({ tokenIn, tokenOut, quote: route, accountId });
+          }
+          ctx.route = route;
+          ctx.bridge = { id: route.hybrid.mid };
+          ctx.bridgeSymbol = (await getToken(route.hybrid.mid).catch(() => null))?.symbol || bridgeLabel;
+          ctx.before = await bridgeBalance(route.hybrid.mid);
+          return buildSwapTransactions({ tokenIn, tokenOut: ctx.bridge, quote: route.hybrid.legs[0], accountId });
+        },
+        { pending: `Step 1 of 2: ${tokenIn.symbol} → ${bridgeLabel}`, success: `Step 1 done — received ${bridgeLabel}` }
+      );
+      setSubmitting(false);
+      setSwapCount((n) => n + 1);
+      if (first && ctx.direct) {
+        setAmount('');
+        setQuote(null);
+      } else if (first) {
+        setStep2({ route: ctx.route, bridge: ctx.bridge, bridgeSymbol: ctx.bridgeSymbol, before: ctx.before, tokenIn, tokenOut });
       }
-      // A direct route turned up meanwhile: use the normal one-step swap below.
-      if (route) setQuote(route);
+      refreshTokenBalances([tokenIn.id, tokenOut.id, quote.hybrid.mid]);
+      return undefined;
     }
     setSubmitting(true);
     const result = await execute(
@@ -551,7 +571,11 @@ export default function Swap() {
   let buttonLabel = 'Swap';
   let buttonDisabled = false;
   if (!accountId) buttonLabel = 'Connect wallet';
-  else if (!typedRaw || toBigInt(typedRaw) === 0n) {
+  else if (step2) {
+    // Step 1 of a combined route landed: step 2 needs its own click (see runStep2).
+    buttonLabel = submitting ? 'Confirm in wallet…' : `Continue: step 2 of 2 (${step2.bridgeSymbol} → ${step2.tokenOut.symbol})`;
+    buttonDisabled = submitting;
+  } else if (!typedRaw || toBigInt(typedRaw) === 0n) {
     buttonLabel = 'Enter an amount';
     buttonDisabled = true;
   } else if (insufficient) {
@@ -765,8 +789,8 @@ export default function Swap() {
                 </dl>
                 {quote.hybrid && (
                   <p className="hint">
-                    This pair needs two swaps through {viaSymbols.join(', ') || 'a bridge token'}: you&apos;ll confirm twice in your wallet. The
-                    second swap uses exactly what the first one delivered.
+                    This pair needs two swaps through {viaSymbols.join(', ') || 'a bridge token'}: you&apos;ll confirm twice in your wallet: after the first
+                    one, press Continue for the second. The second swap uses exactly what the first one delivered.
                   </p>
                 )}
               </div>
