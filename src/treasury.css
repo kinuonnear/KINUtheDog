@@ -199,9 +199,9 @@
 
 .ts-row {
   display: grid;
-  grid-template-columns: 1.1fr 1.3fr 1fr 1fr 1fr 0.7fr;
-  gap: 10px;
-  min-width: 620px;
+  grid-template-columns: 0.9fr 1.5fr 0.8fr 0.8fr 1.8fr 1fr;
+  gap: 12px;
+  min-width: 760px;
   padding: 10px 4px;
   border-bottom: 1px solid rgba(242, 243, 238, 0.06);
   font-size: 14px;
@@ -214,9 +214,22 @@
   letter-spacing: 0.06em;
 }
 
-.ts-row--total {
+.ts-entry {
+  border-bottom: 1px solid rgba(242, 243, 238, 0.06);
+}
+
+.ts-entry .ts-row {
   border-bottom: 0;
-  font-weight: 600;
+}
+
+.ts-entry__note {
+  margin: 0 4px 10px;
+}
+
+.ts-txs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
 }
 
 .ts-empty {

@@ -10,7 +10,8 @@ import { baselineVolume, averageVolume, getCreatorFeeInfo, getKinuDailyVolume, H
 import { getSwapQuote } from '../lib/swap.js';
 import { getTokenPools } from '../lib/tokenMarket.js';
 import { loadDclPositions, markDclRows } from '../lib/smartLp.js';
-import { getTokens, priceOf } from '../lib/tokens.js';
+import { asPoolToken, getTokens, priceOf } from '../lib/tokens.js';
+import { getClassicPositions } from '../lib/rhea.js';
 import { formatAmount, formatUsd, toNumber } from '../lib/format.js';
 import { ENDPOINTS, KINU_TOKEN, NATIVE_NEAR } from '../config.js';
 import { ErrorNotice, PairIcons, Skeleton } from '../components/ui.jsx';
@@ -126,7 +127,39 @@ export default function Treasury() {
   const quoteId = info.data?.quote;
   const tokens = useAsync(() => getTokens([KINU_TOKEN, quoteId].filter(Boolean)), [quoteId]);
   const positions = useAsync(() => loadDclPositions(TREASURY.lpWallet), [], { refreshMs: 60_000 });
-  const rows = useMemo(() => (positions.data ? markDclRows(positions.data.dcl, positions.data.tokens, prices) : null), [positions.data, prices]);
+  // AMM (classic) positions too: fees there compound into the shares, nothing to claim.
+  const classic = useAsync(
+    async () => {
+      const list = await getClassicPositions(TREASURY.lpWallet);
+      const meta = await getTokens([...new Set(list.flatMap((c) => c.pool.tokenIds))]);
+      return { list, meta };
+    },
+    [],
+    { refreshMs: 60_000 }
+  );
+  const rows = useMemo(() => {
+    if (!positions.data || !classic.data) return null;
+    const dcl = markDclRows(positions.data.dcl, positions.data.tokens, prices).map((r) => ({
+      key: `dcl-${r.id}`,
+      poolId: r.poolId,
+      x: r.x,
+      y: r.y,
+      usd: r.usd,
+      feeUsd: r.feeUsd,
+      kind: 'CLMM',
+      state: r.inRange ? 'In range' : 'Out of range',
+      up: r.inRange
+    }));
+    const amm = classic.data.list
+      .filter((c) => c.pool.tokenIds.length === 2)
+      .map((c) => {
+        const [x, y] = c.pool.tokenIds.map((id) => asPoolToken(classic.data.meta[id] || { id, symbol: id.slice(0, 6), decimals: 0 }));
+        const usd = c.amounts.reduce((sum, a, i) => sum + toNumber(a, [x, y][i].decimals) * priceOf(prices, c.pool.tokenIds[i]), 0);
+        const share = Number(c.totalShares) / Number(c.pool.sharesTotalSupply || 1);
+        return { key: `amm-${c.pool.id}`, poolId: c.pool.id, x, y, usd, feeUsd: 0, kind: `AMM ${c.pool.feePercent}%`, state: `${(share * 100).toFixed(1)}% of pool`, up: true };
+      });
+    return [...amm, ...dcl].sort((a, b) => b.usd - a.usd);
+  }, [positions.data, classic.data, prices]);
 
   const quote = quoteId ? tokens.data?.[quoteId] : null;
   const kinu = tokens.data?.[KINU_TOKEN];
@@ -142,7 +175,6 @@ export default function Treasury() {
     if (!rows) return null;
     return { usd: rows.reduce((s, r) => s + r.usd, 0), feeUsd: rows.reduce((s, r) => s + r.feeUsd, 0), count: rows.length };
   }, [rows]);
-  const totals = LEDGER.reduce((t, e) => ({ rhea: t.rhea + e.rhea, ops: t.ops + e.ops, audit: t.audit + e.audit, lp: t.lp + e.lp }), { rhea: 0, ops: 0, audit: 0, lp: 0 });
   const symbol = quote?.symbol || 'RHEA';
 
   return (
@@ -240,31 +272,24 @@ export default function Treasury() {
               <span>Tx</span>
             </div>
             {LEDGER.map((e) => (
-              <div className="ts-row" role="row" key={`${e.date}-${e.tx || e.note}`}>
-                <span>{e.date}</span>
-                <span>{formatAmount(e.rhea)} {symbol}</span>
-                <span>{formatAmount(e.ops)}</span>
-                <span>{formatAmount(e.audit)}</span>
-                <span>{formatAmount(e.lp)}</span>
-                <span>
-                  {e.tx ? (
-                    <a href={explorer(`txns/${e.tx}`)} target="_blank" rel="noopener noreferrer">
-                      View ↗
-                    </a>
-                  ) : (
-                    '—'
-                  )}
-                </span>
+              <div className="ts-entry" key={`${e.date}-${e.txs?.[0]?.hash || e.source}`}>
+                <div className="ts-row" role="row">
+                  <span>{e.date}</span>
+                  <span>{e.source}</span>
+                  <span>{e.ops || '—'}</span>
+                  <span>{e.audit || '—'}</span>
+                  <span>{e.lp || '—'}</span>
+                  <span className="ts-txs">
+                    {(e.txs || []).map((tx) => (
+                      <a key={tx.hash} href={explorer(`txns/${tx.hash}`)} target="_blank" rel="noopener noreferrer">
+                        {tx.label} ↗
+                      </a>
+                    ))}
+                  </span>
+                </div>
+                {e.note && <p className="ts-entry__note muted small">{e.note}</p>}
               </div>
             ))}
-            <div className="ts-row ts-row--total" role="row">
-              <span>Total</span>
-              <span>{formatAmount(totals.rhea)} {symbol}</span>
-              <span>{formatAmount(totals.ops)}</span>
-              <span>{formatAmount(totals.audit)}</span>
-              <span>{formatAmount(totals.lp)}</span>
-              <span />
-            </div>
           </div>
         ) : (
           <p className="ts-empty muted">The first allocation will be listed here, with its transaction, when it is made.</p>
@@ -283,25 +308,25 @@ export default function Treasury() {
           </a>
           . Anyone can follow its positions, fees and PnL.
         </p>
-        {positions.error ? (
-          <ErrorNotice error={positions.error} onRetry={positions.reload} />
+        {positions.error || classic.error ? (
+          <ErrorNotice error={positions.error || classic.error} onRetry={positions.error ? positions.reload : classic.reload} />
         ) : (
           <>
             <div className="ts-tiles">
               <Tile label="Total liquidity" loading={!lp} value={lp ? formatUsd(lp.usd, K) : null} />
-              <Tile label="Unclaimed fees" loading={!lp} value={lp ? formatUsd(lp.feeUsd, K) : null} />
+              <Tile label="Unclaimed fees" loading={!lp} value={lp ? formatUsd(lp.feeUsd, K) : null} hint="CLMM; AMM fees compound into the shares" />
               <Tile label="Open positions" loading={!lp} value={lp?.count} />
             </div>
             {rows?.length > 0 && (
               <div className="ts-positions">
                 {rows.map((r) => (
-                  <Link key={r.id || `${r.poolId}-${r.lptId}`} to={poolPath(r.poolId)} className="ts-position">
+                  <Link key={r.key} to={poolPath(r.poolId)} className="ts-position">
                     <PairIcons tokens={[r.x, r.y]} size={22} />
                     <span>
-                      {r.x.symbol}/{r.y.symbol}
+                      {r.x.symbol}/{r.y.symbol} <small className="muted">{r.kind}</small>
                     </span>
                     <strong>{formatUsd(r.usd, K)}</strong>
-                    <em className={r.inRange ? 'up' : 'muted'}>{r.inRange ? 'In range' : 'Out of range'}</em>
+                    <em className={r.up ? 'up' : 'muted'}>{r.state}</em>
                   </Link>
                 ))}
               </div>

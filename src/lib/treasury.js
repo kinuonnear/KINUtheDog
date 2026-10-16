@@ -25,10 +25,34 @@ export const TREASURY = {
 };
 
 /**
- * Allocations made so far, newest first. One entry per split of received creator fees:
- * { date: 'YYYY-MM-DD', rhea: received RHEA, ops, audit, lp: RHEA per bucket, tx: hash or null, note }
+ * Allocations made so far, newest first, written as they happened (any token):
+ * { date: 'YYYY-MM-DD' (UTC), source, ops, audit, lp, note, txs: [{ label, hash }] }
+ * A bucket nothing went to is null.
  */
-export const LEDGER = [];
+export const LEDGER = [
+  {
+    date: '2026-10-17',
+    source: '299 USDC from creator fees',
+    ops: '299 USDC → DEX Screener Enhanced Token Info (logo, header, links for $KINU)',
+    audit: null,
+    lp: null,
+    note: 'Operations spend: listing info on DEX Screener.',
+    txs: []
+  },
+  {
+    date: '2026-10-16',
+    source: '921.86 RHEA creator fee → ≈13 NEAR',
+    ops: '≈6 NEAR kept as operations reserve (kinuonnear.near)',
+    audit: null,
+    lp: '6.944 NEAR + 761,982 KINU → KINU/NEAR AMM #8961',
+    note: 'KINU side from the initial KINU buy. Audit share not set aside this time.',
+    txs: [
+      { label: 'Swap', hash: '12uuJbeiJcQjorKDu5CHi3JDPMgCLAMEXoqV6ugSX2jE' },
+      { label: 'Pool', hash: 'DprkS4mu4PJ666M9bCGAbKAdC2wEpZ8c7wAzEwYfSgyE' },
+      { label: 'LP', hash: 'A12AT8L4xpMw7wQ27mexTQWEejVk35sMNM6pPy9FMhVo' }
+    ]
+  }
+];
 
 const NEARLY_API = 'https://nearly.trade/api';
 
