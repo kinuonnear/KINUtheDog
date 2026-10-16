@@ -1,6 +1,8 @@
 // Liquidity drawn as light: faint curves with a pulse travelling along each, ivory and mint.
 // Used behind the landing page's headline and the app's Home hero (styles: .lx-flow in landing.css).
 
+import { useRef } from 'react';
+import { usePauseOffscreen } from '../lib/pauseOffscreen.js';
 import '../landing.css';
 
 // Liquidity drifting left to right behind the headline: faint base curves with a light pulse
@@ -17,8 +19,11 @@ const FLOWS = [
 const FLOW_COLORS = ['#8ff5bf', '#ffffff', '#5fe39d'];
 
 export function FlowLines() {
+  // The pulses stop while the header is scrolled out of view.
+  const ref = useRef(null);
+  usePauseOffscreen(ref);
   return (
-    <svg className="lx-flow" viewBox="0 0 1440 640" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <svg ref={ref} className="lx-flow" viewBox="0 0 1440 640" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
       <defs>
         {FLOW_COLORS.map((c, k) => (
           <linearGradient key={c} id={`lx-flow-fade-${k}`} x1="0" x2="1">

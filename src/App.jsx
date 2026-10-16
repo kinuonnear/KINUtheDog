@@ -205,7 +205,7 @@ export default function App() {
       <header className="topbar">
         {/* Brand and wallet share one row: on phones only this row stays pinned (topbar.css). */}
         <div className="topbar__bar">
-          <Link to="/app" className="brand" aria-label="KINU home">
+          <Link to="/" className="brand" aria-label="KINU — landing page">
             <img src="/site/kinu-emblem.svg" alt="" width="30" height="30" />
             <span>KINU</span>
           </Link>

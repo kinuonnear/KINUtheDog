@@ -2522,3 +2522,9 @@
     mask-image: linear-gradient(90deg, transparent 0%, #000 6%, #000 12%, transparent 24%, transparent 76%, #000 88%, #000 94%, transparent 100%);
   }
 }
+
+/* Off screen (lib/pauseOffscreen.js): every animation inside rests until it scrolls back into view. */
+.is-offscreen,
+.is-offscreen * {
+  animation-play-state: paused !important;
+}

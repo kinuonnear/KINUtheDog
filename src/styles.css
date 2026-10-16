@@ -1081,17 +1081,6 @@ p {
   margin-bottom: 16px;
 }
 
-.toolbar__right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.toolbar__right .search-field {
-  width: 280px;
-}
-
 /* ==========================================================================
    Pool table
    ========================================================================== */
@@ -1099,21 +1088,12 @@ p {
   padding: 6px;
 }
 
-.pool-table__head,
 .pool-row {
   display: grid;
   grid-template-columns: minmax(0, 2.4fr) repeat(3, minmax(0, 1fr));
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-}
-
-.pool-table__head {
-  color: var(--faint);
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .th-sort {
@@ -1219,15 +1199,6 @@ a.pool-row:hover + .pool-row {
   min-height: 480px;
   display: flex;
   align-items: flex-end;
-}
-
-.home .hero__bg {
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(90deg, rgba(11, 14, 20, 0.96) 0%, rgba(11, 14, 20, 0.82) 38%, rgba(11, 14, 20, 0.2) 75%, rgba(11, 14, 20, 0.35) 100%),
-    linear-gradient(0deg, rgba(11, 14, 20, 0.9) 0%, transparent 45%),
-    url('/kinu-home-bg.png') center 30% / cover no-repeat;
 }
 
 .home .hero__content {
@@ -1341,31 +1312,12 @@ a.pool-row:hover + .pool-row {
   transform: translateY(-2px);
 }
 
-.home .feature__icon {
-  display: grid;
-  place-items: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-size: 20px;
-}
-
 .home .feature h3 {
   font-size: 18px;
 }
 
 .home .feature p {
   color: var(--muted);
-}
-
-.home .feature__cta {
-  margin-top: auto;
-  padding-top: 6px;
-  color: var(--accent);
-  font-weight: 600;
-  font-size: 13px;
 }
 
 .home .home-grid {
@@ -1382,17 +1334,6 @@ a.pool-row:hover + .pool-row {
 /* ==========================================================================
    Swap
    ========================================================================== */
-.swap-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 440px;
-  gap: 20px;
-  align-items: start;
-}
-
-.swap-layout--solo {
-  grid-template-columns: minmax(0, 460px);
-  justify-content: center;
-}
 
 .swap-column {
   position: sticky;
@@ -1609,46 +1550,6 @@ a.pool-row:hover + .pool-row {
 /* Chart */
 .chart-card {
   padding: 18px;
-}
-
-.chart-card__head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-bottom: 12px;
-}
-
-.chart-card__title {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.chart-card__title strong {
-  font-size: 18px;
-}
-
-.chart-card__price {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  font-family: var(--mono);
-  font-size: 14px;
-}
-
-.chart-card__price em {
-  font-style: normal;
-  font-size: 12px;
-}
-
-.chart-card__price em.up {
-  color: var(--accent);
-}
-
-.chart-card__price em.down {
-  color: var(--danger);
 }
 
 .chart-card__canvas {
@@ -1878,19 +1779,6 @@ a.pool-row:hover + .pool-row {
   accent-color: var(--accent);
 }
 
-.dcl-position {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: var(--surface-2);
-}
-
-.dcl-position + .dcl-position {
-  margin-top: 8px;
-}
-
 .pool-skeleton {
   display: flex;
   flex-direction: column;
@@ -2102,111 +1990,19 @@ a.pool-row:hover + .pool-row {
   font-size: 13px;
 }
 
-.lp-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 14px;
-}
-
-.lp-list > .card:only-child {
-  grid-column: 1 / -1;
-}
-
-.lp-card {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  transition: border-color 0.15s;
-}
-
-.lp-card:hover {
-  border-color: var(--border-strong);
-}
-
-.lp-card__head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.lp-card__head > div {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-
-.lp-card__head small {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--faint);
-  font-size: 12px;
-}
-
-.lp-card__value {
-  margin-left: auto;
-  font-size: 18px;
-}
-
-.lp-card__body {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 16px;
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-}
-
 /* ==========================================================================
    Wallet-selector modal theme
    ========================================================================== */
-#near-wallet-selector-modal .dark-theme {
-  --backdrop-bg: rgba(3, 5, 9, 0.72);
-  --content-bg: #121821;
-  --heading-color: #e6edf5;
-  --text-color: #8a96a8;
-  --sidebar-border-color: rgba(200, 220, 255, 0.07);
-  --selected-wallet-bg: rgba(184, 255, 61, 0.14);
-  --selected-wallet-bg-hover: rgba(184, 255, 61, 0.1);
-  --wallet-option-border-color: rgba(200, 220, 255, 0.1);
-  --wallet-option-bg-hover: rgba(184, 255, 61, 0.08);
-  --wallet-option-outline-color: #b8ff3d;
-  --confirm-button-bg: #b8ff3d;
-  --confirm-button-bg-hover: #c9ff6a;
-  --home-button-bg: #1d2531;
-  --close-button-bg-color: #1d2531;
-  --bottom-section: #171e29;
-  --connected-green: #b8ff3d;
-  --get-wallet-option-bg-color: #171e29;
-  --get-wallet-option-border-color: rgba(200, 220, 255, 0.1);
-  --secondary-button-bg-color: rgba(184, 255, 61, 0.1);
-  --secondary-button-border-color: #b8ff3d;
-}
 
 /* ==========================================================================
    Responsive
    ========================================================================== */
 @media (max-width: 1080px) {
-  .swap-layout,
-.pool-grid {
+  .pool-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 
   /* Stacked order: swap form (and its note), then the chart, then recent trades. */
-  .swap-layout .swap-column {
-    display: contents;
-  }
-
-  .swap-layout .swap-column > * {
-    order: -1;
-    max-width: 520px;
-    width: 100%;
-    margin: 0 auto;
-  }
-
-  .swap-layout .swap-column > .trades-card {
-    order: 1;
-  }
 
   .pool-grid__side {
     position: static;
@@ -2278,12 +2074,6 @@ a.pool-row:hover + .pool-row {
     padding: 36px 22px 28px;
   }
 
-  .home .hero__bg {
-    background:
-      linear-gradient(0deg, rgba(11, 14, 20, 0.96) 0%, rgba(11, 14, 20, 0.75) 60%, rgba(11, 14, 20, 0.45) 100%),
-      url('/kinu-home-bg.png') 70% center / cover no-repeat;
-  }
-
   .home .hero__stats {
     gap: 20px;
   }
@@ -2301,18 +2091,9 @@ a.pool-row:hover + .pool-row {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .toolbar__right,
-.toolbar__right .search-field {
-    width: 100%;
-  }
-
   .tabs {
     max-width: 100%;
     overflow-x: auto;
-  }
-
-  .pool-table__head {
-    display: none;
   }
 
   .pool-row,
@@ -2364,10 +2145,6 @@ a.pool-row:hover + .pool-row {
   .asset-row__value {
     justify-content: flex-start;
     flex-wrap: wrap;
-  }
-
-  .lp-list {
-    grid-template-columns: minmax(0, 1fr);
   }
 
   .chart-card__canvas {
@@ -2856,31 +2633,6 @@ a.trades__row:hover {
   font-size: 11px;
 }
 
-.dcl-positions {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.dcl-position__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.dcl-position__remove {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 8px;
-  padding-top: 10px;
-  border-top: 1px solid var(--border);
-}
-
-.dcl-position__remove .range-block {
-  background: var(--surface-3);
-}
-
 /* ==========================================================================
    Unified liquidity table (portfolio) & CLMM group card (pool page)
    ========================================================================== */
@@ -3041,57 +2793,6 @@ a.trades__row:hover {
   gap: 6px;
 }
 
-.dcl-group {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.dcl-group__grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.dcl-group__grid > div {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  padding: 14px;
-  border-radius: 14px;
-  background: var(--surface-2);
-}
-
-.dcl-group__value {
-  font-size: 22px;
-  font-weight: 700;
-}
-
-.dcl-group__foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.dcl-group__list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.dcl-group__item {
-  display: grid;
-  grid-template-columns: 90px minmax(0, 1fr) minmax(0, 1.4fr);
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: var(--surface-2);
-  font-size: 12px;
-}
-
 @media (max-width: 1080px) {
   .lp-row--head {
     display: none;
@@ -3131,14 +2832,6 @@ a.trades__row:hover {
 
   .lp-summary .stat:nth-child(n + 3) {
     border-top: 1px solid var(--border);
-  }
-
-  .dcl-group__grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .dcl-group__item {
-    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -3916,11 +3609,6 @@ a.trades__row:hover {
   padding: 0 16px;
 }
 
-.page--contained {
-  max-width: var(--page-width);
-  margin: 0 auto;
-}
-
 .main--full .page--swap {
   padding-top: 20px;
 }
@@ -3933,16 +3621,6 @@ a.trades__row:hover {
 }
 
 /* Two columns only on wide screens: below 1081px the stacked layout in the Responsive block applies. */
-@media (min-width: 1081px) {
-  .main--full .swap-layout {
-    grid-template-columns: minmax(0, 1fr) 480px;
-    gap: 24px;
-  }
-
-  .main--full .swap-layout--solo {
-    grid-template-columns: minmax(0, 460px);
-  }
-}
 
 /* Global search */
 .gsearch {
@@ -4902,10 +4580,6 @@ a.trades__row:hover {
   font-size: 10px;
 }
 
-.dcl-group__foot {
-  justify-content: space-between;
-}
-
 /* Drawing toolbar scrolls when the chart is resized very short. */
 .pro-chart__tools {
   overflow-y: auto;
@@ -4940,59 +4614,6 @@ a.trades__row:hover {
 }
 
 /* Your liquidity: compact distribution with the actions beside it. */
-.dcl-group__row {
-  display: grid;
-  grid-template-columns: minmax(0, 620px) 250px;
-  justify-content: start;
-  gap: 16px;
-  align-items: stretch;
-}
-
-.dcl-group__row .pos-dist__chart {
-  height: 84px;
-}
-
-.dcl-group__side {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 12px;
-  border-radius: 12px;
-  background: var(--surface-2);
-}
-
-.dcl-group__side .hint {
-  margin: 0;
-  font-size: 11px;
-}
-
-.dcl-group__count {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.dcl-group__count strong {
-  font-size: 26px;
-  font-weight: 800;
-  line-height: 1;
-}
-
-.dcl-group__count span {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.dcl-group__count small {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--faint);
-  font-size: 11px;
-}
 
 .dot {
   display: inline-block;
@@ -5022,12 +4643,6 @@ a.trades__row:hover {
 .lp-actions--stack .button--sm {
   width: 100%;
   height: 32px;
-}
-
-@media (max-width: 1080px) {
-  .dcl-group__row {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 /* ==========================================================================
@@ -6748,13 +6363,6 @@ a.dt-row:hover {
   background: var(--mint);
 }
 
-.route-compare {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-}
-
 /* Swap: quick amounts, route provider, route picker */
 .quick-amounts {
   display: flex;
@@ -6864,15 +6472,6 @@ a.dt-row:hover {
   max-width: 780px;
 }
 
-.home .features--four {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.home .feature--highlight {
-  border-color: rgba(184, 255, 61, 0.28);
-  background: linear-gradient(180deg, rgba(184, 255, 61, 0.06) 0%, var(--surface) 70%);
-}
-
 .home .lp-steps {
   display: grid;
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 2.4fr) auto;
@@ -6928,9 +6527,6 @@ a.dt-row:hover {
 }
 
 @media (max-width: 1280px) {
-  .home .features--four {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 
   .home .lp-steps {
     grid-template-columns: minmax(0, 1fr);
@@ -6938,8 +6534,7 @@ a.dt-row:hover {
 }
 
 @media (max-width: 720px) {
-  .home .features--four,
-.home .lp-steps__list {
+  .home .lp-steps__list {
     grid-template-columns: minmax(0, 1fr);
   }
 }
@@ -8200,8 +7795,6 @@ a.dt-row:hover {
 .disc-table .new-row--head { color: var(--muted); font-weight: 600; }
 /* Discover header: KINU banner, tabs + filters */
 .disc-banner { position: relative; display: flex; align-items: center; overflow: hidden; min-height: clamp(220px, 19vw, 300px); margin-bottom: 20px; border: 1px solid var(--border-strong); border-radius: 20px; background: #050a07; isolation: isolate; }
-.disc-banner__img { position: absolute; right: 0; bottom: -4%; z-index: -2; height: 128%; aspect-ratio: 3 / 1; max-width: 112%; background: url('/site/discover-hero.webp') right center / cover no-repeat; -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 32%); mask-image: linear-gradient(90deg, transparent 0%, #000 32%); animation: disc-banner-pan 26s ease-in-out infinite alternate; transform-origin: 80% 100%; }
-.disc-banner__shade { position: absolute; inset: 0; z-index: -1; background: radial-gradient(70% 120% at 20% 100%, rgba(120, 200, 40, 0.14), transparent 60%), linear-gradient(90deg, rgba(5, 9, 8, 0.9) 0%, rgba(5, 9, 8, 0.55) 35%, rgba(5, 9, 8, 0) 60%); }
 .disc-banner__head { position: relative; margin: 0; padding: 28px 38px; max-width: 640px; animation: disc-rise 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 .disc-banner__head .eyebrow { color: var(--accent); }
 .disc-banner__head h1 { margin: 8px 0 10px; font-size: clamp(32px, 4.2vw, 58px); letter-spacing: -0.02em; text-shadow: 0 2px 18px rgba(0, 0, 0, 0.6); }
@@ -8272,7 +7865,7 @@ a.dt-row:hover {
 @keyframes disc-banner-pan { from { transform: scale(1); } to { transform: scale(1.035) translateX(-0.8%); } }
 @keyframes disc-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) {
-  .disc-banner__img, .disc-banner__head, .disc-row--in { animation: none; }
+  .disc-banner__head, .disc-row--in { animation: none; }
 }
 @media (max-width: 1100px) {
   .disc-row--pools { grid-template-columns: 1fr 1fr 1fr; }
@@ -8280,7 +7873,6 @@ a.dt-row:hover {
 }
 @media (max-width: 640px) {
   .disc-banner { min-height: 230px; }
-  .disc-banner__shade { background: linear-gradient(90deg, rgba(5, 9, 8, 0.92), rgba(5, 9, 8, 0.55)); }
   .disc-banner__head { padding: 24px 18px 20px; }
   .disc-banner__head p { font-size: 14px; }
   .disc-search { width: 100%; }
@@ -9152,36 +8744,6 @@ a.dt-row:hover {
   border-color: var(--accent);
 }
 
-.token-head__pair {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 36px;
-  padding: 0 12px;
-  border-radius: 10px;
-  border: 1px solid var(--border-strong);
-  background: var(--surface-2);
-  color: var(--muted);
-  font: inherit;
-  font-family: var(--mono);
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.token-head__pair .is-shown {
-  color: var(--text);
-}
-
-.token-head__pair svg {
-  margin-left: 6px;
-  color: var(--accent);
-}
-
-.token-head__pair:hover {
-  border-color: var(--accent);
-}
-
 /* ---- LP focus: Discover actions, Pools badges and APR spikes ---- */
 @media (min-width: 1101px) {
   .disc-row { grid-template-columns: 28px minmax(200px, 2fr) repeat(5, minmax(70px, 1fr)) 150px; }
@@ -9661,17 +9223,6 @@ a.pair-tiers__row:hover {
 .pt-start:hover {
   border-color: var(--accent);
   box-shadow: 0 0 32px rgba(184, 255, 61, 0.25);
-}
-
-.pt-start__icon {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-weight: 800;
 }
 
 .pt-start__arrow {
@@ -11047,11 +10598,6 @@ a.pair-tiers__row:hover {
 }
 
 /* KINU Agent's robot: floats, blinks, and sweeps its visor (faster while scanning). */
-.ag-hero__title {
-  display: flex;
-  align-items: center;
-  gap: 22px;
-}
 
 .ag-bot {
   flex: none;
@@ -11124,10 +10670,6 @@ a.pair-tiers__row:hover {
 }
 
 @media (max-width: 720px) {
-  .ag-hero__title {
-    align-items: flex-start;
-    gap: 12px;
-  }
 
   .ag-bot svg {
     width: 72px;

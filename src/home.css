@@ -181,27 +181,12 @@
 }
 
 /* Feature cards */
-.shell--home .home .feature:hover,
-.shell--home .home .feature--highlight {
+.shell--home .home .feature:hover {
   border-color: var(--hm-line-strong);
-}
-
-.shell--home .home .feature--highlight {
-  background: linear-gradient(180deg, #0c1018, #05070c);
-}
-
-.shell--home .home .feature__icon {
-  border: 1px solid var(--hm-line-strong);
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--hm-text);
 }
 
 .shell--home .home .feature p {
   color: var(--hm-muted);
-}
-
-.shell--home .home .feature__cta {
-  color: var(--hm-text);
 }
 
 /* Three steps */

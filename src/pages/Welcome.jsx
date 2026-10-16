@@ -17,6 +17,7 @@ import { loadBoard } from '../components/SmartLp.jsx';
 import { CopyButton, TokenIcon } from '../components/ui.jsx';
 import { AgentBot } from '../components/AgentBot.jsx';
 import { FlowLines } from '../components/FlowLines.jsx';
+import { pauseWhenOffscreen } from '../lib/pauseOffscreen.js';
 import '../landing.css';
 
 const KINU = 'kinu-3.nearlytrade.near';
@@ -849,6 +850,9 @@ function AppPreview({ board }) {
 
 export default function Welcome() {
   const [menuOpen, setMenuOpen] = useState(false);
+  // Each section's animations (feeds, tickers, the agent's radar…) rest while it is off screen.
+  const pageRef = useRef(null);
+  useEffect(() => pauseWhenOffscreen(pageRef.current?.querySelectorAll('.lx-hero, .lx-section, .lx-final') || []), []);
   useEffect(() => {
     const root = document.documentElement;
     const before = root.style.scrollBehavior;
@@ -871,7 +875,7 @@ export default function Welcome() {
   ];
 
   return (
-    <div className="lx">
+    <div className="lx" ref={pageRef}>
       <div className="lx-aurora" aria-hidden="true">
         <i className="lx-aurora__a" />
         <i className="lx-aurora__b" />
