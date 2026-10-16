@@ -17,8 +17,24 @@ const POPUP_WALLETS = {
   'intear-wallet': 'https://wallet.intear.tech',
   'my-near-wallet': 'https://app.mynearwallet.com'
 };
-const WALLET_ORIGINS = new Set(Object.values(POPUP_WALLETS));
 const ARM_MS = 90_000;
+// Intear opens its popup on the wallet site the user connected with (saved by its module), which
+// is not always wallet.intear.tech: the prepared window must start on that same site.
+const INTEAR_SAVED = '_intear_wallet_connected_account';
+
+/** The wallet site the wallet will open its popup on (https only), or null. */
+function siteFor(walletId) {
+  if (walletId === 'intear-wallet') {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(INTEAR_SAVED) || 'null');
+      const origin = saved?.walletUrl ? new URL(saved.walletUrl).origin : null;
+      if (origin && origin.startsWith('https://')) return origin;
+    } catch {
+      // no saved session or storage blocked: the default site
+    }
+  }
+  return POPUP_WALLETS[walletId] || null;
+}
 // On desktop the prepared window has the wallet's own popup size (Intear opens 400 x 700).
 const DESKTOP_FEATURES = 'popup,width=400,height=700';
 
@@ -52,7 +68,7 @@ export function disarmWalletPopup() {
  * wallets only, and not when a browser extension handles signing.
  */
 export function armWalletPopup(walletId) {
-  const site = POPUP_WALLETS[walletId];
+  const site = siteFor(walletId);
   if (typeof window === 'undefined' || !site || window.meteorCom) return;
   disarmWalletPopup();
   const win = isIos() ? window.open(`${site}/`, '_blank') : window.open(`${site}/`, '_blank', DESKTOP_FEATURES);
@@ -66,7 +82,7 @@ if (typeof window !== 'undefined' && !window.__kinuPopupBridge) {
   const nativeOpen = window.open.bind(window);
   window.open = (url, target, features) => {
     // Only the same wallet's own pages reuse the window (a same-site move keeps it "open").
-    if (armed && !armed.win.closed && originOf(url) === armed.site && WALLET_ORIGINS.has(armed.site)) {
+    if (armed && !armed.win.closed && originOf(url) === armed.site) {
       const { win, timer } = armed;
       clearTimeout(timer);
       armed = null;
