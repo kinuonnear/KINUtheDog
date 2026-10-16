@@ -21,6 +21,7 @@ import { buildDclWithdrawTransactions, getDclAssets } from '../lib/dclLiquidity.
 import { wrapNeededFor } from '../lib/tx.js';
 import {
   applySlippage,
+  formatChartPrice,
   formatPercent,
   formatRawAmount,
   formatUnits,
@@ -194,8 +195,41 @@ function insufficientLabel(raws, spendable, tokens) {
 /* AMM (SIMPLE_POOL)                                                   */
 /* ------------------------------------------------------------------ */
 
+/**
+ * The first deposit into an empty pool sets its price: both amounts are free, and the price they
+ * imply is compared with the market so it isn't set far off (arbitrage would take the difference).
+ */
+function StartingPrice({ tokens, raws, prices, onMatch }) {
+  const [x, y] = tokens;
+  const ax = raws[0] ? toNumber(raws[0], x?.decimals ?? 0) : 0;
+  const ay = raws[1] ? toNumber(raws[1], y?.decimals ?? 0) : 0;
+  const px = priceOf(prices, x?.id);
+  const py = priceOf(prices, y?.id);
+  const market = px > 0 && py > 0 ? px / py : null; // y per x
+  const set = ax > 0 && ay > 0 ? ay / ax : null;
+  const off = set && market ? (set / market - 1) * 100 : null;
+  return (
+    <div className={`liq-start ${off !== null && Math.abs(off) > 2 ? 'liq-start--warn' : ''}`}>
+      <strong>Empty pool: your deposit sets the starting price.</strong>
+      <span>
+        {set ? `1 ${x.symbol} = ${formatChartPrice(set)} ${y.symbol}` : 'Enter both amounts.'}
+        {market ? ` · market ${formatChartPrice(market)} ${y.symbol}` : ''}
+        {off !== null ? ` (${off >= 0 ? '+' : ''}${off.toFixed(2)}%)` : ''}
+      </span>
+      {off !== null && Math.abs(off) > 2 && <span>More than 2% off the market: arbitrage would take the difference from this deposit.</span>}
+      {market && (ax > 0 || ay > 0) && (
+        <button type="button" className="link-button" onClick={() => onMatch(market)}>
+          Match the market price
+        </button>
+      )}
+    </div>
+  );
+}
+
 function AmmAdd({ pool, tokens, onDone }) {
-  const { accountId, connect, slippage, execute, balances } = useApp();
+  const { accountId, connect, slippage, execute, balances, prices } = useApp();
+  // No liquidity yet: the first deposit picks both amounts (and with them, the price).
+  const empty = toBigInt(pool.sharesTotalSupply) === 0n || pool.amounts.some((a) => toBigInt(a) === 0n);
   const [inputs, setInputs] = useState(() => pool.tokenIds.map(() => ''));
   const [submitting, setSubmitting] = useState(false);
   const [zapMode, setZapMode] = useState(false);
@@ -208,7 +242,7 @@ function AmmAdd({ pool, tokens, onDone }) {
     setInputs(
       pool.tokenIds.map((_, j) => {
         if (j === index) return text;
-        if (!raw || pool.tokenIds.length !== 2) return inputs[j];
+        if (!raw || pool.tokenIds.length !== 2 || empty) return inputs[j];
         return trimDecimals(formatUnits(pairedAmount(pool, index, j, raw), tokens[j]?.decimals ?? 0));
       })
     );
@@ -218,16 +252,32 @@ function AmmAdd({ pool, tokens, onDone }) {
     if (pool.tokenIds.length !== 2) return;
     const other = 1 - index;
     let amount = (spendable[index] * BigInt(Math.round(fraction * 100))) / 100n;
+    if (empty) {
+      setAmount(index, trimDecimals(formatUnits(amount.toString(), tokens[index]?.decimals ?? 0)));
+      return;
+    }
     if (toBigInt(pairedAmount(pool, index, other, amount.toString())) > spendable[other]) {
       amount = toBigInt(pairedAmount(pool, other, index, spendable[other].toString()));
     }
     setAmount(index, trimDecimals(formatUnits(amount.toString(), tokens[index]?.decimals ?? 0)));
   };
 
+  // Empty pool: fill the other side at the market price (from whichever side was typed, the first if both).
+  const matchMarket = (yPerX) => {
+    const [x, y] = tokens;
+    if (raws[0] && toBigInt(raws[0]) > 0n) {
+      const ay = toNumber(raws[0], x.decimals) * yPerX;
+      setInputs([inputs[0], trimDecimals(ay.toFixed(Math.min(y.decimals, 12)))]);
+    } else if (raws[1] && toBigInt(raws[1]) > 0n) {
+      const ax = toNumber(raws[1], y.decimals) / yPerX;
+      setInputs([trimDecimals(ax.toFixed(Math.min(x.decimals, 12))), inputs[1]]);
+    }
+  };
+
   const complete = raws.every((r) => r && toBigInt(r) > 0n);
   const shares = complete ? expectedShares(pool, raws) : '0';
   const supply = toBigInt(pool.sharesTotalSupply);
-  const sharePct = supply > 0n && toBigInt(shares) > 0n ? (Number(shares) / Number(supply + toBigInt(shares))) * 100 : 0;
+  const sharePct = empty && complete ? 100 : supply > 0n && toBigInt(shares) > 0n ? (Number(shares) / Number(supply + toBigInt(shares))) * 100 : 0;
   const insufficient = complete && insufficientLabel(raws, spendable, tokens);
 
   const submit = async () => {
@@ -249,7 +299,7 @@ function AmmAdd({ pool, tokens, onDone }) {
 
   return (
     <div className="liq-form">
-      {pool.tokenIds.length === 2 && (
+      {pool.tokenIds.length === 2 && !empty && (
         <div className="create-pos__head">
           <h3>Amount</h3>
           <div className="segmented">
@@ -262,11 +312,15 @@ function AmmAdd({ pool, tokens, onDone }) {
           </div>
         </div>
       )}
-      {zapMode ? (
+      {zapMode && !empty ? (
         <ClassicZap pool={pool} tokens={tokens} onDone={onDone} />
       ) : (
         <>
-      <p className="liq-hint">Deposit both tokens at the current pool ratio — the second amount fills in automatically.</p>
+      {empty && pool.tokenIds.length === 2 ? (
+        <StartingPrice tokens={tokens} raws={raws} prices={prices} onMatch={matchMarket} />
+      ) : (
+        <p className="liq-hint">Deposit both tokens at the current pool ratio — the second amount fills in automatically.</p>
+      )}
       {pool.tokenIds.map((id, i) => (
         <AmountField
           key={id}

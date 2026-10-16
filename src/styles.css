@@ -9200,6 +9200,33 @@ a.pair-tiers__row:hover {
   font-weight: 600;
 }
 
+/* Empty AMM pool: the first deposit sets the starting price. */
+.liq-start {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid rgba(242, 243, 238, 0.16);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 13px;
+}
+
+.liq-start span {
+  color: var(--muted);
+}
+
+.liq-start .link-button {
+  justify-self: start;
+}
+
+.liq-start--warn {
+  border-color: rgba(255, 212, 71, 0.5);
+}
+
+.liq-start--warn span:last-of-type {
+  color: #ffd447;
+}
+
 /* Pools: one card per DEX (Rhea / Intear DEX) under the title. */
 .pool-sources {
   position: relative;
