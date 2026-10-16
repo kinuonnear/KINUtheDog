@@ -25,6 +25,9 @@ const NEARBLOCKS = 'https://api.nearblocks.io/v1';
 // NearBlocks' free API rejects pages above 25 transactions (HTTP 429).
 const PAGE_SIZE = 25;
 const MAX_PAGES = 40; // 1,000 most recent DCL transactions
+// An unfinished history (e.g. NearBlocks rate-limited the first read) is completed a few pages per
+// visit from where it stopped, instead of re-reading every page from the newest each time.
+const BACKFILL_PAGES = 8;
 const TX_BATCH = 20; // FastNEAR limit per request
 // v2: liquidity_append events are kept too (v1 caches skipped them, so history is re-read once).
 const CACHE_PREFIX = 'kinu.lphist.v2.';
@@ -53,7 +56,7 @@ function readCache(account) {
   } catch {
     // ignore
   }
-  return { complete: false, seen: [], events: [] };
+  return { complete: false, seen: [], events: [], cursor: null };
 }
 
 function writeCache(account, cache) {
@@ -122,38 +125,49 @@ async function listNewTxs(account, cache) {
   }
 }
 
-async function listViaNearblocks(account, cache) {
-  const seen = new Set(cache.seen);
+/**
+ * One run of NearBlocks pages from `cursor` ('' = newest): stops at a transaction already seen
+ * (`stopAtSeen`), at the end of the history, or after `maxPages`. Returns the new transactions,
+ * whether the end was reached and the cursor to continue from.
+ */
+async function nearblocksPages(account, seen, { cursor = '', maxPages, stopAtSeen }) {
   const fresh = [];
-  let cursor = '';
-  let reachedEnd = false;
-  let caughtUp = false;
-  for (let page = 0; page < MAX_PAGES; page += 1) {
+  let next = cursor;
+  for (let page = 0; page < maxPages; page += 1) {
     const params = new URLSearchParams({
       to: CONTRACTS.dcl,
       per_page: String(PAGE_SIZE)
     });
-    if (cursor) params.set('cursor', cursor);
+    if (next) params.set('cursor', next);
     // One quick retry: if NearBlocks stays busy, FastNEAR takes over (listNewTxs).
     const json = await fetchJson(`${NEARBLOCKS}/account/${encodeURIComponent(account)}/txns-only?${params}`, undefined, { retries: 1, backoff: 3_000 });
     const txns = json.txns || [];
+    let caughtUp = false;
     for (const t of txns) {
       if (seen.has(t.transaction_hash)) {
-        caughtUp = cache.complete;
-        if (caughtUp) break;
+        if (stopAtSeen) {
+          caughtUp = true;
+          break;
+        }
         continue;
       }
       const relevant = t.outcomes?.status !== false && (t.actions || []).some((a) => LIQUIDITY_METHOD.test(a.method || ''));
       fresh.push({ hash: t.transaction_hash, relevant });
     }
-    if (caughtUp) break;
-    if (!json.cursor || txns.length < PAGE_SIZE) {
-      reachedEnd = true;
-      break;
-    }
-    cursor = json.cursor;
+    if (caughtUp) return { fresh, reachedEnd: false, cursor: next, caughtUp: true };
+    if (!json.cursor || txns.length < PAGE_SIZE) return { fresh, reachedEnd: true, cursor: null, caughtUp: false };
+    next = json.cursor;
   }
-  return { fresh, complete: cache.complete || reachedEnd };
+  return { fresh, reachedEnd: false, cursor: next, caughtUp: false };
+}
+
+async function listViaNearblocks(account, cache) {
+  const seen = new Set(cache.seen);
+  // Newest first, until a transaction this browser already read: new activity since last time.
+  const head = await nearblocksPages(account, seen, { maxPages: MAX_PAGES, stopAtSeen: seen.size > 0 });
+  if (cache.complete || head.reachedEnd) return { fresh: head.fresh, complete: true, cursor: null };
+  // Unfinished: the first read continues from where it stopped; a known history keeps its cursor.
+  return { fresh: head.fresh, complete: false, cursor: seen.size ? cache.cursor || null : head.cursor };
 }
 
 const big = (v) => Number(v || 0);
@@ -255,6 +269,8 @@ export function loadDclEvents(account) {
       throw error;
     }
     const { fresh, complete } = listed;
+    // Where an unfinished NearBlocks history continues next time (kept when this read didn't say).
+    const cursor = listed.cursor !== undefined ? listed.cursor : cache.cursor || null;
     const toFetch = fresh.filter((t) => t.relevant).map((t) => t.hash);
     const events = [];
     for (let i = 0; i < toFetch.length; i += TX_BATCH * 3) {
@@ -267,14 +283,48 @@ export function loadDclEvents(account) {
     const sorted = [...unique.values()].sort((a, b) => a.ts - b.ts || a.seq - b.seq);
     const next = {
       complete,
+      cursor: complete ? null : cursor,
       seen: [...new Set([...fresh.map((t) => t.hash), ...cache.seen])],
       events: sorted
     };
     writeCache(account, next);
+    if (!complete) setTimeout(() => backfill(account), 2_000);
     return { events: sorted, complete };
   })().finally(() => inflight.delete(account));
   inflight.set(account, job);
   return job;
+}
+
+/**
+ * Completes an unfinished history in the background, a few NearBlocks pages per visit from the
+ * saved cursor (or from the newest when there is none), so a page never waits for it. A busy
+ * NearBlocks just leaves it for the next visit.
+ */
+const backfilling = new Set();
+async function backfill(account) {
+  if (backfilling.has(account) || inflight.has(account)) return;
+  backfilling.add(account);
+  try {
+    const cache = readCache(account);
+    if (cache.complete) return;
+    const seen = new Set(cache.seen);
+    const tail = await nearblocksPages(account, seen, { cursor: cache.cursor || '', maxPages: BACKFILL_PAGES, stopAtSeen: false });
+    const toFetch = tail.fresh.filter((t) => t.relevant).map((t) => t.hash);
+    const events = [];
+    for (let i = 0; i < toFetch.length; i += TX_BATCH) events.push(...(await fetchEvents(account, toFetch.slice(i, i + TX_BATCH))));
+    const latest = readCache(account); // a visit may have added newer events meanwhile
+    const unique = new Map([...latest.events, ...events].map((e) => [`${e.hash}:${e.seq}`, e]));
+    writeCache(account, {
+      complete: tail.reachedEnd,
+      cursor: tail.reachedEnd ? null : tail.cursor,
+      seen: [...new Set([...latest.seen, ...tail.fresh.map((t) => t.hash)])],
+      events: [...unique.values()].sort((a, b) => a.ts - b.ts || a.seq - b.seq)
+    });
+  } catch {
+    // busy: next visit
+  } finally {
+    backfilling.delete(account);
+  }
 }
 
 /** Hourly USD candles (daily for anything older) per token, for valuing past events. */
