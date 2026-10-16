@@ -10,7 +10,7 @@
 import { CONTRACTS, ENDPOINTS, INTEAR_REFERRER } from '../config.js';
 import { toBigInt } from './format.js';
 import { functionCall, transaction } from './tx.js';
-import { swapTax } from './tokenTax.js';
+import { afterTax, swapTax } from './tokenTax.js';
 
 const QUOTE_TIMEOUT_MS = 8_000;
 const MAX_WAIT_MS = 2_500; // how long the aggregator may search
@@ -64,6 +64,39 @@ function toTransactions(instructions) {
       })
     );
   });
+}
+
+/** Whether a route swaps in the Rhea CLMM contract (where a taxed token pays its tax). */
+function touchesClmm(route) {
+  if (route.dex_id === 'RheaDcl') return true;
+  return (route.execution_instructions || []).some((step) =>
+    (step?.NearTransaction?.actions || []).some((a) => {
+      try {
+        return a.FunctionCall?.method_name === 'ft_transfer_call' && decodeArgs(a.FunctionCall.args).receiver_id === CONTRACTS.dcl;
+      } catch {
+        return false;
+      }
+    })
+  );
+}
+
+/**
+ * A taxed input reaches the CLMM pools short by its tax, but the aggregator set the route's minimum
+ * output for the full input: lower that minimum by the tax, or the swap would always fail.
+ */
+function widenForTax(transactions, taxInBps) {
+  if (!taxInBps) return transactions;
+  return transactions.map((tx) => ({
+    ...tx,
+    actions: tx.actions.map((action) => {
+      const { methodName, args } = action.params;
+      if (methodName !== 'ft_transfer_call' || args?.receiver_id !== CONTRACTS.dcl) return action;
+      const msg = parseMsg(args.msg);
+      if (!msg?.Swap?.min_output_amount) return action;
+      const swap = { ...msg.Swap, min_output_amount: afterTax(msg.Swap.min_output_amount, taxInBps).toString() };
+      return { ...action, params: { ...action.params, args: { ...args, msg: JSON.stringify({ ...msg, Swap: swap }) } } };
+    })
+  }));
 }
 
 /** Intear DEX operations (deposit_near args or an ft_transfer_call msg) must pay the trader back. */
@@ -134,9 +167,9 @@ export function assertIntearRoute(transactions, { tokenIn, amountIn, user }) {
  * `dexes` limits the search (e.g. ['Plach']).
  */
 export async function getIntearQuotes({ tokenIn, tokenOut, amountIn, slippage, user, signal, dexes = DEXES }) {
-  // Taxed tokens are priced by KINU's own routes, which account for the tax.
+  // Taxed tokens (e.g. KINU) are only taxed on transfers into / out of the Rhea CLMM contract:
+  // routes through it are adjusted below, routes elsewhere (Rhea classic, Intear DEX) are tax-free.
   const { inBps, outBps } = await swapTax(contractOf(tokenIn), contractOf(tokenOut));
-  if (inBps || outBps) throw new Error('Intear routes skip taxed tokens.');
 
   const params = new URLSearchParams({
     token_in: assetOf(tokenIn),
@@ -172,15 +205,19 @@ export async function getIntearQuotes({ tokenIn, tokenOut, amountIn, slippage, u
   for (const route of routes) {
     if (route.token_output !== want || route.deadline != null || quotes.some((q) => q.intear.dexId === route.dex_id)) continue;
     try {
-      const txs = toTransactions(route.execution_instructions);
+      const taxIn = touchesClmm(route) ? inBps : 0;
+      const taxOut = touchesClmm(route) ? outBps : 0;
+      const txs = widenForTax(toTransactions(route.execution_instructions), taxIn);
       assertIntearRoute(txs, { tokenIn, amountIn, user });
-      const amountOut = String(route.estimated_amount?.amount_out ?? '0');
-      if (toBigInt(amountOut) === 0n) continue;
+      const grossOut = String(route.estimated_amount?.amount_out ?? '0');
+      if (toBigInt(grossOut) === 0n) continue;
+      const taxed = taxIn || taxOut;
       quotes.push({
         amountIn: String(amountIn),
-        amountOut,
-        minAmountOut: String(route.worst_case_amount?.amount_out ?? '0'),
-        tax: null,
+        // What reaches the wallet: the pool gets the input after its tax, the output loses its own.
+        amountOut: taxed ? afterTax(afterTax(grossOut, taxIn), taxOut).toString() : grossOut,
+        minAmountOut: afterTax(afterTax(String(route.worst_case_amount?.amount_out ?? '0'), taxIn), taxOut).toString(),
+        tax: taxed ? { inBps: taxIn, outBps: taxOut, grossOut, netIn: afterTax(amountIn, taxIn).toString() } : null,
         dexs: [DEX_LABEL[route.dex_id] || route.dex_id],
         routeTokens: [contractOf(tokenIn), contractOf(tokenOut)],
         intear: {
@@ -188,7 +225,8 @@ export async function getIntearQuotes({ tokenIn, tokenOut, amountIn, slippage, u
           instructions: route.execution_instructions,
           gasUsage: String(route.estimated_gas_usage || '0'),
           maxGasCost: String(route.estimated_max_gas_cost || '0'),
-          storage: String(route.storage_deposits || '0')
+          storage: String(route.storage_deposits || '0'),
+          taxIn
         },
         user: user || null,
         fetchedAt: Date.now()
@@ -208,7 +246,7 @@ export async function getIntearQuote(params) {
 
 /** The transactions of an Intear quote, checked again for this exact account. */
 export function buildIntearSwapTransactions({ tokenIn, quote, accountId }) {
-  const txs = toTransactions(quote.intear.instructions);
+  const txs = widenForTax(toTransactions(quote.intear.instructions), quote.intear.taxIn || 0);
   assertIntearRoute(txs, { tokenIn, amountIn: quote.amountIn, user: accountId });
   return txs;
 }
