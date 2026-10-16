@@ -2564,6 +2564,43 @@ a.pool-row:hover + .pool-row {
   flex-wrap: wrap;
 }
 
+/* Chart bottom bar: time ranges left, price scale mode right (components/chart/ChartFooter.jsx). */
+.chart-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 10px;
+  border-top: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.chart-footer__group {
+  display: flex;
+  gap: 2px;
+}
+
+.chart-footer button {
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.chart-footer button:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.chart-footer button.active {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.1);
+}
+
 .chart-legend {
   display: flex;
   align-items: baseline;

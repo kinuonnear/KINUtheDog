@@ -13,6 +13,7 @@ import { fetchPoolOhlc } from '../../lib/gecko.js';
 import { CHART_BARS, lastGood, sameCandles, useBarClock, useOlderCandles, withOlder } from '../../lib/candles.js';
 import { formatChartPrice, formatUsd } from '../../lib/format.js';
 import { attachDrawings, DrawingToolbar, useDrawingKeys } from '../chart/DrawingTools.jsx';
+import ChartFooter, { applyScale, showRange, useAutoScale } from '../chart/ChartFooter.jsx';
 import { Spinner } from '../ui.jsx';
 
 const UP = '#22e283';
@@ -157,6 +158,7 @@ export default function SwapChart({ token, counter, pools, height }) {
   // candles are replaced in place when they change (a refresh, older history). Replacing the data
   // keeps the user's zoom and scroll; rebuilding the chart would move the view.
   const apiRef = useRef(null); // { chart, series, volume, lines, byTime, times, drawingLayer, fresh }
+  const [scale, setScale] = useLocalStorage('kinu.swap.scale', 'normal'); // 'normal' | 'log' | 'pct'
   const hasData = scaled.length > 0;
   useEffect(() => {
     const container = containerRef.current;
@@ -231,6 +233,10 @@ export default function SwapChart({ token, counter, pools, height }) {
     paintRef.current = api.drawingLayer.paint;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scaled, viewKey, hasData]);
+
+  // Price scale mode (% / log), also on a new chart.
+  useEffect(() => applyScale(apiRef.current?.chart, scale), [scale, viewKey, hasData]);
+  const auto = useAutoScale(() => apiRef.current?.chart || null, containerRef, `${viewKey}|${hasData}`);
 
   // Market candles stay live: Intear pushes the latest candle after every block that moved it.
   const [tick, setTick] = useState(null);
@@ -370,6 +376,12 @@ export default function SwapChart({ token, counter, pools, height }) {
           {(loading || message) && <div className="chart-card__overlay">{loading ? <Spinner size={22} /> : <span>{message}</span>}</div>}
         </div>
       </div>
+      <ChartFooter
+        onRange={(days) => showRange(apiRef.current?.chart, scaled.length, step, days, 6)}
+        scale={scale}
+        onScale={setScale}
+        auto={auto}
+      />
     </section>
   );
 }

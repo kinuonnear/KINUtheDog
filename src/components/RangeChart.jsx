@@ -20,6 +20,7 @@ import { pointToPrice } from '../lib/dclLiquidity.js';
 import { formatChartPrice, formatPercent, formatUsd } from '../lib/format.js';
 import { drawAll, hitTest, TOOLS } from './chart/drawings.js';
 import { DrawingToolbar, ToolIcon, useDrawingKeys } from './chart/DrawingTools.jsx';
+import ChartFooter, { applyScale, showRange, useAutoScale } from './chart/ChartFooter.jsx';
 import { Spinner, TokenIcon } from './ui.jsx';
 
 const UP = '#22e283';
@@ -137,6 +138,7 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
   const [chartType, setChartType] = useLocalStorage('kinu.range.type', 'candles');
   const [indicators, setIndicators] = useLocalStorage('kinu.range.indicators', ['volume']);
   const [showBins, setShowBins] = useLocalStorage('kinu.range.bins', false);
+  const [scale, setScale] = useLocalStorage('kinu.range.scale', 'normal'); // 'normal' | 'log' | 'pct'
   const [tool, setTool] = useState('cursor');
   const [magnet, setMagnet] = useState(true);
   const [hidden, setHidden] = useState(false);
@@ -254,7 +256,7 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
     return out;
   }, [showBins, bins, fullRange, x.decimals, y.decimals]);
 
-  live.current = { requestOlder: history.request, ySymbol: y.symbol, minPrice, maxPrice, currentPrice, fullRange, onDrag, usdFactor, drawings, selected, hidden, tool, magnet, binPrices, mine, hideRange, setDrawings, setSelected, setTool };
+  live.current = { scale, requestOlder: history.request, ySymbol: y.symbol, minPrice, maxPrice, currentPrice, fullRange, onDrag, usdFactor, drawings, selected, hidden, tool, magnet, binPrices, mine, hideRange, setDrawings, setSelected, setTool };
 
   useEffect(() => {
     paintRef.current?.();
@@ -715,6 +717,7 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
       paint();
     };
     chartApi.current = { chart, canvas, setDataAll };
+    applyScale(chart, live.current.scale);
     return () => {
       saveView();
       liveBarRef.current = null;
@@ -734,6 +737,10 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
     // Rebuilt when the data or the display changes — not on every pool price tick.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [Boolean(candles.data), noHistory, Boolean(currentPrice), chartType, indicators.join(','), unit, step, fromPool, viewOf]);
+
+  // Price scale mode (% / log).
+  useEffect(() => applyScale(chartApi.current?.chart, scale), [scale]);
+  const auto = useAutoScale(() => chartApi.current?.chart || null, containerRef, `${viewOf}|${Boolean(candles.data)}`);
 
   // Candles that changed under the same chart: replaced in place (keeps zoom and scroll).
   useEffect(() => {
@@ -949,6 +956,12 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
           {noHistory && <div className="range-chart__note">No trading history yet — showing the current price.</div>}
         </div>
       </div>
+      <ChartFooter
+        onRange={(days) => showRange(chartApi.current?.chart, candles.data?.length || 0, step, days, 8)}
+        scale={scale}
+        onScale={setScale}
+        auto={auto}
+      />
     </div>
   );
 }
