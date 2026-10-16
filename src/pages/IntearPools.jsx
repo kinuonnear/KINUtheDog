@@ -178,14 +178,10 @@ export default function IntearPools() {
                   ))}
                 </span>
                 <span className="ix-actions">
+                  {/* Liquidity is added on Intear's own site: the Intear DEX contract is not audited yet. */}
                   <a className="button button--outline button--sm" href={p.url} target="_blank" rel="noopener noreferrer">
-                    View ↗
+                    {p.kind === 'Public' ? '+ Add liquidity on Intear ↗' : 'View ↗'}
                   </a>
-                  {p.kind === 'Public' && (
-                    <button type="button" className="button button--ghost button--sm" disabled title="Coming with Intear: LP flow and audit status first">
-                      + Add liquidity
-                    </button>
-                  )}
                 </span>
               </div>
             );
@@ -200,8 +196,9 @@ export default function IntearPools() {
       )}
 
       <p className="ix-note">
-        Data: Intear DEX (dex.intear.near, Plach AMM), refreshed every 2 minutes. Read-only preview — nothing here sends a transaction. Adding
-        liquidity to public Plach pools from KINU is planned with Intear, once its LP flow and the contract&apos;s audit status are shared.
+        Data: Intear DEX (dex.intear.near, Plach AMM), refreshed every 2 minutes. Read-only preview — nothing here sends a transaction. Liquidity is
+        added on Intear&apos;s own site (dex.intea.rs); the Intear DEX contract is not audited yet. Swaps on KINU already route through Intear
+        DEX pools when they give the best price.
       </p>
     </div>
   );
