@@ -17,7 +17,7 @@ import { getWhitelistedTokens } from './tokens.js';
 import { buildDclSwapTransactions, dclNeighbors, getDclQuote } from './dclRouter.js';
 import { platformFeeFor, withPlatformFee } from './platformFee.js';
 import { afterTax, swapTax } from './tokenTax.js';
-import { buildIntearSwapTransactions, getIntearQuote } from './intearRouter.js';
+import { buildIntearSwapTransactions, DEX_LABEL, getIntearQuotes, REFERRAL_DEXES } from './intearRouter.js';
 
 const QUOTE_TIMEOUT_MS = 8_000;
 
@@ -55,21 +55,36 @@ async function getNetSwapQuote(params) {
     getSmartRouterQuote(params),
     getDclQuote(params),
     getHybridQuote(params),
-    params.noIntear ? Promise.reject(new Error('skipped')) : getIntearQuote(params)
+    params.noIntear ? Promise.reject(new Error('skipped')) : getIntearQuotes(params)
   ]);
   if (params.signal?.aborted) throw router.reason || new DOMException('Aborted', 'AbortError');
 
   const direct = [
     router.status === 'fulfilled' && { source: 'SmartRouter', quote: router.value },
     clmm.status === 'fulfilled' && { source: 'Rhea CLMM (direct)', quote: clmm.value },
-    intear.status === 'fulfilled' && { source: 'Intear Aggregator', quote: intear.value }
+    // One entry per DEX the Intear Aggregator found a route on, so Intear DEX pools show up even
+    // when they aren't the best. Its Rhea CLMM route is left out unless it beats the direct one
+    // (same pools, and Rhea CLMM routes don't credit KINU's referrer).
+    ...(intear.status === 'fulfilled' ? intear.value : [])
+      .filter((q) => !(q.intear.dexId === 'RheaDcl' && clmm.status === 'fulfilled' && toBigInt(q.amountOut) <= toBigInt(clmm.value.amountOut)))
+      .map((q) => ({ source: `Intear · ${DEX_LABEL[q.intear.dexId] || q.intear.dexId}`, quote: q }))
   ].filter(Boolean);
-  const candidates = [...direct];
+  // Intear routes far below the best (a DEX with almost no liquidity for the pair) are left out.
+  const bestOut = direct.reduce((m, c) => (toBigInt(c.quote.amountOut) > m ? toBigInt(c.quote.amountOut) : m), 0n);
+  const candidates = direct.filter((c) => !c.quote.intear || toBigInt(c.quote.amountOut) * 100n >= bestOut * (100n - INTEAR_MAX_GAP_PCT));
   if (bridge.status === 'fulfilled') candidates.push({ source: 'Bridge route (2 steps)', quote: bridge.value });
+  // Listed best output first in the route picker.
+  candidates.sort((a, b) => (toBigInt(b.quote.amountOut) > toBigInt(a.quote.amountOut) ? 1 : toBigInt(b.quote.amountOut) < toBigInt(a.quote.amountOut) ? -1 : 0));
   if (!candidates.length) throw router.status === 'rejected' ? router.reason : new Error('No route found for this pair.');
 
-  // Every candidate stays executable so the user can pick one.
-  const top = (list) => list.reduce((a, b) => (toBigInt(b.quote.amountOut) > toBigInt(a.quote.amountOut) ? b : a));
+  // Every candidate stays executable so the user can pick one. On an exact tie, a route that
+  // credits KINU's Intear referrer wins (the user receives the same either way).
+  const credits = (c) => REFERRAL_DEXES.has(c.quote.intear?.dexId);
+  const better = (b, a) => {
+    const [ob, oa] = [toBigInt(b.quote.amountOut), toBigInt(a.quote.amountOut)];
+    return ob > oa || (ob === oa && credits(b) && !credits(a));
+  };
+  const top = (list) => list.reduce((a, b) => (better(b, a) ? b : a));
   let best = direct.length ? top(direct) : candidates[0];
   // A two-step route needs a second signature and more gas: it only wins by a clear margin.
   const twoStep = candidates.find((c) => c.quote.hybrid);
@@ -79,6 +94,9 @@ async function getNetSwapQuote(params) {
   best.quote.priceImpact = await measurePriceImpact(best.quote, params).catch(() => null);
   return selectRoute({ ...best.quote, routes: candidates, bestSource: best.source }, best.source);
 }
+
+/** Intear routes more than this far below the best route are not listed. */
+const INTEAR_MAX_GAP_PCT = 5n;
 
 /** Extra output a two-step route must offer over the best one-step route to be chosen. */
 const BRIDGE_MIN_GAIN = 0.005;
@@ -139,9 +157,9 @@ export async function measurePriceImpact(quote, { tokenIn, tokenOut, amountIn })
   } else if (quote.msg) {
     const ref = await getSmartRouterQuote({ tokenIn, tokenOut, amountIn: small.toString(), slippage: 0.5 });
     refOut = ref.tax?.grossOut ?? ref.amountOut;
-  } else if (quote.intear) {
-    refOut = (await getIntearQuote({ tokenIn, tokenOut, amountIn: small.toString(), slippage: 0.5 })).amountOut;
   }
+  // Intear routes: none. For a tiny amount the aggregator picks other pools altogether (often
+  // thin, mispriced ones), so its rate is no reference; the swap page falls back to USD prices.
   if (!refOut || toBigInt(refOut) === 0n) return null;
   // Compared before token tax on both sides: the tax is shown separately, not as impact.
   const spot = Number(refOut) / Number(small);

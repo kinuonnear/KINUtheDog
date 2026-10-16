@@ -16,7 +16,10 @@ const QUOTE_TIMEOUT_MS = 8_000;
 const MAX_WAIT_MS = 2_500; // how long the aggregator may search
 // Only DEXs whose transactions KINU checks below. Others (Aidols, liquid staking) are left out.
 const DEXES = ['Rhea', 'RheaDcl', 'Plach', 'Wrap'];
-const DEX_LABEL = { Rhea: 'Rhea', RheaDcl: 'Rhea CLMM', Plach: 'Intear DEX', Wrap: 'Wrap' };
+export const DEX_LABEL = { Rhea: 'Rhea', RheaDcl: 'Rhea CLMM', Plach: 'Intear DEX', Wrap: 'Wrap' };
+// Routes on these DEXs credit KINU's referrer (docs.intear.tech/dex-aggregator/guides/referral-fees);
+// Rhea CLMM and Wrap routes don't.
+export const REFERRAL_DEXES = new Set(['Rhea', 'Plach']);
 const MAX_GAS = 300_000_000_000_000n; // NEAR's per-transaction limit
 // Intear DEX operations a swap route may contain; anything else is refused.
 const PLACH_OPERATIONS = new Set(['SwapSimple', 'Withdraw']);
@@ -125,11 +128,12 @@ export function assertIntearRoute(transactions, { tokenIn, amountIn, user }) {
 }
 
 /**
- * Best Intear Aggregator route for amountIn (raw) of tokenIn -> tokenOut, in the shape of the
- * other quotes in lib/swap.js plus `intear` (instructions and costs). Routes that would need a
- * second conversion step, or that fail the checks above, are skipped.
+ * Intear Aggregator routes for amountIn (raw) of tokenIn -> tokenOut, best first: at most one per
+ * DEX, in the shape of the other quotes in lib/swap.js plus `intear` (instructions and costs).
+ * Routes that would need a second conversion step, or that fail the checks above, are skipped.
+ * `dexes` limits the search (e.g. ['Plach']).
  */
-export async function getIntearQuote({ tokenIn, tokenOut, amountIn, slippage, user, signal }) {
+export async function getIntearQuotes({ tokenIn, tokenOut, amountIn, slippage, user, signal, dexes = DEXES }) {
   // Taxed tokens are priced by KINU's own routes, which account for the tax.
   const { inBps, outBps } = await swapTax(contractOf(tokenIn), contractOf(tokenOut));
   if (inBps || outBps) throw new Error('Intear routes skip taxed tokens.');
@@ -141,7 +145,7 @@ export async function getIntearQuote({ tokenIn, tokenOut, amountIn, slippage, us
     max_wait_ms: String(MAX_WAIT_MS),
     slippage_type: 'Fixed',
     slippage: String(Number(slippage) / 100),
-    dexes: DEXES.join(','),
+    dexes: dexes.filter((d) => DEXES.includes(d)).join(','),
     referrer_id: INTEAR_REFERRER
   });
   if (user) params.set('trader_account_id', user);
@@ -162,16 +166,17 @@ export async function getIntearQuote({ tokenIn, tokenOut, amountIn, slippage, us
   }
   if (!Array.isArray(routes) || !routes.length) throw new Error('No Intear route for this pair.');
 
-  // Routes come best first (costs included). Take the first one KINU can execute as-is.
+  // Routes come best first (costs included). Keep the ones KINU can execute as-is.
   const want = assetOf(tokenOut);
+  const quotes = [];
   for (const route of routes) {
-    if (route.token_output !== want || route.deadline != null) continue;
+    if (route.token_output !== want || route.deadline != null || quotes.some((q) => q.intear.dexId === route.dex_id)) continue;
     try {
       const txs = toTransactions(route.execution_instructions);
       assertIntearRoute(txs, { tokenIn, amountIn, user });
       const amountOut = String(route.estimated_amount?.amount_out ?? '0');
       if (toBigInt(amountOut) === 0n) continue;
-      return {
+      quotes.push({
         amountIn: String(amountIn),
         amountOut,
         minAmountOut: String(route.worst_case_amount?.amount_out ?? '0'),
@@ -187,12 +192,18 @@ export async function getIntearQuote({ tokenIn, tokenOut, amountIn, slippage, us
         },
         user: user || null,
         fetchedAt: Date.now()
-      };
+      });
     } catch {
       // Not executable by KINU: try the next route.
     }
   }
-  throw new Error('No Intear route KINU can execute for this pair.');
+  if (!quotes.length) throw new Error('No Intear route KINU can execute for this pair.');
+  return quotes;
+}
+
+/** The best Intear Aggregator route (see getIntearQuotes). */
+export async function getIntearQuote(params) {
+  return (await getIntearQuotes(params))[0];
 }
 
 /** The transactions of an Intear quote, checked again for this exact account. */
