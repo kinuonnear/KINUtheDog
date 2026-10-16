@@ -2,7 +2,7 @@
 // It only answers page navigations, and only when the network fails. Scripts, styles, prices
 // and wallet requests always go straight to the network, so a new deploy is picked up at once.
 
-const CACHE = 'kinu-offline-v1';
+const CACHE = 'kinu-offline-v2';
 const OFFLINE_URL = '/offline.html';
 const PRECACHE = [OFFLINE_URL, '/icon-192.png'];
 
