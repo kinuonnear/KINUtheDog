@@ -65,11 +65,12 @@ export function disarmWalletPopup() {
 
 /**
  * Call synchronously inside the click / tap handler, before anything async. Acts for popup
- * wallets only, and not when a browser extension handles signing.
+ * wallets only, and not when Meteor's browser extension handles Meteor's signing. (The extension
+ * being installed says nothing about other wallets: Intear still needs its window prepared.)
  */
 export function armWalletPopup(walletId) {
   const site = siteFor(walletId);
-  if (typeof window === 'undefined' || !site || window.meteorCom) return;
+  if (typeof window === 'undefined' || !site || (walletId === 'meteor-wallet' && window.meteorCom)) return;
   disarmWalletPopup();
   const win = isIos() ? window.open(`${site}/`, '_blank') : window.open(`${site}/`, '_blank', DESKTOP_FEATURES);
   if (!win) return;
