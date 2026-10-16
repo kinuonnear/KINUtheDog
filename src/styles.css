@@ -3338,6 +3338,45 @@ a.trades__row:hover {
   color: var(--accent);
 }
 
+/* Strategy on one slim row: title left, the three shapes as a thin segmented control. */
+.create-pos .strategy-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+.strategy-row > h3 {
+  flex: none;
+  margin: 0;
+  cursor: help;
+}
+
+.strategy--slim {
+  flex: 1;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.strategy--slim button {
+  flex-direction: row;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 4px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  font-size: 11px;
+}
+
+.strategy--slim button svg {
+  width: 18px;
+  height: 10px;
+}
+
 .depth {
   display: flex;
   flex-direction: column;
@@ -4110,6 +4149,43 @@ a.trades__row:hover {
   color: var(--muted);
   font-weight: 400;
   font-size: 11px;
+}
+
+/* CLMM: the pool bar sits above the chart, inside the chart column. */
+.pool-grid__bar {
+  flex-shrink: 0;
+  margin-bottom: 10px;
+}
+
+.pool-grid__bar .pool-bar {
+  margin: 0;
+}
+
+/* Desktop: tighter stats; anything that doesn't fit scrolls sideways under a soft fade. */
+@media (min-width: 1081px) {
+  .pool-grid__bar .pool-bar__stats {
+    gap: 20px;
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent);
+    mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent);
+    padding-right: 24px;
+  }
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.panel-head .card-title {
+  margin: 0;
+}
+
+.panel-links {
+  display: flex;
+  gap: 6px;
 }
 
 .pool-bar__actions {
@@ -4972,7 +5048,7 @@ a.trades__row:hover {
 
 .lp-board__row {
   display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1.2fr) 190px;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 0.9fr) 190px;
   align-items: center;
   gap: 14px;
   padding: 14px;

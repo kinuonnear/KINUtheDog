@@ -752,19 +752,17 @@ export default function DclCreatePosition({ pool, x, y, rangeState, onDone, retr
         )}
       </section>
 
-      <section>
-        <div className="create-pos__head">
-          <h3>Strategy</h3>
-        </div>
-        <div className="strategy">
+      {/* Slim: title and the three shapes on one row; each shape explains itself on hover. */}
+      <section className="strategy-row">
+        <h3 title={strategyInfo.hint}>Strategy</h3>
+        <div className="strategy strategy--slim">
           {STRATEGIES.map((s) => (
-            <button key={s.key} type="button" className={strategy === s.key ? 'active' : ''} onClick={() => setStrategy(s.key)}>
+            <button key={s.key} type="button" className={strategy === s.key ? 'active' : ''} onClick={() => setStrategy(s.key)} title={s.hint}>
               <StrategyIcon kind={s.key} />
               {s.label}
             </button>
           ))}
         </div>
-        <p className="liq-hint">{strategyInfo.hint}</p>
       </section>
 
       <section>

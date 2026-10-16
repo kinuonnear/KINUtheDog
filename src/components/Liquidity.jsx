@@ -897,7 +897,7 @@ export function StableLiquidity({ pool, tokens, shares, staked, onDone, initialT
 /* ------------------------------------------------------------------ */
 
 /** CLMM side panel: open a new position (positions are managed in DclGroupCard). */
-export function DclLiquidity({ pool, x, y, rangeState, onDone }) {
+export function DclLiquidity({ pool, x, y, rangeState, onDone, headExtra = null }) {
   const { accountId, execute } = useApp();
   // Tokens waiting in the CLMM balance: re-read every 15s (like the positions) so a deposit that a
   // later step already used never lingers here as "unused".
@@ -920,7 +920,10 @@ export function DclLiquidity({ pool, x, y, rangeState, onDone }) {
 
   return (
     <>
-      <h3 className="card-title">Create position</h3>
+      <div className="panel-head">
+        <h3 className="card-title">Create position</h3>
+        {headExtra}
+      </div>
       {parked.length > 0 && (
         <div className="notice notice--info">
           <span>

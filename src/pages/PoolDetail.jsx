@@ -370,25 +370,27 @@ function DclPool({ poolId, initialTab }) {
 
   return (
     <div className="terminal">
+      <DclWorkspace
+        bar={
       <PoolBar
         tokens={[x, y]}
         label="CLMM"
         feePercent={fee / 10000}
-        rheaUrl={rheaPoolUrl({ kind: 'DCL', id: poolId })}
-        swapLink={`/swap?from=${tokenX}&to=${tokenY}`}
+        actions={false}
         price={{ value: price, x, y }}
         stats={[
           empty
             ? { label: 'Total value locked', value: 'Empty pool', hint: 'be the first LP' }
             : { label: 'Total value locked', value: formatUsd(tvl) },
+          // Fee APR early (the bar shares the chart column); the trading fee is the chip by the pair.
+          { label: 'Fee APR', value: stats.data ? <AprValue apr={stats.data.apy} tokenIds={[tokenX, tokenY]} estimated={stats.data.apyEstimated} /> : '-', accent: true },
           { label: '24h volume', value: stats.data ? formatUsd(stats.data.volume24h) : '-' },
           { label: '24h fees', value: stats.data ? formatUsd(stats.data.feeVolume24h) : '-' },
-          { label: '24h fees / TVL', value: stats.data && tvl > 0 && !empty ? formatPercent((stats.data.feeVolume24h / tvl) * 100) : '-' },
-          { label: 'Trading fee', value: formatPercent(fee / 10000, 2) },
-          { label: 'Fee APR', value: stats.data ? <AprValue apr={stats.data.apy} tokenIds={[tokenX, tokenY]} estimated={stats.data.apyEstimated} /> : '-', accent: true }
+          { label: '24h fees / TVL', value: stats.data && tvl > 0 && !empty ? formatPercent((stats.data.feeVolume24h / tvl) * 100) : '-' }
         ]}
       />
-      <DclWorkspace
+        }
+        links={{ swap: `/swap?from=${tokenX}&to=${tokenY}`, rhea: rheaPoolUrl({ kind: 'DCL', id: poolId }) }}
         poolId={poolId}
         pool={chain.data}
         x={x}
@@ -450,7 +452,8 @@ function useDockedColumns(gridRef) {
 }
 
 /** CLMM page body: draggable range chart + Meteora-style create form. */
-function DclWorkspace({ poolId, pool, x, y, reserves, positions, onAdd, onDone }) {
+/** `bar`: the pool bar, shown above the chart (the side panel reaches the top); `links`: Swap / Rhea in the panel head. */
+function DclWorkspace({ bar, links, poolId, pool, x, y, reserves, positions, onAdd, onDone }) {
   const { accountId } = useApp();
   // ?left=&right= (points): open the form on that range — Smart LP's "Use this range".
   const { search } = useLocation();
@@ -489,7 +492,10 @@ function DclWorkspace({ poolId, pool, x, y, reserves, positions, onAdd, onDone }
   // Resizable split between the chart and the bottom panel (desktop).
   const mainRef = useRef(null);
   const desktop = useMediaQuery('(min-width: 1081px)');
-  const columnHeight = useElementHeight(mainRef);
+  const barRef = useRef(null);
+  const barHeight = useElementHeight(barRef) || 0;
+  // The chart / panel split shares what the pool bar leaves of the column.
+  const columnHeight = Math.max(0, (useElementHeight(mainRef) || 0) - (barHeight ? barHeight + 10 : 0)) || undefined;
   const [ratio, setRatio] = useLocalStorage('kinu.split.chart', DEFAULT_SPLIT);
   // The chart keeps a usable height on short screens (e.g. 100% zoom on a laptop): at least
   // MIN_CHART_PX, while the panel below keeps MIN_PANEL_PX where the column allows both.
@@ -549,6 +555,11 @@ function DclWorkspace({ poolId, pool, x, y, reserves, positions, onAdd, onDone }
       style={desktop && sideWidth ? { '--side-w': `${sideWidth}px` } : undefined}
     >
       <div className={`pool-grid__main ${desktop ? 'pool-grid__main--split' : ''}`} ref={mainRef}>
+        {bar && (
+          <div className="pool-grid__bar" ref={barRef}>
+            {bar}
+          </div>
+        )}
         <div className="split-top" style={chartHeight ? { height: chartHeight } : undefined}>
         <Suspense fallback={<div className="card chart-card--loading"><Skeleton height={420} radius={16} /></div>}>
           <RangeChart
@@ -665,7 +676,7 @@ function DclWorkspace({ poolId, pool, x, y, reserves, positions, onAdd, onDone }
           {chartGroup ? (
             <PositionPanel key={chartGroup.key} group={chartGroup} x={x} y={y} loading={deposits.loading} onBack={() => setChartKey(null)} onDone={onDone} />
           ) : (
-            <DclLiquidity pool={pool} x={x} y={y} rangeState={rangeState} onDone={onDone} />
+            <DclLiquidity pool={pool} x={x} y={y} rangeState={rangeState} onDone={onDone} headExtra={links && <PanelLinks links={links} />} />
           )}
         </section>
       </aside>
@@ -710,7 +721,22 @@ function PoolTrades({ poolId, x, y }) {
 /* ------------------------------------------------------------------ */
 
 /** Compact Meteora-style pool bar: pair, type, fee and live stats in one row. */
-function PoolBar({ tokens, label, feePercent, rheaUrl, swapLink, stats, price, idText }) {
+/** Swap / Rhea ↗ beside the side panel's title (CLMM pools). */
+function PanelLinks({ links }) {
+  return (
+    <div className="panel-links">
+      <Link to={links.swap} className="button button--ghost button--sm">
+        Swap
+      </Link>
+      <a className="button button--ghost button--sm" href={links.rhea} target="_blank" rel="noopener noreferrer">
+        Rhea {'↗'}
+      </a>
+    </div>
+  );
+}
+
+/** `actions={false}` leaves out Swap / Rhea (shown elsewhere). */
+function PoolBar({ tokens, label, feePercent, rheaUrl, swapLink, stats, price, idText, actions = true }) {
   const [flipped, setFlipped] = useState(false);
   return (
     <header className="pool-bar card">
@@ -750,6 +776,7 @@ function PoolBar({ tokens, label, feePercent, rheaUrl, swapLink, stats, price, i
           </div>
         ))}
       </div>
+      {actions && (
       <div className="pool-bar__actions">
         {swapLink && (
           <Link to={swapLink} className="button button--ghost button--sm">
@@ -760,6 +787,7 @@ function PoolBar({ tokens, label, feePercent, rheaUrl, swapLink, stats, price, i
           Rhea {'\u2197'}
         </a>
       </div>
+      )}
     </header>
   );
 }

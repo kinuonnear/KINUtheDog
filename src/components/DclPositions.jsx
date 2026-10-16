@@ -688,6 +688,32 @@ function PositionRow({ poolId, group, x, y, pool, loading, pnl, onDone, onChart,
             <TokenIcon token={y} size={14} /> {formatAmount(summary.feeY)} <small>({formatUsd(summary.feeY * py)})</small>
           </span>
         </div>
+        {/* PnL = value now + fees earned + withdrawn − invested (usePoolPnl). */}
+        <div className="lp-board__cell" data-label="PnL">
+          {!pnl ? (
+            <span className="muted">
+              <Spinner size={12} />
+            </span>
+          ) : !pnl.known ? (
+            <strong className="muted" title="Not enough history for this position yet">
+              —
+            </strong>
+          ) : (
+            <>
+              <strong className={pnl.pnl >= 0 ? 'up' : 'down'}>
+                {pnl.pnl >= 0 ? '+' : '−'}
+                {formatUsd(Math.abs(pnl.pnl))}
+              </strong>
+              {Number.isFinite(pnl.pnlPct) && (
+                <span className={pnl.pnlPct >= 0 ? 'up' : 'down'}>
+                  {pnl.pnlPct >= 0 ? '+' : '−'}
+                  {Math.abs(pnl.pnlPct).toFixed(2)}%
+                </span>
+              )}
+              <small className="muted">fees included</small>
+            </>
+          )}
+        </div>
         {/* Earning state lives on the dot by the title (hover for bins and active share). */}
         <div className="lp-board__actions lp-board__actions--stack" data-label="Actions">
           <div className="lp-board__icons">
@@ -802,6 +828,7 @@ export function DclGroupCard({ poolId, positions, deposits, x, y, pool, onDone, 
           <span>Position · price range</span>
           <span>Your liquidity</span>
           <span>Claimable fees</span>
+          <span>PnL</span>
           <span>Actions</span>
         </div>
         {groups.map((g) => (
