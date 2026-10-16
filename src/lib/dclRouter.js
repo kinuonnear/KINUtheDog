@@ -17,7 +17,9 @@ import { applySlippage, toBigInt } from './format.js';
 import { afterTax, swapTax } from './tokenTax.js';
 
 const POOL_PAGE = 500;
-const POOLS_TTL_MS = 10 * 60_000;
+const POOLS_TTL_MS = 10 * 60_000; // after this the pool set is refreshed (in the background)
+const POOLS_MAX_AGE_MS = 2 * 60 * 60_000; // a saved pool set older than this isn't used at all
+const PAGES_AT_ONCE = 6; // list_pools pages read in parallel (the RPC client runs 6 at a time)
 const MAX_TWO_HOP = 24; // multi-hop candidates quoted on a fresh search (best-connected tokens first)
 const MAX_THREE_HOP = 24;
 const RANK_TTL_MS = 180_000;
@@ -29,14 +31,16 @@ let graphPromise = null;
 let graphAt = 0;
 
 // The routable pool set changes slowly, and loading it is the heaviest read KINU makes (every CLMM
-// pool, ~11 large list_pools pages). It is kept 10 minutes, in memory and — as compact pool ids —
-// in sessionStorage, so reloads and new tabs don't download it again.
-const GRAPH_KEY = 'kinu.dclGraph.v1';
+// pool, ~11 large list_pools pages, ~4 MB). It is kept as compact pool ids in localStorage: a saved
+// set up to 2 hours old is used at once (a quote never waits for it), and one older than 10 minutes
+// is refreshed in the background. A pool that emptied meanwhile simply quotes 0 and drops out; a new
+// pool gets in through refreshDclGraphFor() or the next refresh.
+const GRAPH_KEY = 'kinu.dclGraph.v2';
 
 function readGraphCache() {
   try {
-    const saved = JSON.parse(sessionStorage.getItem(GRAPH_KEY) || 'null');
-    if (saved && Date.now() - saved.at < POOLS_TTL_MS && Array.isArray(saved.ids)) return saved;
+    const saved = JSON.parse(localStorage.getItem(GRAPH_KEY) || 'null');
+    if (saved && Date.now() - saved.at < POOLS_MAX_AGE_MS && Array.isArray(saved.ids)) return saved;
   } catch {
     // ignore
   }
@@ -45,7 +49,7 @@ function readGraphCache() {
 
 function writeGraphCache(at, ids) {
   try {
-    sessionStorage.setItem(GRAPH_KEY, JSON.stringify({ at, ids }));
+    localStorage.setItem(GRAPH_KEY, JSON.stringify({ at, ids }));
   } catch {
     // storage full or unavailable: the in-memory copy still serves this page
   }
@@ -54,16 +58,28 @@ function writeGraphCache(at, ids) {
 /** Running pools with liquidity at the current price (no whitelist), as pool ids. */
 async function fetchRoutablePoolIds() {
   const ids = [];
-  for (let from = 0; ; from += POOL_PAGE) {
-    const page = (await view(CONTRACTS.dcl, 'list_pools', { from_index: from, limit: POOL_PAGE })) || [];
-    page
-      // Whitelist-only pools (e.g. NEAR Intents solver pools) quote like any pool — quotes are
-      // view calls — but reject swaps from other accounts (E407), so they never join a route.
-      .filter((p) => p.state === 'Running' && p.liquidity !== '0' && !(Array.isArray(p.whitelist) && p.whitelist.length > 0))
-      .forEach((p) => ids.push(p.pool_id));
-    if (page.length < POOL_PAGE) break;
+  // Pages are read PAGES_AT_ONCE at a time (the pool count isn't known up front) until one comes
+  // back short: ~1 s instead of ~5 s one page after another.
+  for (let start = 0; ; start += POOL_PAGE * PAGES_AT_ONCE) {
+    const pages = await Promise.all(
+      Array.from({ length: PAGES_AT_ONCE }, (_, i) =>
+        view(CONTRACTS.dcl, 'list_pools', { from_index: start + i * POOL_PAGE, limit: POOL_PAGE }).then((page) => page || [])
+      )
+    );
+    let done = false;
+    for (const page of pages) {
+      page
+        // Whitelist-only pools (e.g. NEAR Intents solver pools) quote like any pool — quotes are
+        // view calls — but reject swaps from other accounts (E407), so they never join a route.
+        .filter((p) => p.state === 'Running' && p.liquidity !== '0' && !(Array.isArray(p.whitelist) && p.whitelist.length > 0))
+        .forEach((p) => ids.push(p.pool_id));
+      if (page.length < POOL_PAGE) {
+        done = true;
+        break;
+      }
+    }
+    if (done) return ids;
   }
-  return ids;
 }
 
 /**
@@ -76,38 +92,61 @@ export async function refreshDclGraphFor(poolId) {
   if (graph && graph.get(tokenX)?.some((p) => p.pool_id === poolId)) return;
   graphPromise = null;
   try {
-    sessionStorage.removeItem(GRAPH_KEY);
+    localStorage.removeItem(GRAPH_KEY);
   } catch {
     // ignore
   }
 }
 
+function graphOf(ids) {
+  const byToken = new Map();
+  ids.forEach((pool_id) => {
+    const [token_x, token_y] = pool_id.split('|');
+    const p = { pool_id, token_x, token_y };
+    [token_x, token_y].forEach((t) => {
+      if (!byToken.has(t)) byToken.set(t, []);
+      byToken.get(t).push(p);
+    });
+  });
+  return byToken;
+}
+
+let refreshing = null;
+
+/** Read the pool set from the chain, save it, and swap it in. */
+function refreshGraph() {
+  if (!refreshing) {
+    refreshing = fetchRoutablePoolIds()
+      .then((ids) => {
+        graphAt = Date.now();
+        writeGraphCache(graphAt, ids);
+        const graph = graphOf(ids);
+        graphPromise = Promise.resolve(graph);
+        return graph;
+      })
+      .finally(() => {
+        refreshing = null;
+      });
+  }
+  return refreshing;
+}
+
 /** Map<token, pool[]> over routable pools; a pool is { pool_id, token_x, token_y }. */
 function loadGraph() {
-  if (!graphPromise || Date.now() - graphAt > POOLS_TTL_MS) {
+  if (!graphPromise) {
     const cached = readGraphCache();
-    graphAt = cached ? cached.at : Date.now();
-    graphPromise = (async () => {
-      let ids = cached?.ids;
-      if (!ids) {
-        ids = await fetchRoutablePoolIds();
-        writeGraphCache(graphAt, ids);
-      }
-      const byToken = new Map();
-      ids.forEach((pool_id) => {
-        const [token_x, token_y] = pool_id.split('|');
-        const p = { pool_id, token_x, token_y };
-        [token_x, token_y].forEach((t) => {
-          if (!byToken.has(t)) byToken.set(t, []);
-          byToken.get(t).push(p);
-        });
+    if (cached) {
+      // A saved set serves at once; a stale one is refreshed behind it.
+      graphAt = cached.at;
+      graphPromise = Promise.resolve(graphOf(cached.ids));
+    } else {
+      graphPromise = refreshGraph().catch((error) => {
+        graphPromise = null;
+        throw error;
       });
-      return byToken;
-    })().catch((error) => {
-      graphPromise = null;
-      throw error;
-    });
+    }
   }
+  if (Date.now() - graphAt > POOLS_TTL_MS && !refreshing) refreshGraph().catch(() => {});
   return graphPromise;
 }
 

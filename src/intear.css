@@ -1,0 +1,235 @@
+/* Intear DEX pools demo (/intear-dex): stats band, controls and the pool table. Theme colours
+   come from theme.css; the hero reuses the Pools page header (pools.css). */
+
+.page--intear {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ix-badge {
+  position: relative;
+  display: inline-block;
+  align-self: flex-start;
+  width: fit-content;
+  margin-bottom: 10px;
+  padding: 4px 10px;
+  border: 1px solid rgba(95, 227, 161, 0.4);
+  border-radius: 999px;
+  background: rgba(95, 227, 161, 0.08);
+  color: var(--up);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ix-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.ix-stats > div {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.ix-stats span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.ix-stats strong {
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ix-stats small {
+  color: var(--faint);
+  font-size: 11px;
+}
+
+.ix-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.ix-controls .segmented small {
+  margin-left: 4px;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 10px;
+}
+
+.ix-search {
+  flex: 1;
+  min-width: 200px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.ix-sort,
+.ix-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.ix-sort select {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.ix-table {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.ix-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) 0.9fr 1fr 1fr 1fr 1fr minmax(0, 1.5fr) 190px;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ix-row + .ix-row {
+  border-top: 1px solid var(--border);
+}
+
+.ix-row--head {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ix-row > span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ix-row small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.ix-pair {
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+}
+
+.ix-pair strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ix-kind {
+  font-style: normal;
+}
+
+.ix-kind--public {
+  color: var(--up);
+}
+
+.ix-kind--private {
+  color: var(--warn);
+}
+
+.ix-kind--launch {
+  color: var(--sky);
+}
+
+.ix-reserves small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ix-actions {
+  display: flex !important;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.ix-actions .button {
+  margin: 0;
+}
+
+.ix-empty {
+  padding: 16px;
+}
+
+.ix-more {
+  display: block;
+  margin: 12px auto;
+}
+
+.ix-note {
+  color: var(--faint);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+@media (max-width: 1080px) {
+  .ix-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ix-row--head {
+    display: none !important;
+  }
+
+  .ix-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ix-pair,
+  .ix-reserves,
+  .ix-actions {
+    grid-column: 1 / -1;
+  }
+
+  .ix-actions {
+    justify-content: flex-start;
+  }
+
+  .ix-row > span[data-label]:not(.ix-pair)::before {
+    content: attr(data-label);
+    color: var(--faint);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+}
+
+/* "Add liquidity" waits for Intear's LP flow: visibly not available yet. */
+.ix-actions .button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

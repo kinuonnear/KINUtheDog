@@ -6,19 +6,22 @@ import { isQuoteToken } from './intear.js';
 
 const W = 1200;
 const H = 675;
+// The app palette (theme.css): blue-black, ivory text, plain green for gains, red for losses.
 const C = {
-  bg: '#0b0e14',
-  surface: '#121821',
-  border: '#1f2733',
-  text: '#e6edf5',
-  muted: '#8a96a8',
-  faint: '#5b6678',
-  accent: '#b8ff3d',
-  down: '#ff5d6c'
+  bg: '#03050a',
+  surface: '#080b12',
+  border: '#151a22',
+  text: '#f2f3ee',
+  muted: '#9a9a94',
+  faint: '#6b6b65',
+  accent: '#22c55e', // gains: plain green
+  ivory: '#f2f3ee',
+  down: '#ff6b6b'
 };
 const FONT = "'Inter', ui-sans-serif, system-ui, sans-serif";
 const MONO = "'JetBrains Mono', ui-monospace, monospace";
-const LOGO = '/site/kinu-logo-256.png';
+// The KINU mascot (same as the favicon and app icon): transparent, with its own ring.
+const LOGO = '/icon-512.png';
 export const SITE_URL = 'kinudefi.com';
 
 function loadImage(src) {
@@ -83,7 +86,7 @@ function themeBackground(ctx, tone) {
   ctx.fillStyle = C.bg;
   ctx.fillRect(0, 0, W, H);
   const glow = ctx.createRadialGradient(260, 330, 0, 260, 330, 620);
-  glow.addColorStop(0, tone === 'down' ? 'rgba(255,93,108,0.13)' : 'rgba(184,255,61,0.13)');
+  glow.addColorStop(0, tone === 'down' ? 'rgba(255,107,107,0.13)' : 'rgba(34,197,94,0.13)');
   glow.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, W, H);
@@ -107,7 +110,7 @@ function themeBackground(ctx, tone) {
 /* Drawn backgrounds ("art"): no image files, sharp at any size        */
 /* ------------------------------------------------------------------ */
 // Each is drawn from a seed taken from the card's content, so a card always gets the same picture
-// (a stable preview) while different cards look different. Colours follow the result: lime for a
+// (a stable preview) while different cards look different. Colours follow the result: green for a
 // gain, red for a loss. The art sits on the right / bottom; the left stays dark for the numbers.
 
 function seeded(text) {
@@ -123,14 +126,14 @@ function seeded(text) {
   };
 }
 
-const toneRgb = (tone) => (tone === 'down' ? '255,93,108' : '184,255,61');
+const toneRgb = (tone) => (tone === 'down' ? '255,107,107' : '34,197,94');
 
 /** Darkens the left of the card so the headline numbers read over any art. */
 function shadeLeft(ctx, strength = 0.9) {
   const side = ctx.createLinearGradient(0, 0, W, 0);
-  side.addColorStop(0, `rgba(8,11,16,${strength})`);
-  side.addColorStop(0.5, `rgba(8,11,16,${strength * 0.55})`);
-  side.addColorStop(1, 'rgba(8,11,16,0)');
+  side.addColorStop(0, `rgba(3,5,10,${strength})`);
+  side.addColorStop(0.5, `rgba(3,5,10,${strength * 0.55})`);
+  side.addColorStop(1, 'rgba(3,5,10,0)');
   ctx.fillStyle = side;
   ctx.fillRect(0, 0, W, H);
 }
@@ -151,7 +154,7 @@ const ART = {
       const low = Math.max(open, close) + rand() * 26;
       const fade = 0.15 + (i / n) * 0.6;
       const rising = close < open;
-      const color = rising ? '184,255,61' : '255,93,108';
+      const color = rising ? '34,197,94' : '255,107,107';
       const cx = x0 + i * step + step / 2;
       ctx.strokeStyle = `rgba(${color},${fade})`;
       ctx.lineWidth = 2;
@@ -241,7 +244,7 @@ function drawSpark(ctx, values, box, color) {
   ctx.setLineDash([]);
   // Area and line.
   const fill = ctx.createLinearGradient(0, box.y, 0, box.y + box.h);
-  fill.addColorStop(0, color === C.down ? 'rgba(255,93,108,0.28)' : 'rgba(184,255,61,0.28)');
+  fill.addColorStop(0, color === C.down ? 'rgba(255,107,107,0.28)' : 'rgba(34,197,94,0.28)');
   fill.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.beginPath();
   values.forEach((v, i) => (i ? ctx.lineTo(px(i), py(v)) : ctx.moveTo(px(i), py(v))));
@@ -268,14 +271,14 @@ function pictureBackground(ctx, img) {
   ctx.fillRect(0, 0, W, H);
   coverImage(ctx, img);
   const side = ctx.createLinearGradient(0, 0, W, 0);
-  side.addColorStop(0, 'rgba(8,11,16,0.94)');
-  side.addColorStop(0.55, 'rgba(8,11,16,0.78)');
-  side.addColorStop(1, 'rgba(8,11,16,0.35)');
+  side.addColorStop(0, 'rgba(3,5,10,0.94)');
+  side.addColorStop(0.55, 'rgba(3,5,10,0.78)');
+  side.addColorStop(1, 'rgba(3,5,10,0.35)');
   ctx.fillStyle = side;
   ctx.fillRect(0, 0, W, H);
   const bottom = ctx.createLinearGradient(0, H - 200, 0, H);
-  bottom.addColorStop(0, 'rgba(8,11,16,0)');
-  bottom.addColorStop(1, 'rgba(8,11,16,0.9)');
+  bottom.addColorStop(0, 'rgba(3,5,10,0)');
+  bottom.addColorStop(1, 'rgba(3,5,10,0.9)');
   ctx.fillStyle = bottom;
   ctx.fillRect(0, H - 200, W, 200);
 }
@@ -309,12 +312,12 @@ export async function drawShareCard(card, background = null) {
   if (bg) pictureBackground(ctx, bg);
   else if (art) artBackground(ctx, art, card);
   else if (minimal) {
-    ctx.fillStyle = '#05070a';
+    ctx.fillStyle = C.bg;
     ctx.fillRect(0, 0, W, H);
   } else themeBackground(ctx, card.tone);
   if (!minimal && !art) {
     // The KINU flow line.
-    ctx.strokeStyle = 'rgba(184,255,61,0.55)';
+    ctx.strokeStyle = 'rgba(34,197,94,0.55)';
     ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.moveTo(0, 596);
@@ -324,7 +327,8 @@ export async function drawShareCard(card, background = null) {
   }
 
   // Header: the KINU brand, large — every shared card advertises KINU.
-  if (logo) circleImage(ctx, logo, 60, 40, 72);
+  // Drawn whole (no circle crop): the mascot has its own ring and the bandana tip reaches past it.
+  if (logo) ctx.drawImage(logo, 56, 34, 80, 80);
   ctx.fillStyle = C.text;
   ctx.font = `900 40px ${FONT}`;
   ctx.textBaseline = 'middle';
@@ -336,9 +340,9 @@ export async function drawShareCard(card, background = null) {
   ctx.font = `800 17px ${MONO}`;
   const kw = ctx.measureText(card.kicker).width + 32;
   roundRect(ctx, W - 64 - kw, 58, kw, 38, 19);
-  ctx.fillStyle = 'rgba(184,255,61,0.14)';
+  ctx.fillStyle = 'rgba(34,197,94,0.14)';
   ctx.fill();
-  ctx.strokeStyle = 'rgba(184,255,61,0.5)';
+  ctx.strokeStyle = 'rgba(34,197,94,0.5)';
   ctx.lineWidth = 1.5;
   ctx.stroke();
   ctx.fillStyle = C.accent;
@@ -428,9 +432,9 @@ export async function drawShareCard(card, background = null) {
   ctx.font = `900 26px ${FONT}`;
   const uw = ctx.measureText(SITE_URL).width + 44;
   roundRect(ctx, W - 64 - uw, 608, uw, 48, 24);
-  ctx.fillStyle = C.accent;
+  ctx.fillStyle = C.ivory;
   ctx.fill();
-  ctx.fillStyle = '#0b0e14';
+  ctx.fillStyle = C.bg;
   ctx.textAlign = 'center';
   ctx.fillText(SITE_URL, W - 64 - uw / 2, 633);
   ctx.textAlign = 'left';

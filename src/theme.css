@@ -8,7 +8,9 @@ body:has(.shell) {
   background: #03050a;
 }
 
-.shell {
+/* Modals render outside the shell (portals): they get the same palette. */
+.shell,
+.modal-backdrop {
   --bg: #03050a;
   --bg-glow: #070b14;
   --surface: #080b12;
@@ -33,12 +35,43 @@ body:has(.shell) {
 }
 
 /* Signals */
-.shell .up {
+.shell .up,
+.modal-backdrop .up {
   color: var(--up);
 }
 
-.shell .down {
+.shell .down,
+.modal-backdrop .down {
   color: var(--danger);
+}
+
+/* Outline buttons (Post on X, Compound, Claim all, New position, Rebalance…): ivory edge, not lime. */
+.shell .button--outline,
+.modal-backdrop .button--outline {
+  border-color: rgba(242, 243, 238, 0.32);
+}
+
+.shell .button--outline:hover:not(:disabled),
+.modal-backdrop .button--outline:hover:not(:disabled) {
+  border-color: rgba(242, 243, 238, 0.6);
+}
+
+/* Share card picker: the app palette instead of the old lime. */
+.modal-backdrop .share-bg--classic {
+  background-image: radial-gradient(circle at 25% 55%, rgba(34, 197, 94, 0.28), transparent 60%);
+  background-color: #03050a;
+}
+
+.modal-backdrop .share-bg--minimal {
+  background-color: #03050a;
+}
+
+.modal-backdrop .share-bg--on {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25);
+}
+
+.modal-backdrop .share-chip--on {
+  border-color: rgba(255, 255, 255, 0.45);
 }
 
 /* Buys vs sells bar (Swap): buys in bright green */
