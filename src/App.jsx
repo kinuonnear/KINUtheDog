@@ -29,6 +29,7 @@ const Token = lazy(() => import('./pages/Token.jsx'));
 const Agent = lazy(() => import('./pages/Agent.jsx'));
 const LpProfile = lazy(() => import('./pages/LpProfile.jsx'));
 const IntearPools = lazy(() => import('./pages/IntearPools.jsx'));
+const Treasury = lazy(() => import('./pages/Treasury.jsx'));
 
 // Liquidity first: Pools (and Create) right after Home. Docs and the rest live under More.
 const NAV = [
@@ -61,6 +62,7 @@ const TITLES = {
   token: 'Token · KINU',
   lp: 'LP wallet · Smart LP · KINU',
   intear: 'Intear DEX pools · KINU',
+  treasury: 'Treasury · KINU',
   notfound: 'Not found · KINU'
 };
 
@@ -169,6 +171,9 @@ export default function App() {
       break;
     case 'intear':
       page = <IntearPools />;
+      break;
+    case 'treasury':
+      page = <Treasury />;
       break;
     case 'token':
       page = <Token key={route.params[0]} id={route.params[0]} />;

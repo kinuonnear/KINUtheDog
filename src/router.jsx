@@ -45,7 +45,9 @@ const ROUTES = [
   { name: 'token', pattern: /^\/token\/([^/]+)$/ },
   { name: 'lp', pattern: /^\/lp\/([^/]+)$/ },
   // Demo for the KINU × Intear conversation: not linked from the menu yet.
-  { name: 'intear', pattern: /^\/intear-dex$/ }
+  { name: 'intear', pattern: /^\/intear-dex$/ },
+  // Where $KINU's creator fee goes: not linked from the menu yet.
+  { name: 'treasury', pattern: /^\/treasury$/ }
 ];
 
 export function matchRoute(pathname) {

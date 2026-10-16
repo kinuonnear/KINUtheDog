@@ -1,0 +1,271 @@
+/* Treasury (/treasury): creator fee in, the split, allocations and the public LP wallet.
+   Theme colours come from theme.css; the hero reuses the Pools page header (pools.css). */
+
+.page--treasury {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  max-width: 1100px;
+}
+
+.ts-section {
+  position: relative;
+  z-index: 1; /* above the hero flow lines */
+  display: grid;
+  gap: 14px;
+  padding: 22px;
+  border: 1px solid rgba(242, 243, 238, 0.1);
+  border-radius: 16px;
+  background: rgba(10, 13, 19, 0.94);
+}
+
+.ts-section h2 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  font-size: 20px;
+}
+
+.ts-section > p {
+  margin: 0;
+}
+
+.ts-step {
+  padding: 3px 8px;
+  border: 1px solid rgba(242, 243, 238, 0.18);
+  border-radius: 8px;
+  color: var(--muted);
+  font-family: var(--mono, monospace);
+  font-size: 12px;
+}
+
+.ts-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.ts-tile {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid rgba(242, 243, 238, 0.08);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.ts-tile span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.ts-tile strong {
+  font-size: 22px;
+}
+
+.ts-tile small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.ts-link {
+  justify-self: start;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ts-link:hover {
+  text-decoration: underline;
+}
+
+/* KINU health: the support trigger */
+.ts-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 12px;
+  padding: 12px 16px;
+  border: 1px solid rgba(242, 243, 238, 0.14);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.ts-status strong {
+  font-size: 15px;
+}
+
+.ts-status span {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.ts-status--healthy {
+  border-color: rgba(95, 227, 161, 0.45);
+}
+
+.ts-status--healthy strong {
+  color: #5fe3a1;
+}
+
+.ts-status--watch {
+  border-color: rgba(255, 212, 71, 0.45);
+}
+
+.ts-status--watch strong {
+  color: #ffd447;
+}
+
+.ts-status--support {
+  border-color: rgba(255, 107, 107, 0.5);
+}
+
+.ts-status--support strong {
+  color: #ff6b6b;
+}
+
+.ts-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 64px;
+  padding-top: 4px;
+}
+
+.ts-bars i {
+  flex: 1;
+  min-width: 2px;
+  border-radius: 2px 2px 0 0;
+  background: rgba(95, 227, 161, 0.55);
+}
+
+.ts-bars i.ts-bars__empty {
+  background: rgba(242, 243, 238, 0.08);
+}
+
+/* The split: one bar, three buckets. */
+.ts-split {
+  display: flex;
+  height: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.ts-split__bar--ops,
+.ts-dot--ops {
+  background: #f2f3ee;
+}
+
+.ts-split__bar--audit,
+.ts-dot--audit {
+  background: #ffd447;
+}
+
+.ts-split__bar--lp,
+.ts-dot--lp {
+  background: #5fe3a1;
+}
+
+.ts-buckets {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.ts-bucket {
+  display: flex;
+  gap: 10px;
+}
+
+.ts-bucket p {
+  margin: 4px 0 0;
+}
+
+.ts-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  margin-top: 5px;
+  border-radius: 50%;
+}
+
+/* Allocations table */
+.ts-table {
+  display: grid;
+  overflow-x: auto;
+}
+
+.ts-row {
+  display: grid;
+  grid-template-columns: 1.1fr 1.3fr 1fr 1fr 1fr 0.7fr;
+  gap: 10px;
+  min-width: 620px;
+  padding: 10px 4px;
+  border-bottom: 1px solid rgba(242, 243, 238, 0.06);
+  font-size: 14px;
+}
+
+.ts-row--head {
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.ts-row--total {
+  border-bottom: 0;
+  font-weight: 600;
+}
+
+.ts-empty {
+  margin: 0;
+  padding: 16px;
+  border: 1px dashed rgba(242, 243, 238, 0.14);
+  border-radius: 12px;
+}
+
+/* LP wallet positions */
+.ts-positions {
+  display: grid;
+  gap: 6px;
+}
+
+.ts-position {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(242, 243, 238, 0.08);
+  border-radius: 10px;
+  color: var(--text);
+}
+
+.ts-position:hover {
+  border-color: rgba(242, 243, 238, 0.3);
+}
+
+.ts-position em {
+  font-style: normal;
+  font-size: 13px;
+}
+
+.ts-note {
+  margin: 0;
+}
+
+@media (max-width: 640px) {
+  .ts-section {
+    padding: 16px;
+  }
+
+  .ts-position {
+    grid-template-columns: auto 1fr auto;
+  }
+
+  .ts-position em {
+    grid-column: 2 / -1;
+  }
+}
