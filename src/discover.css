@@ -79,3 +79,106 @@
     mask-image: radial-gradient(ellipse 60% 45% at 85% 95%, #000 30%, transparent 80%);
   }
 }
+
+/* Discover → Stocks: tokenized stocks & ETFs price watch (components/TokenizedStocks.jsx) */
+.stocks {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+}
+
+.stocks__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.stocks__market {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.stocks__market i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #7d807a;
+}
+
+.stocks__market--open {
+  color: var(--text);
+}
+
+.stocks__market--open i {
+  background: #5fe3a1;
+  box-shadow: 0 0 8px #5fe3a1;
+}
+
+.stocks__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.stocks__item {
+  position: relative;
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-2);
+}
+
+.stocks__name {
+  display: grid;
+  gap: 2px;
+}
+
+.stocks__name b {
+  font-size: 16px;
+}
+
+.stocks__price {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.stocks__price strong {
+  font-size: 20px;
+}
+
+.stocks__price span {
+  font-family: var(--mono);
+  font-size: 13px;
+}
+
+.stocks__near {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 2px 8px;
+  border: 1px solid rgba(95, 227, 161, 0.35);
+  border-radius: 999px;
+  color: #8ff5bf;
+  font-size: 10.5px;
+}
+
+.stocks__foot {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+
+.stocks__foot p {
+  margin: 0;
+}

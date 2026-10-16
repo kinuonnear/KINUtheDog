@@ -1,5 +1,6 @@
 // Discover (/discover, /new): Trending on Rhea, Hot pairs, top Gainers, Best to LP, Smart LP
-// (LP wallets ranked by their on-chain results), New launches and your Watchlist.
+// (LP wallets ranked by their on-chain results), New launches, tokenized Stocks (a price watch)
+// and your Watchlist.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAsync, useLocalStorage } from '../hooks.js';
@@ -18,6 +19,7 @@ import LiveFeed from '../components/LiveFeed.jsx';
 import SmartLpBoard from '../components/SmartLp.jsx';
 import SmartMoneyIn from '../components/SmartMoney.jsx';
 import { FlowLines } from '../components/FlowLines.jsx';
+import TokenizedStocks from '../components/TokenizedStocks.jsx';
 import '../discover.css';
 
 // KINU is a liquidity platform: where to earn as an LP comes first. Each tab has a small
@@ -31,6 +33,7 @@ const TABS = [
   { key: 'gainers', label: 'Gainers', icon: '⇡', anim: 'still' },
   { key: 'new', label: 'New launches', icon: '✦', anim: 'still' },
   { key: 'feed', label: 'Live feed', icon: null, anim: 'live' },
+  { key: 'stocks', label: 'Stocks', icon: '$', anim: 'still', badge: 'New' },
   { key: 'watchlist', label: 'Watchlist', icon: '☆', anim: 'still' }
 ];
 
@@ -62,6 +65,7 @@ const TITLES = {
   smartlp: ['Smart ', 'LP', ' on NEAR'],
   smartmoney: ['Smart money ', 'in', ''],
   new: ['New on ', 'NEAR', ''],
+  stocks: ['Tokenized ', 'stocks', ''],
   watchlist: ['Your ', 'watchlist', '']
 };
 
@@ -74,6 +78,7 @@ const INTROS = {
   smartlp: 'Liquidity providers who earn on Rhea CLMM pools, ranked by on-chain PnL, fees earned and win rate. Open a wallet to see every position it holds and closed.',
   smartmoney: 'The tokens to watch: our featured picks first, then the most traded tokens by 24h volume — with the Smart LP wallets in their pools and every pool with real liquidity.',
   new: 'The newest tokens with a pool on NEAR, launched on Nearly. Live every minute, with the facts that matter before you buy.',
+  stocks: 'US stocks and ETFs tokenized by Ondo, the ones NEAR offers on near.com. A price watch only: KINU shows their market prices and does not trade them.',
   watchlist: 'Tokens you starred, with live prices.'
 };
 
@@ -527,6 +532,8 @@ export default function Discover({ defaultTab = 'lp' }) {
           <SmartLpBoard />
         ) : tab === 'smartmoney' ? (
           <SmartMoneyIn />
+        ) : tab === 'stocks' ? (
+          <TokenizedStocks />
         ) : tab === 'watchlist' ? (
           <Watchlist />
         ) : tab === 'hot' ? (
