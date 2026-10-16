@@ -12820,6 +12820,13 @@ a.pair-tiers__row:hover {
   width: 100%;
 }
 
+/* The amount in USD, under the input. */
+.amount-row__usd {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
 .amount-row__pcts {
   display: flex;
   gap: 10px;

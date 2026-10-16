@@ -428,11 +428,20 @@ function useSpendable(tokenIds) {
 // Quick amounts: a share of the spendable balance.
 const PERCENTS = [0.25, 0.5, 0.75, 1];
 
+/** "1303383.8658" -> "1,303,383.8658" (the integer part grouped by thousands). */
+const groupDigits = (text) => {
+  if (!text) return text;
+  const [int, dec] = String(text).split('.');
+  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return dec === undefined ? grouped : `${grouped}.${dec}`;
+};
+
 export default function DclCreatePosition({ pool, x, y, rangeState, onDone, retryRef }) {
   const { accountId, connect, slippage, setSlippage, execute, balances, prices } = useApp();
   const [showSlippage, setShowSlippage] = useState(false);
   const [strategy, setStrategy] = useState('spot');
   const [inputs, setInputs] = useState({ x: '', y: '' });
+  const [focused, setFocused] = useState(null); // the amount field being typed in
   const [lastEdited, setLastEdited] = useState('x');
   const [submitting, setSubmitting] = useState(false);
   const [mode, setMode] = useState('dual'); // 'dual' | 'zap'
@@ -668,6 +677,9 @@ export default function DclCreatePosition({ pool, x, y, rangeState, onDone, retr
 
   const amountRow = (which, token, value, index) => {
     const disabled = (which === 'x' && side === 'y') || (which === 'y' && side === 'x');
+    // Thousands separators only while the field isn't being typed in (typing stays plain).
+    const shown = disabled ? '' : focused === which ? value : groupDigits(value);
+    const usd = Number(value) * priceOf(prices, token.id);
     return (
       <div className={`amount-row ${disabled ? 'amount-row--disabled' : ''}`}>
         <div className="amount-row__token">
@@ -697,9 +709,12 @@ export default function DclCreatePosition({ pool, x, y, rangeState, onDone, retr
             inputMode="decimal"
             placeholder={disabled ? 'Not needed' : '0.0'}
             disabled={disabled}
-            value={disabled ? '' : value}
+            value={shown}
+            onFocus={() => setFocused(which)}
+            onBlur={() => setFocused(null)}
             onChange={(e) => setAmount(which, e.target.value)}
           />
+          {!disabled && usd > 0 && <small className="amount-row__usd">≈ {formatUsd(usd)}</small>}
         </div>
       </div>
     );
