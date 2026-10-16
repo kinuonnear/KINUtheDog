@@ -3350,7 +3350,8 @@ a.trades__row:hover {
   border-radius: 12px;
   background: var(--surface-2);
   overflow: hidden;
-  touch-action: none;
+  touch-action: pan-y;
+  cursor: crosshair;
 }
 
 .depth__bar {
@@ -3377,9 +3378,9 @@ a.trades__row:hover {
   position: absolute;
   top: 0;
   bottom: 0;
-  background: rgba(184, 255, 61, 0.06);
-  border-left: 1px solid rgba(184, 255, 61, 0.5);
-  border-right: 1px solid rgba(184, 255, 61, 0.5);
+  background: rgba(255, 255, 255, 0.04);
+  border-left: 1px solid rgba(242, 243, 238, 0.55);
+  border-right: 1px solid rgba(242, 243, 238, 0.55);
   pointer-events: none;
 }
 
@@ -3400,52 +3401,6 @@ a.trades__row:hover {
   font-family: var(--mono);
   font-size: 10px;
   color: var(--muted);
-}
-
-.depth__handle {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  z-index: 2;
-  width: 32px;
-  margin-left: -16px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  cursor: ew-resize;
-  touch-action: none;
-  will-change: left;
-}
-
-/* Press anywhere on the depth chart to move the nearest handle there. */
-.depth__chart--drag {
-  cursor: pointer;
-}
-
-.depth__chart--dragging,
-.depth__chart--dragging * {
-  cursor: ew-resize;
-  user-select: none;
-}
-
-.depth__handle::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 10px;
-  height: 26px;
-  margin: -13px 0 0 -5px;
-  border-radius: 4px;
-  background: var(--accent);
-  box-shadow: 0 0 0 2px var(--surface-2), 0 0 12px rgba(184, 255, 61, 0.5);
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
-}
-
-.depth__handle:hover::after,
-.depth__handle--active::after {
-  transform: scale(1.18, 1.2);
-  box-shadow: 0 0 0 2px var(--surface-2), 0 0 18px rgba(184, 255, 61, 0.85);
 }
 
 .depth__loading {
@@ -3516,6 +3471,209 @@ a.trades__row:hover {
 
 .depth__legend i.x {
   background: #8b6cff;
+}
+
+/* Outside the range: grey and faint, so the chosen band reads at a glance. */
+.depth__bar:not(.depth__bar--in) {
+  filter: grayscale(1);
+  opacity: 0.2;
+}
+
+/* Edge tags: price and % at the top of each band edge (max on the first row, min on the second). */
+.depth__tag {
+  position: absolute;
+  z-index: 2;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #05070c;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.depth__tag b {
+  font-weight: 500;
+  opacity: 0.7;
+}
+
+.depth__tag--max {
+  top: 4px;
+  margin-left: 4px;
+}
+
+.depth__tag--min {
+  top: 24px;
+  transform: translateX(-100%);
+  margin-left: -4px;
+}
+
+.depth__tag--max.depth__tag--flip {
+  transform: translateX(-100%);
+  margin-left: -4px;
+}
+
+.depth__tag--min.depth__tag--flip {
+  transform: none;
+  margin-left: 4px;
+}
+
+.depth__chart .depth__current em {
+  top: 44px;
+}
+
+/* Hover / tap info: the chart never moves the range. */
+.depth__tip {
+  position: absolute;
+  bottom: 6px;
+  z-index: 3;
+  margin-left: 8px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(5, 7, 12, 0.92);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 1.45;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.depth__tip strong {
+  color: var(--text);
+}
+
+.depth__tip--left {
+  transform: translateX(-100%);
+  margin-left: -8px;
+}
+
+/* Range slider: its own track under the chart; only the round handles drag. */
+.depth__track {
+  position: relative;
+  height: 22px;
+  margin-top: 2px;
+  touch-action: pan-y;
+}
+
+.depth__rail,
+.depth__fill {
+  position: absolute;
+  top: 50%;
+  height: 4px;
+  margin-top: -2px;
+  border-radius: 2px;
+}
+
+.depth__rail {
+  left: 0;
+  right: 0;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.depth__fill {
+  background: var(--accent);
+  opacity: 0.85;
+}
+
+.depth__track--full .depth__fill {
+  opacity: 0.35;
+}
+
+.depth__now {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  width: 0;
+  border-left: 1px dashed rgba(255, 255, 255, 0.55);
+  pointer-events: none;
+}
+
+.depth__knob {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  width: 18px;
+  height: 18px;
+  margin: -9px 0 0 -9px;
+  padding: 0;
+  border: 2px solid #05070c;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35), 0 2px 8px rgba(0, 0, 0, 0.5);
+  cursor: grab;
+  touch-action: none;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+/* A bigger invisible grip for fingers. */
+.depth__knob::before {
+  content: "";
+  position: absolute;
+  inset: -12px;
+  border-radius: 50%;
+}
+
+.depth__knob:hover,
+.depth__knob:focus-visible,
+.depth__knob--active {
+  transform: scale(1.2);
+  box-shadow: 0 0 0 1px #ffffff, 0 0 14px rgba(255, 255, 255, 0.35);
+  outline: none;
+}
+
+.depth__track--dragging,
+.depth__track--dragging * {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.range-head__unit {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.range-reset {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.range-reset:hover {
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.price-edge__unit {
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 10px;
+}
+
+/* Phones: the price gets the full width; % and steppers go under it. */
+@media (max-width: 520px) {
+  .price-edges .price-edge__row {
+    flex-wrap: wrap;
+  }
+
+  .price-edges .price-edge__row input {
+    flex-basis: 100%;
+  }
+
+  .price-edges .price-edge__steps {
+    margin-left: auto;
+  }
 }
 
 .price-edges {
@@ -3961,6 +4119,14 @@ a.trades__row:hover {
 
 .bottom-panel {
   padding: 12px 14px;
+}
+
+.bottom-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .bottom-panel__body {
@@ -4806,7 +4972,7 @@ a.trades__row:hover {
 
 .lp-board__row {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1fr) 150px;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1.2fr) 190px;
   align-items: center;
   gap: 14px;
   padding: 14px;
@@ -4974,6 +5140,34 @@ a.trades__row:hover {
   align-items: center;
   justify-content: flex-end;
   gap: 6px;
+}
+
+/* Actions: icon buttons on top, Rebalance / Share PnL under them. */
+.lp-board__actions--stack {
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.lp-board__icons,
+.lp-board__btns {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lp-board__btns .button {
+  margin: 0;
+}
+
+@media (max-width: 1080px) {
+  .lp-board__actions--stack {
+    align-items: flex-start;
+  }
+
+  .lp-board__btns {
+    flex-wrap: wrap;
+  }
 }
 
 .icon-actions {
@@ -8096,6 +8290,107 @@ a.dt-row:hover {
 }
 
 /* Add to position: mode switch and % buttons */
+/* Side panel while a position is selected (components/PositionPanel.jsx). */
+.pos-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pos-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.pos-panel__head .card-title {
+  margin: 0;
+}
+
+.pos-panel__head .card-title small {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.pos-panel__range {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+.pos-panel__range > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.pos-panel__range > div > span {
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pos-panel__range strong {
+  font-size: 15px;
+}
+
+.pos-panel__range small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.pos-panel__range .range-badge {
+  flex: none;
+  font-size: 10px;
+}
+
+.add-pos__actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.pos-panel__rebalance {
+  display: grid;
+  gap: 6px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.pos-panel__manage {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 8px;
+}
+
+.pos-panel__manage .button {
+  margin: 0;
+}
+
+.button--danger-outline {
+  border: 1px solid rgba(255, 107, 107, 0.45);
+  background: transparent;
+  color: var(--danger);
+}
+
+.button--danger-outline:hover:not(:disabled) {
+  border-color: var(--danger);
+  background: rgba(255, 107, 107, 0.08);
+}
+
+.pos-panel__rebalance small {
+  font-size: 11px;
+}
+
 .add-pos__mode {
   margin-bottom: 4px;
 }

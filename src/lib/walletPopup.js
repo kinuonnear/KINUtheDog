@@ -1,9 +1,11 @@
-// Wallet popups on iPhone / iPad (Safari and home-screen apps).
+// Wallet popups (every browser; iPhone / iPad were the first to need it).
 //
-// iOS only lets a page open a window right after a tap. Web wallets (Meteor, Intear,
-// MyNearWallet) open their popup once KINU has prepared the transaction, which can take a
-// moment (storage checks, routes), so iOS blocks it: "Couldn't open popup window".
-// Fix: at the tap, open the wallet's own site in a new window; when the wallet then calls
+// Browsers only let a page open a window shortly after a click or tap (iOS right away, Chrome
+// for about five seconds, some browsers for one). Web wallets (Meteor, Intear, MyNearWallet)
+// open their popup once KINU has prepared the transaction, which can take a moment (storage
+// checks, wrapping, routes), so the browser blocks it: "Couldn't open popup window" (iOS),
+// "Popup was blocked" (Intear on desktop).
+// Fix: at the click, open the wallet's own site in a new window; when the wallet then calls
 // window.open for its signing page, that window is reused and moved to that page.
 // The window must start on the wallet's site: a window that switches from kinudefi.com to the
 // wallet looks closed to the page that opened it on iOS, and the wallet never receives the
@@ -17,6 +19,8 @@ const POPUP_WALLETS = {
 };
 const WALLET_ORIGINS = new Set(Object.values(POPUP_WALLETS));
 const ARM_MS = 90_000;
+// On desktop the prepared window has the wallet's own popup size (Intear opens 400 x 700).
+const DESKTOP_FEATURES = 'popup,width=400,height=700';
 
 let armed = null; // { win, site, timer }
 
@@ -44,14 +48,14 @@ export function disarmWalletPopup() {
 }
 
 /**
- * Call synchronously inside the tap handler, before anything async. Only acts on iOS, for
- * popup wallets, and not when a browser extension handles signing.
+ * Call synchronously inside the click / tap handler, before anything async. Acts for popup
+ * wallets only, and not when a browser extension handles signing.
  */
 export function armWalletPopup(walletId) {
   const site = POPUP_WALLETS[walletId];
-  if (typeof window === 'undefined' || !isIos() || !site || window.meteorCom) return;
+  if (typeof window === 'undefined' || !site || window.meteorCom) return;
   disarmWalletPopup();
-  const win = window.open(`${site}/`, '_blank');
+  const win = isIos() ? window.open(`${site}/`, '_blank') : window.open(`${site}/`, '_blank', DESKTOP_FEATURES);
   if (!win) return;
   armed = { win, site, timer: setTimeout(disarmWalletPopup, ARM_MS) };
 }

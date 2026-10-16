@@ -204,7 +204,8 @@ export function AppProvider({ children }) {
         connect();
         return null;
       }
-      // iOS: open the wallet's window now, while the tap still counts (lib/walletPopup.js).
+      // Open the wallet's window now, while the click still counts, so preparing the request can't
+      // get its popup blocked (lib/walletPopup.js).
       armWalletPopup(currentWalletId());
       // Background refreshes hold off until the wallet is done (lib/walletActivity.js).
       const endWalletRequest = beginWalletRequest();

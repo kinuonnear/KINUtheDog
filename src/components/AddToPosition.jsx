@@ -73,7 +73,11 @@ function PercentRow({ onPick }) {
   );
 }
 
-export default function AddToPositionModal({ positions: basePositions, x, y, title, onClose, onDone }) {
+/**
+ * The add form itself: in a modal (AddToPositionModal) or embedded in the pool page's side panel
+ * (`embedded`: no modal chrome; `onClose` is optional there). `children` go under the button.
+ */
+export function AddToPositionForm({ positions: basePositions, x, y, title, onClose, onDone, embedded = false, children }) {
   const { accountId, slippage, setSlippage, execute, balances, prices } = useApp();
   const [editSlippage, setEditSlippage] = useState(false);
   // Live pool state: the position's token amounts follow the current price.
@@ -194,7 +198,11 @@ export default function AddToPositionModal({ positions: basePositions, x, y, tit
     setSubmitting(false);
     if (ok) {
       onDone?.();
-      onClose();
+      if (embedded) {
+        setInput((v) => ({ ...v, text: '' }));
+        setZapText('');
+      }
+      onClose?.();
     }
   };
 
@@ -217,8 +225,7 @@ export default function AddToPositionModal({ positions: basePositions, x, y, tit
             : `Zap ${zapToken.symbol} into position`;
 
   return (
-    <Modal title="Add to position" subtitle={`${x.symbol} / ${y.symbol} · ${title} · ${positions.length} bin${positions.length === 1 ? '' : 's'}`} onClose={onClose} width={480}>
-      <div className="liq-form">
+      <div className={`liq-form ${embedded ? 'add-pos--embedded' : ''}`}>
         <div className="segmented segmented--full add-pos__mode">
           <button type="button" className={mode === 'dual' ? 'active' : ''} onClick={() => setMode('dual')}>
             Dual tokens
@@ -302,13 +309,21 @@ export default function AddToPositionModal({ positions: basePositions, x, y, tit
             : 'KINU swaps the share your position needs and adds both to the same bins, in one wallet request.'}
         </p>
         {/* The action stays in view at the bottom of the modal; only the form above scrolls. */}
-        <div className="modal-actions">
+        <div className={embedded ? 'add-pos__actions' : 'modal-actions'}>
           <button type="button" className="button button--primary button--block button--lg" disabled={disabled} onClick={submit}>
             {submitting && <Spinner size={14} />}
             {label}
           </button>
+          {children}
         </div>
       </div>
+  );
+}
+
+export default function AddToPositionModal({ positions, x, y, title, onClose, onDone }) {
+  return (
+    <Modal title="Add to position" subtitle={`${x.symbol} / ${y.symbol} · ${title} · ${positions.length} bin${positions.length === 1 ? '' : 's'}`} onClose={onClose} width={480}>
+      <AddToPositionForm positions={positions} x={x} y={y} title={title} onClose={onClose} onDone={onDone} />
     </Modal>
   );
 }

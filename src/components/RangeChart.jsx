@@ -219,7 +219,7 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
     return out;
   }, [showBins, bins, fullRange, x.decimals, y.decimals]);
 
-  live.current = { minPrice, maxPrice, currentPrice, fullRange, onDrag, usdFactor, drawings, selected, hidden, tool, magnet, binPrices, mine, hideRange, setDrawings, setSelected, setTool };
+  live.current = { ySymbol: y.symbol, minPrice, maxPrice, currentPrice, fullRange, onDrag, usdFactor, drawings, selected, hidden, tool, magnet, binPrices, mine, hideRange, setDrawings, setSelected, setTool };
 
   useEffect(() => {
     paintRef.current?.();
@@ -450,7 +450,10 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
         }
         el.style.display = 'block';
         el.style.top = `${Math.min(height - 1, Math.max(0, yPos))}px`;
-        el.querySelector('span').textContent = `${text} ${formatChartPrice(price * f)} (${pct(price, cur)})`;
+        // Always in the form's units (token Y); the USD view adds the dollar price after it.
+        const pair = `${formatChartPrice(price)} ${live.current.ySymbol}`;
+        el.querySelector('span').textContent =
+          f === 1 ? `${text} ${pair} (${pct(price, cur)})` : `${text} ${pair} · $${formatChartPrice(price * f)} (${pct(price, cur)})`;
       };
       place(lines.max, yMax, hi, 'Max');
       place(lines.min, yMin, lo, 'Min');

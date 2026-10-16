@@ -138,8 +138,11 @@ export function FeesText({ summary, x, y }) {
 const PERCENTS = [25, 50, 75, 100];
 const ZAP_OUT_REFRESH_MS = 20_000;
 
-/** Remove a percentage of every position in the group (app.rhea.finance Remove modal). */
-export function DclRemoveModal({ positions, x, y, onClose, onDone }) {
+/**
+ * Remove a percentage of every position in the group (app.rhea.finance Remove modal). The form
+ * sits in a modal (DclRemoveModal) or in the pool page's side panel (`embedded`: one column).
+ */
+export function DclRemoveForm({ positions, x, y, onClose, onDone, embedded = false }) {
   const { accountId, slippage, setSlippage, execute, prices } = useApp();
   const [percent, setPercent] = useState(100);
   const [editSlippage, setEditSlippage] = useState(false);
@@ -182,14 +185,13 @@ export function DclRemoveModal({ positions, x, y, onClose, onDone }) {
     setSubmitting(false);
     if (ok) {
       onDone?.();
-      onClose();
+      onClose?.();
     }
   };
 
   return (
-    <Modal title="Remove liquidity" subtitle={`${x.symbol} / ${y.symbol} · your position · ${positions.length} bin${positions.length === 1 ? '' : 's'}`} onClose={onClose} width={780}>
-      {/* Two columns on wider screens (choices left, outcome right): no scrolling to see it all. */}
-      <div className="liq-form remove-grid">
+      // Two columns on wider screens (choices left, outcome right): no scrolling to see it all.
+      <div className={`liq-form remove-grid ${embedded ? 'remove-grid--stack' : ''}`}>
         <div className="remove-grid__col">
           <div className="segmented segmented--full add-pos__mode">
             <button type="button" className={mode === 'both' ? 'active' : ''} onClick={() => setMode('both')}>
@@ -349,6 +351,13 @@ export function DclRemoveModal({ positions, x, y, onClose, onDone }) {
           </p>
         </div>
       </div>
+  );
+}
+
+export function DclRemoveModal({ positions, x, y, onClose, onDone }) {
+  return (
+    <Modal title="Remove liquidity" subtitle={`${x.symbol} / ${y.symbol} · your position · ${positions.length} bin${positions.length === 1 ? '' : 's'}`} onClose={onClose} width={780}>
+      <DclRemoveForm positions={positions} x={x} y={y} onClose={onClose} onDone={onDone} />
     </Modal>
   );
 }
@@ -604,7 +613,7 @@ export function depositTitle(group, loading) {
 }
 
 /** One deposit (Meteora-style position): range, liquidity, fees, earning state and actions. */
-function PositionRow({ poolId, group, x, y, pool, loading, pnl, onDone, onChart, onToggleChart }) {
+function PositionRow({ poolId, group, x, y, pool, loading, pnl, onDone, onChart, onToggleChart, onSelect }) {
   const { prices } = useApp();
   const [open, setOpen] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -628,11 +637,14 @@ function PositionRow({ poolId, group, x, y, pool, loading, pnl, onDone, onChart,
           // Buttons and links in the row keep their own actions.
           if (toggleChart && !e.target.closest('button, a, input')) toggleChart();
         }}
-        title={toggleChart ? (onChart ? 'Hide this range on the chart' : 'Show this range on the chart') : undefined}
+        title={toggleChart ? (onChart ? 'Deselect: back to Create position' : 'Select: show its range and manage it in the side panel') : undefined}
       >
         <div className="lp-board__range" data-label="Price range">
           <span className="lp-board__title">
-            <span className={`dot ${summary.inRange ? 'dot--in' : 'dot--out'}`} />
+            <span
+              className={`dot ${summary.inRange ? 'dot--in' : 'dot--out'}`}
+              title={`${summary.inRange ? `${inRange.length} of ${positions.length} bins earning` : 'Not earning'}${activeShare !== null ? ` · ${activeShare.toFixed(2)}% of active pool liquidity` : ''}`}
+            />
             {title}
             {group.openedAt && <small>{formatAge(Date.now() - group.openedAt)} ago</small>}
             {loading && !group.number && <Spinner size={10} />}
@@ -676,30 +688,30 @@ function PositionRow({ poolId, group, x, y, pool, loading, pnl, onDone, onChart,
             <TokenIcon token={y} size={14} /> {formatAmount(summary.feeY)} <small>({formatUsd(summary.feeY * py)})</small>
           </span>
         </div>
-        <div className="lp-board__cell" data-label="Active share">
-          <strong className={inRange.length ? 'up' : 'warn'}>{activeShare !== null ? `${activeShare.toFixed(2)}%` : '—'}</strong>
-          <span className={`range-badge ${summary.inRange ? 'range-badge--in' : ''}`}>
-            {summary.inRange ? `${inRange.length} of ${positions.length} bins earning` : 'Not earning'}
-          </span>
-          <small className="muted">of active pool liquidity</small>
-          <RebalanceButton positions={positions} x={x} y={y} title={title} onDone={onDone} className="button button--outline button--sm" />
-          {/* This position's PnL card, right here: no detour to the Portfolio. */}
-          <ShareButton
-            label="Share PnL"
-            className="button button--ghost button--sm lp-share"
-            title="Share this position's card"
-            build={(hideUsd, opts) =>
-              positionShareCard({ x, y, poolId, summary, p: pnl, age: group.openedAt ? formatAge(Date.now() - group.openedAt) : null }, hideUsd, opts)
-            }
-          />
-        </div>
-        <div className="lp-board__actions" data-label="Actions">
-          <DclActions poolId={poolId} positions={positions} x={x} y={y} onDone={onDone} onAdd={() => setAdding(true)} icons />
-          <button type="button" className={`icon-action icon-action--more ${open ? 'open' : ''}`} onClick={() => setOpen((v) => !v)} title="Liquidity distribution" aria-expanded={open}>
-            <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
-              <path d="M3 5l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
+        {/* Earning state lives on the dot by the title (hover for bins and active share). */}
+        <div className="lp-board__actions lp-board__actions--stack" data-label="Actions">
+          <div className="lp-board__icons">
+            {/* + selects the position: adding happens in the side panel (the modal where there is none). */}
+            <DclActions poolId={poolId} positions={positions} x={x} y={y} onDone={onDone} onAdd={onSelect ? () => onSelect(group) : () => setAdding(true)} icons />
+            <button type="button" className={`icon-action icon-action--more ${open ? 'open' : ''}`} onClick={() => setOpen((v) => !v)} title="Liquidity distribution" aria-expanded={open}>
+              <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+                <path d="M3 5l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </div>
+          <div className="lp-board__btns">
+            {/* Rebalance lives in the side panel when there is one. */}
+            {!onSelect && <RebalanceButton positions={positions} x={x} y={y} title={title} onDone={onDone} className="button button--outline button--sm" />}
+            {/* This position's PnL card, right here: no detour to the Portfolio. */}
+            <ShareButton
+              label="Share PnL"
+              className="button button--ghost button--sm lp-share"
+              title="Share this position's card"
+              build={(hideUsd, opts) =>
+                positionShareCard({ x, y, poolId, summary, p: pnl, age: group.openedAt ? formatAge(Date.now() - group.openedAt) : null }, hideUsd, opts)
+              }
+            />
+          </div>
         </div>
       </div>
       {open && (
@@ -718,7 +730,7 @@ function PositionRow({ poolId, group, x, y, pool, loading, pnl, onDone, onChart,
  * `deposits` comes from useDepositGroups; `chartKey` is the deposit shown on the chart and
  * `onToggleChart(group)` switches it.
  */
-export function DclGroupCard({ poolId, positions, deposits, x, y, pool, onDone, onNew, chartKey, onToggleChart, updatedAt, onRefresh }) {
+export function DclGroupCard({ poolId, positions, deposits, x, y, pool, onDone, onNew, chartKey, onToggleChart, onSelect, updatedAt, onRefresh }) {
   const { prices } = useApp();
   const [refreshing, setRefreshing] = useState(false);
   const refresh = async () => {
@@ -790,7 +802,6 @@ export function DclGroupCard({ poolId, positions, deposits, x, y, pool, onDone, 
           <span>Position · price range</span>
           <span>Your liquidity</span>
           <span>Claimable fees</span>
-          <span>Active share</span>
           <span>Actions</span>
         </div>
         {groups.map((g) => (
@@ -806,6 +817,7 @@ export function DclGroupCard({ poolId, positions, deposits, x, y, pool, onDone, 
             pnl={pnlOf(g.positions)}
             onChart={chartKey === g.key}
             onToggleChart={onToggleChart}
+            onSelect={onSelect}
           />
         ))}
       </div>

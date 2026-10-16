@@ -125,20 +125,24 @@ export function useDclRange(pool, x, y, initial = null) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Liquidity depth histogram with draggable handles                    */
+/* Liquidity depth histogram + range slider                            */
 /* ------------------------------------------------------------------ */
 
 const BARS = 64;
 
 function DepthHistogram({ pool, x, y, rangeState, plan }) {
   const depth = useAsync(() => getMarketDepth(pool.pool_id), [pool.pool_id], { refreshMs: 60_000 });
-  const svgRef = useRef(null);
+  const trackRef = useRef(null);
+  const chartRef = useRef(null);
+  const winRef = useRef(null);
   const { range, current, full, setEdge } = rangeState;
   // While a handle is dragged: { side, x (percent under the pointer), win (frozen window) }.
   const [dragging, setDragging] = useState(null);
+  // Bar under the pointer (the chart only informs; it never moves the range).
+  const [tip, setTip] = useState(null);
 
-  // Visible window in points: the range plus padding (bounded for full-range positions).
-  const liveWindow = useMemo(() => {
+  // Window that fits the range plus padding (bounded for full-range positions).
+  const fitWindow = useMemo(() => {
     let lo = Math.min(range.left, current);
     let hi = Math.max(range.right, current);
     if (full || hi - lo > 120000) {
@@ -149,11 +153,27 @@ function DepthHistogram({ pool, x, y, rangeState, plan }) {
     const pad = Math.max((hi - lo) * 0.3, pool.point_delta * 6);
     return { lo: lo - pad, hi: hi + pad };
   }, [range.left, range.right, current, full, depth.data, pool.point_delta]);
-  // The scale stays put while dragging, so the handle stays under the pointer.
-  const windowPts = dragging?.win || liveWindow;
+
+  // The window stays put while the range fits in it (handles stop at its edges); a typed
+  // price outside it, a preset or a much narrower range re-fits it.
+  const prev = winRef.current;
+  const keep =
+    prev &&
+    !full &&
+    Math.min(range.left, current) >= prev.lo &&
+    Math.max(range.right, current) <= prev.hi &&
+    range.right - range.left >= (prev.hi - prev.lo) * 0.12;
+  const windowPts = dragging?.win || (keep ? prev : fitWindow);
+  winRef.current = windowPts;
 
   const span = windowPts.hi - windowPts.lo;
   const toX = (pt) => ((pt - windowPts.lo) / span) * 100;
+  const priceAt = (pt) => pointToPrice(pt, x.decimals, y.decimals);
+  const currentPrice = priceAt(current);
+  const pctOf = (price) => {
+    const v = (price / currentPrice - 1) * 100;
+    return `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`;
+  };
 
   const bars = useMemo(() => {
     const segs = depth.data?.segments || [];
@@ -173,22 +193,19 @@ function DepthHistogram({ pool, x, y, rangeState, plan }) {
     return plan.bins.map((b) => ({ ...b, h: b.weight / max }));
   }, [plan]);
 
-  // Drag a handle (or press anywhere on the chart to move the nearest one there). The handle
-  // follows the pointer every frame; the range snaps to bins at most once per frame.
-  const startDrag = (event, forcedSide) => {
+  // Only the two handles on the track move the range. The handle follows the pointer every
+  // frame (clamped to the window); the range snaps to ticks at most once per frame.
+  const startDrag = (event, side) => {
     if (full || event.button > 0) return;
     event.preventDefault();
-    const el = svgRef.current;
+    event.stopPropagation();
+    const el = trackRef.current;
     const win = windowPts;
     const winSpan = win.hi - win.lo;
     const ratioAt = (e) => {
       const rect = el.getBoundingClientRect();
       return Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
     };
-    const startRatio = ratioAt(event);
-    const side =
-      forcedSide ||
-      (Math.abs(startRatio * 100 - toX(range.left)) <= Math.abs(startRatio * 100 - toX(range.right)) ? 'min' : 'max');
     let pending = null;
     let frame = null;
     let lastPoint = null;
@@ -222,18 +239,43 @@ function DepthHistogram({ pool, x, y, rangeState, plan }) {
     el.addEventListener('pointermove', move);
     el.addEventListener('pointerup', up);
     el.addEventListener('pointercancel', up);
-    queue(startRatio);
   };
 
-  const leftX = dragging?.side === 'min' ? dragging.x : Math.max(0, toX(range.left));
-  const rightX = dragging?.side === 'max' ? dragging.x : Math.min(100, toX(range.right));
+  // Keyboard: arrows move a focused handle one tick (Shift: ten).
+  const onKey = (side) => (e) => {
+    const step = e.key === 'ArrowRight' || e.key === 'ArrowUp' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowDown' ? -1 : 0;
+    if (!step) return;
+    e.preventDefault();
+    rangeState.nudge(side, step * (e.shiftKey ? 10 : 1));
+  };
+
+  const showTip = (e) => {
+    const rect = chartRef.current.getBoundingClientRect();
+    const ratio = Math.min(0.9999, Math.max(0, (e.clientX - rect.left) / rect.width));
+    const bar = bars[Math.floor(ratio * BARS)];
+    if (!bar) return;
+    setTip({ x: ratio * 100, price: priceAt(bar.mid), depth: bar.h, side: bar.mid < current ? y.symbol : x.symbol, inRange: bar.mid >= range.left && bar.mid < range.right });
+  };
+
+  const leftX = dragging?.side === 'min' ? dragging.x : Math.min(100, Math.max(0, toX(range.left)));
+  const rightX = dragging?.side === 'max' ? dragging.x : Math.min(100, Math.max(0, toX(range.right)));
   const curX = toX(current);
+  const minPrice = priceAt(range.left);
+  const maxPrice = priceAt(range.right);
 
   return (
     <div className="depth">
-      <div className={`depth__chart ${full ? '' : 'depth__chart--drag'} ${dragging ? 'depth__chart--dragging' : ''}`} ref={svgRef} onPointerDown={(e) => startDrag(e)}>
+      <div
+        className="depth__chart"
+        ref={chartRef}
+        onPointerMove={showTip}
+        onPointerDown={showTip}
+        onPointerLeave={() => setTip(null)}
+        // A tap (no hover to end it) shows the info briefly.
+        onPointerUp={(e) => e.pointerType !== 'mouse' && setTimeout(() => setTip(null), 1800)}
+      >
         {bars.map((b, i) => {
-          const inRange = b.mid >= range.left && b.mid < range.right;
+          const inRange = full || (b.mid >= range.left && b.mid < range.right);
           return (
             <span
               key={i}
@@ -248,27 +290,20 @@ function DepthHistogram({ pool, x, y, rangeState, plan }) {
         </span>
         {!full && (
           <>
-            <button
-              type="button"
-              className={`depth__handle ${dragging?.side === 'min' ? 'depth__handle--active' : ''}`}
-              style={{ left: `${leftX}%` }}
-              onPointerDown={(e) => {
-                e.stopPropagation();
-                startDrag(e, 'min');
-              }}
-              aria-label="Drag min price"
-            />
-            <button
-              type="button"
-              className={`depth__handle ${dragging?.side === 'max' ? 'depth__handle--active' : ''}`}
-              style={{ left: `${rightX}%` }}
-              onPointerDown={(e) => {
-                e.stopPropagation();
-                startDrag(e, 'max');
-              }}
-              aria-label="Drag max price"
-            />
+            <span className={`depth__tag depth__tag--max ${rightX > 72 ? 'depth__tag--flip' : ''}`} style={{ left: `${rightX}%` }}>
+              {formatChartPrice(maxPrice)} <b>{pctOf(maxPrice)}</b>
+            </span>
+            <span className={`depth__tag depth__tag--min ${leftX < 28 ? 'depth__tag--flip' : ''}`} style={{ left: `${leftX}%` }}>
+              {formatChartPrice(minPrice)} <b>{pctOf(minPrice)}</b>
+            </span>
           </>
+        )}
+        {tip && !dragging && (
+          <span className={`depth__tip ${tip.x > 60 ? 'depth__tip--left' : ''}`} style={{ left: `${tip.x}%` }}>
+            <strong>{formatChartPrice(tip.price)}</strong> {pctOf(tip.price)}
+            <br />
+            {tip.side} side · depth {Math.round(tip.depth * 100)}%{tip.inRange ? ' · in range' : ''}
+          </span>
         )}
         {depth.loading && !depth.data && (
           <span className="depth__loading">
@@ -287,10 +322,27 @@ function DepthHistogram({ pool, x, y, rangeState, plan }) {
           ))}
         </div>
       )}
+      <div className={`depth__track ${full ? 'depth__track--full' : ''} ${dragging ? 'depth__track--dragging' : ''}`} ref={trackRef}>
+        <span className="depth__rail" />
+        <span className="depth__fill" style={full ? { left: 0, width: '100%' } : { left: `${leftX}%`, width: `${Math.max(0, rightX - leftX)}%` }} />
+        <span className="depth__now" style={{ left: `${curX}%` }} />
+        {!full &&
+          ['min', 'max'].map((side) => (
+            <button
+              key={side}
+              type="button"
+              className={`depth__knob ${dragging?.side === side ? 'depth__knob--active' : ''}`}
+              style={{ left: `${side === 'min' ? leftX : rightX}%` }}
+              onPointerDown={(e) => startDrag(e, side)}
+              onKeyDown={onKey(side)}
+              aria-label={`${side === 'min' ? 'Min' : 'Max'} price ${formatChartPrice(side === 'min' ? minPrice : maxPrice)}, drag or use the arrow keys`}
+            />
+          ))}
+      </div>
       <div className="depth__axis">
-        <span>{formatChartPrice(pointToPrice(windowPts.lo, x.decimals, y.decimals))}</span>
-        <span>{formatChartPrice(pointToPrice(current, x.decimals, y.decimals))}</span>
-        <span>{formatChartPrice(pointToPrice(windowPts.hi, x.decimals, y.decimals))}</span>
+        <span>{formatChartPrice(priceAt(windowPts.lo))}</span>
+        <span>{formatChartPrice(currentPrice)}</span>
+        <span>{formatChartPrice(priceAt(windowPts.hi))}</span>
       </div>
       <div className="depth__legend">
         <span>
@@ -299,7 +351,7 @@ function DepthHistogram({ pool, x, y, rangeState, plan }) {
         <span>
           <i className="x" /> {x.symbol} side
         </span>
-        <span className="muted">Bars: pool liquidity · strip: your shape</span>
+        <span className="muted">Drag the round handles · bars: pool liquidity · strip: your shape</span>
       </div>
     </div>
   );
@@ -309,7 +361,8 @@ function DepthHistogram({ pool, x, y, rangeState, plan }) {
 /* Min / max price inputs                                              */
 /* ------------------------------------------------------------------ */
 
-function PriceEdge({ label, side, price, current, onCommit, onNudge, disabled }) {
+/** `unit` ("NEAR per QTC") and `usd` (one `base` token in dollars at this price) show under the input. */
+function PriceEdge({ label, side, price, current, onCommit, onNudge, disabled, unit, usd, base }) {
   const [text, setText] = useState(null);
   const shown = text ?? (disabled ? (side === 'min' ? '0' : '∞') : formatChartPrice(price));
   const change = current ? (price / current - 1) * 100 : 0;
@@ -341,6 +394,12 @@ function PriceEdge({ label, side, price, current, onCommit, onNudge, disabled })
           </button>
         </div>
       </div>
+      {unit && (
+        <span className="price-edge__unit">
+          {unit}
+          {!disabled && usd > 0 && ` · 1 ${base} ≈ ${formatUsd(usd)}`}
+        </span>
+      )}
     </div>
   );
 }
@@ -465,6 +524,8 @@ export default function DclCreatePosition({ pool, x, y, rangeState, onDone, retr
     { enabled: hasAmount && (!zapMode || Boolean(zapQuote.data)) }
   );
   const nearUsd = priceOf(prices, CONTRACTS.wrapNear);
+  // Dollar value of one token Y, for the "1 X ≈ $…" line under Min / Max.
+  const yUsd = priceOf(prices, pool.token_y) || 0;
   const short = zapMode
     ? toBigInt(zapRaw) > zapSpendable
       ? `Insufficient ${zapToken.symbol}`
@@ -709,8 +770,11 @@ export default function DclCreatePosition({ pool, x, y, rangeState, onDone, retr
       <section>
         <div className="create-pos__head">
           <h3>Price range</h3>
-          <span className="muted small">
+          <span className="muted small range-head__unit">
             {y.symbol} per {x.symbol}
+            <button type="button" className="range-reset" onClick={() => rangeState.setPreset('10')} title="Reset to ±10%" aria-label="Reset the range to ±10%">
+              ↻
+            </button>
           </span>
         </div>
         <DepthHistogram pool={pool} x={x} y={y} rangeState={rangeState} plan={hasAmount ? activePlan : { bins: activePlan.bins }} />
@@ -730,6 +794,9 @@ export default function DclCreatePosition({ pool, x, y, rangeState, onDone, retr
             disabled={full}
             onCommit={(price) => rangeState.setEdge('min', { price })}
             onNudge={(n) => rangeState.nudge('min', n)}
+            unit={`${y.symbol} per ${x.symbol}`}
+            base={x.symbol}
+            usd={rangeState.minPrice * yUsd}
           />
           <PriceEdge
             label="Max price"
@@ -739,6 +806,9 @@ export default function DclCreatePosition({ pool, x, y, rangeState, onDone, retr
             disabled={full}
             onCommit={(price) => rangeState.setEdge('max', { price })}
             onNudge={(n) => rangeState.nudge('max', n)}
+            unit={`${y.symbol} per ${x.symbol}`}
+            base={x.symbol}
+            usd={rangeState.maxPrice * yUsd}
           />
         </div>
         {side !== 'both' && (

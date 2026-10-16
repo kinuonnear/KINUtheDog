@@ -12,6 +12,7 @@ import FeeTiers from '../components/FeeTiers.jsx';
 import { amountsForShares, isStableKind } from '../lib/liquidity.js';
 import { AmmLiquidity, DclLiquidity, FeeCompoundNote, StableLiquidity } from '../components/Liquidity.jsx';
 import { DclGroupCard } from '../components/DclPositions.jsx';
+import PositionPanel from '../components/PositionPanel.jsx';
 import { useDepositGroups } from '../lib/lpPositions.js';
 import { useDclRange } from '../components/DclCreatePosition.jsx';
 import { fetchTrades, quoteRank } from '../lib/intear.js';
@@ -474,11 +475,15 @@ function DclWorkspace({ poolId, pool, x, y, reserves, positions, onAdd, onDone }
         inRange: p.inRange
       }))
     : null;
+  // The selected position is also the one managed in the side panel (Add liquidity / Rebalance).
+  const selectPosition = (group) => {
+    setChartKey(group.key);
+    // On narrow screens the panel sits below the table: bring it into view.
+    if (!desktop) setTimeout(() => document.getElementById('new-position')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  };
   const toggleChart = (group) => {
-    const on = chartKey !== group.key;
-    // On narrow screens the chart sits above the table: bring it into view.
-    if (on) mainRef.current?.querySelector('.split-top')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    setChartKey(on ? group.key : null);
+    if (chartKey === group.key) setChartKey(null);
+    else selectPosition(group);
   };
 
   // Resizable split between the chart and the bottom panel (desktop).
@@ -577,6 +582,8 @@ function DclWorkspace({ poolId, pool, x, y, reserves, positions, onAdd, onDone }
           </div>
         )}
         <section className="card bottom-panel">
+          {/* "+ New position" sits on the tab row, so the positions table starts higher. */}
+          <div className="bottom-panel__head">
           <Tabs
             tabs={[
               // One position per deposit; its CLMM bins are details inside it.
@@ -588,6 +595,10 @@ function DclWorkspace({ poolId, pool, x, y, reserves, positions, onAdd, onDone }
             value={panel}
             onChange={setPanel}
           />
+            <button type="button" className="button button--outline button--sm" onClick={onAdd} title="Open another position with its own range">
+              + New position
+            </button>
+          </div>
           <div className="bottom-panel__body">
             {panel === 'liquidity' &&
               (!accountId ? (
@@ -604,10 +615,10 @@ function DclWorkspace({ poolId, pool, x, y, reserves, positions, onAdd, onDone }
                   x={x}
                   y={y}
                   pool={pool}
-                  onNew={onAdd}
                   onDone={onDone}
                   chartKey={chartKey}
                   onToggleChart={toggleChart}
+                  onSelect={selectPosition}
                   updatedAt={positions.updatedAt}
                   onRefresh={positions.reload}
                 />
@@ -650,9 +661,12 @@ function DclWorkspace({ poolId, pool, x, y, reserves, positions, onAdd, onDone }
         </div>
       )}
       <aside className="pool-grid__side">
-        {/* Using the form brings its range back on the chart (and hides your position). */}
-        <section className="card" id="new-position" onPointerDownCapture={() => setChartKey(null)} onFocusCapture={() => setChartKey(null)}>
-          <DclLiquidity pool={pool} x={x} y={y} rangeState={rangeState} onDone={onDone} />
+        <section className="card" id="new-position">
+          {chartGroup ? (
+            <PositionPanel key={chartGroup.key} group={chartGroup} x={x} y={y} loading={deposits.loading} onBack={() => setChartKey(null)} onDone={onDone} />
+          ) : (
+            <DclLiquidity pool={pool} x={x} y={y} rangeState={rangeState} onDone={onDone} />
+          )}
         </section>
       </aside>
     </div>
