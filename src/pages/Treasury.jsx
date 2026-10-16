@@ -1,6 +1,6 @@
 // Treasury (/treasury): where $KINU's creator fee goes — what the launch position has earned,
 // KINU's health (the trigger for moving LP profits into $KINU support), how each payment is split (operations, audit reserve, liquidity), every allocation with its
-// transaction, and the public LP wallet's live positions. Read-only. Not linked from the menu yet.
+// transaction, and the public LP wallet's live positions. Read-only. Linked from the More menu.
 
 import { useMemo } from 'react';
 import { useApp } from '../state.jsx';

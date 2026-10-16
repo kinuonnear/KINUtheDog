@@ -44,9 +44,9 @@ const ROUTES = [
   { name: 'discover', pattern: /^\/discover$/ },
   { name: 'token', pattern: /^\/token\/([^/]+)$/ },
   { name: 'lp', pattern: /^\/lp\/([^/]+)$/ },
-  // Demo for the KINU × Intear conversation: not linked from the menu yet.
+  // Intear DEX pools: the Intear DEX card on the Pools page.
   { name: 'intear', pattern: /^\/intear-dex$/ },
-  // Where $KINU's creator fee goes: not linked from the menu yet.
+  // Where $KINU's creator fee goes (More menu).
   { name: 'treasury', pattern: /^\/treasury$/ }
 ];
 

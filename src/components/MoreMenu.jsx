@@ -15,6 +15,7 @@ const ICONS = {
   faq: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17v.01',
   shield: 'M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z M9 12l2 2 4-4',
   terms: 'M7 3h10v18H7zM10 8h4M10 12h4M10 16h4',
+  treasury: 'M4 10l8-5 8 5M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18',
   rhea: 'M4 17c3-6 6-9 8-9s4 2 4 5-2 4-4 4M14 6l3-3M18 10l3-1'
 };
 
@@ -36,10 +37,11 @@ const GUIDES = [
 
 const LEGAL = [
   { to: '/docs/terms', label: 'Terms of Service', icon: 'terms' },
-  { to: '/security', label: 'Security & Transparency', icon: 'shield' }
+  { to: '/security', label: 'Security & Transparency', icon: 'shield' },
+  { to: '/treasury', label: 'Treasury', icon: 'treasury' }
 ];
 
-/** @param active  whether the current page lives under More (docs, security) */
+/** @param active  whether the current page lives under More (docs, security, treasury) */
 export default function MoreMenu({ active }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
