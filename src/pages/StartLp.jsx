@@ -130,7 +130,7 @@ export default function StartLp() {
         </div>
         <div className="st-stat">
           <strong>{overview.data ? formatUsd(fees) : <Skeleton width={110} height={26} />}</strong>
-          <span>paid to Rhea liquidity providers in the last 24 hours</span>
+          <span>paid to liquidity providers on NEAR in the last 24 hours</span>
         </div>
       </section>
 

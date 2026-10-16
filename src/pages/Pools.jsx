@@ -367,7 +367,7 @@ function PoolsMonitor({ ready, totals }) {
     { key: 'yield', label: 'Avg. daily yield', value: totals.tvl > 0 ? formatPercent((totals.fees / totals.tvl) * 100, 3) : '—', hint: `${totals.pools.toLocaleString()} active pools` }
   ];
   return (
-    <section className="pt-monitor" aria-label="Rhea at a glance, last 24 hours">
+    <section className="pt-monitor" aria-label="NEAR liquidity at a glance, last 24 hours">
       {metrics.map((m) => (
         <div className="pt-tile" key={m.key}>
           <span>{m.label}</span>
@@ -661,7 +661,7 @@ export default function Pools() {
       <header className="pt-hero">
         <FlowLines />
         <h1 className="pt-title">Pools</h1>
-        <p>Every pool on Rhea, sorted by what it pays LPs.</p>
+        <p>Every pool on NEAR, sorted by what it pays LPs.</p>
         <Link to="/start-lp" className="pt-start">
           New to LP? Start here
           <span className="pt-start__arrow" aria-hidden>
@@ -893,6 +893,7 @@ export default function Pools() {
           </button>
         </div>
       )}
+      <p className="muted small center">Data: Rhea Finance classic and CLMM pools, live.</p>
         </div>
       </div>
     </div>

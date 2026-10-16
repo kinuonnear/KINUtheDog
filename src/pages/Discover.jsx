@@ -54,26 +54,26 @@ const MIN_GAINER_LIQUIDITY = 10_000;
 
 // [before, highlighted word, after]
 const TITLES = {
-  trending: ['Trending on ', 'Rhea', ''],
+  trending: ['Trending on ', 'NEAR', ''],
   feed: ['Live ', 'feed', ''],
-  hot: ['Hot pairs on ', 'Rhea', ''],
-  gainers: ['Top gainers on ', 'Rhea', ''],
-  lp: ['Top ', 'yields', ' on Rhea'],
-  smartlp: ['Smart ', 'LP', ' on Rhea'],
+  hot: ['Hot pairs on ', 'NEAR', ''],
+  gainers: ['Top gainers on ', 'NEAR', ''],
+  lp: ['Top ', 'yields', ' on NEAR'],
+  smartlp: ['Smart ', 'LP', ' on NEAR'],
   smartmoney: ['Smart money ', 'in', ''],
-  new: ['New on ', 'Rhea', ''],
+  new: ['New on ', 'NEAR', ''],
   watchlist: ['Your ', 'watchlist', '']
 };
 
 const INTROS = {
-  trending: 'Tokens with the most trading volume across Rhea pools in the last 24 hours. NEAR and stablecoins are left out.',
-  feed: 'Every swap on Rhea as it happens. Follow traders to see their moves first.',
+  trending: 'Tokens with the most trading volume across NEAR pools in the last 24 hours. NEAR and stablecoins are left out.',
+  feed: 'Every swap on NEAR DEXs as it happens. Follow traders to see their moves first.',
   hot: 'The pairs traded most right now, over the last hour, 6 hours or day.',
-  gainers: 'Biggest 24h moves among actively traded Rhea tokens with at least $10K liquidity.',
+  gainers: 'Biggest 24h moves among actively traded tokens with at least $10K liquidity.',
   lp: `Pools that paid their liquidity providers the most fees per dollar (TVL ≥ $${LP_MIN_TVL / 1000}K), next to how much the price moved — the bigger the move, the more impermanent loss.`,
   smartlp: 'Liquidity providers who earn on Rhea CLMM pools, ranked by on-chain PnL, fees earned and win rate. Open a wallet to see every position it holds and closed.',
-  smartmoney: 'The Rhea tokens to watch: our featured picks first, then the most traded tokens by 24h volume — with the Smart LP wallets in their pools and every pool with real liquidity.',
-  new: 'The newest tokens with a Rhea pool, launched on Nearly. Live every minute, with the facts that matter before you buy.',
+  smartmoney: 'The tokens to watch: our featured picks first, then the most traded tokens by 24h volume — with the Smart LP wallets in their pools and every pool with real liquidity.',
+  new: 'The newest tokens with a pool on NEAR, launched on Nearly. Live every minute, with the facts that matter before you buy.',
   watchlist: 'Tokens you starred, with live prices.'
 };
 

@@ -56,7 +56,7 @@ const TITLES = {
   starter: 'How to start LP · KINU',
   agent: 'KINU Agent · LP co-pilot',
   security: 'Security & transparency · KINU',
-  new: 'New on Rhea · KINU',
+  new: 'New on NEAR · KINU',
   discover: 'Discover · KINU',
   token: 'Token · KINU',
   lp: 'LP wallet · Smart LP · KINU',

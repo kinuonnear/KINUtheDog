@@ -527,9 +527,9 @@ function CreateHome() {
     <>
       <section className="forge-hero">
         <FlowLines />
-        <span className="forge-kicker">Pool factory · Built on Rhea</span>
+        <span className="forge-kicker">Pool factory · Built on NEAR</span>
         <h1 className="forge-title">Create</h1>
-        <p>Open a new market on NEAR, deployed straight to Rhea.</p>
+        <p>Open a new market on NEAR. <small className="muted">Deployed to Rhea Finance&apos;s contracts.</small></p>
       </section>
       <div className="forge-types">
         {TYPES.map((t) => (

@@ -275,9 +275,9 @@ function TopPools({ title, sort }) {
 }
 
 const ACTIONS = [
-  ['⇄', 'Swap', 'The best route across Rhea', '/swap'],
+  ['⇄', 'Swap', 'The best route across NEAR', '/swap'],
   ['◎', 'Smart LP', 'The wallets that earn as LPs', '/discover?tab=smartlp'],
-  ['≋', 'Pools', 'Every Rhea pool, by fees earned', '/pools'],
+  ['≋', 'Pools', 'Every pool on NEAR, by fees earned', '/pools'],
   ['◔', 'Portfolio & PnL', 'Positions, fees and PnL in one view', '/portfolio']
 ];
 
@@ -298,7 +298,7 @@ export default function Home() {
         <div className="hm-hero__grid">
           <div className="hero__content">
             <span className="hm-kicker">
-              <i aria-hidden /> KINU · Built on Rhea
+              <i aria-hidden /> KINU · Built on NEAR
             </span>
             {accountId && (
               <p className="hm-welcome">
@@ -332,7 +332,7 @@ export default function Home() {
                 <strong>{trackedVolume !== undefined ? formatUsd(trackedVolume) : <Skeleton width={110} height={26} />}</strong>
               </div>
               <div>
-                <span>Rhea pools</span>
+                <span>Pools</span>
                 <strong>{totals.data ? totals.data.total.toLocaleString() : <Skeleton width={60} height={26} />}</strong>
               </div>
             </div>
