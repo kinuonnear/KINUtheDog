@@ -4,7 +4,7 @@ import { useApp } from '../state.jsx';
 import { useAsync, useDebounced } from '../hooks.js';
 import { getCachedToken, getToken, getWhitelistedTokens, priceOf, searchPriceList } from '../lib/tokens.js';
 import { formatAmount, formatUsd, shortAccount, toNumber } from '../lib/format.js';
-import { NATIVE_NEAR, PINNED_TOKENS } from '../config.js';
+import { KINU_VERIFIED_TOKENS, NATIVE_NEAR, PINNED_TOKENS } from '../config.js';
 
 const LIST_LIMIT = 60;
 const looksLikeAccount = (q) => /^[a-z0-9_-]+(\.[a-z0-9_-]+)+$/.test(q) || /^[0-9a-f]{64}$/.test(q);
@@ -38,7 +38,7 @@ function TokenRow({ id, fallback, verified, onPick, selected }) {
       <span className="token-row__main">
         <strong>
           {meta?.symbol || '…'}
-          {verified && <span className="badge badge--verified" title="Whitelisted on Rhea">✓</span>}
+          {verified && <span className="badge badge--verified" title="Verified: on Rhea's whitelist or checked by KINU">✓</span>}
         </strong>
         <small>{id === NATIVE_NEAR.id ? 'Native NEAR' : shortAccount(id, 14, 10)}</small>
       </span>
@@ -149,7 +149,7 @@ export default function TokenPicker({ title, selectedId, onSelect, onClose }) {
             key={row.id}
             id={row.id}
             fallback={row.fallback}
-            verified={whitelistSet.has(row.id) || row.id === NATIVE_NEAR.id}
+            verified={whitelistSet.has(row.id) || KINU_VERIFIED_TOKENS.includes(row.id) || row.id === NATIVE_NEAR.id}
             selected={row.id === selectedId}
             onPick={pick}
           />

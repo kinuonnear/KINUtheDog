@@ -105,6 +105,10 @@ export const PLATFORM_FEE = { enabled: false, bps: 10, treasury: 'kinu-treasury.
 // the referral fee is 0% (Intear's fee setting isn't available yet), so users pay nothing extra.
 export const INTEAR_REFERRER = 'kinuonnear.near';
 
+// Tokens KINU has checked by hand (official project tokens) and treats as verified, next to
+// Rhea's own whitelist: no "isn't on Rhea's verified list" warning, and a ✓ in the token picker.
+export const KINU_VERIFIED_TOKENS = [KINU_TOKEN, 'token.intear.near'];
+
 // Tokens pinned at the top of the token picker.
 export const PINNED_TOKENS = [
   'near',

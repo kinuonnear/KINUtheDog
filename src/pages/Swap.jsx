@@ -29,7 +29,7 @@ import {
   toNumber,
   tryParseUnits
 } from '../lib/format.js';
-import { CONTRACTS, DEPOSIT, NATIVE_NEAR, NEAR_GAS_RESERVE, PINNED_TOKENS } from '../config.js';
+import { CONTRACTS, DEPOSIT, KINU_VERIFIED_TOKENS, NATIVE_NEAR, NEAR_GAS_RESERVE, PINNED_TOKENS } from '../config.js';
 import { SlippagePicker } from '../components/Slippage.jsx';
 
 const SwapChart = lazy(() => import('../components/swap/SwapChart.jsx'));
@@ -90,12 +90,12 @@ function StuckSwapFunds({ refreshKey }) {
 
 /**
  * Anyone can deploy a token called "USDC". Warn when a side of the swap isn't on Rhea's
- * whitelist (KINU's pinned tokens and native NEAR are trusted).
+ * whitelist (KINU's pinned and hand-checked tokens, and native NEAR, are trusted).
  */
 function UnverifiedTokenWarning({ tokens }) {
   const whitelist = useAsync(() => getWhitelistedTokens(), []);
   if (!whitelist.data) return null;
-  const trusted = new Set([...whitelist.data, ...PINNED_TOKENS, NATIVE_NEAR.id]);
+  const trusted = new Set([...whitelist.data, ...PINNED_TOKENS, ...KINU_VERIFIED_TOKENS, NATIVE_NEAR.id]);
   const unverified = tokens.filter((t) => t && !trusted.has(t.id));
   if (!unverified.length) return null;
   return (
@@ -636,7 +636,7 @@ export default function Swap() {
             <div className="swap-card__head">
               <div>
                 <h2>Swap</h2>
-                <span className="muted small">Best route across Rhea AMM, stable & CLMM pools and Intear DEX</span>
+                <span className="muted small">Best route across Rhea & Intear DEX</span>
               </div>
               <div className="swap-card__tools">
                 <button type="button" className="pill-button" onClick={() => setShowChart(!showChart)}>
