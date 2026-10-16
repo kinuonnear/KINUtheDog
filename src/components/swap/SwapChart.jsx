@@ -10,7 +10,7 @@ import { useAsync, useLocalStorage } from '../../hooks.js';
 import { fetchOhlc, fetchTokenInfo, intearTokenId, RESOLUTIONS } from '../../lib/intear.js';
 import { fetchMarketCandles, subscribeCandles } from '../../lib/intearApi.js';
 import { fetchPoolOhlc } from '../../lib/gecko.js';
-import { CHART_BARS, lastGood, sameCandles, useBarClock, useOlderCandles, withOlder } from '../../lib/candles.js';
+import { CHART_BARS, lastGood, limitZoomOut, sameCandles, useBarClock, useOlderCandles, withOlder } from '../../lib/candles.js';
 import { formatChartPrice, formatUsd } from '../../lib/format.js';
 import { attachDrawings, DrawingToolbar, useDrawingKeys } from '../chart/DrawingTools.jsx';
 import { Spinner } from '../ui.jsx';
@@ -95,7 +95,17 @@ export default function SwapChart({ token, counter, pools, height }) {
       const res = await fetchPoolOhlc({ address: pool.address, tokenId, resolution, usd: unit === 'usd', countBack: 1000, before: firstTime });
       return res.candles;
     }
-    return fetchMarketCandles({ tokenId, resolution, quote: base.usd ? 'usd' : 'near', countBack: MARKET_BARS, toMillis: firstTime * 1000 - 1 });
+    const page = await fetchMarketCandles({ tokenId, resolution, quote: base.usd ? 'usd' : 'near', countBack: MARKET_BARS, toMillis: firstTime * 1000 - 1 });
+    if (page.length) return page;
+    // Intear's history starts in August 2026: further back, the token's deepest pool (in NEAR, its
+    // deepest pool against wNEAR) carries on from GeckoTerminal.
+    const deep = base.usd ? pools?.[0] : (pools || []).find((p) => p.baseId === WNEAR || p.quoteId === WNEAR);
+    if (!deep || resolution === '1W') return [];
+    const res = await fetchPoolOhlc({ address: deep.address, tokenId, resolution, usd: base.usd, countBack: 1000, before: firstTime });
+    if (base.usd) return res.candles;
+    // Priced in NEAR, the pool's volume is in NEAR too: shown in dollars at NEAR's price.
+    const nearUsd = (await fetchTokenInfo(WNEAR).catch(() => null))?.price || 0;
+    return res.candles.map((c) => ({ ...c, volume: c.volume * nearUsd }));
   });
   const data = useMemo(
     () => (base ? { ...base, candles: withOlder(history.older, base.candles, step) } : undefined),
@@ -127,7 +137,6 @@ export default function SwapChart({ token, counter, pools, height }) {
   const paintRef = useRef(null);
   const pendingRef = useRef(null);
   const live = useRef({});
-  const viewRef = useRef(null);
   const liveBarRef = useRef(null);
   useBarClock(liveBarRef, step);
   const [legend, setLegend] = useState(null);
@@ -144,88 +153,89 @@ export default function SwapChart({ token, counter, pools, height }) {
 
   const viewKey = `${tokenId}|${pool?.address}|${resolution}|${usdView}|${mode}|${data?.source}`;
 
+  // The chart is built once per view (token, pool, timeframe, unit, price / market cap) and its
+  // candles are replaced in place when they change (a refresh, older history). Replacing the data
+  // keeps the user's zoom and scroll; rebuilding the chart would move the view.
+  const apiRef = useRef(null); // { chart, series, volume, lines, byTime, times, drawingLayer, unlimit, fresh }
+  const hasData = scaled.length > 0;
   useEffect(() => {
     const container = containerRef.current;
-    if (!container || !scaled.length) return undefined;
+    if (!container || !hasData) return undefined;
     const chart = createChart(container, {
       autoSize: true,
       layout: { background: { color: 'transparent' }, textColor: 'rgba(226, 234, 245, 0.55)', fontFamily: 'JetBrains Mono, ui-monospace, monospace', fontSize: 11, attributionLogo: false },
       grid: { vertLines: { color: 'rgba(255,255,255,0.03)' }, horzLines: { color: 'rgba(255,255,255,0.03)' } },
       rightPriceScale: { borderColor: 'rgba(255,255,255,0.06)', scaleMargins: { top: 0.08, bottom: 0.22 } },
-      // The view stops at the first candle (no blank space before the data); reaching it loads more.
-      timeScale: { borderColor: 'rgba(255,255,255,0.06)', timeVisible: true, secondsVisible: false, rightOffset: 6, fixLeftEdge: scaled.length >= 60 },
+      timeScale: { borderColor: 'rgba(255,255,255,0.06)', timeVisible: true, secondsVisible: false, rightOffset: 6 },
       crosshair: { mode: 0 },
       localization: { priceFormatter: formatChartPrice }
     });
-    const max = Math.max(...scaled.map((c) => c.high));
-    const minMove = max > 0 ? 10 ** (Math.floor(Math.log10(max)) - 5) : 1e-8;
     const series = chart.addSeries(CandlestickSeries, {
       upColor: UP,
       downColor: DOWN,
       borderVisible: false,
       wickUpColor: UP,
       wickDownColor: DOWN,
-      priceLineStyle: 2,
-      priceFormat: { type: 'custom', formatter: formatChartPrice, minMove }
+      priceLineStyle: 2
     });
     const volume = chart.addSeries(HistogramSeries, { priceFormat: { type: 'volume' }, priceScaleId: 'volume', lastValueVisible: false, priceLineVisible: false });
     chart.priceScale('volume').applyOptions({ scaleMargins: { top: 0.84, bottom: 0 } });
-    series.setData(scaled.map(({ time, open, high, low, close }) => ({ time, open, high, low, close })));
-    volume.setData(scaled.map((c) => ({ time: c.time, value: c.volume, color: c.close >= c.open ? 'rgba(34,226,131,0.28)' : 'rgba(255,93,108,0.28)' })));
-    liveBarRef.current = { series, volume, bar: scaled[scaled.length - 1], line: false };
+    const api = { chart, series, volume, container, lines: [], byTime: new Map(), times: [], drawingLayer: null, unlimit: () => {}, fresh: true };
+    apiRef.current = api;
 
-    // High / Low of the loaded range, as on Jupiter.
-    const hi = scaled.reduce((m, c) => Math.max(m, c.high), -Infinity);
-    const lo = scaled.reduce((m, c) => Math.min(m, c.low), Infinity);
-    const mark = { color: 'rgba(79,179,255,0.55)', lineWidth: 1, lineStyle: 3, axisLabelVisible: true, axisLabelColor: '#1b3b55', axisLabelTextColor: '#9fd3ff' };
-    series.createPriceLine({ ...mark, price: hi, title: 'High' });
-    series.createPriceLine({ ...mark, price: lo, title: 'Low' });
-
-    // Keep the user's view across refreshes of the same chart; a view that followed the latest
-    // candle keeps following.
-    const times = scaled.map((c) => c.time);
-    const lastIdx = times.length - 1;
-    const saved = viewRef.current;
-    if (saved && saved.key === viewKey && saved.range) {
-      const firstAt = times.indexOf(saved.firstTime);
-      let shift = firstAt >= 0 ? firstAt : (saved.firstTime - times[0]) / step;
-      if (saved.atEnd) shift += lastIdx - (saved.lastIdx + shift);
-      chart.timeScale().setVisibleLogicalRange({ from: saved.range.from + shift, to: saved.range.to + shift });
-      if (saved.price) {
-        chart.priceScale('right').applyOptions({ autoScale: false });
-        chart.priceScale('right').setVisibleRange(saved.price);
-      }
-    } else {
-      chart.timeScale().setVisibleLogicalRange({ from: Math.min(Math.max(0, scaled.length - 120), scaled.length - 60), to: scaled.length + 6 });
-    }
-
+    // Reaching the first candle loads the history before it.
     chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
-      if (range && range.from < 3) live.current.requestOlder?.(times[0]);
+      if (range && range.from < 3) live.current.requestOlder?.(api.times[0]);
     });
-
-    const byTime = new Map(scaled.map((c) => [c.time, c]));
-    chart.subscribeCrosshairMove((param) => setLegend(param?.time ? byTime.get(param.time) || null : null));
-    const drawingLayer = attachDrawings({ chart, series, data: scaled, step, container, canvas: canvasRef.current, live, pendingRef });
-    paintRef.current = drawingLayer.paint;
+    chart.subscribeCrosshairMove((param) => setLegend(param?.time ? api.byTime.get(param.time) || null : null));
 
     return () => {
-      const range = chart.timeScale().getVisibleLogicalRange();
-      const scale = chart.priceScale('right');
-      viewRef.current = {
-        key: viewKey,
-        range: range ? { from: range.from, to: range.to } : null,
-        firstTime: times[0],
-        lastIdx,
-        atEnd: Boolean(range && range.to >= lastIdx),
-        price: scale.options().autoScale ? null : scale.getVisibleRange()
-      };
+      apiRef.current = null;
       paintRef.current = null;
       liveBarRef.current = null;
-      drawingLayer.dispose();
+      api.unlimit();
+      api.drawingLayer?.dispose();
       chart.remove();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scaled]);
+  }, [viewKey, hasData]);
+
+  useEffect(() => {
+    const api = apiRef.current;
+    if (!api || !scaled.length) return;
+    const { chart, series, volume, container } = api;
+    const max = Math.max(...scaled.map((c) => c.high));
+    const minMove = max > 0 ? 10 ** (Math.floor(Math.log10(max)) - 5) : 1e-8;
+    series.applyOptions({ priceFormat: { type: 'custom', formatter: formatChartPrice, minMove } });
+    series.setData(scaled.map(({ time, open, high, low, close }) => ({ time, open, high, low, close })));
+    volume.setData(scaled.map((c) => ({ time: c.time, value: c.volume, color: c.close >= c.open ? 'rgba(34,226,131,0.28)' : 'rgba(255,93,108,0.28)' })));
+    liveBarRef.current = { series, volume, bar: scaled[scaled.length - 1], line: false };
+    api.times = scaled.map((c) => c.time);
+    api.byTime = new Map(scaled.map((c) => [c.time, c]));
+
+    // High / Low of the loaded range, as on Jupiter.
+    api.lines.forEach((line) => series.removePriceLine(line));
+    const hi = scaled.reduce((m, c) => Math.max(m, c.high), -Infinity);
+    const lo = scaled.reduce((m, c) => Math.min(m, c.low), Infinity);
+    const mark = { color: 'rgba(79,179,255,0.55)', lineWidth: 1, lineStyle: 3, axisLabelVisible: true, axisLabelColor: '#1b3b55', axisLabelTextColor: '#9fd3ff' };
+    api.lines = [series.createPriceLine({ ...mark, price: hi, title: 'High' }), series.createPriceLine({ ...mark, price: lo, title: 'Low' })];
+
+    // The view stops at the first candle (no blank space before the data) and zooming out stops once
+    // every candle fits.
+    chart.timeScale().applyOptions({ fixLeftEdge: scaled.length >= 60 });
+    api.unlimit();
+    api.unlimit = limitZoomOut(chart, container, scaled.length, 6);
+    if (api.fresh) {
+      api.fresh = false;
+      chart.timeScale().setVisibleLogicalRange({ from: Math.min(Math.max(0, scaled.length - 120), scaled.length - 60), to: scaled.length + 6 });
+    }
+
+    // Drawings map times to bar positions: re-attach them to the new bars.
+    api.drawingLayer?.dispose();
+    api.drawingLayer = attachDrawings({ chart, series, data: scaled, step, container, canvas: canvasRef.current, live, pendingRef });
+    paintRef.current = api.drawingLayer.paint;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scaled, viewKey, hasData]);
 
   // Market candles stay live: Intear pushes the latest candle after every block that moved it.
   const [tick, setTick] = useState(null);

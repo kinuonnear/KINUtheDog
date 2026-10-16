@@ -12,7 +12,7 @@ import { useAsync, useClickOutside, useLocalStorage } from '../hooks.js';
 import { fetchOhlc, fetchPairOhlc, fetchTokenInfo, intearTokenId, RESOLUTIONS } from '../lib/intear.js';
 import { fetchMarketCandles, fetchMarketPair, subscribeCandles } from '../lib/intearApi.js';
 import { fetchPoolOhlc } from '../lib/gecko.js';
-import { CHART_BARS, lastGood, sameCandles, useBarClock, useOlderCandles, withOlder } from '../lib/candles.js';
+import { CHART_BARS, lastGood, limitZoomOut, sameCandles, useBarClock, useOlderCandles, withOlder } from '../lib/candles.js';
 import { useApp } from '../state.jsx';
 import { priceOf } from '../lib/tokens.js';
 import { bollinger, ema, INDICATORS, sma } from '../lib/indicators.js';
@@ -215,9 +215,14 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
       return page.candles.map((c) => ({ ...c, volume: c.volume * f }));
     }
     const toMillis = firstTime * 1000 - 1;
-    return unit === 'usd'
+    const page = await (unit === 'usd'
       ? fetchMarketCandles({ tokenId: xId, resolution, quote: 'usd', countBack: MARKET_BARS, toMillis })
-      : fetchMarketPair({ tokenX: xId, tokenY: yId, resolution, countBack: MARKET_BARS, toMillis });
+      : fetchMarketPair({ tokenX: xId, tokenY: yId, resolution, countBack: MARKET_BARS, toMillis }));
+    if (page.length || resolution === '1W' || !poolId) return page;
+    // Intear's history starts in August 2026: further back, this pool's own candles carry on.
+    const usd = unit === 'usd';
+    const older = await fetchPoolOhlc({ poolId, tokenId: x.id, resolution, usd, countBack: 1000, before: firstTime });
+    return usd ? older.candles : older.candles.map((c) => ({ ...c, volume: yUsd ? c.volume * yUsd : 0 }));
   });
   const merged = useMemo(() => (current?.data ? withOlder(history.older, current.data, step) : undefined), [current, history.older, step]);
   const candles = { ...loaded, data: merged };
@@ -320,19 +325,21 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
     const canvas = canvasRef.current;
     if (!container || !overlay || !canvas || !candles.data || !live.current.currentPrice) return undefined;
     const startPrice = live.current.currentPrice * live.current.usdFactor;
-    let data = noHistory ? placeholderCandles(startPrice, step) : candles.data;
     // Pool candles price each trade at its execution rate (fee and impact included); the latest
     // bar closes at the pool's actual on-chain price, so candles and the price line agree.
-    if (fromPool && unit === 'pair' && !noHistory) {
-      const last = data[data.length - 1];
+    const withTail = (bars) => {
+      if (!(fromPool && unit === 'pair' && !noHistory)) return bars;
+      const last = bars[bars.length - 1];
       const now = Math.floor(Date.now() / 1000 / step) * step;
       const cp = live.current.currentPrice;
       const tail =
         now > last.time
           ? [last, { time: now, open: last.close, high: Math.max(last.close, cp), low: Math.min(last.close, cp), close: cp, volume: 0 }]
           : [{ ...last, high: Math.max(last.high, cp), low: Math.min(last.low, cp), close: cp }];
-      data = [...data.slice(0, -1), ...tail];
-    }
+      return [...bars.slice(0, -1), ...tail];
+    };
+    // `data`, `times` and `lastIdx` change in place when new candles arrive (setDataAll below).
+    let data = withTail(noHistory ? placeholderCandles(startPrice, step) : candles.data);
 
     const chart = createChart(container, {
       autoSize: true,
@@ -395,10 +402,12 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
     // its axis label (on pool candles that is the live pool price; on market candles the legend
     // notes how far this pool is from it).
 
+    const volData = (bars) => bars.map((c) => ({ time: c.time, value: c.volume || 0, color: c.close >= c.open ? 'rgba(34,226,131,0.25)' : 'rgba(255,93,108,0.25)' }));
+    let vol = null;
     if (indicators.includes('volume')) {
-      const vol = chart.addSeries(HistogramSeries, { priceFormat: { type: 'volume' }, priceScaleId: 'volume', lastValueVisible: false, priceLineVisible: false });
+      vol = chart.addSeries(HistogramSeries, { priceFormat: { type: 'volume' }, priceScaleId: 'volume', lastValueVisible: false, priceLineVisible: false });
       chart.priceScale('volume').applyOptions({ scaleMargins: { top: 0.84, bottom: 0 } });
-      vol.setData(data.map((c) => ({ time: c.time, value: c.volume || 0, color: c.close >= c.open ? 'rgba(34,226,131,0.25)' : 'rgba(255,93,108,0.25)' })));
+      vol.setData(volData(data));
       if (liveBarRef.current) liveBarRef.current.volume = vol;
     }
     // Indicators never drive the price scale (e.g. a Bollinger band can go negative after a spike).
@@ -411,23 +420,36 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
       priceFormat,
       autoscaleInfoProvider: () => null
     });
-    if (indicators.includes('ma20')) chart.addSeries(LineSeries, lineOpts('#ffb547')).setData(sma(data, 20));
-    if (indicators.includes('ma50')) chart.addSeries(LineSeries, lineOpts('#5ec8ff')).setData(sma(data, 50));
-    if (indicators.includes('ema20')) chart.addSeries(LineSeries, lineOpts('#c792ff')).setData(ema(data, 20));
+    const ind = {};
+    if (indicators.includes('ma20')) ind.ma20 = chart.addSeries(LineSeries, lineOpts('#ffb547'));
+    if (indicators.includes('ma50')) ind.ma50 = chart.addSeries(LineSeries, lineOpts('#5ec8ff'));
+    if (indicators.includes('ema20')) ind.ema20 = chart.addSeries(LineSeries, lineOpts('#c792ff'));
     if (indicators.includes('bb')) {
-      const bb = bollinger(data, 20, 2);
-      chart.addSeries(LineSeries, lineOpts('rgba(61,220,151,0.8)')).setData(bb.upper);
-      chart.addSeries(LineSeries, { ...lineOpts('rgba(61,220,151,0.45)'), lineStyle: 2 }).setData(bb.middle);
-      chart.addSeries(LineSeries, lineOpts('rgba(61,220,151,0.8)')).setData(bb.lower);
+      ind.bbUpper = chart.addSeries(LineSeries, lineOpts('rgba(61,220,151,0.8)'));
+      ind.bbMiddle = chart.addSeries(LineSeries, { ...lineOpts('rgba(61,220,151,0.45)'), lineStyle: 2 });
+      ind.bbLower = chart.addSeries(LineSeries, lineOpts('rgba(61,220,151,0.8)'));
     }
+    const setIndicators = (bars) => {
+      ind.ma20?.setData(sma(bars, 20));
+      ind.ma50?.setData(sma(bars, 50));
+      ind.ema20?.setData(ema(bars, 20));
+      if (ind.bbUpper) {
+        const bb = bollinger(bars, 20, 2);
+        ind.bbUpper.setData(bb.upper);
+        ind.bbMiddle.setData(bb.middle);
+        ind.bbLower.setData(bb.lower);
+      }
+    };
+    setIndicators(data);
     // --- time <-> x helpers (drawings live in { time, price } space) -------------
-    const times = data.map((c) => c.time);
-    const lastIdx = times.length - 1;
+    let times = data.map((c) => c.time);
+    let lastIdx = times.length - 1;
     if (!noHistory) {
       chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
         if (range && range.from < 3) live.current.requestOlder?.(times[0]);
       });
     }
+    let unlimit = noHistory ? () => {} : limitZoomOut(chart, container, data.length, 8);
 
     // Candles refresh every minute and rebuild the chart: keep the user's zoom, scroll and
     // price scale. The same bars stay in view; a view that followed the latest bar keeps following.
@@ -436,7 +458,19 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
       const firstAt = times.indexOf(saved.firstTime);
       let shift = firstAt >= 0 ? firstAt : (saved.firstTime - times[0]) / step;
       if (saved.atEnd) shift += lastIdx - (saved.lastIdx + shift);
-      chart.timeScale().setVisibleLogicalRange({ from: saved.range.from + shift, to: saved.range.to + shift });
+      const restored = { from: saved.range.from + shift, to: saved.range.to + shift };
+      chart.timeScale().setVisibleLogicalRange(restored);
+      // autoSize measures the new chart a moment later, which would move a view scrolled far back to
+      // the latest candles: set it again once the chart has its size.
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          try {
+            chart.timeScale().setVisibleLogicalRange(restored);
+          } catch {
+            // the chart was removed meanwhile
+          }
+        })
+      );
       if (saved.price) {
         chart.priceScale('right').applyOptions({ autoScale: false });
         chart.priceScale('right').setVisibleRange(saved.price);
@@ -669,7 +703,22 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
       return () => el.removeEventListener('pointerdown', onDown);
     });
 
-    chartApi.current = { chart, canvas };
+    // New candles (a refresh, older history) replace the data in place: the chart keeps the user's
+    // zoom and scroll, which a rebuild would lose.
+    const setDataAll = (bars) => {
+      data = withTail(bars);
+      main.setData(chartType === 'line' ? data.map((c) => ({ time: c.time, value: c.close })) : data.map(({ time, open, high, low, close }) => ({ time, open, high, low, close })));
+      vol?.setData(volData(data));
+      setIndicators(data);
+      times = data.map((c) => c.time);
+      lastIdx = times.length - 1;
+      if (liveBarRef.current) liveBarRef.current = { ...liveBarRef.current, bar: data[data.length - 1] };
+      chart.timeScale().applyOptions({ fixLeftEdge: data.length >= 60 });
+      unlimit();
+      unlimit = limitZoomOut(chart, container, data.length, 8);
+      paint();
+    };
+    chartApi.current = { chart, canvas, setDataAll };
     return () => {
       saveView();
       liveBarRef.current = null;
@@ -683,12 +732,19 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
       canvas.removeEventListener('pointerdown', onCanvasDown);
       canvas.removeEventListener('pointermove', onCanvasMove);
       cleanups.forEach((fn) => fn());
+      unlimit();
       chart.remove();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     // Rebuilt when the data or the display changes — not on every pool price tick.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [candles.data, noHistory, Boolean(currentPrice), chartType, indicators.join(','), unit, step, fromPool]);
+  }, [Boolean(candles.data), noHistory, Boolean(currentPrice), chartType, indicators.join(','), unit, step, fromPool, viewOf]);
+
+  // Candles that changed under the same chart: replaced in place (keeps zoom and scroll).
+  useEffect(() => {
+    if (candles.data && !noHistory) chartApi.current?.setDataAll?.(candles.data);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [candles.data]);
 
   const screenshot = () => {
     const api = chartApi.current;

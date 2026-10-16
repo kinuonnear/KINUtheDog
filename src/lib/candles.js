@@ -109,6 +109,23 @@ export function useOlderCandles(key, load) {
   return { older: current.candles, done, request };
 }
 
+/**
+ * Zooming out stops once all `count` candles fit the chart's width, so the view never shows empty
+ * space beside the data (with the left edge fixed it would pile up on the right). Short histories
+ * (under 60 candles) keep their usual roomy view. Returns a cleanup function.
+ */
+export function limitZoomOut(chart, container, count, rightOffset = 6) {
+  if (count < 60 || typeof ResizeObserver === 'undefined') return () => {};
+  const apply = () => {
+    const width = container.clientWidth - (chart.priceScale('right').width() || 64);
+    if (width > 0) chart.timeScale().applyOptions({ minBarSpacing: Math.max(0.1, width / (count + rightOffset)) });
+  };
+  apply();
+  const ro = new ResizeObserver(apply);
+  ro.observe(container);
+  return () => ro.disconnect();
+}
+
 /** Older pages in front of the loaded candles, one candle per bucket across the join. */
 export function withOlder(older, candles, step) {
   if (!older?.length || !candles?.length) return candles;
