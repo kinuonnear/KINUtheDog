@@ -46,7 +46,7 @@ const MORE_ROUTES = new Set(['docs', 'security']);
 const FULL_WIDTH_ROUTES = new Set(['app', 'pool', 'pools', 'swap', 'portfolio', 'new', 'discover', 'token', 'agent', 'lp', 'intear']);
 
 const TITLES = {
-  home: 'KINU × RHEA — The Dog That Follows the Flow',
+  home: 'KINU — The Dog That Follows the Flow',
   app: 'KINU — Liquidity on NEAR',
   swap: 'Swap · KINU',
   pools: 'Pools · KINU',
@@ -244,7 +244,7 @@ export default function App() {
 
       {!appView && (
       <footer className="footer">
-        <Link to="/">KINU × RHEA · the dog that follows the flow</Link>
+        <Link to="/">KINU · the dog that follows the flow</Link>
         <span>
           Liquidity &amp; routing by{' '}
           <a href={ENDPOINTS.rheaApp} target="_blank" rel="noopener noreferrer">

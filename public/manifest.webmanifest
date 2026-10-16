@@ -1,6 +1,6 @@
 {
   "id": "/",
-  "name": "KINU × RHEA — DeFi terminal on NEAR",
+  "name": "KINU — Liquidity on NEAR",
   "short_name": "KINU",
   "description": "Best-price swaps, smart LP and live PnL on Rhea Finance. Non-custodial: every transaction is signed in your own wallet.",
   "start_url": "/app",
