@@ -66,7 +66,7 @@ const DOCS = [
         </p>
         <Terms
           items={[
-            ['Swap', 'Best-price swaps: Rhea’s SmartRouter and direct CLMM routes (up to three hops) are quoted side by side.'],
+            ['Swap', 'Best-price swaps: Rhea’s SmartRouter, direct CLMM routes (up to three hops) and the Intear DEX Aggregator are quoted side by side.'],
             ['Smart LP', 'Set up concentrated liquidity by dragging a range on the chart, picking a strategy, or zapping in with one token.'],
             ['Pools', 'Every Rhea pool — AMM, CLMM, ALMM, Stable and Farm — with TVL, volume, fees, APR and token age.'],
             ['Discover', 'Top yields, hot pairs, trending tokens, new launches and a live trade feed.'],
@@ -124,8 +124,8 @@ const DOCS = [
       <>
         <h3>Best price, every time</h3>
         <p>
-          Each quote is requested from Rhea’s <strong>SmartRouter</strong> and from <strong>direct Rhea CLMM routes</strong>{' '}
-          (up to three hops). The larger output wins and is marked <em>Best</em>. You can open the route list and pick
+          Each quote is requested from Rhea’s <strong>SmartRouter</strong>, from <strong>direct Rhea CLMM routes</strong>{' '}
+          (up to three hops) and from the <strong>Intear DEX Aggregator</strong> (Rhea and Intear DEX pools). The larger output wins and is marked <em>Best</em>. You can open the route list and pick
           another route yourself.
         </p>
         <h3>Reading a quote</h3>
@@ -134,7 +134,7 @@ const DOCS = [
             ['Minimum received', 'The least you can get after slippage. If the price moves further, the swap is cancelled and refunded.'],
             ['Price impact', 'How much your trade moves the pool price. Large impact means the pool is small for your size.'],
             ['Max slippage', 'How far the price may move before the swap fails safely. Default 0.5%, changeable with the ⚙ button.'],
-            ['Route / Route provider', 'Which pools the swap passes through, and whether SmartRouter or a direct CLMM route is used.'],
+            ['Route / Route provider', 'Which pools the swap passes through, and whether SmartRouter, a direct CLMM route or the Intear DEX Aggregator is used.'],
             ['Network fee', 'Estimated NEAR gas for the whole swap, including any one-time token registration.']
           ]}
         />

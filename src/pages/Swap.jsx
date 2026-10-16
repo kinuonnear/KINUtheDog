@@ -12,6 +12,7 @@ import { Modal, Spinner, TokenIcon } from '../components/ui.jsx';
 import { getCachedToken, getToken, getTokens, getWhitelistedTokens, priceOf } from '../lib/tokens.js';
 import { buildSwapTransactions, getSwapQuote, quoteHybridSecondLeg, selectRoute } from '../lib/swap.js';
 import { estimateNetworkFee } from '../lib/gasEstimate.js';
+import { intearNetworkFee } from '../lib/intearRouter.js';
 import { feeLabel } from '../lib/platformFee.js';
 import { bpsLabel } from '../lib/tokenTax.js';
 import { warmDclGraph } from '../lib/dclRouter.js';
@@ -136,7 +137,7 @@ function sketchSwapTransactions(quote, tokenIn, tokenOut) {
 /** Every route that was quoted, its output and the gap to the best one. */
 function RoutePicker({ quote, tokenOut, onPick, onClose }) {
   return (
-    <Modal title="Select route" subtitle="All routes are quoted live on Rhea. The best output is selected by default." onClose={onClose}>
+    <Modal title="Select route" subtitle="All routes are quoted live on Rhea and the Intear DEX Aggregator. The best output is selected by default." onClose={onClose}>
       <div className="route-list">
         {quote.compared.map((r) => (
           <button
@@ -445,6 +446,8 @@ export default function Swap() {
   const fee = useAsync(
     async () => {
       if (!quote || quote.wrap) return null;
+      // Intear quotes carry the aggregator's own estimate, storage for this account included.
+      if (quote.intear) return intearNetworkFee(quote);
       let txs;
       if (accountId && quote.user === accountId) {
         txs = quote.hybrid
@@ -633,7 +636,7 @@ export default function Swap() {
             <div className="swap-card__head">
               <div>
                 <h2>Swap</h2>
-                <span className="muted small">Best route across Rhea AMM, stable & CLMM pools</span>
+                <span className="muted small">Best route across Rhea AMM, stable & CLMM pools and Intear DEX</span>
               </div>
               <div className="swap-card__tools">
                 <button type="button" className="pill-button" onClick={() => setShowChart(!showChart)}>

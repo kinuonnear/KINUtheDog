@@ -18,8 +18,8 @@ const ext = { target: '_blank', rel: 'noopener noreferrer' };
 const explorer = (account) => `${ENDPOINTS.explorer}/address/${account}`;
 
 const GUARD = [
-  ['Only Rhea, only known methods', 'Every transaction is checked against an allow-list of Rhea contracts and the exact methods KINU uses.'],
-  ['Tokens only go to Rhea', 'Tokens can only be sent into Rhea’s exchange, CLMM or router contracts — never to any other account.'],
+  ['Only known contracts and methods', 'Every transaction is checked against an allow-list of Rhea contracts (plus Intear DEX for Intear Aggregator routes) and the exact methods KINU uses.'],
+  ['Tokens only go to the DEX', 'Tokens can only be sent into Rhea’s exchange, CLMM or router contracts, or into Intear DEX on an Intear Aggregator route, and the swap output must come back to you — never to any other account.'],
   ['No transfers, keys or deploys', 'Plain NEAR transfers, access-key changes and contract deploys are always refused.'],
   ['Fees are capped', 'A token’s registration fee is capped at 0.05 NEAR, and all fees in one request at 2 NEAR (wrapping NEAR excluded).'],
   ['Quotes must match', 'A router quote that would spend a different amount or trade a different pair than you typed is rejected.'],
@@ -44,7 +44,7 @@ const AUDIT = [
 const RISKS = [
   ['Market risk', 'Token prices move. $KINU is a young community token with thin liquidity — trades can move its price a lot.'],
   ['Liquidity risk', 'Providing liquidity can lose value against holding (impermanent loss), and CLMM ranges stop earning when the price leaves them.'],
-  ['Protocol risk', 'Swaps and pools run on Rhea Finance’s contracts. KINU checks every transaction, but cannot change how Rhea’s contracts behave.'],
+  ['Protocol risk', 'Swaps and pools run on Rhea Finance’s contracts (and Intear DEX’s, for some swap routes). KINU checks every transaction, but cannot change how those contracts behave.'],
   ['Data providers', 'Prices, charts and history come from Rhea, Intear, FastNEAR and DexScreener. They are shown for information; your wallet shows what is actually signed.']
 ];
 

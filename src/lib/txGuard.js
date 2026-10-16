@@ -5,9 +5,10 @@
 //
 //   - only FunctionCall actions (no NEAR transfers, key changes or deploys)
 //   - per contract, only the methods KINU uses
-//   - tokens may only be sent (ft_transfer_call) to Rhea's contracts
+//   - tokens may only be sent (ft_transfer_call) to Rhea's contracts or Intear DEX (aggregator routes)
 //   - storage is only ever bought for the signer (or for Rhea's contracts on a new token)
-//   - attached NEAR is capped, except when wrapping NEAR (the amount the user typed)
+//   - attached NEAR is capped, except when wrapping NEAR or depositing it into Intear DEX
+//     (the amount the user typed; Intear routes are also checked in lib/intearRouter.js)
 
 import { CONTRACTS, PLATFORM_FEE } from '../config.js';
 
@@ -33,14 +34,16 @@ const PROTOCOL_METHODS = {
   ],
   [CONTRACTS.dcl]: ['storage_deposit', 'add_liquidity', 'batch_add_liquidity', 'remove_liquidity', 'batch_remove_liquidity', 'append_liquidity', 'withdraw_asset', 'create_pool'],
   [CONTRACTS.aggregator]: ['tokens_storage_deposit', 'withdraw'],
-  [CONTRACTS.wrapNear]: ['near_deposit', 'near_withdraw', 'storage_deposit', 'ft_transfer_call']
+  [CONTRACTS.wrapNear]: ['near_deposit', 'near_withdraw', 'storage_deposit', 'ft_transfer_call'],
+  // Intear DEX, reached through the Intear DEX Aggregator's swap routes
+  [CONTRACTS.intearDex]: ['deposit_near', 'register_assets', 'storage_deposit']
 };
 
 /** Any other receiver is a token contract: register the user, or send tokens into Rhea. */
 const TOKEN_METHODS = ['storage_deposit', 'ft_transfer_call'];
 
 /** Where tokens may be sent with ft_transfer_call. */
-const TOKEN_DESTINATIONS = new Set([CONTRACTS.exchange, CONTRACTS.dcl, CONTRACTS.aggregator]);
+const TOKEN_DESTINATIONS = new Set([CONTRACTS.exchange, CONTRACTS.dcl, CONTRACTS.aggregator, CONTRACTS.intearDex]);
 
 function refuse(tx, reason) {
   throw new Error(`Blocked for your safety: ${reason} (${tx.receiverId}). Nothing was sent to your wallet.`);
@@ -69,7 +72,9 @@ export function assertSafeTransactions(transactions, signerId) {
       if (!allowed.includes(methodName)) refuse(tx, `unexpected method "${methodName}"`);
 
       const attached = BigInt(deposit || '0');
-      const isWrap = tx.receiverId === CONTRACTS.wrapNear && methodName === 'near_deposit';
+      const isWrap =
+        (tx.receiverId === CONTRACTS.wrapNear && methodName === 'near_deposit') ||
+        (tx.receiverId === CONTRACTS.intearDex && methodName === 'deposit_near');
       if (!isWrap && attached > MAX_FEE_DEPOSIT) refuse(tx, `"${methodName}" attaches an unusually large NEAR deposit`);
       if (!isWrap) fees += attached;
       if (fees > MAX_BUNDLE_FEES) refuse(tx, 'the fees in this request add up to an unusually large NEAR amount');
@@ -78,7 +83,7 @@ export function assertSafeTransactions(transactions, signerId) {
       }
 
       if (methodName === 'ft_transfer_call' && !TOKEN_DESTINATIONS.has(args.receiver_id)) {
-        refuse(tx, `tokens would be sent to "${args.receiver_id}", which is not a Rhea contract`);
+        refuse(tx, `tokens would be sent to "${args.receiver_id}", which is not a Rhea or Intear DEX contract`);
       }
       // Storage is bought for the signer — or, when a token is new to Rhea, for Rhea's own
       // contracts so they can hold it (needed before a pool with that token can be used).

@@ -13,6 +13,8 @@ export const CONTRACTS = {
   // Rhea swap aggregator used by app.rhea.finance (multi-dex routes)
   aggregator: 'aggregatedex.near',
   wrapNear: 'wrap.near',
+  // Intear DEX (Plach): swaps routed through the Intear DEX Aggregator may land here
+  intearDex: 'dex.intear.near',
   // Contract used as the wallet sign-in target
   signIn: 'kinu-3.nearlytrade.near'
 };
@@ -33,6 +35,8 @@ export const ENDPOINTS = {
   rheaApi: 'https://api.rhea.finance',
   rheaIndexer: 'https://indexer.ref.finance',
   smartRouter: 'https://smartx.rhea.finance',
+  // Intear DEX Aggregator (docs.intear.tech/dex-aggregator): routes over Rhea, Rhea CLMM and Plach
+  intearRouter: 'https://router.intear.tech',
   fastnear: 'https://api.fastnear.com',
   dexscreener: 'https://api.dexscreener.com',
   geckoterminal: 'https://api.geckoterminal.com/api/v2',
@@ -96,6 +100,10 @@ export const KINU_TOKEN = 'kinu-3.nearlytrade.near';
 // Platform fee on swaps (whitepaper section 6). OFF until it is announced: set enabled to true
 // only after the docs, security page and an announcement say so. bps: 10 = 0.1%.
 export const PLATFORM_FEE = { enabled: false, bps: 10, treasury: 'kinu-treasury.near' };
+
+// Account KINU passes as `referrer_id` to the Intear DEX Aggregator. Swaps are tracked under it;
+// the referral fee is 0% (Intear's fee setting isn't available yet), so users pay nothing extra.
+export const INTEAR_REFERRER = 'kinuonnear.near';
 
 // Tokens pinned at the top of the token picker.
 export const PINNED_TOKENS = [

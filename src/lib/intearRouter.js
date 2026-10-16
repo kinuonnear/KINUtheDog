@@ -1,0 +1,209 @@
+// Swap quotes from the Intear DEX Aggregator (router.intear.tech, docs.intear.tech/dex-aggregator).
+// It searches Rhea, Rhea CLMM and Intear DEX (Plach) pools and answers with the exact
+// transactions to sign. KINU passes its referrer account (config INTEAR_REFERRER); the referral
+// fee is 0% today, so quotes are the same as without it.
+//
+// The aggregator's transactions are never signed blindly: every route is checked here against
+// what a swap of exactly this input may do (which contracts, which methods, how much is spent,
+// that the output goes back to the trader), and lib/txGuard.js checks them again before the wallet.
+
+import { CONTRACTS, ENDPOINTS, INTEAR_REFERRER } from '../config.js';
+import { toBigInt } from './format.js';
+import { functionCall, transaction } from './tx.js';
+import { swapTax } from './tokenTax.js';
+
+const QUOTE_TIMEOUT_MS = 8_000;
+const MAX_WAIT_MS = 2_500; // how long the aggregator may search
+// Only DEXs whose transactions KINU checks below. Others (Aidols, liquid staking) are left out.
+const DEXES = ['Rhea', 'RheaDcl', 'Plach', 'Wrap'];
+const DEX_LABEL = { Rhea: 'Rhea', RheaDcl: 'Rhea CLMM', Plach: 'Intear DEX', Wrap: 'Wrap' };
+const MAX_GAS = 300_000_000_000_000n; // NEAR's per-transaction limit
+// Intear DEX operations a swap route may contain; anything else is refused.
+const PLACH_OPERATIONS = new Set(['SwapSimple', 'Withdraw']);
+// Where the input token may be sent with ft_transfer_call.
+const DESTINATIONS = new Set([CONTRACTS.exchange, CONTRACTS.dcl, CONTRACTS.intearDex]);
+const METHODS = {
+  [CONTRACTS.wrapNear]: ['near_deposit', 'near_withdraw', 'storage_deposit', 'ft_transfer_call'],
+  [CONTRACTS.intearDex]: ['deposit_near', 'register_assets', 'storage_deposit']
+};
+
+const contractOf = (token) => token.contract || token.id;
+const assetOf = (token) => (token.native ? 'near' : `nep141:${contractOf(token)}`);
+
+function decodeArgs(base64) {
+  const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+
+function parseMsg(msg) {
+  try {
+    return JSON.parse(msg);
+  } catch {
+    return null;
+  }
+}
+
+/** The aggregator's instructions as KINU transactions (lib/tx.js shape). Unknown kinds are refused. */
+function toTransactions(instructions) {
+  if (!Array.isArray(instructions) || !instructions.length) throw new Error('empty route');
+  return instructions.map((step) => {
+    const kinds = Object.keys(step || {});
+    if (kinds.length !== 1 || kinds[0] !== 'NearTransaction') throw new Error(`unsupported step "${kinds.join(',')}"`);
+    const { receiver_id: receiver, actions } = step.NearTransaction;
+    if (typeof receiver !== 'string' || !Array.isArray(actions) || !actions.length) throw new Error('malformed step');
+    return transaction(
+      receiver,
+      actions.map((action) => {
+        const keys = Object.keys(action || {});
+        if (keys.length !== 1 || keys[0] !== 'FunctionCall') throw new Error(`unsupported action "${keys.join(',')}"`);
+        const { method_name: method, args, gas, deposit } = action.FunctionCall;
+        return functionCall(method, decodeArgs(args), String(BigInt(gas)), String(BigInt(deposit || '0')));
+      })
+    );
+  });
+}
+
+/** Intear DEX operations (deposit_near args or an ft_transfer_call msg) must pay the trader back. */
+function checkPlach(payload, user) {
+  const list = payload?.operations?.operations ?? payload?.operations;
+  if (!Array.isArray(list) || !list.length) throw new Error('Intear DEX route without operations');
+  const referrer = payload?.operations?.referrer ?? payload?.referrer;
+  if (referrer != null && referrer !== INTEAR_REFERRER) throw new Error(`unexpected referrer "${referrer}"`);
+  list.forEach((op) => {
+    const [kind] = Object.keys(op || {});
+    if (!PLACH_OPERATIONS.has(kind)) throw new Error(`unexpected Intear DEX operation "${kind}"`);
+    if (kind === 'Withdraw') {
+      const { to, rescue_address: rescue } = op.Withdraw;
+      if (to != null && to !== user) throw new Error(`output would be sent to "${to}"`);
+      if (rescue != null && rescue !== user) throw new Error(`refunds would go to "${rescue}"`);
+    }
+  });
+}
+
+/** Rhea swap messages: the referral (if any) must be KINU's; outputs always return to the sender. */
+function checkRheaMsg(msg) {
+  const parsed = parseMsg(msg);
+  if (!parsed) throw new Error('unreadable Rhea swap message');
+  if (parsed.referral_id != null && parsed.referral_id !== INTEAR_REFERRER) throw new Error(`unexpected referral "${parsed.referral_id}"`);
+  if (parsed.receiver_id != null || parsed.Swap?.receiver_id != null) throw new Error('Rhea swap with another receiver');
+}
+
+/**
+ * Throws unless these transactions only swap `amountIn` of tokenIn for the trader: no other
+ * token is spent, no more than the input is attached, and every output comes back to `user`.
+ */
+export function assertIntearRoute(transactions, { tokenIn, amountIn, user }) {
+  const input = contractOf(tokenIn);
+  const limit = toBigInt(amountIn);
+  let nearSpent = 0n;
+  let tokenSpent = 0n;
+  transactions.forEach((tx) => {
+    tx.actions.forEach(({ params: { methodName, args = {}, gas, deposit } }) => {
+      if (BigInt(gas) > MAX_GAS) throw new Error('gas above the NEAR limit');
+      const allowed = METHODS[tx.receiverId] || (tx.receiverId === input ? ['storage_deposit', 'ft_transfer_call'] : ['storage_deposit']);
+      if (!allowed.includes(methodName)) throw new Error(`unexpected "${methodName}" on ${tx.receiverId}`);
+      if (methodName === 'storage_deposit' && args.account_id != null && args.account_id !== user) {
+        throw new Error(`storage for "${args.account_id}"`);
+      }
+      if (methodName === 'near_deposit' || methodName === 'deposit_near') {
+        if (!tokenIn.native) throw new Error('route attaches NEAR to a token swap');
+        nearSpent += BigInt(deposit);
+      }
+      if (methodName === 'deposit_near') checkPlach(args, user);
+      if (methodName === 'ft_transfer_call') {
+        if (tx.receiverId !== input) throw new Error(`route spends ${tx.receiverId}`);
+        if (!DESTINATIONS.has(args.receiver_id)) throw new Error(`tokens sent to "${args.receiver_id}"`);
+        tokenSpent += toBigInt(args.amount);
+        if (args.receiver_id === CONTRACTS.intearDex) checkPlach(parseMsg(args.msg), user);
+        else checkRheaMsg(args.msg);
+      }
+    });
+  });
+  if (nearSpent > limit) throw new Error('route attaches more NEAR than the swap amount');
+  if (tokenSpent > limit) throw new Error('route spends more than the swap amount');
+  if (tokenSpent === 0n && nearSpent === 0n) throw new Error('route does not spend the input');
+}
+
+/**
+ * Best Intear Aggregator route for amountIn (raw) of tokenIn -> tokenOut, in the shape of the
+ * other quotes in lib/swap.js plus `intear` (instructions and costs). Routes that would need a
+ * second conversion step, or that fail the checks above, are skipped.
+ */
+export async function getIntearQuote({ tokenIn, tokenOut, amountIn, slippage, user, signal }) {
+  // Taxed tokens are priced by KINU's own routes, which account for the tax.
+  const { inBps, outBps } = await swapTax(contractOf(tokenIn), contractOf(tokenOut));
+  if (inBps || outBps) throw new Error('Intear routes skip taxed tokens.');
+
+  const params = new URLSearchParams({
+    token_in: assetOf(tokenIn),
+    token_out: assetOf(tokenOut),
+    amount_in: String(amountIn),
+    max_wait_ms: String(MAX_WAIT_MS),
+    slippage_type: 'Fixed',
+    slippage: String(Number(slippage) / 100),
+    dexes: DEXES.join(','),
+    referrer_id: INTEAR_REFERRER
+  });
+  if (user) params.set('trader_account_id', user);
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), QUOTE_TIMEOUT_MS);
+  signal?.addEventListener('abort', () => controller.abort());
+  let routes;
+  try {
+    const response = await fetch(`${ENDPOINTS.intearRouter}/route?${params}`, { signal: controller.signal });
+    if (!response.ok) throw new Error((await response.text()).slice(0, 200) || `Intear HTTP ${response.status}`);
+    routes = await response.json();
+  } catch (error) {
+    if (error.name === 'AbortError' && !signal?.aborted) throw new Error('Intear Aggregator timed out.');
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+  if (!Array.isArray(routes) || !routes.length) throw new Error('No Intear route for this pair.');
+
+  // Routes come best first (costs included). Take the first one KINU can execute as-is.
+  const want = assetOf(tokenOut);
+  for (const route of routes) {
+    if (route.token_output !== want || route.deadline != null) continue;
+    try {
+      const txs = toTransactions(route.execution_instructions);
+      assertIntearRoute(txs, { tokenIn, amountIn, user });
+      const amountOut = String(route.estimated_amount?.amount_out ?? '0');
+      if (toBigInt(amountOut) === 0n) continue;
+      return {
+        amountIn: String(amountIn),
+        amountOut,
+        minAmountOut: String(route.worst_case_amount?.amount_out ?? '0'),
+        tax: null,
+        dexs: [DEX_LABEL[route.dex_id] || route.dex_id],
+        routeTokens: [contractOf(tokenIn), contractOf(tokenOut)],
+        intear: {
+          dexId: route.dex_id,
+          instructions: route.execution_instructions,
+          gasUsage: String(route.estimated_gas_usage || '0'),
+          maxGasCost: String(route.estimated_max_gas_cost || '0'),
+          storage: String(route.storage_deposits || '0')
+        },
+        user: user || null,
+        fetchedAt: Date.now()
+      };
+    } catch {
+      // Not executable by KINU: try the next route.
+    }
+  }
+  throw new Error('No Intear route KINU can execute for this pair.');
+}
+
+/** The transactions of an Intear quote, checked again for this exact account. */
+export function buildIntearSwapTransactions({ tokenIn, quote, accountId }) {
+  const txs = toTransactions(quote.intear.instructions);
+  assertIntearRoute(txs, { tokenIn, amountIn: quote.amountIn, user: accountId });
+  return txs;
+}
+
+/** Network fee of an Intear quote, from the aggregator's own estimate (same shape as estimateNetworkFee). */
+export function intearNetworkFee(quote) {
+  const toNear = (yocto) => Number(yocto) / 1e24;
+  return { feeNear: toNear(quote.intear.gasUsage), maxFeeNear: toNear(quote.intear.maxGasCost), storageNear: toNear(quote.intear.storage) };
+}

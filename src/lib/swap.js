@@ -17,6 +17,7 @@ import { getWhitelistedTokens } from './tokens.js';
 import { buildDclSwapTransactions, dclNeighbors, getDclQuote } from './dclRouter.js';
 import { platformFeeFor, withPlatformFee } from './platformFee.js';
 import { afterTax, swapTax } from './tokenTax.js';
+import { buildIntearSwapTransactions, getIntearQuote } from './intearRouter.js';
 
 const QUOTE_TIMEOUT_MS = 8_000;
 
@@ -24,8 +25,8 @@ const contractOf = (token) => token.contract || token.id;
 
 /**
  * Best quote for `amountIn` (raw units) of tokenIn -> tokenOut.
- * Rhea's SmartRouter and direct CLMM routing are quoted side by side and the
- * larger output wins: on the same CLMM pools the direct route skips the
+ * Rhea's SmartRouter, direct CLMM routing and the Intear DEX Aggregator (Rhea + Intear DEX
+ * pools) are quoted side by side and the larger output wins: on the same CLMM pools the direct route skips the
  * aggregator's protocol fee, while the router also reaches AMM / stable pools
  * and can split large trades. If neither has a path, a two-step route through
  * a bridge token is tried. Pass `user` to get an executable, user-bound quote.
@@ -36,7 +37,9 @@ const contractOf = (token) => token.contract || token.id;
  */
 export async function getSwapQuote(params) {
   const fee = await platformFeeFor(params);
-  const quote = await getNetSwapQuote(fee ? { ...params, amountIn: fee.net } : params);
+  // Intear routes are signed as the aggregator builds them, with no room for KINU's fee transfer:
+  // while a platform fee applies they are left out.
+  const quote = await getNetSwapQuote(fee ? { ...params, amountIn: fee.net, noIntear: true } : params);
   if (!fee) return quote;
   for (const route of quote.routes || []) {
     route.quote.platformFee = fee;
@@ -48,12 +51,18 @@ export async function getSwapQuote(params) {
 }
 
 async function getNetSwapQuote(params) {
-  const [router, clmm, bridge] = await Promise.allSettled([getSmartRouterQuote(params), getDclQuote(params), getHybridQuote(params)]);
+  const [router, clmm, bridge, intear] = await Promise.allSettled([
+    getSmartRouterQuote(params),
+    getDclQuote(params),
+    getHybridQuote(params),
+    params.noIntear ? Promise.reject(new Error('skipped')) : getIntearQuote(params)
+  ]);
   if (params.signal?.aborted) throw router.reason || new DOMException('Aborted', 'AbortError');
 
   const direct = [
     router.status === 'fulfilled' && { source: 'SmartRouter', quote: router.value },
-    clmm.status === 'fulfilled' && { source: 'Rhea CLMM (direct)', quote: clmm.value }
+    clmm.status === 'fulfilled' && { source: 'Rhea CLMM (direct)', quote: clmm.value },
+    intear.status === 'fulfilled' && { source: 'Intear Aggregator', quote: intear.value }
   ].filter(Boolean);
   const candidates = [...direct];
   if (bridge.status === 'fulfilled') candidates.push({ source: 'Bridge route (2 steps)', quote: bridge.value });
@@ -130,6 +139,8 @@ export async function measurePriceImpact(quote, { tokenIn, tokenOut, amountIn })
   } else if (quote.msg) {
     const ref = await getSmartRouterQuote({ tokenIn, tokenOut, amountIn: small.toString(), slippage: 0.5 });
     refOut = ref.tax?.grossOut ?? ref.amountOut;
+  } else if (quote.intear) {
+    refOut = (await getIntearQuote({ tokenIn, tokenOut, amountIn: small.toString(), slippage: 0.5 })).amountOut;
   }
   if (!refOut || toBigInt(refOut) === 0n) return null;
   // Compared before token tax on both sides: the tax is shown separately, not as impact.
@@ -300,6 +311,7 @@ async function buildNetSwapTransactions({ tokenIn, tokenOut, quote, accountId })
   if (quote?.user !== accountId) throw new Error('Quote was created for another account. Refresh the quote.');
   if (quote.hybrid) throw new Error('Combined routes are executed one leg at a time.');
   if (quote.dcl) return buildDclSwapTransactions({ tokenIn, tokenOut, quote, accountId });
+  if (quote.intear) return buildIntearSwapTransactions({ tokenIn, quote, accountId });
   if (!quote.msg || !quote.signature) throw new Error('Quote is not executable. Refresh the quote.');
 
   const aggregator = CONTRACTS.aggregator;
