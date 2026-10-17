@@ -31,7 +31,9 @@ export default defineConfig({
       // Node polyfills required by the NEAR wallet-selector packages.
       buffer: local('./node_modules/buffer/index.js'),
       process: local('./node_modules/process/browser.js'),
-      depd: local('./src/shims/depd.js')
+      depd: local('./src/shims/depd.js'),
+      // HOT Wallet's sign-in nonce (crypto.randomBytes), from the browser's secure random.
+      crypto: local('./src/shims/crypto.js')
     }
   },
   define: {
