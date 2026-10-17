@@ -4,7 +4,7 @@
 
 import { Link, poolPath } from '../router.jsx';
 import { CopyButton } from '../components/ui.jsx';
-import { ENDPOINTS } from '../config.js';
+import { ENDPOINTS, FEE_SUMMARY } from '../config.js';
 
 const KINU = 'kinu-3.nearlytrade.near';
 const RHEA = 'token.rhealab.near';
@@ -166,7 +166,7 @@ export default function Security() {
               before it receives any platform income.
             </p>
           )}
-          <p className="muted small">KINU charges no platform fee today. Any future fee will be shown before you sign.</p>
+          <p className="muted small">{FEE_SUMMARY}</p>
         </div>
         <div className="card sec-section">
           <h2>Report a problem</h2>

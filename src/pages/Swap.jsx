@@ -29,7 +29,7 @@ import {
   toNumber,
   tryParseUnits
 } from '../lib/format.js';
-import { CONTRACTS, DEPOSIT, KINU_VERIFIED_TOKENS, NATIVE_NEAR, NEAR_GAS_RESERVE, PINNED_TOKENS } from '../config.js';
+import { bpsText, CONTRACTS, DEPOSIT, INTEAR_FEE, INTEAR_REFERRER, KINU_VERIFIED_TOKENS, NATIVE_NEAR, NEAR_GAS_RESERVE, PINNED_TOKENS } from '../config.js';
 import { SlippagePicker } from '../components/Slippage.jsx';
 
 const SwapChart = lazy(() => import('../components/swap/SwapChart.jsx'));
@@ -175,6 +175,16 @@ function RoutePicker({ quote, tokenOut, onPick, onClose }) {
 }
 
 const QUICK_PERCENTS = [25, 50, 80, 100];
+
+// Intear treats these as "stable" for its lower fee tier (NEAR, wNEAR and the main stablecoins).
+const STABLE_IDS = new Set([
+  'near',
+  'wrap.near',
+  '17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1',
+  'usdt.tether-token.near',
+  'a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.factory.bridge.near',
+  'dac17f958d2ee523a2206206994597c13d831ec7.factory.bridge.near'
+]);
 
 function isWrapPair(a, b) {
   return (
@@ -795,6 +805,15 @@ export default function Swap() {
                         </div>
                       )
                     ))}
+                  {INTEAR_FEE.live && quote.intear?.dexId === 'Plach' && (
+                    <div>
+                      <dt>KINU fee</dt>
+                      <dd title={`Paid to ${INTEAR_REFERRER} on Intear DEX routes; ${bpsText(INTEAR_FEE.stableBps)} when both tokens are stable. Already included in You receive.`}>
+                        {bpsText(STABLE_IDS.has(tokenIn.id) && STABLE_IDS.has(tokenOut.id) ? INTEAR_FEE.stableBps : INTEAR_FEE.bps)}{' '}
+                        <small className="muted">· included</small>
+                      </dd>
+                    </div>
+                  )}
                   {quote.compared?.length > 0 && (
                     <div>
                       <dt>Route provider</dt>
@@ -843,7 +862,7 @@ export default function Swap() {
           </div>
 
           <p className="fine-print">
-            Every swap is quoted on Rhea&apos;s SmartRouter and on direct Rhea CLMM pools; the larger output wins.
+            Every swap is quoted on Rhea&apos;s SmartRouter, direct Rhea CLMM pools and the Intear DEX Aggregator; the largest output wins.
             Every transaction is reviewed and signed in your own wallet — KINU never holds your keys or funds.
           </p>
 

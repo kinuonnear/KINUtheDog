@@ -3,6 +3,7 @@
 
 import { useEffect } from 'react';
 import { Link, poolPath } from '../router.jsx';
+import { FEE_SUMMARY } from '../config.js';
 import { WHITEPAPER } from './Whitepaper.jsx';
 
 const KINU = 'kinu-3.nearlytrade.near';
@@ -452,7 +453,7 @@ const DOCS = [
             ['Why do I pay a storage fee?', 'NEAR charges storage for each token account you hold. It is paid once per token (usually 0.00125 NEAR) and is shown in the cost breakdown.'],
             ['Why does a deposit attach so much gas?', 'Since Rhea’s October 2026 upgrade a CLMM deposit uses about 420–430 TGas; KINU attaches 600 TGas so it never runs out. You only pay for the gas used (about 0.04 NEAR) — the rest is refunded.'],
             ['The price moved while I was depositing.', 'Use Accept new price to confirm updated amounts, or widen your slippage in ⚙.'],
-            ['Does KINU charge a fee?', 'No platform fee today. Pool fees go to liquidity providers. Any future fee will be shown before you sign.'],
+            ['Does KINU charge a fee?', `${FEE_SUMMARY} Pool fees go to liquidity providers.`],
             ['Why APR and not APY?', 'APR is the last 24h of fees annualised without compounding (fees ÷ TVL × 365). Rhea labels the same number “APY”, but it is not compounded — so KINU calls it APR. A ≈ in front means KINU estimated it because Rhea gives none for that pool.'],
             ['Why did my position stop earning?', 'A CLMM position earns only while the price is inside its range. While KINU is open it alerts you when a position goes out of range; ⟲ Rebalance moves it back around the current price.'],
             ['Is this financial advice?', 'No. KINU is non-custodial software. DeFi carries risk, including loss of funds — do your own research.']
@@ -524,8 +525,7 @@ const DOCS = [
 
         <h3>6. Fees</h3>
         <p>
-          KINU charges no platform fee today. Pool fees go to the pool’s liquidity providers; network gas and storage deposits go to
-          NEAR. If KINU ever adds a fee, it will be shown before you sign.
+          {FEE_SUMMARY} Pool fees go to the pool’s liquidity providers; network gas and storage deposits go to NEAR.
         </p>
 
         <h3>7. Acceptable use</h3>

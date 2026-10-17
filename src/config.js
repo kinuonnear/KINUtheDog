@@ -101,9 +101,22 @@ export const KINU_TOKEN = 'kinu-3.nearlytrade.near';
 // only after the docs, security page and an announcement say so. bps: 10 = 0.1%.
 export const PLATFORM_FEE = { enabled: false, bps: 10, treasury: 'kinu-treasury.near' };
 
-// Account KINU passes as `referrer_id` to the Intear DEX Aggregator. Swaps are tracked under it;
-// the referral fee is 0% (Intear's fee setting isn't available yet), so users pay nothing extra.
-export const INTEAR_REFERRER = 'kinuonnear.near';
+// Account KINU passes as `referrer_id` to the Intear DEX Aggregator: swaps are tracked under it and
+// its referral fee (INTEAR_FEE) is paid to it.
+export const INTEAR_REFERRER = 'kinu-treasury.near';
+
+// KINU's referral fee on Intear DEX (Plach) routes, set on Intear's side for INTEAR_REFERRER (Rhea
+// routes carry no KINU fee). Quotes already have it taken out. `live` turns on its disclosure across
+// the app (swap details, landing, Security, Docs); set it true only once the fee is actually set.
+export const INTEAR_FEE = { live: false, bps: 20, stableBps: 5 };
+
+/** "0.2%" for basis points. */
+export const bpsText = (bps) => `${Number((bps / 100).toFixed(2))}%`;
+
+/** One line describing KINU's fees, for the landing, Security and Docs. */
+export const FEE_SUMMARY = INTEAR_FEE.live
+  ? `No fee on Rhea routes. Swaps routed through Intear DEX include a ${bpsText(INTEAR_FEE.bps)} KINU fee (${bpsText(INTEAR_FEE.stableBps)} on stable pairs), shown before you sign and paid to ${INTEAR_REFERRER}.`
+  : 'No platform fee today. Any future fee will be shown before you sign.';
 
 // Tokens KINU has checked by hand (official project tokens) and treats as verified, next to
 // Rhea's own whitelist: no "isn't on Rhea's verified list" warning, and a ✓ in the token picker.

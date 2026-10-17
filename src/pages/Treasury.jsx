@@ -13,7 +13,7 @@ import { loadDclPositions, markDclRows } from '../lib/smartLp.js';
 import { asPoolToken, getTokens, priceOf } from '../lib/tokens.js';
 import { getClassicPositions } from '../lib/rhea.js';
 import { formatAmount, formatUsd, toNumber } from '../lib/format.js';
-import { ENDPOINTS, KINU_TOKEN, NATIVE_NEAR } from '../config.js';
+import { bpsText, ENDPOINTS, INTEAR_FEE, INTEAR_REFERRER, KINU_TOKEN, NATIVE_NEAR } from '../config.js';
 import { ErrorNotice, PairIcons, Skeleton } from '../components/ui.jsx';
 import { FlowLines } from '../components/FlowLines.jsx';
 import '../pools.css';
@@ -226,6 +226,16 @@ export default function Treasury() {
           <Link to={poolPath(info.data.poolId)} className="ts-link">
             Open the KINU/{symbol} pool →
           </Link>
+        )}
+        {INTEAR_FEE.live && (
+          <p className="muted small">
+            Also in: KINU&apos;s {bpsText(INTEAR_FEE.bps)} fee ({bpsText(INTEAR_FEE.stableBps)} on stable pairs) on swaps routed through Intear DEX,
+            paid to{' '}
+            <a href={explorer(`address/${INTEAR_REFERRER}`)} target="_blank" rel="noopener noreferrer" className="mono">
+              {INTEAR_REFERRER}
+            </a>
+            . It is split the same way.
+          </p>
         )}
       </section>
 
