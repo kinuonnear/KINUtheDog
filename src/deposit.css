@@ -782,8 +782,16 @@
   text-align: center;
 }
 
+/* Its longer label ("Cancel and start over …") wraps on phones instead of running past the card. */
 .dep-new {
   align-self: center;
+  max-width: 100%;
+  height: auto;
+  min-height: 32px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+  white-space: normal;
+  text-align: center;
 }
 
 /* ---------- how it works + FAQ ---------- */
