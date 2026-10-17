@@ -25,46 +25,45 @@
   text-transform: uppercase;
 }
 
-/* ---------- hero ---------- */
-.dep-hero {
+/* ---------- header: the same open title as Pools (.pt-hero / .pt-title), chains art on the right ---------- */
+.dep-hero.pt-hero {
+  position: relative;
+  isolation: isolate;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 460px);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 420px);
   align-items: center;
   gap: 24px;
-  position: relative;
-  padding: 26px 30px;
+  padding: 8px 0 8px;
+}
+
+.dep-hero .lx-flow {
+  top: -70px;
+  left: 0;
+  width: 100%;
+  height: 380px;
+  transform: none;
+  -webkit-mask-image: radial-gradient(ellipse 30% 85% at 52% 50%, #000 35%, transparent 80%);
+  mask-image: radial-gradient(ellipse 30% 85% at 52% 50%, #000 35%, transparent 80%);
 }
 
 .dep-hero__copy {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
-.dep-hero__eyebrow {
-  display: inline-flex;
-  align-items: center;
-  font: 600 11px/1 var(--mono);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.dep-hero h1 {
-  font-size: clamp(28px, 4vw, 40px);
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
-}
-
-.dep-hero h1 em {
-  font-style: normal;
-  color: var(--accent);
+/* Beta tag beside the title, not inside its gradient text. */
+.dep-hero .pt-title .dep-beta {
+  display: inline-block;
+  margin-left: 12px;
+  vertical-align: middle;
+  -webkit-text-fill-color: var(--accent);
+  font-size: 11px;
+  letter-spacing: 0.1em;
 }
 
 .dep-hero p {
   max-width: 560px;
-  color: var(--muted);
 }
 
 .dep-hero__stats {
@@ -92,9 +91,12 @@
 }
 
 @media (max-width: 900px) {
-  .dep-hero {
+  .dep-hero.pt-hero {
     grid-template-columns: minmax(0, 1fr);
-    padding: 20px 16px;
+  }
+
+  .dep-hero .lx-flow {
+    display: none;
   }
 }
 
@@ -908,8 +910,8 @@
 .dep-shield--ok {
   position: absolute;
   z-index: 5;
-  top: 14px;
-  right: 16px;
+  top: 0;
+  right: 0;
 }
 
 .dep-shield {
@@ -978,8 +980,8 @@
 }
 
 @media (max-width: 900px) {
-  .dep-hero {
-    padding-top: 52px;
+  .dep-hero.pt-hero {
+    padding-top: 40px;
   }
 }
 

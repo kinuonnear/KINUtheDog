@@ -33,6 +33,7 @@ import { wrapNeededFor } from '../lib/tx.js';
 import { CONTRACTS, ENDPOINTS, NEAR_GAS_RESERVE } from '../config.js';
 import { CopyButton, ErrorNotice, Skeleton, Spinner } from '../components/ui.jsx';
 import DepositHero from '../components/DepositHero.jsx';
+import { FlowLines } from '../components/FlowLines.jsx';
 import '../deposit.css';
 
 const ACTIVE_KEY = 'kinu.deposit.active';
@@ -875,17 +876,15 @@ export default function Deposit() {
 
   return (
     <div className="page deposit">
-      <header className="card dep-hero">
+      <header className="pt-hero dep-hero">
+        <FlowLines />
         <ShieldBadge shield={shield} />
         <div className="dep-hero__copy">
-          <span className="dep-hero__eyebrow">
-            NEAR Intents · Bridge <span className="dep-beta">Beta</span>
-          </span>
-          <h1>
-            Any chain <em>⇄</em> NEAR.
+          <h1 className="pt-title">
+            Bridge <span className="dep-beta">Beta</span>
           </h1>
           <p>
-            Move USDC, USDT, ETH, SOL and BTC between NEAR and {chains.length || 36} chains in about a minute. Signed quotes, your own wallet, zero custody.
+            Any chain ⇄ NEAR. Move USDC, USDT, ETH, SOL and BTC between NEAR and {chains.length || 36} chains in about a minute, through NEAR Intents.
           </p>
           <div className="dep-hero__stats">
             <span>
