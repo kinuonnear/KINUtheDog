@@ -324,7 +324,10 @@ async function poolList(kind) {
   };
 }
 
-/** A pool: tokens (with contracts), TVL, volume, APR, and the range choices. */
+/**
+ * A pool: tokens (with contracts), TVL, volume, APR, then what goes in. The flow after it:
+ * side (one token below / above the price, or both) → strategy (shape) → width % → $ amount.
+ */
 async function poolCard(poolId, fallback = null) {
   const pool = (await poolById(poolId).catch(() => null)) || fallback;
   if (!pool) return { text: 'That pool is not listed yet. Paste the token contract to look again.', reply_markup: { inline_keyboard: [MENU_ROW] } };
@@ -333,6 +336,7 @@ async function poolCard(poolId, fallback = null) {
   const apr = pool.tvl >= 100 ? (pool.fees / pool.tvl) * 365 * 100 : null;
   const tokenLine = (id, symbol) => `${esc(symbol)}: <code>${esc(short(id))}</code>${VERIFIED.has(id) ? ' ✓ verified' : ''}`;
   const main = pool.tokens.find((t) => t !== WNEAR) || x;
+  const hasNear = pool.tokens.includes(WNEAR);
   const lines = [
     `🎯 <a href="${stateUrl(pool.id)}">${esc(`${sx} / ${sy}`)}</a> · CLMM ${pool.feePct}% fee`,
     tokenLine(x, sx),
@@ -340,35 +344,72 @@ async function poolCard(poolId, fallback = null) {
     `TVL ${usd(pool.tvl)} · 24h volume ${usd(pool.volume)} · 24h fees ${usd(pool.fees)}`,
     apr !== null ? `Fee APR ≈ ${pct(apr)}% (last 24h, not a promise)` : null,
     '',
-    '<b>Pick a range</b>',
-    pool.tokens.includes(WNEAR) ? '⚡ Zap: put in NEAR only, KINU swaps the right share.' : '⚖ Both tokens, at the pool price.',
-    `💵 ${esc(sy)} only: sits below the price (a limit buy of ${esc(sx)}).`,
-    `🎯 ${esc(sx)} only: sits above the price (a limit sell of ${esc(sx)}).`
+    '<b>What do you put in?</b>',
+    `💵 ${esc(sy)} only: below the price, buys ${esc(sx)} as it falls.`,
+    `🎯 ${esc(sx)} only: above the price, sells ${esc(sx)} as it rises.`,
+    hasNear ? '⚡ Zap NEAR: both sides around the price; put in NEAR only, KINU swaps the right share.' : '⚖ Both tokens: both sides around the price.'
   ].filter((l) => l !== null);
-  const both = pool.tokens.includes(WNEAR) ? '⚡' : '⚖';
   return {
     text: lines.join('\n'),
     reply_markup: {
       inline_keyboard: [
-        RANGES.slice(0, 3).map((r) => cb(`${both} ±${r}%`, `r:${r}`)),
-        [cb(`${both} ±${RANGES[3]}%`, `r:${RANGES[3]}`), cb(`${both} Full range`, 'r:full')],
-        [cb(`💵 ${sy} only ↓`, 'o:b'), cb(`🎯 ${sx} only ↑`, 'o:a')],
+        [cb(`💵 ${sy} only ↓`, 'd:b'), cb(`🎯 ${sx} only ↑`, 'd:a')],
+        [cb(hasNear ? '⚡ Zap NEAR · both sides' : '⚖ Both tokens', 'd:z')],
         [cb(`⇄ Buy / Sell ${pool.symbols[pool.tokens.indexOf(main)]}`, 's'), ...MENU_ROW]
       ]
     }
   };
 }
 
-/** One-sided range: how far below / above the price it reaches. */
-function sideWidth(poolId, side, symbols) {
-  const [sx, sy] = symbols;
+const STRATEGY_NAMES = { spot: 'Spot', curve: 'Curve', bidask: 'Bid-Ask' };
+const sideLabel = (side, [sx, sy], hasNear) => (side === 'b' ? `${sy} only` : side === 'a' ? `${sx} only` : hasNear ? 'Zap NEAR' : 'Both tokens');
+
+/** Step 2: the shape. KINU spreads Curve most near the price and Bid-Ask most far from it. */
+function strategyStep(poolId, side, symbols) {
+  const hasNear = poolId.split('|').includes(WNEAR);
+  const [sx] = symbols;
+  const options =
+    side === 'b'
+      ? [['▤ Spot · even buys', 'spot'], ['⛰ Curve · most near price', 'curve'], ['📐 Bid-Ask · ladder, more on dips', 'bidask']]
+      : side === 'a'
+        ? [['▤ Spot · even sells', 'spot'], ['⛰ Curve · most near price', 'curve'], ['📐 Bid-Ask · ladder, more on pumps', 'bidask']]
+        : [['▤ Spot · even', 'spot'], ['⛰ Curve · peak at price', 'curve'], ['📐 Bid-Ask · heavier at edges', 'bidask']];
+  const hint =
+    side === 'b'
+      ? `Spot buys ${esc(sx)} evenly on the way down; Curve buys most just below the price; Bid-Ask buys more the deeper it drops (a DCA ladder).`
+      : side === 'a'
+        ? `Spot sells ${esc(sx)} evenly on the way up; Curve sells most just above the price; Bid-Ask sells more the higher it goes.`
+        : 'Spot works for any market; Curve earns the most while the price stays calm; Bid-Ask suits volatile prices.';
+  return {
+    text: [`🧭 <a href="${stateUrl(poolId, { side })}">${esc(`${symbols[0]} / ${symbols[1]}`)}</a> · ${esc(sideLabel(side, symbols, hasNear))}`, '<b>Pick a strategy</b>', hint].join('\n'),
+    reply_markup: { inline_keyboard: [...options.map(([label, key]) => [cb(label, `g:${key}`)]), MENU_ROW] }
+  };
+}
+
+/** Step 3: how wide — ± around the price for both sides, down / up from it for one side. */
+function widthStep(poolId, side, strategy, symbols) {
+  const hasNear = poolId.split('|').includes(WNEAR);
+  const head = `📐 <a href="${stateUrl(poolId, { side, strategy })}">${esc(`${symbols[0]} / ${symbols[1]}`)}</a> · ${esc(sideLabel(side, symbols, hasNear))} · ${STRATEGY_NAMES[strategy] || 'Spot'}`;
+  if (side === 'z') {
+    const both = hasNear ? '⚡' : '⚖';
+    return {
+      text: [head, '<b>How wide around the price?</b> Tighter earns more fees but leaves the range sooner.'].join('\n'),
+      reply_markup: {
+        inline_keyboard: [
+          RANGES.slice(0, 3).map((r) => cb(`${both} ±${r}%`, `r:${r}`)),
+          [cb(`${both} ±${RANGES[3]}%`, `r:${RANGES[3]}`), cb(`${both} Full range`, 'r:full')],
+          MENU_ROW
+        ]
+      }
+    };
+  }
   const below = side === 'b';
   return {
     text: [
-      `📐 <a href="${stateUrl(poolId)}">${esc(`${sx} / ${sy}`)}</a> · ${below ? `${esc(sy)} only` : `${esc(sx)} only`}`,
+      head,
       below
-        ? `How far below the price should it reach? It fills as the price falls: tighter earns more fees but is passed sooner.`
-        : `How far above the price should it reach? It sells as the price rises: tighter earns more fees but is passed sooner.`
+        ? '<b>How far below the price?</b> It fills as the price falls: tighter earns more fees but is passed sooner.'
+        : '<b>How far above the price?</b> It sells as the price rises: tighter earns more fees but is passed sooner.'
     ].join('\n'),
     reply_markup: {
       inline_keyboard: [
@@ -384,10 +425,13 @@ function sideWidth(poolId, side, symbols) {
 function depositOf(pool, params) {
   const [x, y] = pool.tokens;
   const [sx, sy] = pool.symbols;
-  if (params.get('below')) return { token: y, symbol: sy, label: `${sy} only · down to −${params.get('below')}%` };
-  if (params.get('above')) return { token: x, symbol: sx, label: `${sx} only · up to +${params.get('above')}%` };
+  const shape = STRATEGY_NAMES[params.get('strategy')] || 'Spot';
+  if (params.get('below')) return { token: y, symbol: sy, label: `${sy} only · ${shape} · down to −${params.get('below')}%` };
+  if (params.get('above')) return { token: x, symbol: sx, label: `${sx} only · ${shape} · up to +${params.get('above')}%` };
   const width = params.get('range') === 'full' ? 'full range' : `±${params.get('range')}%`;
-  return pool.tokens.includes(WNEAR) ? { token: WNEAR, symbol: 'NEAR', label: `Zap NEAR · ${width}` } : { token: null, symbol: null, label: `Both tokens · ${width}` };
+  return pool.tokens.includes(WNEAR)
+    ? { token: WNEAR, symbol: 'NEAR', label: `Zap NEAR · ${shape} · ${width}` }
+    : { token: null, symbol: null, label: `Both tokens · ${shape} · ${width}` };
 }
 
 /** Amount step: $50 / $100 / $150 / custom of the token the range takes. */
@@ -742,12 +786,14 @@ export async function replyForButton(data, message) {
   if (!state?.poolId) return menu();
   const [x, y] = state.poolId.split('|');
   if (kind === 's') return swapReply({ token: x === WNEAR ? y : x });
-  if (kind === 'r') return amountStep(state.poolId, new URLSearchParams({ range: a }));
-  if (kind === 'o') {
-    const pool = await poolById(state.poolId).catch(() => null);
-    return sideWidth(state.poolId, a, pool?.symbols || [x, y]);
-  }
-  if (kind === 'w') return amountStep(state.poolId, new URLSearchParams({ [a === 'b' ? 'below' : 'above']: b }));
+  // The strategy picked so far rides along in the message's pool link (spot when none).
+  const strategy = STRATEGY_NAMES[state.params.get('strategy')] ? state.params.get('strategy') : 'spot';
+  const symbolsOf = async () => (await poolById(state.poolId).catch(() => null))?.symbols || [x, y].map((t) => (t === WNEAR ? 'NEAR' : t.split('.')[0].toUpperCase()));
+  // d: side → strategy step ('o' is the side button of older messages).
+  if (kind === 'd' || kind === 'o') return strategyStep(state.poolId, a, await symbolsOf());
+  if (kind === 'g') return widthStep(state.poolId, state.params.get('side') || 'z', STRATEGY_NAMES[a] ? a : 'spot', await symbolsOf());
+  if (kind === 'r') return amountStep(state.poolId, new URLSearchParams({ range: a, strategy }));
+  if (kind === 'w') return amountStep(state.poolId, new URLSearchParams({ [a === 'b' ? 'below' : 'above']: b, strategy }));
   if (kind === 'a') return finalStep(state.poolId, state.params, a === 'c' ? null : Number(a));
   return menu();
 }
