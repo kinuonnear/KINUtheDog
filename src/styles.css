@@ -1356,16 +1356,19 @@ a.pool-row:hover + .pool-row {
   font-size: 20px;
 }
 
-.swap-card__head > div:first-child {
-  min-width: 150px;
-}
-
 .swap-card__tools {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
   align-items: center;
   gap: 6px;
+}
+
+/* Narrow swap column: the buttons go on one row under the title instead of squeezing it. */
+@media (min-width: 1081px) {
+  .swap-pro__grid:not(.swap-pro__grid--solo) .swap-card__head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
 }
 
 .swap-field {
@@ -10018,6 +10021,14 @@ a.pair-tiers__row:hover {
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+    transition: scrollbar-color 0.2s;
+  }
+
+  /* Scrollbars stay out of sight until the pointer is over the column. */
+  .swap-pro__grid:not(.swap-pro__grid--solo) > .swap-pro__main:hover,
+  .swap-pro__grid:not(.swap-pro__grid--solo) > .swap-pro__side:hover {
+    scrollbar-color: var(--surface-3) transparent;
   }
 }
 
