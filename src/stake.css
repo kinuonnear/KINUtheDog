@@ -26,15 +26,38 @@
   position: relative;
   z-index: 1; /* above the hero flow lines */
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 460px;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 0.85fr);
   align-items: start;
   gap: 18px;
   margin-top: 8px;
 }
 
+/* Medium screens: the FAQ goes under the side column. */
+@media (max-width: 1200px) {
+  .stk-grid {
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  }
+
+  .stk-main {
+    grid-row: span 2;
+  }
+
+  .stk-faq {
+    grid-column: 2;
+  }
+}
+
 @media (max-width: 900px) {
   .stk-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .stk-main {
+    grid-row: auto;
+  }
+
+  .stk-faq {
+    grid-column: auto;
   }
 
   .stk-hero .lx-flow {
@@ -43,7 +66,8 @@
 }
 
 .stk-main,
-.stk-side {
+.stk-side,
+.stk-faq {
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -61,24 +85,21 @@
   background: var(--surface-2);
 }
 
-/* ---------- provider choice ---------- */
+/* ---------- provider choice: inside the Stake / Unstake panel ---------- */
 .stk-pick {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-@media (max-width: 560px) {
-  .stk-pick {
-    grid-template-columns: minmax(0, 1fr);
-  }
+  gap: 10px;
 }
 
 .stk-option {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 16px 18px;
+  gap: 5px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
   color: var(--text);
   text-align: left;
   cursor: pointer;
@@ -96,30 +117,41 @@
 .stk-option__head {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .stk-option__head > span {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .stk-option__head b {
-  font-size: 16px;
+  font-size: 14px;
+}
+
+.stk-option__head small {
+  font-size: 11px;
 }
 
 .stk-option__apy {
   display: flex;
   align-items: baseline;
-  gap: 8px;
-  font-size: 24px;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 19px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
 
 .stk-option__apy small {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 500;
+}
+
+.stk-option__meta {
+  font-size: 11px;
+  line-height: 1.4;
 }
 
 /* ---------- form ---------- */
@@ -261,4 +293,170 @@
 
 .stk-lp {
   align-self: flex-start;
+}
+
+/* ---------- amount presets ---------- */
+.stk-presets {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.stk-presets small {
+  margin-left: auto;
+}
+
+/* ---------- exit comparison ---------- */
+.stk-exit strong {
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- put it to work ---------- */
+.stk-earn {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stk-earn h3 {
+  font-size: 16px;
+}
+
+.stk-pool {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.stk-pool > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.stk-pool small {
+  font-size: 12px;
+}
+
+/* ---------- Portfolio: staking summary ---------- */
+.stk-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stk-summary__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.stk-summary__rows {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.stk-summary__row {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.stk-summary__row > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.stk-summary__row small {
+  font-size: 12px;
+}
+
+/* ---------- APY history ---------- */
+.stk-history {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.stk-history__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.stk-history__head h3 {
+  font-size: 16px;
+}
+
+.stk-history__head small {
+  font-size: 12px;
+}
+
+.stk-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 150px;
+}
+
+.stk-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+}
+
+.stk-bar i {
+  display: block;
+  width: 100%;
+  max-width: 34px;
+  border-radius: 6px 6px 2px 2px;
+  background: var(--accent-soft);
+  border: 1px solid var(--border-strong);
+}
+
+.stk-bar:hover i {
+  background: var(--accent);
+}
+
+.stk-bar__value {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.stk-bar small {
+  font-size: 9.5px;
+  color: var(--faint);
+  white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .stk-bar__value,
+  .stk-bar small {
+    display: none;
+  }
 }

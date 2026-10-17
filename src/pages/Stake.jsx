@@ -1,27 +1,48 @@
 // Stake (/stake): liquid staking with LiNEAR (linear-protocol.near) or stNEAR (meta-pool.near), the
 // two longest-running, DAO-owned liquid staking contracts on NEAR (lib/staking.js). Stake NEAR for a
-// token that grows in NEAR value every epoch and can go into Rhea pools; leave instantly (by
-// selling it) or through a delayed unstake withdrawable in ~2–3 days. Non-custodial: the wallet
-// calls the staking contract directly.
+// token that grows in NEAR value every epoch (~7 h) and can go into Rhea pools; leave instantly (by
+// selling it, priced here) or through a delayed unstake withdrawable after about four epochs.
+// Non-custodial: the wallet calls the staking contract directly.
 
 import { useMemo, useState } from 'react';
 import { useApp } from '../state.jsx';
-import { useAsync } from '../hooks.js';
-import { Link } from '../router.jsx';
-import { getStakingApy, getPosition, liquidUnstakeQuote, liquidUnstakeTx, nearFor, priceOf, sharesFor, STAKING, stakeTx, totalStaked, unstakeTx, withdrawTx } from '../lib/staking.js';
+import { useAsync, useDebounced } from '../hooks.js';
+import { Link, poolPath } from '../router.jsx';
+import {
+  formatWait,
+  getApyHistory,
+  getEpochClock,
+  getStakeEarnings,
+  getLstPools,
+  getPosition,
+  getStakingApy,
+  liquidUnstakeQuote,
+  liquidUnstakeTx,
+  nearFor,
+  priceOf,
+  secondsUntilEpoch,
+  sharesFor,
+  STAKING,
+  stakeTx,
+  totalStaked,
+  unstakeTx,
+  withdrawTx
+} from '../lib/staking.js';
+import { getSwapQuote } from '../lib/swap.js';
 import { getTokens } from '../lib/tokens.js';
-import { formatAmount, formatUnits, toBigInt, tryParseUnits } from '../lib/format.js';
-import { NEAR_GAS_RESERVE } from '../config.js';
+import { formatAmount, formatUnits, formatUsd, toBigInt, tryParseUnits } from '../lib/format.js';
+import { NATIVE_NEAR, NEAR_GAS_RESERVE } from '../config.js';
 import { ErrorNotice, Skeleton, Spinner } from '../components/ui.jsx';
 import { FlowLines } from '../components/FlowLines.jsx';
 import '../deposit.css';
 import '../stake.css';
 
 const KEYS = ['linear', 'stnear'];
-const ONE_NEAR = 10n ** 24n;
 // Instant unstake through Meta Pool's pool: accept at most this much worse than the quote.
 const LIQUID_SLIPPAGE_BPS = 50n;
-const near = (yocto, digits) => formatAmount(Number(formatUnits(yocto, 24)), digits ? { compactAbove: 1e6 } : undefined);
+const PRESETS = [25, 50, 75, 100];
+const near = (yocto) => formatAmount(Number(formatUnits(yocto, 24)));
+const nearCompact = (yocto) => formatAmount(Number(formatUnits(yocto, 24)), { compactAbove: 1e3 });
 const sanitize = (v) => v.replace(',', '.').replace(/[^\d.]/g, '');
 
 function useStakingData(accountId) {
@@ -34,7 +55,9 @@ function useStakingData(accountId) {
     { refreshMs: 60_000 }
   );
   const apy = useAsync(() => getStakingApy(), []);
-  const icons = useAsync(() => getTokens(KEYS.map((k) => STAKING[k].contract)), []);
+  const tokens = useAsync(() => getTokens(KEYS.map((k) => STAKING[k].contract)), []);
+  const pools = useAsync(() => getLstPools(), [], { refreshMs: 300_000 });
+  const clock = useAsync(() => getEpochClock(), [], { refreshMs: 60_000 });
   const positions = useAsync(
     async () => {
       const rows = await Promise.all(KEYS.map(async (k) => [k, await getPosition(k, accountId, info.data[k].price)]));
@@ -43,17 +66,69 @@ function useStakingData(accountId) {
     [accountId, Boolean(info.data)],
     { enabled: Boolean(accountId && info.data), refreshMs: 30_000 }
   );
-  return { info, apy, icons, positions };
+  return { info, apy, tokens, pools, clock, positions };
 }
 
-function TokenIcon({ icons, k, size = 28 }) {
-  const src = icons.data?.[STAKING[k].contract]?.icon;
+function TokenIcon({ tokens, k, size = 28 }) {
+  const src = tokens.data?.[STAKING[k].contract]?.icon;
   return src ? <img className="stk-icon" src={src} alt="" width={size} height={size} /> : <span className="stk-icon stk-icon--blank" style={{ width: size, height: size }} />;
+}
+
+/** Weekly APY of the selected token over the last 30 or 90 days, as bars (archival prices). */
+function ApyHistory({ pick }) {
+  const [range, setRange] = useState(90);
+  const history = useAsync(() => getApyHistory(pick, 90), [pick]);
+  const weeks = history.data ? history.data.weeks.slice(range === 30 ? -4 : 0) : [];
+  const top = Math.max(1, ...weeks.map((w) => w.apy));
+  const avg = history.data ? (range === 30 ? history.data.apy30 : history.data.apy90) : null;
+  return (
+    <section className="card stk-history">
+      <div className="stk-history__head">
+        <div>
+          <h3>{STAKING[pick].symbol} APY history</h3>
+          <small className="muted">{avg != null ? `${avg.toFixed(2)}% a year over the last ${range === 30 ? '4' : '13'} weeks · each bar is one week` : 'Reading the chain…'}</small>
+        </div>
+        <div className="segmented">
+          {[30, 90].map((r) => (
+            <button key={r} type="button" className={range === r ? 'active' : ''} onClick={() => setRange(r)}>
+              {r}D
+            </button>
+          ))}
+        </div>
+      </div>
+      {history.error && <p className="muted small">History unavailable right now.</p>}
+      {history.data && pick === 'linear' && (
+        <p className="muted small">LiNEAR books its rewards in steps, so some weeks show 0% and a later week catches up. The longer the period, the closer to the real rate.</p>
+      )}
+      {!history.data && !history.error && <Skeleton height={120} />}
+      {history.data && (
+        <div className="stk-bars" role="img" aria-label={`Weekly APY of ${STAKING[pick].symbol}`}>
+          {weeks.map((w) => (
+            <div key={w.end} className="stk-bar" title={`Week to ${new Date(w.end).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}: ${w.apy.toFixed(2)}%`}>
+              <span className="stk-bar__value">{w.apy.toFixed(1)}%</span>
+              <i style={{ height: `${Math.max(4, (Math.max(0, w.apy) / top) * 100)}%` }} />
+              <small>{new Date(w.end).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</small>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
 }
 
 export default function Stake() {
   const { accountId, connect, nearBalance, execute } = useApp();
-  const { info, apy, icons, positions } = useStakingData(accountId);
+  const { info, apy, tokens, pools, clock, positions } = useStakingData(accountId);
+  // What each held position has earned since it was staked (NearBlocks + archival prices).
+  const earnings = useAsync(
+    async () => {
+      const held = KEYS.filter((k) => positions.data[k].shares > 0n);
+      const rows = await Promise.all(held.map(async (k) => [k, await getStakeEarnings(k, accountId, positions.data[k].shares, info.data[k].price).catch(() => null)]));
+      return Object.fromEntries(rows);
+    },
+    [accountId, positions.data ? KEYS.map((k) => positions.data[k].shares.toString()).join('|') : ''],
+    { enabled: Boolean(accountId && positions.data && info.data) }
+  );
   const [pick, setPick] = useState('linear');
   const [mode, setMode] = useState('stake');
   const [amount, setAmount] = useState('');
@@ -64,24 +139,39 @@ export default function Stake() {
   const price = info.data?.[pick]?.price || 0n;
   const pos = positions.data?.[pick];
   const raw = toBigInt(tryParseUnits(amount || '0', 24) || '0');
+  const rate = apy.data?.[pick];
 
-  // Stake: native NEAR, keeping a little for gas.
+  // Stake: native NEAR, keeping a little for gas. Unstake: the token balance.
   const spendable = useMemo(() => {
     const avail = nearBalance ? toBigInt(nearBalance.available) - toBigInt(NEAR_GAS_RESERVE) : 0n;
     return avail > 0n ? avail : 0n;
   }, [nearBalance]);
-  // Unstake: token balance.
   const held = pos?.shares || 0n;
   const max = mode === 'stake' ? spendable : held;
   const tooMuch = accountId && raw > max;
   const belowMin = mode === 'stake' && raw > 0n && raw < s.minStake;
 
-  const liquid = useAsync(() => liquidUnstakeQuote(raw), [raw.toString(), pick, mode, exit], {
-    enabled: mode === 'unstake' && exit === 'instant' && pick === 'stnear' && raw > 0n && !tooMuch
-  });
+  // Instant prices, both shown before choosing: Meta Pool's own pool for stNEAR, Rhea for LiNEAR.
+  const quoteKey = useDebounced(`${pick}|${raw}|${mode}`, 400);
+  const wantQuote = mode === 'unstake' && raw > 0n && !tooMuch && quoteKey === `${pick}|${raw}|${mode}`;
+  const instant = useAsync(
+    async () => {
+      if (pick === 'stnear') return liquidUnstakeQuote(raw);
+      const tokenIn = tokens.data?.[s.contract];
+      const q = await getSwapQuote({ tokenIn, tokenOut: NATIVE_NEAR, amountIn: raw.toString(), slippage: 0.5 });
+      return toBigInt(q?.amountOut || '0');
+    },
+    [quoteKey],
+    { enabled: wantQuote && Boolean(pick === 'stnear' || tokens.data) }
+  );
+  const delayedOut = nearFor(raw, price);
+  const instantOut = instant.data || 0n;
+  const instantGap = instantOut > 0n && delayedOut > 0n ? Number(((delayedOut - instantOut) * 10_000n) / delayedOut) / 100 : null;
 
-  const receive = mode === 'stake' ? sharesFor(raw, price) : exit === 'instant' && pick === 'stnear' ? liquid.data || 0n : nearFor(raw, price);
+  const receive = mode === 'stake' ? sharesFor(raw, price) : exit === 'instant' ? instantOut : delayedOut;
+  const yearly = mode === 'stake' && rate != null && raw > 0n ? Number(formatUnits(raw, 24)) * (rate / 100) : null;
   const ready = Boolean(accountId && raw > 0n && !tooMuch && !belowMin && price > 0n);
+  const unlockText = clock.data ? formatWait(secondsUntilEpoch(clock.data.epochHeight + 4, clock.data)) : 'a day or two';
 
   const run = async (build, labels) => {
     setBusy(true);
@@ -97,18 +187,17 @@ export default function Stake() {
   const submit = () => {
     if (mode === 'stake') return run(() => stakeTx(pick, raw), { pending: `Staking ${amount} NEAR for ${s.symbol}`, success: `Staked: ${s.symbol} is in your wallet` });
     if (exit === 'instant' && pick === 'stnear') {
-      const min = (liquid.data * (10_000n - LIQUID_SLIPPAGE_BPS)) / 10_000n;
+      const min = (instantOut * (10_000n - LIQUID_SLIPPAGE_BPS)) / 10_000n;
       return run(() => liquidUnstakeTx(raw, min), { pending: `Unstaking ${amount} stNEAR instantly`, success: 'NEAR is back in your wallet' });
     }
-    const all = raw >= held;
-    return run(() => unstakeTx(pick, nearFor(raw, price), all), {
+    return run(() => unstakeTx(pick, delayedOut, raw >= held), {
       pending: `Unstaking ${amount} ${s.symbol}`,
-      success: 'Unstake started: withdraw in about 2–3 days'
+      success: `Unstake started: withdraw in about ${unlockText}`
     });
   };
 
-  const instantSwapLink = `/swap?from=${s.contract}&to=near${amount ? `&amount=${amount}` : ''}`;
-  const liquidDiscount = pick === 'stnear' && liquid.data && raw > 0n ? Number(((nearFor(raw, price) - liquid.data) * 10_000n) / (nearFor(raw, price) || 1n)) / 100 : null;
+  const swapLink = `/swap?from=${s.contract}&to=near${amount ? `&amount=${amount}` : ''}`;
+  const sellOnSwap = mode === 'unstake' && exit === 'instant' && pick === 'linear';
 
   let label;
   if (!accountId) label = 'Connect wallet';
@@ -116,8 +205,12 @@ export default function Stake() {
   else if (tooMuch) label = mode === 'stake' ? 'More than your NEAR' : `More than your ${s.symbol}`;
   else if (belowMin) label = `Minimum is ${near(s.minStake)} NEAR`;
   else if (mode === 'stake') label = `Stake ${amount} NEAR`;
-  else if (exit === 'instant') label = pick === 'stnear' ? (liquid.loading ? 'Getting a price…' : `Unstake now for ≈ ${near(receive)} NEAR`) : 'Sell on Swap';
-  else label = `Start unstake (≈ ${near(receive)} NEAR in 2–3 days)`;
+  else if (exit === 'instant') label = instant.loading || !instantOut ? 'Getting a price…' : sellOnSwap ? `Sell on Swap for ≈ ${near(instantOut)} NEAR` : `Unstake now for ≈ ${near(instantOut)} NEAR`;
+  else label = `Start unstake · ≈ ${near(delayedOut)} NEAR in ~${unlockText}`;
+
+  // Hero numbers.
+  const totalAll = info.data ? KEYS.reduce((sum, k) => sum + (info.data[k].total || 0n), 0n) : null;
+  const bestApy = apy.data ? Math.max(...KEYS.map((k) => apy.data[k] ?? -Infinity)) : null;
 
   return (
     <div className="page stake">
@@ -125,38 +218,52 @@ export default function Stake() {
         <FlowLines />
         <h1 className="pt-title">Stake</h1>
         <p>Stake NEAR and keep it liquid. Earn validator rewards with LiNEAR or stNEAR, then put the token to work in Rhea pools.</p>
+        <div className="dep-hero__stats">
+          <span>
+            <b>{totalAll != null ? nearCompact(totalAll) : '…'}</b> NEAR staked
+          </span>
+          <span>
+            <b>{bestApy != null && Number.isFinite(bestApy) ? `up to ${bestApy.toFixed(2)}%` : '…'}</b> APY
+          </span>
+          <span>
+            <b>0%</b> KINU fee
+          </span>
+          <span>
+            <b>✓</b> DAO-owned contracts
+          </span>
+        </div>
       </header>
 
       <div className="stk-grid">
         <div className="stk-main">
-          <div className="stk-pick">
-            {KEYS.map((k) => {
-              const p = info.data?.[k];
-              const y = apy.data?.[k];
-              return (
-                <button key={k} type="button" className={`card stk-option ${pick === k ? 'is-on' : ''}`} onClick={() => setPick(k)} aria-pressed={pick === k}>
-                  <span className="stk-option__head">
-                    <TokenIcon icons={icons} k={k} />
-                    <span>
-                      <b>{STAKING[k].symbol}</b>
-                      <small className="muted">{STAKING[k].name}</small>
-                    </span>
-                  </span>
-                  <span className="stk-option__apy">
-                    {y == null ? (apy.loading ? '…' : '—') : `${y.toFixed(2)}%`}
-                    <small className="muted">APY · last 30 days</small>
-                  </span>
-                  <span className="stk-option__meta muted small">
-                    {p ? `1 ${STAKING[k].symbol} = ${(Number(p.price) / 1e24).toFixed(4)} NEAR` : '…'}
-                    {p?.total ? ` · ${near(p.total, true)} NEAR staked` : ''}
-                  </span>
-                  <span className="stk-option__meta muted small">DAO-owned · since {STAKING[k].since}</span>
-                </button>
-              );
-            })}
-          </div>
-
           <section className="card stk-card">
+            <div className="stk-pick">
+              {KEYS.map((k) => {
+                const p = info.data?.[k];
+                const y = apy.data?.[k];
+                return (
+                  <button key={k} type="button" className={`stk-option ${pick === k ? 'is-on' : ''}`} onClick={() => setPick(k)} aria-pressed={pick === k}>
+                    <span className="stk-option__head">
+                      <TokenIcon tokens={tokens} k={k} size={24} />
+                      <span>
+                        <b>{STAKING[k].symbol}</b>
+                        <small className="muted">{STAKING[k].name}</small>
+                      </span>
+                    </span>
+                    <span className="stk-option__apy">
+                      {y == null ? (apy.loading ? '…' : '—') : `${y.toFixed(2)}%`}
+                      <small className="muted">APY · last 90 days</small>
+                    </span>
+                    <span className="stk-option__meta muted">
+                      {p ? `1 ${STAKING[k].symbol} = ${(Number(p.price) / 1e24).toFixed(4)} NEAR` : '…'}
+                      {p?.total ? ` · ${nearCompact(p.total)} NEAR staked` : ''}
+                    </span>
+                    <span className="stk-option__meta muted">DAO-owned · since {STAKING[k].since}</span>
+                  </button>
+                );
+              })}
+            </div>
+
             <div className="segmented segmented--full stk-tabs" role="tablist">
               <button type="button" role="tab" aria-selected={mode === 'stake'} className={mode === 'stake' ? 'active' : ''} onClick={() => setMode('stake')}>
                 Stake
@@ -171,19 +278,21 @@ export default function Stake() {
             <div className="stk-field">
               <span className="dep-label">{mode === 'stake' ? 'You stake' : `You unstake (${s.symbol})`}</span>
               <div className="stk-amount">
-                {mode === 'stake' ? <img className="stk-icon" src="/logos/tokens/near.svg" alt="" width={28} height={28} /> : <TokenIcon icons={icons} k={pick} />}
+                {mode === 'stake' ? <img className="stk-icon" src="/logos/tokens/near.svg" alt="" width={28} height={28} /> : <TokenIcon tokens={tokens} k={pick} />}
                 <input inputMode="decimal" placeholder="0.00" value={amount} onChange={(e) => setAmount(sanitize(e.target.value))} />
                 <span className="stk-unit">{mode === 'stake' ? 'NEAR' : s.symbol}</span>
-                {accountId && (
-                  <button type="button" className="mini-button" onClick={() => setAmount(formatUnits(max, 24))} disabled={!(max > 0n)}>
-                    Max
-                  </button>
-                )}
               </div>
               {accountId && (
-                <small className={tooMuch ? 'down' : 'muted'}>
-                  {mode === 'stake' ? `Available ${near(spendable)} NEAR (0.25 NEAR kept for gas)` : `Balance ${near(held)} ${s.symbol}`}
-                </small>
+                <div className="stk-presets">
+                  {PRESETS.map((p) => (
+                    <button key={p} type="button" className="mini-button" disabled={!(max > 0n)} onClick={() => setAmount(formatUnits((max * BigInt(p)) / 100n, 24))}>
+                      {p === 100 ? 'Max' : `${p}%`}
+                    </button>
+                  ))}
+                  <small className={tooMuch ? 'down' : 'muted'}>
+                    {mode === 'stake' ? `Available ${near(spendable)} NEAR · 0.25 kept for gas` : `Balance ${near(held)} ${s.symbol}`}
+                  </small>
+                </div>
               )}
             </div>
 
@@ -191,11 +300,16 @@ export default function Stake() {
               <div className="stk-exit">
                 <button type="button" className={exit === 'instant' ? 'is-on' : ''} onClick={() => setExit('instant')}>
                   <b>Instant</b>
-                  <small className="muted">{pick === 'stnear' ? 'Meta Pool’s pool · small discount' : 'Sell on Rhea via Swap'}</small>
+                  <strong>{raw > 0n ? (instant.loading ? '…' : instantOut ? `≈ ${near(instantOut)} NEAR` : '—') : '—'}</strong>
+                  <small className="muted">
+                    {pick === 'stnear' ? 'Meta Pool’s pool' : 'Sold on Rhea'}
+                    {instantGap != null ? ` · ${instantGap.toFixed(2)}% below full value` : ''}
+                  </small>
                 </button>
                 <button type="button" className={exit === 'delayed' ? 'is-on' : ''} onClick={() => setExit('delayed')}>
                   <b>Delayed</b>
-                  <small className="muted">Full value · about 2–3 days</small>
+                  <strong>{raw > 0n ? `≈ ${near(delayedOut)} NEAR` : '—'}</strong>
+                  <small className="muted">Full value · ready in ~{unlockText}</small>
                 </button>
               </div>
             )}
@@ -209,14 +323,12 @@ export default function Stake() {
                   </strong>
                   <small className="muted">
                     {mode === 'stake'
-                      ? `Worth ${amount} NEAR now, growing every epoch (~12 h).`
+                      ? `Worth ${amount} NEAR now${yearly != null ? ` · earns ≈ ${formatAmount(yearly)} NEAR a year at today's ${rate.toFixed(2)}%` : ''}.`
                       : exit === 'delayed'
-                        ? 'Withdraw from “Your staking” once it unlocks (about 4 epochs).'
-                        : pick === 'stnear'
-                          ? liquidDiscount != null
-                            ? `Instant, ${liquidDiscount.toFixed(2)}% below full value (Meta Pool’s liquidity fee).`
-                            : 'Getting Meta Pool’s price…'
-                          : 'Swap shows the exact price on Rhea before you sign.'}
+                        ? `Withdraw from “Your staking” once it unlocks, in about ${unlockText} (four epochs).`
+                        : sellOnSwap
+                          ? 'Swap re-checks the price on Rhea before you sign.'
+                          : 'Paid out now from Meta Pool’s NEAR/stNEAR pool.'}
                   </small>
                 </>
               ) : (
@@ -228,15 +340,15 @@ export default function Stake() {
               <button type="button" className="button button--primary button--block button--lg" onClick={connect}>
                 Connect wallet
               </button>
-            ) : mode === 'unstake' && exit === 'instant' && pick === 'linear' ? (
-              <Link to={instantSwapLink} className={`button button--primary button--block button--lg ${ready ? '' : 'is-disabled'}`} aria-disabled={!ready}>
+            ) : sellOnSwap ? (
+              <Link to={swapLink} className={`button button--primary button--block button--lg ${ready ? '' : 'is-disabled'}`} aria-disabled={!ready}>
                 {label}
               </Link>
             ) : (
               <button
                 type="button"
                 className="button button--primary button--block button--lg"
-                disabled={!ready || busy || (mode === 'unstake' && exit === 'instant' && pick === 'stnear' && !liquid.data)}
+                disabled={!ready || busy || (mode === 'unstake' && exit === 'instant' && !instantOut)}
                 onClick={submit}
               >
                 {busy && <Spinner size={14} />} {label}
@@ -246,6 +358,8 @@ export default function Stake() {
               Staking goes straight from your wallet to {s.contract}. KINU adds no fee and never holds your NEAR.
             </small>
           </section>
+
+          <ApyHistory pick={pick} />
         </div>
 
         <aside className="stk-side">
@@ -253,21 +367,33 @@ export default function Stake() {
             <h3>Your staking</h3>
             {!accountId && <p className="muted small">Connect your wallet to see your LiNEAR and stNEAR.</p>}
             {accountId && !positions.data && <Skeleton height={90} />}
+            {accountId && positions.data && !KEYS.some((k) => positions.data[k].shares > 0n || positions.data[k].unstaked > 0n) && (
+              <p className="muted small">No LiNEAR or stNEAR yet.</p>
+            )}
             {accountId &&
               positions.data &&
-              KEYS.map((k) => {
+              KEYS.filter((k) => positions.data[k].shares > 0n || positions.data[k].unstaked > 0n).map((k) => {
                 const p = positions.data[k];
+                const wait = p.unlockEpoch && clock.data ? formatWait(secondsUntilEpoch(p.unlockEpoch, clock.data)) : null;
                 return (
                   <div key={k} className="stk-pos">
-                    <TokenIcon icons={icons} k={k} size={24} />
+                    <TokenIcon tokens={tokens} k={k} size={24} />
                     <div>
                       <b>
                         {near(p.shares)} {STAKING[k].symbol}
                       </b>
-                      <small className="muted">≈ {near(p.valueNear)} NEAR</small>
+                      <small className="muted">
+                        ≈ {near(p.valueNear)} NEAR{apy.data?.[k] != null && p.shares > 0n ? ` · ${apy.data[k].toFixed(2)}% APY` : ''}
+                      </small>
+                      {earnings.data?.[k] && (
+                        <small className="up" title={`From ${formatAmount(earnings.data[k].stakedNear)} NEAR you staked with ${STAKING[k].contract}`}>
+                          +{earnings.data[k].earned.toFixed(6)} NEAR earned
+                          {earnings.data[k].since ? ` since ${new Date(earnings.data[k].since).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}` : ''}
+                        </small>
+                      )}
                       {p.unstaked > 0n && (
                         <small className={p.canWithdraw ? 'up' : 'muted'}>
-                          {near(p.unstaked)} NEAR unstaking · {p.canWithdraw ? 'ready to withdraw' : 'unlocks in ~2–3 days'}
+                          {near(p.unstaked)} NEAR unstaking · {p.canWithdraw ? 'ready to withdraw' : wait ? `ready in ~${wait}` : 'unlocking'}
                         </small>
                       )}
                     </div>
@@ -284,27 +410,77 @@ export default function Stake() {
                   </div>
                 );
               })}
-            {accountId && positions.data && KEYS.some((k) => positions.data[k].shares > 0n) && (
-              <Link to="/pools" className="button button--ghost button--sm stk-lp">
-                Put it to work · Find LiNEAR / stNEAR pools
-              </Link>
-            )}
           </section>
 
+          <section className="card stk-earn">
+            <h3>Put it to work</h3>
+            <p className="muted small">In a staking-token pool your liquidity earns trading fees while the token keeps its staking rewards.</p>
+            {!pools.data && !pools.error && <Skeleton height={56} />}
+            {pools.data?.map((p) => (
+              <div key={p.id} className="stk-pool">
+                <TokenIcon tokens={tokens} k={p.stakeKey} size={24} />
+                <div>
+                  <b>{p.symbols.join(' / ')}</b>
+                  <small className="muted">
+                    {p.label} · TVL {formatUsd(p.tvl, { compactAbove: 1e3 })}
+                    {apy.data?.[p.stakeKey] != null ? ` · ~${(apy.data[p.stakeKey] / 2).toFixed(2)}% staking` : ''}
+                    {p.apy > 0 ? ` + ${p.apy >= 0.01 ? p.apy.toFixed(2) : '<0.01'}% fees` : ''}
+                  </small>
+                </div>
+                <Link to={poolPath(p.id)} className="button button--outline button--sm">
+                  Add LP
+                </Link>
+              </div>
+            ))}
+          </section>
+
+        </aside>
+
+        <aside className="stk-faq">
           <div className="card dep-faq">
             <details>
               <summary>Where does the yield come from?</summary>
-              <p>Your NEAR is delegated to hundreds of NEAR validators. Their rewards raise the NEAR value of each LiNEAR / stNEAR every epoch. The APY shown is what the token actually gained over the last 30 days, after all fees — not a promise.</p>
+              <p>Your NEAR is delegated to hundreds of NEAR validators. Their rewards raise the NEAR value of each LiNEAR / stNEAR every epoch (~7 hours). The APY shown is what the token actually gained over the last 90 days, after all fees — not a promise.</p>
             </details>
             <details>
               <summary>How do I get my NEAR back?</summary>
-              <p>Instantly, by selling the token (a small discount), or with a delayed unstake at full value: it unlocks after about four epochs (~2–3 days), then you press Withdraw under “Your staking”.</p>
+              <p>Instantly, by selling the token (a small discount, shown before you choose), or with a delayed unstake at full value: it unlocks after about four epochs (roughly a day or two), then you press Withdraw under “Your staking”.</p>
+            </details>
+            <details>
+              <summary>How do I check what I sign?</summary>
+              <p>
+                Your wallet shows where every request goes. For staking it must be <span className="mono">{STAKING.linear.contract}</span> or{' '}
+                <span className="mono">{STAKING.stnear.contract}</span> — anything else, reject it. Your staked NEAR lives in those contracts under your account, not in
+                KINU: if kinudefi.com were ever down or compromised, you can still unstake at{' '}
+                <a href={STAKING.linear.site} target="_blank" rel="noopener noreferrer">
+                  LiNEAR ↗
+                </a>{' '}
+                or{' '}
+                <a href={STAKING.stnear.site} target="_blank" rel="noopener noreferrer">
+                  Meta Pool ↗
+                </a>
+                .
+              </p>
+            </details>
+            <details>
+              <summary>Are the contracts audited?</summary>
+              <p>
+                LiNEAR: by BlockSec (2022) and Hacken (2024),{' '}
+                <a href="https://github.com/linear-protocol/audits" target="_blank" rel="noopener noreferrer">
+                  reports ↗
+                </a>
+                . Meta Pool: by BlockSec (2022),{' '}
+                <a href="https://www.metapool.app/MetaPool_BlockSec_Audit_signed_v1.1.pdf" target="_blank" rel="noopener noreferrer">
+                  report ↗
+                </a>
+                . An audit lowers risk; it doesn&apos;t remove it.
+              </p>
             </details>
             <details>
               <summary>What are the risks?</summary>
               <p>
-                Smart-contract risk (a bug in the staking contract), the token trading slightly below its NEAR value when you sell it, and waiting days on a delayed
-                unstake. Both contracts are owned by DAOs ({STAKING.linear.owner}, {STAKING.stnear.owner}) that can upgrade them. Start small.
+                Smart-contract risk (a bug in the staking contract), the token trading below its NEAR value when you sell it, and waiting on a delayed unstake. Both
+                contracts are owned by DAOs ({STAKING.linear.owner}, {STAKING.stnear.owner}) that can upgrade them. Start small.
               </p>
             </details>
             <details>

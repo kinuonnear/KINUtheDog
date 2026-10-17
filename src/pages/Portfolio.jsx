@@ -17,6 +17,7 @@ import ShareButton from '../components/ShareCard.jsx';
 import DustSweeper from '../components/DustSweeper.jsx';
 import { EmptyState, ErrorNotice, Skeleton, Spinner, Stat, Tabs, TokenIcon } from '../components/ui.jsx';
 import { FlowLines } from '../components/FlowLines.jsx';
+import StakingSummary from '../components/StakingSummary.jsx';
 import '../portfolio.css';
 
 const DUST_USD = 0.01;
@@ -320,6 +321,8 @@ export default function Portfolio() {
           <Stat label="Rhea deposits" value={model ? formatUsd(model.depositUsd) : null} loading={!model} />
         </div>
       </section>
+
+      <StakingSummary account={viewed} readOnly={readOnly} />
 
       <Tabs
         tabs={[

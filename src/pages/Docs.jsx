@@ -516,7 +516,7 @@ const DOCS = [
             ['Token taxes', 'Some tokens (e.g. launched on Nearly) charge a transfer tax on buys and sells; the App accounts for known taxes but cannot guarantee them.'],
             ['Smart contracts', 'Contracts can contain bugs or be upgraded by their operators; KINU does not control or audit third-party contracts.'],
             ['APR and yield', 'APRs are estimates from past fees (often a single day) and are not a promise of future returns.'],
-            ['Liquid staking', 'Staking on the Stake page uses third-party contracts (LiNEAR Protocol, Meta Pool) owned by their DAOs, which can upgrade them. Their tokens can trade below their NEAR value when sold, a delayed unstake takes about 2–3 days, and the APY shown is past performance, not a promise.'],
+            ['Liquid staking', 'Staking on the Stake page uses third-party contracts (LiNEAR Protocol, Meta Pool) owned by their DAOs, which can upgrade them. Their tokens can trade below their NEAR value when sold, a delayed unstake takes about four epochs (roughly a day or two), and the APY shown is past performance, not a promise.'],
             ['Network', 'Transactions can fail, be delayed or cost gas; wallets and RPC services can be unavailable or rate-limited.']
           ]}
         />
