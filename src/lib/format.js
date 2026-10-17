@@ -146,3 +146,11 @@ export function formatAge(since, now = Date.now()) {
   if (d < 730) return `${Math.floor(d / 30.4)}mo`;
   return `${Math.floor(d / 365)}y`;
 }
+
+/** "1303383.8658" -> "1,303,383.8658": an amount field's text with its integer part grouped by thousands. */
+export function groupDigits(text) {
+  if (!text) return text;
+  const [int, dec] = String(text).split('.');
+  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return dec === undefined ? grouped : `${grouped}.${dec}`;
+}

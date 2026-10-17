@@ -21,7 +21,7 @@ import {
   STRATEGIES
 } from '../lib/dclLiquidity.js';
 import { view } from '../lib/rpc.js';
-import { formatAmount, formatChartPrice, formatPercent, formatRawAmount, formatUnits, formatUsd, maxBig, toBigInt, tryParseUnits } from '../lib/format.js';
+import { formatAmount, formatChartPrice, formatPercent, formatRawAmount, formatUnits, formatUsd, groupDigits, maxBig, toBigInt, tryParseUnits } from '../lib/format.js';
 import { mergeTransactions, wrapNeededFor } from '../lib/tx.js';
 import { estimateNetworkFee } from '../lib/gasEstimate.js';
 import { priceOf } from '../lib/tokens.js';
@@ -427,14 +427,6 @@ function useSpendable(tokenIds) {
  */
 // Quick amounts: a share of the spendable balance.
 const PERCENTS = [0.25, 0.5, 0.75, 1];
-
-/** "1303383.8658" -> "1,303,383.8658" (the integer part grouped by thousands). */
-const groupDigits = (text) => {
-  if (!text) return text;
-  const [int, dec] = String(text).split('.');
-  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  return dec === undefined ? grouped : `${grouped}.${dec}`;
-};
 
 export default function DclCreatePosition({ pool, x, y, rangeState, onDone, retryRef }) {
   const { accountId, connect, slippage, setSlippage, execute, balances, prices } = useApp();

@@ -26,6 +26,7 @@ import {
   formatRawAmount,
   formatUnits,
   formatUsd,
+  groupDigits,
   maxBig,
   toBigInt,
   toNumber,
@@ -92,7 +93,11 @@ export function useWrapAmount(tokenIds, raws) {
  * pools; they show without a wallet too and ask to connect one first.
  */
 export function AmountField({ token, value, onChange, spendable, onMax, onPercent, disabled, note }) {
-  const { accountId, connect } = useApp();
+  const { accountId, connect, prices } = useApp();
+  const [focused, setFocused] = useState(false);
+  // Thousands separators only while the field isn't being typed in (typing stays plain).
+  const shown = disabled ? '' : focused ? value : groupDigits(value);
+  const usd = disabled ? 0 : Number(value) * priceOf(prices, token?.id);
   return (
     <div className={`swap-field ${disabled ? 'swap-field--disabled' : ''}`}>
       <div className="swap-field__top">
@@ -131,8 +136,10 @@ export function AmountField({ token, value, onChange, spendable, onMax, onPercen
         <input
           inputMode="decimal"
           placeholder={disabled ? 'Not needed' : '0.0'}
-          value={disabled ? '' : value}
+          value={shown}
           disabled={disabled}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
           onChange={(e) => {
             const text = cleanDecimal(e.target.value);
             if (text !== null) onChange(text);
@@ -143,6 +150,11 @@ export function AmountField({ token, value, onChange, spendable, onMax, onPercen
           <strong>{token?.symbol}</strong>
         </span>
       </div>
+      {usd > 0 && (
+        <div className="swap-field__bottom">
+          <span>≈ {formatUsd(usd)}</span>
+        </div>
+      )}
     </div>
   );
 }
