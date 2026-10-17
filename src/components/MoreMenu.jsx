@@ -16,8 +16,7 @@ const ICONS = {
   shield: 'M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z M9 12l2 2 4-4',
   terms: 'M7 3h10v18H7zM10 8h4M10 12h4M10 16h4',
   treasury: 'M4 10l8-5 8 5M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18',
-  rhea: 'M4 17c3-6 6-9 8-9s4 2 4 5-2 4-4 4M14 6l3-3M18 10l3-1',
-  deposit: 'M12 3v12M7 10l5 5 5-5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4'
+  rhea: 'M4 17c3-6 6-9 8-9s4 2 4 5-2 4-4 4M14 6l3-3M18 10l3-1'
 };
 
 function Icon({ name }) {
@@ -28,8 +27,6 @@ function Icon({ name }) {
   );
 }
 
-// Moving funds in: from any chain through NEAR Intents.
-const FUNDS = [{ to: '/bridge', label: 'Bridge · any chain ⇄ NEAR', icon: 'deposit' }];
 
 const GUIDES = [
   { to: '/docs/introduction', label: 'Documentation', icon: 'docs' },
@@ -75,8 +72,6 @@ export default function MoreMenu({ active }) {
       </button>
       {open && (
         <div className="popover more-menu__panel" role="menu">
-          {FUNDS.map(item)}
-          <hr />
           {GUIDES.map(item)}
           <a className="more-menu__item" href={ENDPOINTS.rheaApp} target="_blank" rel="noopener noreferrer" onClick={close}>
             <Icon name="rhea" />

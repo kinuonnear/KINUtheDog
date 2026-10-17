@@ -39,10 +39,11 @@ const NAV = [
   { to: '/pools', label: 'Pools', match: ['pools', 'pool', 'starter', 'intear'] },
   { to: '/discover', label: 'Discover', match: ['discover', 'new', 'token', 'lp'] },
   { to: '/swap', label: 'Swap', match: ['swap'] },
+  { to: '/bridge', label: 'Bridge', match: ['deposit'] },
   { to: '/portfolio', label: 'Portfolio', match: ['portfolio'] },
   { to: '/agent', label: 'Agent', match: ['agent'] }
 ];
-const MORE_ROUTES = new Set(['docs', 'security', 'treasury', 'deposit']);
+const MORE_ROUTES = new Set(['docs', 'security', 'treasury']);
 
 // Trading screens use the full window width (like Meteora / Intear). CLMM pool
 // pages are an app-style workspace that fills the viewport, so they have no footer.
