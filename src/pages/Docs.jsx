@@ -5,6 +5,10 @@ import { useEffect } from 'react';
 import { Link, poolPath } from '../router.jsx';
 import { FEE_SUMMARY } from '../config.js';
 import { WHITEPAPER } from './Whitepaper.jsx';
+import { KINU_FEE_BPS, KINU_FEE_STABLE_BPS, feePercent } from '../lib/intentsFees.js';
+
+const INTENTS_TERMS_URL = 'https://docs.near-intents.org/security-compliance/terms-of-service';
+const BRIDGE_FEE_SUMMARY = `Bridge transfers include a service fee of ${feePercent(KINU_FEE_BPS)} (${feePercent(KINU_FEE_STABLE_BPS)} for stablecoin pairs and the same asset across chains), taken from the amount sent and shown in every quote; it is shared between KINU’s treasury and NEAR Intents.`;
 
 const KINU = 'kinu-3.nearlytrade.near';
 const RHEA = 'token.rhealab.near';
@@ -453,7 +457,7 @@ const DOCS = [
             ['Why do I pay a storage fee?', 'NEAR charges storage for each token account you hold. It is paid once per token (usually 0.00125 NEAR) and is shown in the cost breakdown.'],
             ['Why does a deposit attach so much gas?', 'Since Rhea’s October 2026 upgrade a CLMM deposit uses about 420–430 TGas; KINU attaches 600 TGas so it never runs out. You only pay for the gas used (about 0.04 NEAR) — the rest is refunded.'],
             ['The price moved while I was depositing.', 'Use Accept new price to confirm updated amounts, or widen your slippage in ⚙.'],
-            ['Does KINU charge a fee?', `${FEE_SUMMARY} Pool fees go to liquidity providers.`],
+            ['Does KINU charge a fee?', `${FEE_SUMMARY} Pool fees go to liquidity providers. ${BRIDGE_FEE_SUMMARY}`],
             ['Why APR and not APY?', 'APR is the last 24h of fees annualised without compounding (fees ÷ TVL × 365). Rhea labels the same number “APY”, but it is not compounded — so KINU calls it APR. A ≈ in front means KINU estimated it because Rhea gives none for that pool.'],
             ['Why did my position stop earning?', 'A CLMM position earns only while the price is inside its range. While KINU is open it alerts you when a position goes out of range; ⟲ Rebalance moves it back around the current price.'],
             ['Is this financial advice?', 'No. KINU is non-custodial software. DeFi carries risk, including loss of funds — do your own research.']
@@ -473,7 +477,7 @@ const DOCS = [
     group: 'Legal',
     slug: 'terms',
     title: 'Terms of Service',
-    summary: 'The terms for using KINU. Last updated 15 October 2026.',
+    summary: 'The terms for using KINU. Last updated 17 October 2026.',
     body: (
       <>
         <p>
@@ -516,36 +520,76 @@ const DOCS = [
           ]}
         />
 
-        <h3>5. Data from third parties</h3>
+        <h3>5. The Bridge (NEAR Intents)</h3>
+        <p>
+          The Bridge (<Link to="/bridge">/bridge</Link>) moves assets between NEAR and other blockchains through the 1Click service of{' '}
+          <strong>NEAR Intents</strong>, operated by Intents Technology, Ltd. (“NEAR Intents”) under{' '}
+          <a href={INTENTS_TERMS_URL} {...ext}>
+            its own terms
+          </a>
+          . KINU requests the quote, checks NEAR Intents’ signature on it and shows it to you; it never receives, holds or routes your
+          funds. You have no contract with, and no rights against, NEAR Intents through KINU, and KINU makes no statement, promise or
+          guarantee on NEAR Intents’ behalf.
+        </p>
+        <Terms
+          items={[
+            ['Irreversible', 'A transfer cannot be cancelled or reversed once sent. The wrong asset, chain, amount or address, or a deposit to an expired address, can lose funds permanently.'],
+            ['Bridge risk', 'Cross-chain transfers can be delayed, fail, arrive partly or get stuck, and bridges, contracts, validators or relayers can fail, be exploited or change the assets and networks they support.'],
+            ['Price and execution', 'Quotes are estimates: prices move, slippage applies and network fees are separate. Neither KINU nor NEAR Intents guarantees pricing, execution, timing or availability, and NEAR Intents may pause a chain or bridge at any time.'],
+            ['Refunds', 'A transfer that cannot complete is refunded to the refund address you give (your NEAR account for transfers out of NEAR). A refund to an address you do not control, such as an exchange deposit address, may be lost.'],
+            ['Your responsibility', 'You alone bear the risks of your wallet’s security, the addresses you enter, blockchain technology and digital assets.']
+          ]}
+        />
+        <p>
+          To the fullest extent permitted by law, you release NEAR Intents, its affiliates and their officers, directors, employees,
+          contractors and agents from all liability arising from your use of the Bridge, and they give no warranties of any kind,
+          whether express, implied or statutory.
+        </p>
+        <p>
+          The Bridge is a tool for you to use the NEAR Intents protocol on your own initiative. Neither KINU nor NEAR Intents recommends
+          that you trade crypto-assets, and nothing on the Bridge is a recommendation, invitation or inducement to deal in them.
+        </p>
+
+        <h3>6. Data from third parties</h3>
         <p>
           Prices, charts, volumes and other data come from third-party services (such as Rhea Finance, Intear, DexScreener,
           GeckoTerminal and FastNEAR) and from the blockchain. They may be delayed, incomplete or wrong. Always check the amounts in
           your wallet before you sign.
         </p>
 
-        <h3>6. Fees</h3>
+        <h3>7. Fees</h3>
         <p>
           {FEE_SUMMARY} Pool fees go to the pool’s liquidity providers; network gas and storage deposits go to NEAR.
         </p>
+        <p>
+          {BRIDGE_FEE_SUMMARY}
+        </p>
 
-        <h3>7. Acceptable use</h3>
+        <h3>8. Acceptable use</h3>
         <p>
           You may not use the App in breach of any law that applies to you, including sanctions, or to interfere with the
           App or other users. You are responsible for knowing whether using DeFi is allowed where you live, and for any taxes
           you owe.
         </p>
+        <p>
+          You may not use the App, including the Bridge, if you are, or act for, a person or entity that is listed on a sanctions or
+          restricted-party list (including those of the United Nations, the United States (OFAC), the United Kingdom, the European
+          Union and the British Virgin Islands), is owned or controlled by one, is subject to an asset freeze, or is located, organised
+          or ordinarily resident in a country or region under comprehensive sanctions or otherwise restricted by law. KINU and NEAR
+          Intents may block access to enforce this.
+        </p>
 
-        <h3>8. No warranty and limitation of liability</h3>
+        <h3>9. No warranty and limitation of liability</h3>
         <p>
           The App is provided “as is” and “as available”, without warranties of any kind. To the fullest extent permitted by law,
           the KINU contributors are not liable for any loss or damage arising from your use of the App, the blockchain, third-party
           contracts or third-party data.
         </p>
 
-        <h3>9. Changes</h3>
+        <h3>10. Changes</h3>
         <p>
-          These terms may be updated; the date above shows the latest version. Continuing to use the App after a change means you
-          accept the updated terms.
+          These terms may be updated, including with provisions NEAR Intents reasonably requires for the Bridge; the date above shows
+          the latest version. Continuing to use the App after a change means you accept the updated terms.
         </p>
 
         <Note title="Questions">

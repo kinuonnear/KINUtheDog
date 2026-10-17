@@ -703,7 +703,8 @@ function WithdrawForm({ destinations, icons, shield, onStarted }) {
         <label className="dep-agree">
           <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
           <span>
-            The recipient above is my {chainName(chain)} address and can receive {to.symbol}. A transfer to a wrong address can&apos;t be undone.
+            The recipient above is my {chainName(chain)} address and can receive {to.symbol}. A transfer to a wrong address can&apos;t be undone.{' '}
+            I accept the <Link to="/docs/terms">Terms</Link>, including the Bridge section.
           </span>
         </label>
         <div className="dep-review__actions">
@@ -1125,7 +1126,8 @@ export default function Deposit() {
                 <label className="dep-agree">
                   <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
                   <span>
-                    I&apos;ll send exactly {amount} {asset.symbol}, only on {chainName(chain)}, to the one-time address shown next. The refund address above is mine.
+                    I&apos;ll send exactly {amount} {asset.symbol}, only on {chainName(chain)}, to the one-time address shown next. The refund address above is mine.{' '}
+                    I accept the <Link to="/docs/terms">Terms</Link>, including the Bridge section.
                   </span>
                 </label>
                 {error && <p className="down small">{error.message}</p>}
