@@ -12,6 +12,7 @@ import { isNearAccount, loadDclPositions, markDclRows } from '../lib/smartLp.js'
 import { formatAge as duration } from '../lib/lpHistory.js';
 import { formatAge, formatUsd } from '../lib/format.js';
 import { getNearlyTrader } from '../lib/nearlyTrader.js';
+import { AmmPositions } from '../components/AmmPnl.jsx';
 import { ENDPOINTS } from '../config.js';
 import { ClosedPositions, ProfitChart, RANGES, useLpHistory } from '../components/LpPnl.jsx';
 import LiquidityTable from '../components/LiquidityTable.jsx';
@@ -23,7 +24,7 @@ const pct = (v) => (Number.isFinite(v) ? `${v.toFixed(v >= 99.95 ? 0 : 1)}%` : '
 
 const POOL_TYPES = [
   { key: 'clmm', label: 'CLMM' },
-  { key: 'amm', label: 'AMM', soon: true }
+  { key: 'amm', label: 'AMM' }
 ];
 
 /** "Type Pool ▾": which kind of position the lists below show. */
@@ -330,7 +331,7 @@ export default function LpProfile({ account: raw }) {
 
       <p className="lpp__note">
         PnL is rebuilt from this wallet&apos;s on-chain CLMM events, valued at USD prices at the time of each deposit and withdrawal.
-        Classic AMM / Stable / ALMM pools are not included{model && !model.complete ? '; only the most recent 1,000 CLMM transactions are read' : ''}.
+        Classic AMM / Stable / ALMM positions are under Type Pool: AMM{model && !model.complete ? '; only the most recent 1,000 CLMM transactions are read' : ''}.
       </p>
 
       {!valid ? (
@@ -349,6 +350,8 @@ export default function LpProfile({ account: raw }) {
               assets are in its <Link to={`/portfolio?account=${encodeURIComponent(account)}`}>full portfolio</Link>.
             </EmptyState>
           </div>
+          <h2 className="lpp__section">AMM positions</h2>
+          <AmmPositions account={account} />
         </>
       ) : failed ? (
         <div className="card">
@@ -462,12 +465,7 @@ export default function LpProfile({ account: raw }) {
             <PoolTypeMenu value={poolType} onChange={setPoolType} />
           </div>
           {poolType === 'amm' ? (
-            <div className="card">
-              <EmptyState icon="◷" title="AMM · coming soon">
-                PnL for AMM / Stable / ALMM pools is on the way. Until then, this wallet&apos;s classic pool positions are in its{' '}
-                <Link to={`/portfolio?account=${encodeURIComponent(account)}`}>full portfolio</Link>.
-              </EmptyState>
-            </div>
+            <AmmPositions account={account} />
           ) : (
             <>
               {rows ? (

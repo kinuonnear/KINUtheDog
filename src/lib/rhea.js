@@ -141,9 +141,30 @@ export async function searchPools({
 export async function getPoolStats(poolId) {
   try {
     const { list } = await searchPools({ poolIds: String(poolId), hideLow: false, limit: 1 });
-    return list.find((p) => p.id === String(poolId)) || null;
+    const stats = list.find((p) => p.id === String(poolId)) || null;
+    return stats && !(stats.volume24h > 0) && !stats.isDcl ? withDexScreenerVolume(stats) : stats;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Rhea's API can report no volume for a classic pool for a while after it is created (its index
+ * hasn't picked the pool up yet). DexScreener lists the same pool as refv1-<id>: when it has seen
+ * trades, its 24h volume is used, the fees follow from the pool's fee and the APR is an estimate.
+ */
+async function withDexScreenerVolume(stats) {
+  try {
+    const response = await fetch(`${ENDPOINTS.dexscreener}/latest/dex/pairs/near/refv1-${encodeURIComponent(stats.id)}`);
+    if (!response.ok) return stats;
+    const pair = (await response.json())?.pairs?.[0];
+    const volume = Number(pair?.volume?.h24);
+    if (!(volume > 0)) return stats;
+    const fees = (volume * stats.feePercent) / 100;
+    const estimate = stats.tvl >= APR_ESTIMATE_MIN_TVL ? { apy: (fees / stats.tvl) * 365 * 100, apyEstimated: true } : {};
+    return { ...stats, volume24h: volume, feeVolume24h: fees, ...estimate, volumeSource: 'DexScreener' };
+  } catch {
+    return stats;
   }
 }
 

@@ -9,6 +9,7 @@ import { useLiveDclPool } from '../lib/liveEvents.js';
 import { positionsAtPoint } from '../lib/dclLiquidity.js';
 import AprValue from '../components/AprValue.jsx';
 import FeeTiers from '../components/FeeTiers.jsx';
+import AmmPnl from '../components/AmmPnl.jsx';
 import { amountsForShares, isStableKind } from '../lib/liquidity.js';
 import { AmmLiquidity, DclLiquidity, FeeCompoundNote, StableLiquidity } from '../components/Liquidity.jsx';
 import { DclGroupCard } from '../components/DclPositions.jsx';
@@ -152,6 +153,7 @@ function ClassicPool({ poolId, initialTab }) {
         label={pool.label}
         feePercent={pool.feePercent}
         idText={`#${pool.id}`}
+        poolId={pool.id}
         rheaUrl={rheaPoolUrl(pool)}
         swapLink={tokens.length >= 2 ? `/swap?from=${tokens[0].id === CONTRACTS.wrapNear ? NATIVE_NEAR.id : tokens[0].id}&to=${tokens[1].id}` : null}
         price={spot !== null ? { value: spot, x: tokens[0], y: tokens[1] } : null}
@@ -176,26 +178,52 @@ function ClassicPool({ poolId, initialTab }) {
               <SwapChart token={chartBase} counter={chartQuote} pools={chartPools} height={380} />
             </Suspense>
           )}
-          <section className="card classic-card--half">
-            <h3 className="card-title">Reserves</h3>
-            <div className="reserves">
-              {tokens.map((token, i) => {
-                const share = tvl > 0 ? (reserveUsd[i] / reserveUsd.reduce((a, b) => a + b, 0)) * 100 : 0;
-                return (
-                  <div className="reserve" key={token.id}>
-                    <TokenIcon token={token} size={32} />
-                    <div className="reserve__body">
-                      <strong>{formatAmount(reserves[i])} {token.symbol}</strong>
-                      <small>
-                        {formatUsd(reserveUsd[i])} · {shortAccount(token.id, 12, 8)} <CopyButton text={token.id} />
-                      </small>
+          {/* Reserves with the pool contract under it, one column beside Your position. */}
+          <div className="classic-card--half classic-stack">
+            <section className="card">
+              <h3 className="card-title">Reserves</h3>
+              <div className="reserves">
+                {tokens.map((token, i) => {
+                  const share = tvl > 0 ? (reserveUsd[i] / reserveUsd.reduce((a, b) => a + b, 0)) * 100 : 0;
+                  return (
+                    <div className="reserve" key={token.id}>
+                      <TokenIcon token={token} size={32} />
+                      <div className="reserve__body">
+                        <strong>{formatAmount(reserves[i])} {token.symbol}</strong>
+                        <small>
+                          {formatUsd(reserveUsd[i])} · {shortAccount(token.id, 12, 8)} <CopyButton text={token.id} />
+                        </small>
+                      </div>
+                      <span className="reserve__pct">{Number.isFinite(share) ? `${share.toFixed(1)}%` : ''}</span>
                     </div>
-                    <span className="reserve__pct">{Number.isFinite(share) ? `${share.toFixed(1)}%` : ''}</span>
+                  );
+                })}
+              </div>
+            </section>
+            <section className="card">
+              <h3 className="card-title">Pool contract</h3>
+              <dl className="kv">
+                <div>
+                  <dt>Exchange</dt>
+                  <dd className="mono">{CONTRACTS.exchange}</dd>
+                </div>
+                <div>
+                  <dt>Pool kind</dt>
+                  <dd className="mono">{pool.kind}</dd>
+                </div>
+                {pool.amp > 0 && (
+                  <div>
+                    <dt>Amplification</dt>
+                    <dd>{pool.amp}</dd>
                   </div>
-                );
-              })}
-            </div>
-          </section>
+                )}
+                <div>
+                  <dt>LP supply</dt>
+                  <dd>{formatRawAmount(pool.sharesTotalSupply, 24)}</dd>
+                </div>
+              </dl>
+            </section>
+          </div>
 
           {accountId && (
             <section className="card classic-card--half">
@@ -225,6 +253,7 @@ function ClassicPool({ poolId, initialTab }) {
                       </div>
                     )}
                   </dl>
+                  <AmmPnl accountId={accountId} pool={pool} tokens={tokens} userAmounts={userAmounts} userShares={userTotal.toString()} prices={prices} />
                 </div>
               )}
             </section>
@@ -237,29 +266,6 @@ function ClassicPool({ poolId, initialTab }) {
             </section>
           )}
 
-          <section className="card classic-card--half">
-            <h3 className="card-title">Pool contract</h3>
-            <dl className="kv">
-              <div>
-                <dt>Exchange</dt>
-                <dd className="mono">{CONTRACTS.exchange}</dd>
-              </div>
-              <div>
-                <dt>Pool kind</dt>
-                <dd className="mono">{pool.kind}</dd>
-              </div>
-              {pool.amp > 0 && (
-                <div>
-                  <dt>Amplification</dt>
-                  <dd>{pool.amp}</dd>
-                </div>
-              )}
-              <div>
-                <dt>LP supply</dt>
-                <dd>{formatRawAmount(pool.sharesTotalSupply, 24)}</dd>
-              </div>
-            </dl>
-          </section>
         </div>
 
         <aside className="pool-grid__side">
@@ -376,6 +382,7 @@ function DclPool({ poolId, initialTab }) {
         tokens={[x, y]}
         label="CLMM"
         feePercent={fee / 10000}
+        poolId={poolId}
         actions={false}
         price={{ value: price, x, y }}
         stats={[
@@ -745,7 +752,11 @@ function PanelLinks({ links }) {
 }
 
 /** Compact Meteora-style pool bar: pair, type, fee and live stats in one row. `actions={false}` leaves out Swap / Rhea. */
-function PoolBar({ tokens, label, feePercent, rheaUrl, swapLink, stats, price, idText, actions = true }) {
+/** DexScreener lists Rhea pools as refv1-<id> (classic) and refv2-<x>:<y>:<fee> (CLMM). */
+const dexScreenerUrl = (poolId) =>
+  `https://dexscreener.com/near/${String(poolId).includes('|') ? `refv2-${String(poolId).split('|').join(':')}` : `refv1-${poolId}`}`;
+
+function PoolBar({ tokens, label, feePercent, rheaUrl, swapLink, stats, price, idText, poolId, actions = true }) {
   const [flipped, setFlipped] = useState(false);
   return (
     <header className="pool-bar card">
@@ -760,6 +771,14 @@ function PoolBar({ tokens, label, feePercent, rheaUrl, swapLink, stats, price, i
             <span className={`kind kind--${label.toLowerCase()}`}>{label}</span> {formatPercent(feePercent, feePercent < 0.1 ? 3 : 2)} fee
             {idText && <span className="mono"> · {idText}</span>}
           </small>
+          {poolId && (
+            <span className="pool-bar__refs">
+              <CopyButton text={String(poolId)} label="⧉ Pool ID" />
+              <a className="link-button" href={dexScreenerUrl(poolId)} target="_blank" rel="noopener noreferrer" title="This pool on DexScreener">
+                DexScreener ↗
+              </a>
+            </span>
+          )}
         </div>
       </div>
       <div className="pool-bar__stats">
