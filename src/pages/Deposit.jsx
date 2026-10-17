@@ -32,6 +32,7 @@ import { formatAmount, formatUnits, formatUsd, toBigInt, tryParseUnits } from '.
 import { wrapNeededFor } from '../lib/tx.js';
 import { CONTRACTS, ENDPOINTS, NEAR_GAS_RESERVE } from '../config.js';
 import { CopyButton, ErrorNotice, Skeleton, Spinner } from '../components/ui.jsx';
+import { KINU_FEE_BPS, KINU_FEE_STABLE_BPS, feePercent, kinuFeeBps } from '../lib/intentsFees.js';
 import DepositHero from '../components/DepositHero.jsx';
 import { FlowLines } from '../components/FlowLines.jsx';
 import '../deposit.css';
@@ -577,7 +578,7 @@ function WithdrawForm({ destinations, icons, shield, onStarted }) {
   });
   const q = preview.data;
   const usdIn = from ? Number(amount || 0) * (from.price || 0) : 0;
-  const cost = q && usdIn > 0 && q.amountOutUsd ? ((usdIn - Number(q.amountOutUsd)) / usdIn) * 100 : null;
+  const feeBps = kinuFeeBps(from?.symbol, to?.symbol);
 
   if (!accountId) {
     return (
@@ -673,7 +674,9 @@ function WithdrawForm({ destinations, icons, shield, onStarted }) {
           </div>
           <div>
             <dt>Fees</dt>
-            <dd>All included in the quote{cost !== null ? ` (≈ ${cost.toFixed(2)}% all-in)` : ''}</dd>
+            <dd>
+              Included in the quote: {feePercent(feeBps)} service fee (shared by KINU and NEAR Intents)
+            </dd>
           </div>
           <div>
             <dt>If it can&apos;t complete</dt>
@@ -767,7 +770,7 @@ function WithdrawForm({ destinations, icons, shield, onStarted }) {
               </strong>
               <small className="muted">
                 {formatUsd(Number(q.amountOutUsd))} on {chainName(chain)} · ≈ {q.timeEstimate || 60}s
-                {cost !== null ? ` · all-in cost ≈ ${cost.toFixed(2)}%` : ''}
+                {` · incl. ${feePercent(feeBps)} fee`}
               </small>
             </div>
           </div>
@@ -865,7 +868,7 @@ export default function Deposit() {
 
   const lowGas = receive === 'near' && accountId && nearBalance && toBigInt(nearBalance.available) < LOW_GAS_YOCTO;
   const q = preview.data;
-  const cost = q && usdIn > 0 && q.amountOutUsd ? ((usdIn - Number(q.amountOutUsd)) / usdIn) * 100 : null;
+  const feeBps = kinuFeeBps(asset?.symbol, RECEIVE[receive].symbol);
   const chainOptions = chains.map((c) => ({ value: c, label: chainName(c), sub: shield.chains.has(c) ? '⚠ Paused by NEAR Intents' : '', icon: chainLogos(c) }));
   const assetOptions = chainAssets.map((t) => ({
     value: t.assetId,
@@ -1022,7 +1025,7 @@ export default function Deposit() {
                         </strong>
                         <small className="muted">
                           {formatUsd(Number(q.amountOutUsd))} · ≈ {q.timeEstimate || 60}s after your deposit confirms
-                          {cost !== null ? ` · all-in cost ≈ ${cost.toFixed(2)}%` : ''}
+                          {` · incl. ${feePercent(feeBps)} fee`}
                         </small>
                       </div>
                     </div>
@@ -1085,7 +1088,9 @@ export default function Deposit() {
                   </div>
                   <div>
                     <dt>Fees</dt>
-                    <dd>All included in the quote{cost !== null ? ` (≈ ${cost.toFixed(2)}% all-in)` : ''}</dd>
+                    <dd>
+              Included in the quote: {feePercent(feeBps)} service fee (shared by KINU and NEAR Intents)
+            </dd>
                   </div>
                 </dl>
                 <label className="dep-agree">
@@ -1146,7 +1151,9 @@ export default function Deposit() {
             </details>
             <details>
               <summary>What does it cost?</summary>
-              <p>Everything (NEAR Intents and the bridge) is already inside the quote: what you see as &quot;receive&quot; is what arrives. KINU adds no fee.</p>
+              <p>
+                One service fee, already inside the quote: {feePercent(KINU_FEE_BPS)} ({feePercent(KINU_FEE_STABLE_BPS)} for stablecoins and the same asset across chains), shared by KINU and NEAR Intents. KINU&apos;s part funds operations, audits and servers. What you see as &quot;receive&quot; is what arrives; the source chain&apos;s own network fee is separate.
+              </p>
             </details>
             <details>
               <summary>Who runs the bridge?</summary>

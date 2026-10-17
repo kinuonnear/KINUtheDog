@@ -3,7 +3,7 @@
 // is on; the user sends to it from any wallet or exchange, and the funds arrive on NEAR in about a
 // minute, or go back to the refund address if the swap can't complete. KINU never holds the funds.
 //
-// Called from the browser without a partner key (1Click's fees are inside each quote). `referral`
+// Quotes go through api/intents-quote.js (KINU's partner key and fee, lib/intentsFees.js); `referral`
 // only labels the swaps as coming from KINU. Every quote's 1Click signature is checked
 // (lib/intentsSignature.js): a live quote that fails it is never shown.
 
@@ -14,6 +14,7 @@ import { ensureStorageTx, functionCall, transaction, wrapNearTx } from './tx.js'
 import { allowBridgeDeposit } from './txGuard.js';
 import { CONTRACTS, DEPOSIT } from '../config.js';
 import { CHAIN_SVGS, TOKEN_SVGS } from './logoManifest.js';
+import { KINU_FEE_RECIPIENT, kinuFeeBps } from './intentsFees.js';
 
 const API = 'https://1click.chaindefuser.com/v0';
 const REFERRAL = 'kinu';
@@ -69,6 +70,30 @@ async function call(path, init) {
   return json;
 }
 
+/**
+ * A quote, through KINU's api/intents-quote.js: it adds KINU's partner key (which must not reach the
+ * browser) and KINU's fee. On a host without that function the request goes straight to 1Click
+ * with the same fee, unauthenticated. Either way the page verifies 1Click's signature on the answer.
+ */
+async function postQuote(body) {
+  const init = { method: 'POST', headers: { 'content-type': 'application/json' } };
+  let response = null;
+  try {
+    response = await fetch('/api/intents-quote', { ...init, body: JSON.stringify(body) });
+  } catch {
+    response = null;
+  }
+  if (!response || response.status === 404 || response.status === 405) {
+    const fee = kinuFeeBps(symbolOf(body.originAsset), symbolOf(body.destinationAsset));
+    return call('/quote', { ...init, body: JSON.stringify({ ...body, appFees: [{ recipient: KINU_FEE_RECIPIENT, fee }] }) });
+  }
+  const json = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(json.message || `NEAR Intents HTTP ${response.status}`);
+  return json;
+}
+
+const symbolOf = (assetId) => (tokensCache.all || []).find((t) => t.assetId === assetId)?.symbol || (assetId === RECEIVE.near.assetId ? 'NEAR' : '');
+
 /** Every asset that can be deposited from another chain (cached a few minutes). */
 export async function getDepositAssets() {
   if (tokensCache.list && Date.now() - tokensCache.at < TOKENS_TTL_MS) return tokensCache.list;
@@ -83,7 +108,7 @@ export async function getDepositAssets() {
       const ab = ASSET_ORDER.indexOf(b.symbol);
       return (aa < 0 ? 99 : aa) - (ab < 0 ? 99 : ab);
     });
-  tokensCache = { at: Date.now(), list };
+  tokensCache = { at: Date.now(), list, all };
   return list;
 }
 
@@ -108,7 +133,7 @@ export async function depositQuote({ asset, amount, receive, recipient, refundTo
     deadline: new Date(Date.now() + 30 * 60_000).toISOString(),
     referral: REFERRAL
   };
-  const json = await call('/quote', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  const json = await postQuote(body);
   const verified = verifyQuoteSignature(json);
   // A deposit address is only ever shown when 1Click signed it.
   if (!dry && !verified) throw new Error("This deposit address couldn't be verified as coming from NEAR Intents, so it isn't shown. Try again.");
@@ -208,7 +233,7 @@ export async function withdrawQuote({ fromAsset, toAsset, amount, recipient, acc
     deadline: new Date(Date.now() + 30 * 60_000).toISOString(),
     referral: REFERRAL
   };
-  const json = await call('/quote', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  const json = await postQuote(body);
   const verified = verifyQuoteSignature(json);
   if (!dry && !verified) throw new Error("This withdrawal couldn't be verified as coming from NEAR Intents, so nothing was sent. Try again.");
   if (!dry && !/^[0-9a-f]{64}$/.test(String(json.quote?.depositAddress))) throw new Error('Unexpected deposit address from NEAR Intents. Nothing was sent.');

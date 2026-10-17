@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath, URL } from 'node:url';
@@ -24,8 +24,44 @@ const headersFile = {
   }
 };
 
+// `vite dev` runs api/intents-quote.js (the Bridge's quotes with KINU's fee) like Vercel does; the
+// partner key, if any, comes from .env.local (NEAR_INTENTS_API_KEY, never committed).
+const devQuoteApi = {
+  name: 'kinu-dev-quote-api',
+  apply: 'serve',
+  configureServer(server) {
+    const env = loadEnv(server.config.mode, server.config.root, '');
+    if (env.NEAR_INTENTS_API_KEY && !process.env.NEAR_INTENTS_API_KEY) process.env.NEAR_INTENTS_API_KEY = env.NEAR_INTENTS_API_KEY;
+    server.middlewares.use('/api/intents-quote', async (req, res) => {
+      let raw = '';
+      for await (const chunk of req) raw += chunk;
+      const { default: handler } = await server.ssrLoadModule('/api/intents-quote.js');
+      const reply = {
+        statusCode: 200,
+        setHeader: (k, v) => res.setHeader(k, v),
+        status(code) {
+          this.statusCode = code;
+          return this;
+        },
+        json(body) {
+          res.statusCode = this.statusCode;
+          res.setHeader('content-type', 'application/json');
+          res.end(JSON.stringify(body));
+        }
+      };
+      let body = null;
+      try {
+        body = raw ? JSON.parse(raw) : null;
+      } catch {
+        body = null;
+      }
+      await handler({ method: req.method, headers: req.headers, body }, reply);
+    });
+  }
+};
+
 export default defineConfig({
-  plugins: [react(), headersFile],
+  plugins: [react(), headersFile, devQuoteApi],
   resolve: {
     alias: {
       // Node polyfills required by the NEAR wallet-selector packages.
