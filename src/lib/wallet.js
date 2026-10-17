@@ -6,6 +6,7 @@ import '@near-wallet-selector/modal-ui/styles.css';
 
 import { CONTRACTS, ENDPOINTS, NETWORK_ID, TELEGRAM_BOT } from '../config.js';
 import { mergeTransactions } from './tx.js';
+import { inTelegram } from './telegram.js';
 import { assertSafeTransactions } from './txGuard.js';
 import { describeFailure, failureOf } from './txErrors.js';
 
@@ -43,6 +44,23 @@ const withoutAutoConnect = (factory) => async (...args) => {
   return module && { ...module, metadata: { ...module.metadata, runOnStartup: meteorAppConnected() } };
 };
 
+/**
+ * HOT Wallet inside Telegram: connect by signing a message (no access key added). HOT's Telegram
+ * app can't read the add-key request this wallet module sends (it has no receiver), so a sign-in
+ * with a contract fails there. Every transaction is still confirmed in HOT.
+ */
+const signInWithoutKey = (factory) => async (...args) => {
+  const module = await factory(...args);
+  if (!module) return module;
+  return {
+    ...module,
+    init: async (config) => {
+      const wallet = await module.init(config);
+      return { ...wallet, signIn: (data) => wallet.signIn({ ...data, contractId: '' }) };
+    }
+  };
+};
+
 let selectorPromise = null;
 let selectorRef = null; // the loaded selector, for synchronous reads in tap handlers
 let modal = null;
@@ -76,9 +94,11 @@ export function getSelector() {
           intear.setupIntearWallet(),
           // Inside Telegram (lib/telegram.js) HOT signs in its own Telegram app, then returns to
           // KINU's Mini App (TELEGRAM_BOT).
-          here.setupHereWallet(
-            TELEGRAM_BOT.bot ? { walletOptions: { botId: `${TELEGRAM_BOT.bot}/${TELEGRAM_BOT.app}`, walletId: 'herewalletbot/app' } } : undefined
-          ),
+          inTelegram()
+            ? signInWithoutKey(
+                here.setupHereWallet({ walletOptions: { botId: `${TELEGRAM_BOT.bot}/${TELEGRAM_BOT.app}`, walletId: 'herewalletbot/app' } })
+              )
+            : here.setupHereWallet(),
           myNear.setupMyNearWallet()
         ]
       });
