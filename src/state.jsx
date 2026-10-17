@@ -213,7 +213,11 @@ export function AppProvider({ children }) {
       const startedAt = Date.now();
       let expected = 0; // transactions handed to the wallet (0 = it never got that far)
       try {
-        const txs = await buildTransactions();
+        const built = await buildTransactions();
+        // Route fees (Intear routes, lib/intearRouter.js) go out only once the swap has landed, as a
+        // request of their own: a swap that fails never pays them (docs.intear.tech, executing routes).
+        const txs = built.filter((tx) => !tx?.isFee);
+        const fees = built.filter((tx) => tx?.isFee);
         expected = mergeTransactions(txs).length;
         const outcomes = await sendTransactions(txs);
         dismissToast(pendingId);
@@ -222,6 +226,18 @@ export function AppProvider({ children }) {
         toast('success', success, outcomes.length ? `${outcomes.length} transaction(s) executed.` : 'Submitted.', {
           link: hash ? `${ENDPOINTS.explorer}/txns/${hash}` : undefined
         });
+        if (fees.length) {
+          const feeId = toast('info', 'One more approval: the route fee', 'Your swap is done. This sends the fee already shown in the quote.', { timeout: 0 });
+          try {
+            armWalletPopup(currentWalletId());
+            await sendTransactions(fees);
+          } catch (feeError) {
+            // Declined or failed: the swap itself is complete either way.
+            console.warn('[KINU] route fee not sent', feeError);
+          } finally {
+            dismissToast(feeId);
+          }
+        }
         clearViewCache();
         refreshBalances();
         return outcomes;

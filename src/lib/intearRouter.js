@@ -74,9 +74,9 @@ function toTransactions(instructions) {
   return instructions.map((step) => {
     const kinds = Object.keys(step || {});
     if (kinds.length !== 1 || kinds[0] !== 'NearTransaction') throw new Error(`unsupported step "${kinds.join(',')}"`);
-    const { receiver_id: receiver, actions } = step.NearTransaction;
+    const { receiver_id: receiver, actions, is_fee_transaction: isFee } = step.NearTransaction;
     if (typeof receiver !== 'string' || !Array.isArray(actions) || !actions.length) throw new Error('malformed step');
-    return transaction(
+    const tx = transaction(
       receiver,
       actions.map((action) => {
         const keys = Object.keys(action || {});
@@ -85,6 +85,8 @@ function toTransactions(instructions) {
         return functionCall(method, decodeArgs(args), String(BigInt(gas)), String(BigInt(deposit || '0')));
       })
     );
+    // Fee transactions come last and are sent only after the swap succeeded (state.jsx execute).
+    return isFee === true ? { ...tx, isFee: true } : tx;
   });
 }
 
@@ -158,11 +160,17 @@ export function assertIntearRoute(transactions, { tokenIn, amountIn, user, feeBp
   let nearSpent = 0n;
   let tokenSpent = 0n;
   let feeSpent = 0n;
+  let feesStarted = false;
   transactions.forEach((tx) => {
+    // Fee transactions only pay fees, and only after every swap transaction.
+    if (tx.isFee) feesStarted = true;
+    else if (feesStarted) throw new Error('swap step after a fee transaction');
     tx.actions.forEach(({ params: { methodName, args = {}, gas, deposit } }) => {
       if (BigInt(gas) > MAX_GAS) throw new Error('gas above the NEAR limit');
+      if (tx.isFee && methodName !== 'ft_transfer') throw new Error(`unexpected "${methodName}" in a fee transaction`);
       if (methodName === 'ft_transfer') {
         if (!(feeBps > 0)) throw new Error('route transfers tokens out');
+        if (!tx.isFee) throw new Error('fee transfer outside a fee transaction');
         if (tx.receiverId !== input) throw new Error(`fee paid in ${tx.receiverId}`);
         if (!INTEAR_FEE_RECIPIENTS.has(args.receiver_id)) throw new Error(`fee sent to "${args.receiver_id}"`);
         if (BigInt(deposit || '0') !== 1n) throw new Error('unexpected deposit on a fee transfer');
