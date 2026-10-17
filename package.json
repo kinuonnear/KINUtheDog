@@ -18,10 +18,13 @@
     "@near-wallet-selector/meteor-wallet-app": "10.1.4",
     "@near-wallet-selector/modal-ui": "10.1.4",
     "@near-wallet-selector/my-near-wallet": "10.1.4",
+    "@noble/curves": "1.8.1",
+    "@noble/hashes": "1.8.0",
     "@vercel/analytics": "1.6.1",
     "buffer": "6.0.3",
     "lightweight-charts": "5.2.1",
     "process": "0.11.10",
+    "qrcode-generator": "1.4.4",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },
