@@ -31,12 +31,16 @@ import {
 } from '../lib/format.js';
 import { bpsText, CONTRACTS, DEPOSIT, INTEAR_FEE, INTEAR_REFERRER, KINU_VERIFIED_TOKENS, NATIVE_NEAR, NEAR_GAS_RESERVE, PINNED_TOKENS } from '../config.js';
 import { SlippagePicker } from '../components/Slippage.jsx';
+import { autoSlippageFor } from '../lib/autoSlippage.js';
+import { watchQuote } from '../lib/liveQuotes.js';
 
 const SwapChart = lazy(() => import('../components/swap/SwapChart.jsx'));
 
 const USDC = '17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1';
 const QUOTE_REFRESH_MS = 20_000;
 const QUOTE_MAX_AGE_MS = 15_000;
+// Live quotes re-quote at most this often, however fast the pools move.
+const LIVE_MIN_GAP_MS = 5_000;
 // Chart height on the swap page, set with the divider under it (px).
 const CHART_H = { min: 260, max: 820, default: 460 };
 
@@ -182,7 +186,7 @@ function isWrapPair(a, b) {
   );
 }
 
-function SlippageSettings({ slippage, setSlippage }) {
+function SlippageSettings({ slippage, setSlippage, auto, setAuto }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   useClickOutside(ref, () => setOpen(false), open);
@@ -190,12 +194,12 @@ function SlippageSettings({ slippage, setSlippage }) {
   return (
     <div className="popover-anchor" ref={ref}>
       <button type="button" className="pill-button" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
-        ⚙ {slippage}%
+        ⚙ {slippage}%{auto ? ' auto' : ''}
       </button>
       {open && (
         <div className="popover">
           <span className="eyebrow">Max slippage</span>
-          <SlippagePicker slippage={slippage} setSlippage={setSlippage} />
+          <SlippagePicker slippage={slippage} setSlippage={setSlippage} auto={auto} setAuto={setAuto} autoValue={auto ? slippage : null} />
         </div>
       )}
     </div>
@@ -254,11 +258,16 @@ function TokenField({ label, token, amount, onAmount, onPickToken, balance, usd,
 }
 
 export default function Swap() {
-  const { accountId, connect, balances, prices, slippage, setSlippage, execute, refreshTokenBalances } = useApp();
+  const { accountId, connect, balances, prices, slippage: savedSlippage, setSlippage, autoSlippage, setAutoSlippage, execute, refreshTokenBalances } = useApp();
   const { search } = useLocation();
 
   const [tokenIn, setTokenIn] = useState(NATIVE_NEAR);
   const [tokenOut, setTokenOut] = useState(() => getCachedToken(USDC) || { id: USDC, symbol: 'USDC', decimals: 6 });
+  // What this swap uses: picked from the pair (Auto, lib/autoSlippage.js) or the user's own value.
+  const slippage = autoSlippage ? autoSlippageFor(tokenIn, tokenOut) : savedSlippage;
+  // When the quote on screen was fetched (live updates wait LIVE_MIN_GAP_MS between quotes).
+  const lastQuoteAt = useRef(0);
+  const [live, setLive] = useState(false);
   const [amount, setAmount] = useState('');
   const [picker, setPicker] = useState(null);
   const [showChart, setShowChart] = useLocalStorage('kinu.swap.chart', true);
@@ -371,6 +380,7 @@ export default function Swap() {
           routeSourceRef.current
         );
         if (id !== quoteRun.current) return null;
+        lastQuoteAt.current = Date.now();
         setQuote(q);
         setQuoteError('');
         return q;
@@ -400,6 +410,33 @@ export default function Swap() {
     const timer = setInterval(() => backgroundRefreshAllowed() && requestQuote({ silent: true }), QUOTE_REFRESH_MS);
     return () => clearInterval(timer);
   }, [requestQuote]);
+
+  // Live quotes (lib/liveQuotes.js): re-quote as soon as the pools move the price, at most every
+  // LIVE_MIN_GAP_MS; the timer above stays as the fallback.
+  useEffect(() => {
+    if (!amountRaw || toBigInt(amountRaw) === 0n || tokenIn.id === tokenOut.id || wrapMode) {
+      setLive(false);
+      return undefined;
+    }
+    let timer = null;
+    const stop = watchQuote({
+      tokenIn,
+      tokenOut,
+      amountIn: amountRaw,
+      onStatus: setLive,
+      onChange: () => {
+        clearTimeout(timer);
+        const wait = Math.max(0, LIVE_MIN_GAP_MS - (Date.now() - lastQuoteAt.current));
+        timer = setTimeout(() => {
+          if (document.visibilityState === 'visible' && backgroundRefreshAllowed()) requestQuote({ silent: true });
+        }, wait);
+      }
+    });
+    return () => {
+      clearTimeout(timer);
+      stop();
+    };
+  }, [amountRaw, tokenIn, tokenOut, wrapMode, requestQuote]);
 
   /* ------------------------------ derived ------------------------------ */
   const amountInNum = typedRaw ? toNumber(typedRaw, tokenIn.decimals) : 0;
@@ -665,7 +702,12 @@ export default function Swap() {
                 <button type="button" className="pill-button" onClick={() => setShowHistory(!showHistory)}>
                   {showHistory ? 'Hide history' : 'Show history'}
                 </button>
-                <SlippageSettings slippage={slippage} setSlippage={setSlippage} />
+                {live && (
+                  <span className="live-pill" title="The quote updates as soon as the pools move">
+                    <i aria-hidden="true" /> Live
+                  </span>
+                )}
+                <SlippageSettings slippage={slippage} setSlippage={setSlippage} auto={autoSlippage} setAuto={setAutoSlippage} />
               </div>
             </div>
 
@@ -760,7 +802,9 @@ export default function Swap() {
                   )}
                   <div>
                     <dt>Max slippage</dt>
-                    <dd>{slippage}%</dd>
+                    <dd>
+                      {slippage}%{autoSlippage ? <small className="muted"> · auto</small> : null}
+                    </dd>
                   </div>
                   <div>
                     <dt>Route</dt>

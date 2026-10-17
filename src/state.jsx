@@ -282,6 +282,8 @@ export function AppProvider({ children }) {
 
   /* ---------------- settings ---------------- */
   const [slippage, setSlippage] = useLocalStorage('kinu.slippage', DEFAULT_SLIPPAGE);
+  // Swaps pick their slippage from the pair (lib/autoSlippage.js) unless the user set one.
+  const [autoSlippage, setAutoSlippage] = useLocalStorage('kinu.slippage.auto', true);
 
   const value = useMemo(
     () => ({
@@ -300,7 +302,9 @@ export function AppProvider({ children }) {
       toasts,
       dismissToast,
       slippage,
-      setSlippage
+      setSlippage,
+      autoSlippage,
+      setAutoSlippage
     }),
     [
       walletReady,
@@ -318,7 +322,9 @@ export function AppProvider({ children }) {
       toasts,
       dismissToast,
       slippage,
-      setSlippage
+      setSlippage,
+      autoSlippage,
+      setAutoSlippage
     ]
   );
 

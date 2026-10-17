@@ -1356,8 +1356,15 @@ a.pool-row:hover + .pool-row {
   font-size: 20px;
 }
 
+.swap-card__head > div:first-child {
+  min-width: 150px;
+}
+
 .swap-card__tools {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
   gap: 6px;
 }
 
@@ -13105,4 +13112,39 @@ a.amm-table__row:hover {
   font-size: 16px;
   line-height: 1;
   cursor: pointer;
+}
+
+/* Swap: live quote indicator */
+.live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.live-pill i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--up, #5fe3a1);
+  box-shadow: 0 0 0 0 rgba(95, 227, 161, 0.6);
+  animation: live-pulse 2s infinite;
+}
+
+@keyframes live-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(95, 227, 161, 0.55); }
+  70% { box-shadow: 0 0 0 6px rgba(95, 227, 161, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(95, 227, 161, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-pill i {
+    animation: none;
+  }
 }
