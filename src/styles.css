@@ -4912,8 +4912,7 @@ a.trades__row:hover {
   width: 100%;
   max-width: none;
   height: 8px;
-  margin-top: 4px;
-  overflow: hidden;
+  margin: 7px 0 3px;
   background: rgba(200, 220, 255, 0.08);
 }
 
@@ -4922,9 +4921,15 @@ a.trades__row:hover {
   bottom: 0;
 }
 
+/* The price now: taller than the track and outlined, so it reads on red, green and empty track. */
 .lp-board__range .range-track__now {
-  top: 0;
-  bottom: 0;
+  top: -4px;
+  bottom: -4px;
+  width: 3px;
+  margin-left: -1.5px;
+  border-radius: 2px;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55), 0 0 6px rgba(255, 255, 255, 0.5);
 }
 
 .lp-board__range .chart-toggle {
@@ -4932,7 +4937,14 @@ a.trades__row:hover {
   margin-top: 4px;
 }
 
+/* "NEAR per KINU · 1 bin" centred over the track, like the status under it. */
+.lp-board__range > small {
+  text-align: center;
+}
+
 .lp-board__range .range-badge {
+  justify-content: center;
+  text-align: center;
   margin-top: 2px;
   color: var(--danger);
   font-size: 11px;

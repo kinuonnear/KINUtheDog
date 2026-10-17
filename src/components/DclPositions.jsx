@@ -561,7 +561,7 @@ function trackScale(positions) {
   const right = Math.max(...positions.map((p) => p.rightPoint));
   const lo = Math.min(current, left);
   const hi = Math.max(current, right);
-  const room = (hi - lo) * 0.04 || 1;
+  const room = (hi - lo) * 0.08 || 1;
   const from = current < left ? lo - room : lo;
   const to = current > right ? hi + room : hi;
   return { current, pos: (pt) => ((pt - from) / (to - from)) * 100 };
