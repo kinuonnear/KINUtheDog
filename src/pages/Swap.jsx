@@ -663,8 +663,8 @@ export default function Swap() {
                 <h2>Swap</h2>
                 <span className="muted small">
                   Best route across Rhea & Intear DEX ·{' '}
-                  <Link to="/deposit" className="swap-deposit-link">
-                    Deposit from another chain
+                  <Link to="/bridge" className="swap-deposit-link">
+                    Bridge from another chain
                   </Link>
                 </span>
               </div>

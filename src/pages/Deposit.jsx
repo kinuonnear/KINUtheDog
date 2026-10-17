@@ -19,23 +19,41 @@ import {
   FINAL_STATUSES,
   getAssetIcons,
   getDepositAssets,
+  getWithdrawAssets,
+  buildWithdrawTransactions,
+  withdrawQuote,
   RECEIVE,
   RECEIVE_ICONS,
   submitDepositTx
 } from '../lib/intents.js';
-import { formatAmount, formatUsd, toBigInt, tryParseUnits } from '../lib/format.js';
-import { ENDPOINTS } from '../config.js';
+import { formatAmount, formatUnits, formatUsd, toBigInt, tryParseUnits } from '../lib/format.js';
+import { wrapNeededFor } from '../lib/tx.js';
+import { CONTRACTS, ENDPOINTS, NEAR_GAS_RESERVE } from '../config.js';
 import { CopyButton, ErrorNotice, Skeleton, Spinner } from '../components/ui.jsx';
 import DepositHero from '../components/DepositHero.jsx';
 import '../deposit.css';
 
 const ACTIVE_KEY = 'kinu.deposit.active';
+const ACTIVE_W_KEY = 'kinu.withdraw.active';
+const MODE_KEY = 'kinu.bridge.mode';
+const WNEAR_ID = CONTRACTS.wrapNear;
 const STATUS_POLL_MS = 5_000;
 // Below this much native NEAR a new account can't pay gas for its first LP or swap.
 const LOW_GAS_YOCTO = 50_000_000_000_000_000_000_000n; // 0.05 NEAR
 // Above this the page suggests trying a small amount first (a reminder, not a limit).
 const LARGE_USD = 1_000;
 const TERMS_URL = 'https://docs.near-intents.org/security-compliance/terms-of-service';
+
+const HOW_BRING = [
+  { title: 'Pick what you have', text: 'The chain and asset your money is on now, and whether it lands as NEAR or USDC.' },
+  { title: 'Review a signed quote', text: 'KINU asks NEAR Intents for a one-time deposit address and checks its signature.' },
+  { title: 'Send, and it lands', text: 'Send the exact amount from any wallet or exchange. It reaches your NEAR account in about a minute.' }
+];
+const HOW_SEND = [
+  { title: 'Pick where it goes', text: 'What to send from NEAR, the chain and asset it arrives as, and the address there.' },
+  { title: 'Review a signed quote', text: 'When you sign, KINU fetches a fresh quote from NEAR Intents and checks its signature.' },
+  { title: 'Sign once, it arrives', text: 'One wallet request sends it to NEAR Intents; it lands on the other chain in about a minute.' }
+];
 
 const chainName = (id) => CHAIN_NAMES[id] || id.toUpperCase();
 /** "72h 29m" / "9:41" — 1Click deposit addresses can stay open for days. */
@@ -225,7 +243,6 @@ function ActiveDeposit({ active, icons, onDone }) {
           <li key={s.key} className={i < stepIndex || state === 'SUCCESS' ? 'done' : i === stepIndex && !final ? 'on' : ''}>
             <i>{i < stepIndex || state === 'SUCCESS' ? '✓' : i + 1}</i>
             {s.label}
-            {i === stepIndex && !final && !expired && <Spinner size={12} />}
           </li>
         ))}
       </ol>
@@ -235,16 +252,15 @@ function ActiveDeposit({ active, icons, onDone }) {
           <Logo src={RECEIVE_ICONS[receive.key]} name={receive.symbol} size={36} />
           <div>
             <b>
-              {details.amountOutFormatted ? `${formatAmount(Number(details.amountOutFormatted))} ${receive.symbol}` : receive.symbol} arrived
+              {details.amountOutFormatted ? `${formatAmount(Number(details.amountOutFormatted))} ${receive.symbol}` : receive.symbol} landed in {active.recipient}
             </b>
             <small className="muted">
-              in {active.recipient}
-              {details.amountOutUsd ? ` · ≈ ${formatUsd(Number(details.amountOutUsd))}` : ''}
+              {details.amountOutUsd ? `≈ ${formatUsd(Number(details.amountOutUsd))}` : ''}
               {receive.key === 'near' ? ' · as wNEAR, used directly by KINU pools and swaps' : ''}
             </small>
             <div className="dep-next">
               <Link to="/pools" className="button button--primary button--sm">
-                Provide liquidity
+                Put it to work · Provide liquidity
               </Link>
               <Link to="/swap" className="button button--outline button--sm">
                 Swap
@@ -281,7 +297,7 @@ function ActiveDeposit({ active, icons, onDone }) {
       )}
 
       {details.nearTxHashes?.length > 0 && (
-        <p className="muted small">
+        <p className="muted small dep-txs">
           On NEAR:{' '}
           {details.nearTxHashes.slice(-2).map((h) => (
             <a key={h} href={`${ENDPOINTS.explorer}/txns/${h}`} target="_blank" rel="noopener noreferrer">
@@ -292,10 +308,348 @@ function ActiveDeposit({ active, icons, onDone }) {
       )}
       {status.error && <p className="muted small">Status unavailable right now: {status.error.message}</p>}
 
-      <button type="button" className="link-button dep-new" onClick={onDone}>
-        {final || expired ? 'New deposit' : 'Cancel and start over (only if you have not sent anything)'}
+      <button type="button" className="button button--ghost button--sm dep-new" onClick={onDone}>
+        {final || expired ? 'New transfer' : 'Cancel and start over (only if you have not sent anything)'}
       </button>
     </section>
+  );
+}
+
+const W_STEPS = [
+  { key: 'PENDING_DEPOSIT', label: 'Waiting for your transfer on NEAR' },
+  { key: 'KNOWN_DEPOSIT_TX', label: 'Transfer seen' },
+  { key: 'PROCESSING', label: 'Moving it to the other chain' },
+  { key: 'SUCCESS', label: 'Arrived' }
+];
+
+/** A withdrawal after signing: where it goes and its progress. */
+function ActiveWithdraw({ active, onDone }) {
+  const status = useAsync(() => depositStatus(active.depositAddress, active.depositMemo), [active.depositAddress], {
+    refreshMs: STATUS_POLL_MS
+  });
+  const state = status.data?.status || 'PENDING_DEPOSIT';
+  const details = status.data?.swapDetails || {};
+  const final = FINAL_STATUSES.has(state);
+  const stepIndex = Math.max(0, W_STEPS.findIndex((s) => s.key === state));
+  const out = (details.destinationChainTxHashes || [])[0];
+  return (
+    <section className="card dep-card dep-active">
+      <div className="dep-send">
+        <Logo src={active.toLogos || []} name={active.toSymbol} size={44} badge={<Logo src={chainLogos(active.toChain)} name={chainName(active.toChain)} size={20} />} />
+        <div>
+          <span className="dep-label">Sent from {active.account}</span>
+          <strong>
+            {active.amountInFormatted} {active.fromSymbol} → ≈ {formatAmount(Number(active.amountOutFormatted))} {active.toSymbol}
+          </strong>
+          <small className="muted">
+            to <span className="dep-mono">{active.recipient}</span> on {chainName(active.toChain)}
+          </small>
+        </div>
+      </div>
+      <ol className="dep-steps">
+        {W_STEPS.map((s, i) => (
+          <li key={s.key} className={i < stepIndex || state === 'SUCCESS' ? 'done' : i === stepIndex && !final ? 'on' : ''}>
+            <i>{i < stepIndex || state === 'SUCCESS' ? '✓' : i + 1}</i>
+            {s.label}
+          </li>
+        ))}
+      </ol>
+      {state === 'SUCCESS' && (
+        <div className="dep-result dep-result--ok">
+          <Logo src={active.toLogos || []} name={active.toSymbol} size={36} />
+          <div>
+            <b>
+              {details.amountOutFormatted ? formatAmount(Number(details.amountOutFormatted)) : '≈ ' + formatAmount(Number(active.amountOutFormatted))} {active.toSymbol} arrived on {chainName(active.toChain)}
+            </b>
+            <small className="muted">
+              at {active.recipient}
+              {details.amountOutUsd ? ` · ≈ ${formatUsd(Number(details.amountOutUsd))}` : ''}
+            </small>
+            {out?.explorerUrl && (
+              <a href={out.explorerUrl} target="_blank" rel="noopener noreferrer" className="small">
+                View on {chainName(active.toChain)} explorer ↗
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+      {(state === 'REFUNDED' || state === 'FAILED' || state === 'INCOMPLETE_DEPOSIT') && (
+        <div className="dep-result dep-result--warn">
+          <div>
+            <b>{state === 'REFUNDED' ? 'Refunded to your NEAR account' : state === 'FAILED' ? 'The withdrawal failed' : 'Less than quoted arrived'}</b>
+            <small>
+              {state === 'INCOMPLETE_DEPOSIT'
+                ? 'The transfer was smaller than the quote; it will be refunded to your NEAR account if not completed.'
+                : `${details.refundedAmountFormatted ? `${details.refundedAmountFormatted} ${active.fromSymbol} ` : 'The amount '}went back to ${active.account}.${details.refundReason ? ` Reason: ${details.refundReason}.` : ''}`}
+            </small>
+          </div>
+        </div>
+      )}
+      {status.error && <p className="muted small">Status unavailable right now: {status.error.message}</p>}
+      {details.nearTxHashes?.length > 0 && (
+        <p className="muted small dep-txs">
+          On NEAR:{' '}
+          {details.nearTxHashes.slice(-2).map((h) => (
+            <a key={h} href={`${ENDPOINTS.explorer}/txns/${h}`} target="_blank" rel="noopener noreferrer">
+              {h.slice(0, 8)}… ↗{' '}
+            </a>
+          ))}
+        </p>
+      )}
+      <button type="button" className="button button--ghost button--sm dep-new" onClick={onDone}>
+        {final ? 'New transfer' : 'Hide (it keeps going; you can track it on NEAR Intents)'}
+      </button>
+    </section>
+  );
+}
+
+/** Spendable raw balance of a NEAR asset (NEAR counts native NEAR, minus a gas reserve, plus wNEAR). */
+function spendableOf(asset, balances, nearBalance) {
+  if (!asset) return 0n;
+  const token = toBigInt(balances?.[asset.contractAddress] || '0');
+  if (asset.contractAddress !== WNEAR_ID) return token;
+  const native = nearBalance ? toBigInt(nearBalance.available) - toBigInt(NEAR_GAS_RESERVE) : 0n;
+  return token + (native > 0n ? native : 0n);
+}
+
+/** Withdraw: from the connected NEAR account to an address on another chain. */
+function WithdrawForm({ destinations, icons, onStarted }) {
+  const { accountId, connect, balances, nearBalance, execute } = useApp();
+  const sources = useAsync(() => getWithdrawAssets(), []);
+  const [fromId, setFromId] = useState('');
+  const [amount, setAmount] = useState('');
+  const [chain, setChain] = useState('base');
+  const [toId, setToId] = useState('');
+  const [recipient, setRecipient] = useState('');
+  const [reviewing, setReviewing] = useState(false);
+  const [agreed, setAgreed] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const fromList = sources.data || [];
+  const from = fromList.find((t) => t.assetId === fromId) || fromList[0] || null;
+  const chains = useMemo(() => [...new Set(destinations.map((t) => t.blockchain))], [destinations]);
+  const chainAssets = useMemo(() => destinations.filter((t) => t.blockchain === chain), [destinations, chain]);
+  const to = chainAssets.find((t) => t.assetId === toId) || chainAssets[0] || null;
+  const raw = from ? tryParseUnits(amount || '0', from.decimals) || '0' : '0';
+  const spendable = spendableOf(from, balances, nearBalance);
+  const tooMuch = accountId && toBigInt(raw) > spendable;
+  const ready = Boolean(accountId && from && to && toBigInt(raw) > 0n && !tooMuch && recipient.trim());
+  const formKey = [from?.assetId, raw, to?.assetId, recipient.trim(), accountId].join('|');
+  useEffect(() => {
+    setReviewing(false);
+    setAgreed(false);
+  }, [formKey]);
+  const key = useDebounced(formKey, 600);
+  const preview = useAsync(() => withdrawQuote({ fromAsset: from, toAsset: to, amount: raw, recipient, account: accountId, dry: true }), [key], {
+    enabled: ready && key === formKey
+  });
+  const q = preview.data;
+  const usdIn = from ? Number(amount || 0) * (from.price || 0) : 0;
+  const cost = q && usdIn > 0 && q.amountOutUsd ? ((usdIn - Number(q.amountOutUsd)) / usdIn) * 100 : null;
+
+  if (!accountId) {
+    return (
+      <div className="dep-connect">
+        <p>Connect your NEAR wallet to send NEAR, USDC or other tokens to Base, Solana, Ethereum and 30+ chains.</p>
+        <button type="button" className="button button--primary button--lg" onClick={connect}>
+          Connect wallet
+        </button>
+      </div>
+    );
+  }
+  if (sources.error) return <ErrorNotice error={sources.error} onRetry={sources.reload} />;
+  if (!sources.data) return <Skeleton height={260} />;
+
+  const sign = async () => {
+    setBusy(true);
+    let live = null;
+    const outcomes = await execute(
+      async () => {
+        // A fresh, signed quote at the moment of signing; its deposit address is the only place
+        // the guard lets these tokens go.
+        live = await withdrawQuote({ fromAsset: from, toAsset: to, amount: raw, recipient, account: accountId, dry: false });
+        const wrap = from.contractAddress === WNEAR_ID ? await wrapNeededFor(accountId, String(live.amountIn), balances?.[WNEAR_ID]) : '0';
+        return buildWithdrawTransactions({ quote: live, fromAsset: from, accountId, wrap });
+      },
+      { pending: `Sending ${amount} ${from.symbol} to ${chainName(chain)}`, success: 'Sent: on its way to the other chain' }
+    );
+    setBusy(false);
+    if (!outcomes || !live) return;
+    const hash = outcomes[outcomes.length - 1]?.transaction?.hash;
+    if (hash) submitDepositTx(live.depositAddress, hash, live.depositMemo).catch(() => {});
+    onStarted({
+      kind: 'withdraw',
+      depositAddress: live.depositAddress,
+      depositMemo: live.depositMemo || null,
+      amountInFormatted: live.amountInFormatted,
+      amountOutFormatted: live.amountOutFormatted,
+      fromSymbol: from.symbol,
+      toSymbol: to.symbol,
+      toChain: to.blockchain,
+      toLogos: assetLogos(to, icons),
+      recipient: recipient.trim(),
+      account: accountId,
+      createdAt: Date.now()
+    });
+  };
+
+  const fromOptions = fromList.map((t) => ({
+    value: t.assetId,
+    label: t.symbol,
+    sub: `${formatAmount(Number(formatUnits(spendableOf(t, balances, nearBalance), t.decimals)))} on NEAR`,
+    icon: t.contractAddress === WNEAR_ID ? [RECEIVE_ICONS.near] : assetLogos(t, icons)
+  }));
+  const chainOptions = chains.map((c) => ({ value: c, label: chainName(c), icon: chainLogos(c) }));
+  const toOptions = chainAssets.map((t) => ({ value: t.assetId, label: t.symbol, sub: t.price ? formatUsd(t.price) : '', icon: assetLogos(t, icons) }));
+  const fromLogo = from?.contractAddress === WNEAR_ID ? [RECEIVE_ICONS.near] : assetLogos(from, icons);
+
+  if (reviewing && q) {
+    return (
+      <div className="dep-review">
+        <h3>Review your withdrawal</h3>
+        <div className="dep-review__flow">
+          <div>
+            <Logo src={fromLogo} name={from.symbol} size={40} badge={<Logo src={chainLogos('near')} name="NEAR" size={18} />} />
+            <b>
+              {amount} {from.symbol}
+            </b>
+            <small>from {accountId}</small>
+          </div>
+          <span className="dep-review__arrow">→</span>
+          <div>
+            <Logo src={assetLogos(to, icons)} name={to.symbol} size={40} badge={<Logo src={chainLogos(chain)} name={chainName(chain)} size={18} />} />
+            <b>
+              ≈ {formatAmount(Number(q.amountOutFormatted))} {to.symbol}
+            </b>
+            <small>on {chainName(chain)}</small>
+          </div>
+        </div>
+        <div className="dep-recipient">
+          <span className="dep-label">Recipient on {chainName(chain)}</span>
+          <code>{recipient.trim()}</code>
+        </div>
+        <dl className="kv">
+          <div>
+            <dt>Minimum received</dt>
+            <dd>
+              {q.minAmountOut ? formatAmount(Number(q.minAmountOut) / 10 ** to.decimals) : '—'} {to.symbol}
+            </dd>
+          </div>
+          <div>
+            <dt>Time</dt>
+            <dd>≈ {q.timeEstimate || 60}s after your NEAR transaction</dd>
+          </div>
+          <div>
+            <dt>Fees</dt>
+            <dd>All included in the quote{cost !== null ? ` (≈ ${cost.toFixed(2)}% all-in)` : ''}</dd>
+          </div>
+          <div>
+            <dt>If it can&apos;t complete</dt>
+            <dd>Refunded to {accountId}</dd>
+          </div>
+        </dl>
+        <label className="dep-agree">
+          <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
+          <span>
+            The recipient above is my {chainName(chain)} address and can receive {to.symbol}. A transfer to a wrong address can&apos;t be undone.
+          </span>
+        </label>
+        <div className="dep-review__actions">
+          <button type="button" className="button button--outline" onClick={() => setReviewing(false)}>
+            Back
+          </button>
+          <button type="button" className="button button--primary button--lg" disabled={!agreed || busy} onClick={sign}>
+            {busy && <Spinner size={14} />} Sign in wallet
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="dep-field">
+        <span className="dep-label">Send from NEAR</span>
+        <div className="dep-amount">
+          <Logo src={fromLogo} name={from?.symbol} size={30} badge={<Logo src={chainLogos('near')} name="NEAR" size={14} />} />
+          <input inputMode="decimal" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value.replace(',', '.').replace(/[^\d.]/g, ''))} />
+          <button type="button" className="mini-button" onClick={() => setAmount(formatUnits(spendable, from.decimals))}>
+            Max
+          </button>
+        </div>
+        <div className="dep-amount-meta">
+          <small className="muted">{usdIn > 0 ? `≈ ${formatUsd(usdIn)}` : ' '}</small>
+          <small className={tooMuch ? 'down' : 'muted'}>
+            Balance {formatAmount(Number(formatUnits(spendable, from.decimals)))} {from.symbol}
+            {from.contractAddress === WNEAR_ID ? ' (keeps a little NEAR for gas)' : ''}
+          </small>
+        </div>
+        <Picker label="Asset on NEAR" value={from?.assetId} options={fromOptions} searchPlaceholder="Search assets" onChange={setFromId} />
+      </div>
+
+      <div className="dep-row">
+        <Picker
+          label="To chain"
+          value={chain}
+          options={chainOptions}
+          searchPlaceholder="Search chains"
+          onChange={(c) => {
+            setChain(c);
+            setToId('');
+          }}
+        />
+        <Picker label="Receive as" value={to?.assetId} options={toOptions} searchPlaceholder="Search assets" onChange={setToId} />
+      </div>
+
+      <label className="dep-field">
+        <span className="dep-label">Recipient address on {chainName(chain)}</span>
+        <input
+          className="dep-input"
+          placeholder={ADDRESS_HINT[chain] || `Your ${chainName(chain)} address (0x…)`}
+          value={recipient}
+          onChange={(e) => setRecipient(e.target.value)}
+          spellCheck={false}
+        />
+        <small className="muted">Where the {to?.symbol} arrives. Double-check it: a transfer to a wrong address can&apos;t be undone.</small>
+      </label>
+
+      <div className="dep-quote">
+        {!ready && <span className="muted small">{tooMuch ? 'More than your balance.' : 'Pick an asset, an amount and the recipient address to see the quote.'}</span>}
+        {ready && preview.loading && (
+          <span className="muted small">
+            <Spinner size={12} /> Getting a quote…
+          </span>
+        )}
+        {ready && preview.error && <span className="down small">{preview.error.message}</span>}
+        {ready && q && !preview.loading && (
+          <div className="dep-quote__row">
+            <Logo src={assetLogos(to, icons)} name={to.symbol} size={34} />
+            <div>
+              <span className="dep-label">They receive</span>
+              <strong>
+                ≈ {formatAmount(Number(q.amountOutFormatted))} {to.symbol}
+              </strong>
+              <small className="muted">
+                {formatUsd(Number(q.amountOutUsd))} on {chainName(chain)} · ≈ {q.timeEstimate || 60}s
+                {cost !== null ? ` · all-in cost ≈ ${cost.toFixed(2)}%` : ''}
+              </small>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <button type="button" className="button button--primary button--block button--lg" disabled={!ready || !q || Boolean(preview.error) || preview.loading} onClick={() => setReviewing(true)}>
+        {!(toBigInt(raw) > 0n)
+          ? 'Enter an amount'
+          : tooMuch
+            ? 'More than your balance'
+            : !recipient.trim()
+              ? `Add the ${chainName(chain)} recipient address`
+              : preview.loading || !q
+                ? 'Getting a quote…'
+                : 'Review withdrawal'}
+      </button>
+    </>
   );
 }
 
@@ -304,6 +658,8 @@ export default function Deposit() {
   const assets = useAsync(() => getDepositAssets(), []);
   const icons = useAsync(() => getAssetIcons(assets.data), [Boolean(assets.data)], { enabled: Boolean(assets.data) }).data || {};
   const [active, setActive] = useLocalStorage(ACTIVE_KEY, null);
+  const [activeW, setActiveW] = useLocalStorage(ACTIVE_W_KEY, null);
+  const [mode, setMode] = useLocalStorage(MODE_KEY, 'deposit');
   const [chain, setChain] = useState('base');
   const [assetId, setAssetId] = useState('');
   const [amount, setAmount] = useState('');
@@ -378,31 +734,29 @@ export default function Deposit() {
 
   return (
     <div className="page deposit">
-      <header className="dep-hero">
+      <header className="card dep-hero">
         <div className="dep-hero__copy">
           <span className="dep-hero__eyebrow">
-            <i /> NEAR Intents · <span className="dep-beta">Beta</span>
+            NEAR Intents · Bridge <span className="dep-beta">Beta</span>
           </span>
           <h1>
-            Any chain in.
-            <br />
-            <em>NEAR out.</em>
+            Any chain <em>⇄</em> NEAR.
           </h1>
           <p>
-            Bring USDC, USDT, ETH, SOL, BTC and more from Base, Solana, Ethereum, Tron and 30+ chains onto NEAR in about a minute. You send from your own wallet or exchange; KINU never holds the funds.
+            Move USDC, USDT, ETH, SOL and BTC between NEAR and {chains.length || 36} chains in about a minute. Signed quotes, your own wallet, zero custody.
           </p>
           <div className="dep-hero__stats">
             <span>
               <b>{chains.length || 36}</b> chains
             </span>
             <span>
-              <b>~35s</b> to arrive
+              <b>~30s</b> average
             </span>
             <span>
-              <b>✓</b> signed quotes
+              <b>✓</b> Signed quotes
             </span>
             <span>
-              <b>0</b> custody
+              <b>0</b> Custody
             </span>
           </div>
         </div>
@@ -410,7 +764,24 @@ export default function Deposit() {
       </header>
 
       <div className="dep-grid">
-        {active ? (
+        <div className="dep-main">
+          <div className="segmented segmented--full dep-tabs" role="tablist">
+            <button type="button" role="tab" aria-selected={mode !== 'withdraw'} className={mode !== 'withdraw' ? 'active' : ''} onClick={() => setMode('deposit')}>
+              ↓ Bring to NEAR
+            </button>
+            <button type="button" role="tab" aria-selected={mode === 'withdraw'} className={mode === 'withdraw' ? 'active' : ''} onClick={() => setMode('withdraw')}>
+              ↑ Send from NEAR
+            </button>
+          </div>
+        {mode === 'withdraw' ? (
+          activeW ? (
+            <ActiveWithdraw active={activeW} onDone={() => setActiveW(null)} />
+          ) : (
+            <section className="card dep-card dep-form">
+              <WithdrawForm destinations={list} icons={icons} onStarted={setActiveW} />
+            </section>
+          )
+        ) : active ? (
           <ActiveDeposit active={active} icons={icons} onDone={() => setActive(null)} />
         ) : (
           <section className="card dep-card dep-form">
@@ -436,7 +807,7 @@ export default function Deposit() {
                   <span className="dep-label">Amount</span>
                   <div className="dep-amount">
                     <Logo src={assetLogos(asset, icons)} name={asset?.symbol} size={30} badge={<Logo src={chainLogos(chain)} name={chainName(chain)} size={14} />} />
-                    <input inputMode="decimal" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value.replace(',', '.').replace(/[^\d.]/g, ''))} />
+                    <input autoFocus inputMode="decimal" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value.replace(',', '.').replace(/[^\d.]/g, ''))} />
                     <span>{asset?.symbol}</span>
                   </div>
                   <small className="muted">{usdIn > 0 ? `≈ ${formatUsd(usdIn)}` : ' '}</small>
@@ -452,7 +823,7 @@ export default function Deposit() {
                     onChange={(e) => setRefundTo(e.target.value)}
                     spellCheck={false}
                   />
-                  <small className="muted">If the swap can&apos;t complete, the deposit goes back here. Use an address you control, not an exchange deposit address.</small>
+                  <small className="muted dep-hint">ⓘ If the swap can&apos;t complete, the deposit goes back here. Use an address you control, not an exchange deposit address.</small>
                 </label>
 
                 <div className="dep-field">
@@ -476,7 +847,7 @@ export default function Deposit() {
                     <div className="dep-to">
                       <Logo src={RECEIVE_ICONS.near} name="NEAR" size={22} />
                       <b>{accountId}</b>
-                      <small className="muted">connected</small>
+                      <small className="dep-connected">connected</small>
                     </div>
                   ) : (
                     <div className="dep-to">
@@ -489,7 +860,7 @@ export default function Deposit() {
                 </div>
 
                 <div className="dep-quote">
-                  {!ready && <span className="muted small">Pick an asset, an amount and your refund address to see the quote.</span>}
+                  {!ready && <span className="muted small">Enter an amount{refundTo.trim() ? '' : ' and your refund address'} to see what you receive.</span>}
                   {ready && preview.loading && (
                     <span className="muted small">
                       <Spinner size={12} /> Getting a quote…
@@ -516,7 +887,15 @@ export default function Deposit() {
                 {lowGas && <p className="dep-note">Your account has under 0.05 NEAR for gas. The deposit arrives as wNEAR, so keep a little native NEAR to sign your first LP or swap.</p>}
 
                 <button type="button" className="button button--primary button--block button--lg" disabled={!ready || !q || Boolean(preview.error) || preview.loading} onClick={() => setReviewing(true)}>
-                  {ready ? 'Review deposit' : 'Fill in the form'}
+                  {!(toBigInt(raw) > 0n)
+                    ? 'Enter an amount'
+                    : !refundTo.trim()
+                      ? `Add your ${chainName(chain)} refund address`
+                      : !recipient
+                        ? 'Enter your NEAR account'
+                        : preview.loading || !q
+                          ? 'Getting a quote…'
+                          : 'Review deposit'}
                 </button>
               </>
             )}
@@ -580,29 +959,48 @@ export default function Deposit() {
             )}
           </section>
         )}
+        </div>
 
-        <aside className="card dep-card dep-info">
-          <h3>How it works</h3>
-          <ol>
-            <li>Pick what you have, where it is, and how it should arrive on NEAR.</li>
-            <li>Review the quote. KINU asks NEAR Intents for a one-time deposit address and checks its signature.</li>
-            <li>Send the exact amount from your wallet or exchange. It lands in your NEAR account in about a minute.</li>
-          </ol>
-          <h3>Good to know</h3>
-          <ul>
-            <li>Non-custodial: funds go from you, through NEAR Intents, to your NEAR account. KINU never holds them.</li>
-            <li>If anything goes wrong the deposit is refunded to your refund address.</li>
-            <li>Each chain has a minimum; the quote tells you if you are under it.</li>
-            <li>All fees (NEAR Intents and bridge) are already inside the quote.</li>
-          </ul>
-          <p className="dep-legal">
-            Deposits run on NEAR Intents, operated by Intents Technology under its{' '}
-            <a href={TERMS_URL} target="_blank" rel="noopener noreferrer">
-              terms ↗
-            </a>
-            . KINU only shows its quote and follows the deposit. Not available where sanctions or local law prohibit it.
-          </p>
-        </aside>
+        <section className="dep-how">
+          <div className="card dep-how__steps">
+            <h3 className="dep-how__title">How it works</h3>
+            {(mode === 'withdraw' ? HOW_SEND : HOW_BRING).map((step, i) => (
+              <div key={step.title} className="dep-how__step">
+                <span className="dep-how__num">{i + 1}</span>
+                <b>{step.title}</b>
+                <p>{step.text}</p>
+              </div>
+            ))}
+          </div>
+          <div className="card dep-faq">
+            <details>
+              <summary>Does KINU hold my funds?</summary>
+              <p>No. Funds go from your wallet, through NEAR Intents, to the account or address you chose. KINU only shows the quote, checks its signature and follows the transfer.</p>
+            </details>
+            <details>
+              <summary>What if something goes wrong?</summary>
+              <p>{mode === 'withdraw' ? 'It is refunded to your NEAR account.' : 'The deposit is refunded to your refund address on the chain it came from. Sending more than quoted still goes through; the extra is refunded.'}</p>
+            </details>
+            <details>
+              <summary>Is there a minimum?</summary>
+              <p>Each chain has one, set by NEAR Intents (a few dollars on Base, Solana and Arbitrum; more on Tron and Bitcoin). The quote tells you when you are under it.</p>
+            </details>
+            <details>
+              <summary>What does it cost?</summary>
+              <p>Everything (NEAR Intents and the bridge) is already inside the quote: what you see as &quot;receive&quot; is what arrives. KINU adds no fee.</p>
+            </details>
+            <details>
+              <summary>Who runs the bridge?</summary>
+              <p>
+                NEAR Intents, operated by Intents Technology under its{' '}
+                <a href={TERMS_URL} target="_blank" rel="noopener noreferrer">
+                  terms ↗
+                </a>
+                . Not available where sanctions or local law prohibit it.
+              </p>
+            </details>
+          </div>
+        </section>
       </div>
     </div>
   );

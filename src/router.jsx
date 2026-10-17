@@ -51,7 +51,7 @@ const ROUTES = [
   // Where $KINU's creator fee goes (More menu).
   { name: 'treasury', pattern: /^\/treasury$/ },
   // Deposit from any chain through NEAR Intents (More menu, Swap).
-  { name: 'deposit', pattern: /^\/deposit$/ }
+  { name: 'deposit', pattern: /^\/(bridge|deposit)$/ }
 ];
 
 export function matchRoute(pathname) {

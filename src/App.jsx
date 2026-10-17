@@ -65,7 +65,7 @@ const TITLES = {
   lp: 'LP wallet · Smart LP · KINU',
   intear: 'Intear DEX pools · KINU',
   treasury: 'Treasury · KINU',
-  deposit: 'Deposit from any chain · KINU',
+  deposit: 'Bridge · any chain ⇄ NEAR · KINU',
   notfound: 'Not found · KINU'
 };
 

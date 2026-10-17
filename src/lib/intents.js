@@ -10,6 +10,9 @@
 import { keccak_256 } from '@noble/hashes/sha3';
 import { bytesToHex } from '@noble/hashes/utils';
 import { verifyQuoteSignature } from './intentsSignature.js';
+import { ensureStorageTx, functionCall, transaction, wrapNearTx } from './tx.js';
+import { allowBridgeDeposit } from './txGuard.js';
+import { CONTRACTS, DEPOSIT } from '../config.js';
 import { CHAIN_SVGS, TOKEN_SVGS } from './logoManifest.js';
 
 const API = 'https://1click.chaindefuser.com/v0';
@@ -127,6 +130,76 @@ export async function submitDepositTx(depositAddress, txHash, depositMemo) {
     body: JSON.stringify({ txHash: txHash.trim(), depositAddress, ...(depositMemo ? { memo: depositMemo } : {}) })
   });
 }
+
+/* ---------------------------------------------------------------- withdrawals (NEAR -> other chains) */
+
+/** What can be sent out from NEAR (1Click's NEAR-side assets), wNEAR first and shown as NEAR. */
+export async function getWithdrawAssets() {
+  const all = tokensCache.all || (await call('/tokens'));
+  tokensCache.all = all;
+  const order = ['wrap.near', '17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1', 'usdt.tether-token.near'];
+  return all
+    .filter((t) => t.blockchain === 'near' && /^nep141:/.test(t.assetId) && t.contractAddress)
+    .map((t) => (t.contractAddress === 'wrap.near' ? { ...t, symbol: 'NEAR' } : t))
+    .sort((a, b) => {
+      const ia = order.indexOf(a.contractAddress);
+      const ib = order.indexOf(b.contractAddress);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+    });
+}
+
+/**
+ * A quote for sending `amount` (smallest units) of a NEAR asset to `recipient` on another chain as
+ * `toAsset`; refunds go back to `account` on NEAR. A live quote's deposit address is a one-time NEAR
+ * account (64 hex) and is only returned when 1Click's signature on it checks out.
+ */
+export async function withdrawQuote({ fromAsset, toAsset, amount, recipient, account, dry = true, slippageBps = 100 }) {
+  const body = {
+    dry,
+    swapType: 'EXACT_INPUT',
+    slippageTolerance: slippageBps,
+    originAsset: fromAsset.assetId,
+    depositType: 'ORIGIN_CHAIN',
+    destinationAsset: toAsset.assetId,
+    amount: String(amount),
+    recipient: recipient.trim(),
+    recipientType: 'DESTINATION_CHAIN',
+    refundTo: account,
+    refundType: 'ORIGIN_CHAIN',
+    deadline: new Date(Date.now() + 30 * 60_000).toISOString(),
+    referral: REFERRAL
+  };
+  const json = await call('/quote', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  const verified = verifyQuoteSignature(json);
+  if (!dry && !verified) throw new Error("This withdrawal couldn't be verified as coming from NEAR Intents, so nothing was sent. Try again.");
+  if (!dry && !/^[0-9a-f]{64}$/.test(String(json.quote?.depositAddress))) throw new Error('Unexpected deposit address from NEAR Intents. Nothing was sent.');
+  return { ...json.quote, request: json.quoteRequest, signature: json.signature, verified };
+}
+
+/**
+ * The wallet request for a verified withdrawal quote: wrap NEAR if needed, register the deposit
+ * address on the token if it isn't yet, and send the tokens to it (lib/txGuard.js only lets a
+ * transfer through to a deposit address passed to allowBridgeDeposit).
+ */
+export async function buildWithdrawTransactions({ quote, fromAsset, accountId, wrap = '0' }) {
+  const token = fromAsset.contractAddress;
+  const to = quote.depositAddress;
+  allowBridgeDeposit(to);
+  const txs = [];
+  if (token === CONTRACTS.wrapNear && BigInt(wrap) > 0n) {
+    txs.push(await ensureStorageTx(CONTRACTS.wrapNear, accountId));
+    txs.push(wrapNearTx(wrap));
+  }
+  txs.push(await ensureStorageTx(token, to));
+  txs.push(
+    transaction(token, [
+      functionCall('ft_transfer', { receiver_id: to, amount: String(quote.amountIn), ...(quote.depositMemo ? { memo: quote.depositMemo } : {}) }, GAS_FT_TRANSFER, DEPOSIT.oneYocto)
+    ])
+  );
+  return txs.filter(Boolean);
+}
+
+const GAS_FT_TRANSFER = '30000000000000';
 
 export const FINAL_STATUSES = new Set(['SUCCESS', 'REFUNDED', 'FAILED']);
 

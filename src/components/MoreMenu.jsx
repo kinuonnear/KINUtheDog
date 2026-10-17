@@ -29,7 +29,7 @@ function Icon({ name }) {
 }
 
 // Moving funds in: from any chain through NEAR Intents.
-const FUNDS = [{ to: '/deposit', label: 'Deposit from any chain', icon: 'deposit' }];
+const FUNDS = [{ to: '/bridge', label: 'Bridge · any chain ⇄ NEAR', icon: 'deposit' }];
 
 const GUIDES = [
   { to: '/docs/introduction', label: 'Documentation', icon: 'docs' },

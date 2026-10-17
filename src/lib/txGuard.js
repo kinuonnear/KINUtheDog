@@ -9,6 +9,8 @@
 //   - storage is only ever bought for the signer (or for Rhea's contracts on a new token)
 //   - attached NEAR is capped, except when wrapping NEAR or depositing it into Intear DEX
 //     (the amount the user typed; Intear routes are also checked in lib/intearRouter.js)
+//   - tokens may be sent (ft_transfer) and storage bought only for a NEAR Intents deposit address
+//     that a withdrawal just got from a 1Click quote whose signature verified (allowBridgeDeposit)
 
 import { CONTRACTS, PLATFORM_FEE } from '../config.js';
 
@@ -45,6 +47,19 @@ const TOKEN_METHODS = ['storage_deposit', 'ft_transfer_call'];
 /** Where tokens may be sent with ft_transfer_call. */
 const TOKEN_DESTINATIONS = new Set([CONTRACTS.exchange, CONTRACTS.dcl, CONTRACTS.aggregator, CONTRACTS.intearDex]);
 
+// Deposit addresses of verified 1Click withdrawal quotes (lib/intents.js), each for 30 minutes.
+const BRIDGE_TTL_MS = 30 * 60_000;
+// One registry for the whole page, even if this module is loaded twice (as the dev server can).
+const bridgeDeposits = (globalThis.__kinuBridgeDeposits ||= new Map());
+
+/** Lets one verified NEAR Intents deposit address (a 64-hex implicit account) receive a withdrawal. */
+export function allowBridgeDeposit(address) {
+  if (!/^[0-9a-f]{64}$/.test(String(address))) throw new Error('Unexpected deposit address for a withdrawal.');
+  bridgeDeposits.set(address, Date.now() + BRIDGE_TTL_MS);
+}
+
+const isBridgeDeposit = (address) => (bridgeDeposits.get(address) || 0) > Date.now();
+
 function refuse(tx, reason) {
   throw new Error(`Blocked for your safety: ${reason} (${tx.receiverId}). Nothing was sent to your wallet.`);
 }
@@ -61,6 +76,11 @@ export function assertSafeTransactions(transactions, signerId) {
     tx.actions.forEach((action) => {
       if (action?.type !== 'FunctionCall') refuse(tx, `"${action?.type}" actions are never used by KINU`);
       const { methodName, args = {}, deposit = '0' } = action.params || {};
+      if (methodName === 'ft_transfer' && isBridgeDeposit(args.receiver_id)) {
+        // A withdrawal to other chains: to the verified 1Click deposit address only.
+        if (BigInt(deposit || '0') !== 1n) refuse(tx, 'unexpected deposit on a withdrawal transfer');
+        return;
+      }
       if (methodName === 'ft_transfer') {
         // Only the platform fee, only to the treasury; its size is checked over the whole bundle below.
         if (!PLATFORM_FEE.enabled || args.receiver_id !== PLATFORM_FEE.treasury) {
@@ -87,7 +107,13 @@ export function assertSafeTransactions(transactions, signerId) {
       }
       // Storage is bought for the signer — or, when a token is new to Rhea, for Rhea's own
       // contracts so they can hold it (needed before a pool with that token can be used).
-      if (methodName === 'storage_deposit' && args.account_id && args.account_id !== signerId && !TOKEN_DESTINATIONS.has(args.account_id)) {
+      if (
+        methodName === 'storage_deposit' &&
+        args.account_id &&
+        args.account_id !== signerId &&
+        !TOKEN_DESTINATIONS.has(args.account_id) &&
+        !isBridgeDeposit(args.account_id)
+      ) {
         refuse(tx, `storage would be bought for "${args.account_id}" instead of you`);
       }
       if (methodName === 'tokens_storage_deposit' && args.user !== signerId) {
@@ -108,7 +134,7 @@ function assertFeeWithinRate(transactions) {
   const add = (map, token, amount) => map.set(token, (map.get(token) || 0n) + BigInt(amount || '0'));
   transactions.forEach((tx) =>
     tx.actions.forEach(({ params: { methodName, args = {} } = {} }) => {
-      if (methodName === 'ft_transfer') add(fee, tx.receiverId, args.amount);
+      if (methodName === 'ft_transfer' && !isBridgeDeposit(args.receiver_id)) add(fee, tx.receiverId, args.amount);
       if (methodName === 'ft_transfer_call') add(spent, tx.receiverId, args.amount);
     })
   );
