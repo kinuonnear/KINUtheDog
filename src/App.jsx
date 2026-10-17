@@ -22,6 +22,7 @@ const PoolDetail = lazy(() => import('./pages/PoolDetail.jsx'));
 const Portfolio = lazy(() => import('./pages/Portfolio.jsx'));
 const CreatePool = lazy(() => import('./pages/CreatePool.jsx'));
 const StartLp = lazy(() => import('./pages/StartLp.jsx'));
+const QuickLp = lazy(() => import('./pages/QuickLp.jsx'));
 const Security = lazy(() => import('./pages/Security.jsx'));
 const Docs = lazy(() => import('./pages/Docs.jsx'));
 const Discover = lazy(() => import('./pages/Discover.jsx'));
@@ -150,6 +151,9 @@ export default function App() {
       break;
     case 'starter':
       page = <StartLp />;
+      break;
+    case 'quicklp':
+      page = <QuickLp />;
       break;
     case 'agent':
       page = <Agent />;

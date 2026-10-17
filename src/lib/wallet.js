@@ -4,7 +4,7 @@
 // Wallet packages are large, so they load in their own chunk after first paint.
 import '@near-wallet-selector/modal-ui/styles.css';
 
-import { CONTRACTS, ENDPOINTS, NETWORK_ID } from '../config.js';
+import { CONTRACTS, ENDPOINTS, NETWORK_ID, TELEGRAM_BOT } from '../config.js';
 import { mergeTransactions } from './tx.js';
 import { assertSafeTransactions } from './txGuard.js';
 import { describeFailure, failureOf } from './txErrors.js';
@@ -74,7 +74,11 @@ export function getSelector() {
             ? withoutAutoConnect(meteor.setupMeteorWalletApp({ contractId: CONTRACTS.signIn }))
             : meteor.setupMeteorWallet(),
           intear.setupIntearWallet(),
-          here.setupHereWallet(),
+          // Inside Telegram (lib/telegram.js) HOT signs in its own Telegram app, then returns to
+          // KINU's Mini App (TELEGRAM_BOT).
+          here.setupHereWallet(
+            TELEGRAM_BOT.bot ? { walletOptions: { botId: `${TELEGRAM_BOT.bot}/${TELEGRAM_BOT.app}`, walletId: 'herewalletbot/app' } } : undefined
+          ),
           myNear.setupMyNearWallet()
         ]
       });

@@ -13076,3 +13076,33 @@ a.amm-table__row:hover {
   gap: 16px;
   min-width: 0;
 }
+
+/* "Filled from a link" note on the Create position form (lib/lpLink.js). */
+.lp-link-note {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 10px;
+  padding: 9px 12px;
+  border: 1px solid rgba(255, 181, 71, 0.35);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 181, 71, 0.08);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.lp-link-note b {
+  color: var(--warn);
+}
+
+.lp-link-note button {
+  flex: none;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}

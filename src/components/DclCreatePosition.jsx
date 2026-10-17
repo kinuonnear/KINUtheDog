@@ -25,7 +25,9 @@ import { formatAmount, formatChartPrice, formatPercent, formatRawAmount, formatU
 import { mergeTransactions, wrapNeededFor } from '../lib/tx.js';
 import { estimateNetworkFee } from '../lib/gasEstimate.js';
 import { priceOf } from '../lib/tokens.js';
-import { CONTRACTS, NEAR_GAS_RESERVE } from '../config.js';
+import { CONTRACTS, NATIVE_NEAR, NEAR_GAS_RESERVE } from '../config.js';
+import { useLocation } from '../router.jsx';
+import { linkToken, parseLpLink } from '../lib/lpLink.js';
 import { Spinner, TokenIcon } from './ui.jsx';
 import { SlippagePicker } from './Slippage.jsx';
 import TaxNote from './TaxNote.jsx';
@@ -63,7 +65,10 @@ function trimDecimals(text) {
 /* Range state (shared by chart and form)                              */
 /* ------------------------------------------------------------------ */
 
-/** `initial`: { left, right } points to start from (e.g. "Use this range" on Smart LP). */
+/**
+ * `initial`: { left, right } points to start from (e.g. "Use this range" on Smart LP), or
+ * { preset: '10' } for ±% around the price now (an LP link's range=).
+ */
 export function useDclRange(pool, x, y, initial = null) {
   const delta = pool.point_delta;
   const current = pool.current_point;
@@ -82,9 +87,13 @@ export function useDclRange(pool, x, y, initial = null) {
     [currentPrice, delta, toPoint]
   );
 
-  const [preset, setPresetKey] = useState(initial ? 'custom' : '10');
+  const [preset, setPresetKey] = useState(() => {
+    if (initial?.preset) return PRESETS.some((p) => p.key === initial.preset) ? initial.preset : 'custom';
+    return initial ? 'custom' : '10';
+  });
   const [range, setRangeState] = useState(() => {
     if (!initial) return presetRange('10');
+    if (initial.preset) return presetRange(initial.preset);
     const left = alignPoint(initial.left, delta, 'floor');
     return { left, right: Math.max(alignPoint(initial.right, delta, 'ceil'), left + delta) };
   });
@@ -431,14 +440,24 @@ const PERCENTS = [0.25, 0.5, 0.75, 1];
 export default function DclCreatePosition({ pool, x, y, rangeState, onDone, retryRef }) {
   const { accountId, connect, slippage, setSlippage, execute, balances, prices } = useApp();
   const [showSlippage, setShowSlippage] = useState(false);
-  const [strategy, setStrategy] = useState('spot');
+  // An LP link (lib/lpLink.js) fills the form once, when the page opens: strategy, zap token, amount.
+  const { search } = useLocation();
+  const [link] = useState(() => parseLpLink(search));
+  const linkZap = useMemo(
+    // Native NEAR first: in a wNEAR pool "NEAR" means the wallet's NEAR (wrapped as part of the zap).
+    () => linkToken(link?.in, [...(x.id === CONTRACTS.wrapNear || y.id === CONTRACTS.wrapNear ? [NATIVE_NEAR] : []), x, y]),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+  const [strategy, setStrategy] = useState(link?.strategy || 'spot');
   const [inputs, setInputs] = useState({ x: '', y: '' });
   const [focused, setFocused] = useState(null); // the amount field being typed in
   const [lastEdited, setLastEdited] = useState('x');
   const [submitting, setSubmitting] = useState(false);
-  const [mode, setMode] = useState('dual'); // 'dual' | 'zap'
-  const [zapToken, setZapToken] = useState(() => defaultZapToken(x, y));
-  const [zapText, setZapText] = useState('');
+  const [mode, setMode] = useState(linkZap && link?.amount ? 'zap' : 'dual'); // 'dual' | 'zap'
+  const [zapToken, setZapToken] = useState(() => linkZap || defaultZapToken(x, y));
+  const [zapText, setZapText] = useState(linkZap && link?.amount ? link.amount : '');
+  const [linkNote, setLinkNote] = useState(Boolean(link));
   const { range, current, full } = rangeState;
 
   const tokenIds = useMemo(() => [pool.token_x, pool.token_y], [pool.token_x, pool.token_y]);
@@ -730,6 +749,16 @@ export default function DclCreatePosition({ pool, x, y, rangeState, onDone, retr
 
   return (
     <div className="create-pos">
+      {linkNote && (
+        <p className="lp-link-note" role="note">
+          <span>
+            <b>Filled from a link.</b> Check the pool, range and amount before you sign.
+          </span>
+          <button type="button" onClick={() => setLinkNote(false)} aria-label="Dismiss">
+            ×
+          </button>
+        </p>
+      )}
       <section>
         <div className="segmented segmented--full create-pos__mode" role="group" aria-label="Amount: dual tokens or zap in">
           <button type="button" className={!zapMode ? 'active' : ''} onClick={() => setMode('dual')}>

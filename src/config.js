@@ -105,6 +105,13 @@ export const PLATFORM_FEE = { enabled: false, bps: 10, treasury: 'kinu-treasury.
 // its referral fee (INTEAR_FEE) is paid to it.
 export const INTEAR_REFERRER = 'kinu-treasury.near';
 
+/**
+ * The KINU LP Telegram bot (api/telegram.js) and its Mini App (lib/telegram.js). `bot`: the bot's
+ * username without "@", `app`: the Mini App's short name set in @BotFather. Empty until the
+ * bot exists: HOT Wallet then can't return to KINU inside Telegram (it still works elsewhere).
+ */
+export const TELEGRAM_BOT = { bot: 'Kinu_LPbot', app: 'app' };
+
 // KINU's referral fee on Intear DEX (Plach) routes, set on Intear's side for INTEAR_REFERRER (Rhea
 // routes carry no KINU fee). Quotes already have it taken out. `live` turns on its disclosure across
 // the app (swap details, landing, Security, Docs); set it true only once the fee is actually set.

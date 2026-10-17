@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../state.jsx';
 import { useAsync, useChainUpdates, useElementHeight, useLocalStorage, useMediaQuery } from '../hooks.js';
 import { Link, poolsReturnPath, useLocation } from '../router.jsx';
+import { parseLpLink } from '../lib/lpLink.js';
 import { getDclPositions, getFarmStakes, getPool, getPoolShares, getPoolStats, dclPointToPrice, parseDclPoolId } from '../lib/rhea.js';
 import { asPoolToken, getToken, getTokens, priceOf } from '../lib/tokens.js';
 import { view } from '../lib/rpc.js';
@@ -44,7 +45,8 @@ function MobileAddCta({ targetId, label = '+ Add liquidity' }) {
   useEffect(() => {
     const target = document.getElementById(targetId);
     if (!target || typeof IntersectionObserver === 'undefined') return undefined;
-    const observer = new IntersectionObserver(([entry]) => setFormVisible(entry.isIntersecting), { threshold: 0.15 });
+    // Any part of the form on screen: the button steps aside (a tall form never reaches a share).
+    const observer = new IntersectionObserver(([entry]) => setFormVisible(entry.isIntersecting), { threshold: 0 });
     observer.observe(target);
     return () => observer.disconnect();
   });
@@ -466,12 +468,22 @@ function DclWorkspace({ bar, links, poolId, pool, x, y, reserves, positions, onA
   const { accountId } = useApp();
   // ?left=&right= (points): open the form on that range — Smart LP's "Use this range".
   const { search } = useLocation();
+  // ?range=10 (an LP link, lib/lpLink.js): ±10% around the price now.
   const [initialRange] = useState(() => {
     const left = Number(search.get('left'));
     const right = Number(search.get('right'));
-    return search.has('left') && search.has('right') && Number.isInteger(left) && Number.isInteger(right) && right > left ? { left, right } : null;
+    if (search.has('left') && search.has('right') && Number.isInteger(left) && Number.isInteger(right) && right > left) return { left, right };
+    const link = parseLpLink(search);
+    return link?.range ? { preset: link.range } : null;
   });
   const rangeState = useDclRange(pool, x, y, initialRange);
+  // Phones opened from an LP link (e.g. the Telegram bot) go straight to the filled-in form.
+  useEffect(() => {
+    if (!parseLpLink(search) || window.matchMedia('(min-width: 1081px)').matches) return undefined;
+    const timer = setTimeout(() => document.getElementById('new-position')?.scrollIntoView({ block: 'start' }), 300);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const onDrag = (side, price) => rangeState.setEdge(side, { price });
   const gridRef = useRef(null);
   useDockedColumns(gridRef);

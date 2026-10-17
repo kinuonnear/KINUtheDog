@@ -36,6 +36,8 @@ const ROUTES = [
   { name: 'pool', pattern: /^\/pools\/([^/]+)$/ },
   { name: 'create', pattern: /^\/create-pool$/ },
   { name: 'starter', pattern: /^\/start-lp$/ },
+  // LP links: the token's deepest CLMM pool, its form filled in (Telegram bot, lib/lpLink.js).
+  { name: 'quicklp', pattern: /^\/quick-lp$/ },
   { name: 'agent', pattern: /^\/agent$/ },
   { name: 'portfolio', pattern: /^\/portfolio$/ },
   { name: 'security', pattern: /^\/security$/ },

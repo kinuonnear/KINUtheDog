@@ -5,6 +5,7 @@ import { inject } from '@vercel/analytics';
 import { AppProvider } from './state.jsx';
 import App from './App.jsx';
 import { startAutoRpc } from './lib/rpc.js';
+import { startTelegram } from './lib/telegram.js';
 import './styles.css';
 
 // Vercel Web Analytics: cookieless page views. Query strings are dropped so account names
@@ -19,10 +20,14 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
 }
 
-createRoot(document.getElementById('root')).render(
-  <StrictMode>
-    <AppProvider>
-      <App />
-    </AppProvider>
-  </StrictMode>
+// Opened as a Telegram Mini App: Telegram's script first (HOT Wallet signs through it). Anywhere
+// else this resolves at once.
+startTelegram().finally(() =>
+  createRoot(document.getElementById('root')).render(
+    <StrictMode>
+      <AppProvider>
+        <App />
+      </AppProvider>
+    </StrictMode>
+  )
 );
