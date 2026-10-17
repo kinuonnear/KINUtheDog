@@ -8,8 +8,9 @@
 //   - tokens may only be sent (ft_transfer_call) to Rhea's contracts or Intear DEX (aggregator routes)
 //   - storage is only ever bought for the signer (or for Rhea's contracts on a new token, or for
 //     KINU's public treasury so it can receive the platform fee)
-//   - attached NEAR is capped, except when wrapping NEAR or depositing it into Intear DEX
-//     (the amount the user typed; Intear routes are also checked in lib/intearRouter.js)
+//   - attached NEAR is capped, except when wrapping NEAR, depositing it into Intear DEX or staking
+//     it with LiNEAR / Meta Pool (the amount the user typed; Intear routes are also checked in
+//     lib/intearRouter.js)
 //   - tokens may be sent (ft_transfer) and storage bought only for a NEAR Intents deposit address
 //     that a withdrawal just got from a 1Click quote whose signature verified (allowBridgeDeposit),
 //     and only that quote's token and amount
@@ -40,8 +41,14 @@ const PROTOCOL_METHODS = {
   [CONTRACTS.aggregator]: ['tokens_storage_deposit', 'withdraw'],
   [CONTRACTS.wrapNear]: ['near_deposit', 'near_withdraw', 'storage_deposit', 'ft_transfer_call'],
   // Intear DEX, reached through the Intear DEX Aggregator's swap routes
-  [CONTRACTS.intearDex]: ['deposit_near', 'register_assets', 'storage_deposit']
+  [CONTRACTS.intearDex]: ['deposit_near', 'register_assets', 'storage_deposit'],
+  // Liquid staking (lib/staking.js); both are also tokens, so their token methods stay allowed.
+  'linear-protocol.near': ['deposit_and_stake', 'unstake', 'unstake_all', 'withdraw_all', ...['storage_deposit', 'ft_transfer_call']],
+  'meta-pool.near': ['deposit_and_stake', 'unstake', 'unstake_all', 'withdraw_unstaked', 'liquid_unstake', ...['storage_deposit', 'ft_transfer_call']]
 };
+
+/** Staking contracts: `deposit_and_stake` attaches the NEAR the user chose to stake. */
+const STAKING_CONTRACTS = new Set(['linear-protocol.near', 'meta-pool.near']);
 
 /** Any other receiver is a token contract: register the user, or send tokens into Rhea. */
 const TOKEN_METHODS = ['storage_deposit', 'ft_transfer_call'];
@@ -107,7 +114,12 @@ export function assertSafeTransactions(transactions, signerId) {
       const attached = BigInt(deposit || '0');
       const isWrap =
         (tx.receiverId === CONTRACTS.wrapNear && methodName === 'near_deposit') ||
-        (tx.receiverId === CONTRACTS.intearDex && methodName === 'deposit_near');
+        (tx.receiverId === CONTRACTS.intearDex && methodName === 'deposit_near') ||
+        (STAKING_CONTRACTS.has(tx.receiverId) && methodName === 'deposit_and_stake');
+      // Nothing but staking itself carries NEAR into a staking contract.
+      if (STAKING_CONTRACTS.has(tx.receiverId) && methodName !== 'deposit_and_stake' && methodName !== 'storage_deposit' && attached > 1n) {
+        refuse(tx, `"${methodName}" should not attach NEAR`);
+      }
       if (!isWrap && attached > MAX_FEE_DEPOSIT) refuse(tx, `"${methodName}" attaches an unusually large NEAR deposit`);
       if (!isWrap) fees += attached;
       if (fees > MAX_BUNDLE_FEES) refuse(tx, 'the fees in this request add up to an unusually large NEAR amount');
