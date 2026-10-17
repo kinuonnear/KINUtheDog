@@ -176,16 +176,6 @@ function RoutePicker({ quote, tokenOut, onPick, onClose }) {
 
 const QUICK_PERCENTS = [25, 50, 80, 100];
 
-// Intear treats these as "stable" for its lower fee tier (NEAR, wNEAR and the main stablecoins).
-const STABLE_IDS = new Set([
-  'near',
-  'wrap.near',
-  '17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1',
-  'usdt.tether-token.near',
-  'a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.factory.bridge.near',
-  'dac17f958d2ee523a2206206994597c13d831ec7.factory.bridge.near'
-]);
-
 function isWrapPair(a, b) {
   return (
     (a?.native && b?.id === CONTRACTS.wrapNear) || (a?.id === CONTRACTS.wrapNear && b?.native)
@@ -813,11 +803,11 @@ export default function Swap() {
                         </div>
                       )
                     ))}
-                  {INTEAR_FEE.live && quote.intear?.dexId === 'Plach' && (
+                  {INTEAR_FEE.live && quote.intear?.feeBps > 0 && (
                     <div>
                       <dt>KINU fee</dt>
-                      <dd title={`Paid to ${INTEAR_REFERRER} on Intear DEX routes; ${bpsText(INTEAR_FEE.stableBps)} when both tokens are stable. Already included in You receive.`}>
-                        {bpsText(STABLE_IDS.has(tokenIn.id) && STABLE_IDS.has(tokenOut.id) ? INTEAR_FEE.stableBps : INTEAR_FEE.bps)}{' '}
+                      <dd title={`On Intear routes: 80% to ${INTEAR_REFERRER}, 20% to Intear; ${bpsText(INTEAR_FEE.stableBps)} when both tokens are stable. Already included in You receive.`}>
+                        {bpsText(quote.intear.feeBps)}{' '}
                         <small className="muted">· included</small>
                       </dd>
                     </div>

@@ -7,7 +7,7 @@
 // what a swap of exactly this input may do (which contracts, which methods, how much is spent,
 // that the output goes back to the trader), and lib/txGuard.js checks them again before the wallet.
 
-import { CONTRACTS, ENDPOINTS, INTEAR_REFERRER } from '../config.js';
+import { CONTRACTS, ENDPOINTS, INTEAR_FEE, INTEAR_REFERRER } from '../config.js';
 import { toBigInt } from './format.js';
 import { functionCall, transaction } from './tx.js';
 import { afterTax, swapTax } from './tokenTax.js';
@@ -29,6 +29,28 @@ const METHODS = {
   [CONTRACTS.wrapNear]: ['near_deposit', 'near_withdraw', 'storage_deposit', 'ft_transfer_call'],
   [CONTRACTS.intearDex]: ['deposit_near', 'register_assets', 'storage_deposit']
 };
+
+// KINU's own fee on Intear routes (docs.intear.tech/dex-aggregator/guides/referral-fees): sent per
+// request as `referral_fees`; on Rhea / Rhea CLMM routes it is paid by an ft_transfer of the input
+// token in a fee transaction after the swap, 80% to KINU's account and 20% to Intear's protocol
+// account; on Intear DEX pools it is taken on chain. Off until INTEAR_FEE.live.
+const INTEAR_PROTOCOL_FEE_ACCOUNT = 'plach.intear.near';
+export const INTEAR_FEE_RECIPIENTS = new Set([INTEAR_REFERRER, INTEAR_PROTOCOL_FEE_ACCOUNT]);
+// Intear treats these as "stable" for its lower fee tier (NEAR, wNEAR and the main stablecoins).
+const FEE_STABLE_IDS = new Set([
+  'near',
+  'wrap.near',
+  '17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1',
+  'usdt.tether-token.near',
+  'a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.factory.bridge.near',
+  'dac17f958d2ee523a2206206994597c13d831ec7.factory.bridge.near'
+]);
+
+/** KINU's fee on an Intear route for this pair, in basis points (0 while switched off). */
+export function intearFeeBps(tokenIn, tokenOut) {
+  if (!INTEAR_FEE.live) return 0;
+  return FEE_STABLE_IDS.has(tokenIn?.id) && FEE_STABLE_IDS.has(tokenOut?.id) ? INTEAR_FEE.stableBps : INTEAR_FEE.bps;
+}
 
 const contractOf = (token) => token.contract || token.id;
 const assetOf = (token) => (token.native ? 'near' : `nep141:${contractOf(token)}`);
@@ -127,15 +149,26 @@ function checkRheaMsg(msg) {
 /**
  * Throws unless these transactions only swap `amountIn` of tokenIn for the trader: no other
  * token is spent, no more than the input is attached, and every output comes back to `user`.
+ * With KINU's Intear fee on (`feeBps`), fee transfers of the input token are allowed only to
+ * KINU's and Intear's fee accounts, at most `feeBps` of the input, counted within the input.
  */
-export function assertIntearRoute(transactions, { tokenIn, amountIn, user }) {
+export function assertIntearRoute(transactions, { tokenIn, amountIn, user, feeBps = 0 }) {
   const input = contractOf(tokenIn);
   const limit = toBigInt(amountIn);
   let nearSpent = 0n;
   let tokenSpent = 0n;
+  let feeSpent = 0n;
   transactions.forEach((tx) => {
     tx.actions.forEach(({ params: { methodName, args = {}, gas, deposit } }) => {
       if (BigInt(gas) > MAX_GAS) throw new Error('gas above the NEAR limit');
+      if (methodName === 'ft_transfer') {
+        if (!(feeBps > 0)) throw new Error('route transfers tokens out');
+        if (tx.receiverId !== input) throw new Error(`fee paid in ${tx.receiverId}`);
+        if (!INTEAR_FEE_RECIPIENTS.has(args.receiver_id)) throw new Error(`fee sent to "${args.receiver_id}"`);
+        if (BigInt(deposit || '0') !== 1n) throw new Error('unexpected deposit on a fee transfer');
+        feeSpent += toBigInt(args.amount);
+        return;
+      }
       const allowed = METHODS[tx.receiverId] || (tx.receiverId === input ? ['storage_deposit', 'ft_transfer_call'] : ['storage_deposit']);
       if (!allowed.includes(methodName)) throw new Error(`unexpected "${methodName}" on ${tx.receiverId}`);
       if (methodName === 'storage_deposit' && args.account_id != null && args.account_id !== user) {
@@ -156,7 +189,8 @@ export function assertIntearRoute(transactions, { tokenIn, amountIn, user }) {
     });
   });
   if (nearSpent > limit) throw new Error('route attaches more NEAR than the swap amount');
-  if (tokenSpent > limit) throw new Error('route spends more than the swap amount');
+  if (feeSpent * 10_000n > limit * BigInt(feeBps) + 10_000n) throw new Error('route fee above the agreed rate');
+  if (tokenSpent + feeSpent > limit) throw new Error('route spends more than the swap amount');
   if (tokenSpent === 0n && nearSpent === 0n) throw new Error('route does not spend the input');
 }
 
@@ -181,6 +215,8 @@ export async function getIntearQuotes({ tokenIn, tokenOut, amountIn, slippage, u
     dexes: dexes.filter((d) => DEXES.includes(d)).join(','),
     referrer_id: INTEAR_REFERRER
   });
+  const feeBps = intearFeeBps(tokenIn, tokenOut);
+  if (feeBps > 0) params.set('referral_fees', JSON.stringify({ [INTEAR_REFERRER]: feeBps / 10_000 }));
   if (user) params.set('trader_account_id', user);
 
   const controller = new AbortController();
@@ -208,7 +244,7 @@ export async function getIntearQuotes({ tokenIn, tokenOut, amountIn, slippage, u
       const taxIn = touchesClmm(route) ? inBps : 0;
       const taxOut = touchesClmm(route) ? outBps : 0;
       const txs = widenForTax(toTransactions(route.execution_instructions), taxIn);
-      assertIntearRoute(txs, { tokenIn, amountIn, user });
+      assertIntearRoute(txs, { tokenIn, amountIn, user, feeBps });
       const grossOut = String(route.estimated_amount?.amount_out ?? '0');
       if (toBigInt(grossOut) === 0n) continue;
       const taxed = taxIn || taxOut;
@@ -227,6 +263,8 @@ export async function getIntearQuotes({ tokenIn, tokenOut, amountIn, slippage, u
           maxGasCost: String(route.estimated_max_gas_cost || '0'),
           storage: String(route.storage_deposits || '0'),
           taxIn,
+          // KINU's fee on this route (bps), already taken out of amountOut by the aggregator.
+          feeBps,
           // Extra output from Intear's fee discount for TEAR holders (Intear DEX pools), raw, '0' if none.
           discountOut: String(route.discount?.amount_out ?? '0')
         },
@@ -249,7 +287,7 @@ export async function getIntearQuote(params) {
 /** The transactions of an Intear quote, checked again for this exact account. */
 export function buildIntearSwapTransactions({ tokenIn, quote, accountId }) {
   const txs = widenForTax(toTransactions(quote.intear.instructions), quote.intear.taxIn || 0);
-  assertIntearRoute(txs, { tokenIn, amountIn: quote.amountIn, user: accountId });
+  assertIntearRoute(txs, { tokenIn, amountIn: quote.amountIn, user: accountId, feeBps: quote.intear.feeBps || 0 });
   return txs;
 }
 

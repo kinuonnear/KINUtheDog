@@ -3,7 +3,7 @@
 // route message that is executed by the aggregator contract — the same
 // flow app.rhea.finance uses.
 
-import { CONTRACTS, DEPOSIT, ENDPOINTS, GAS } from '../config.js';
+import { CONTRACTS, DEPOSIT, ENDPOINTS, GAS, INTEAR_FEE } from '../config.js';
 import { view } from './rpc.js';
 import {
   ensureStorageTx,
@@ -37,15 +37,18 @@ const contractOf = (token) => token.contract || token.id;
  */
 export async function getSwapQuote(params) {
   const fee = await platformFeeFor(params);
-  // Intear routes are signed as the aggregator builds them, with no room for KINU's fee transfer:
-  // while a platform fee applies they are left out.
-  const quote = await getNetSwapQuote(fee ? { ...params, amountIn: fee.net, noIntear: true } : params);
+  // Intear routes are signed as the aggregator builds them, with no room for KINU's fee transfer.
+  // Once KINU's Intear fee is live they carry that fee instead (quoted on the full input), and the
+  // other routes carry the platform fee: a swap never pays both. Until then they are left out.
+  const intearPaid = INTEAR_FEE.live;
+  const quote = await getNetSwapQuote(fee ? { ...params, amountIn: fee.net, noIntear: !intearPaid, intearAmountIn: params.amountIn } : params);
   if (!fee) return quote;
   for (const route of quote.routes || []) {
+    if (route.quote.intear) continue;
     route.quote.platformFee = fee;
     if (route.quote.hybrid) route.quote.hybrid.legs[0].platformFee = fee;
   }
-  quote.platformFee = fee;
+  quote.platformFee = quote.intear ? null : fee;
   if (quote.hybrid) quote.hybrid.legs[0].platformFee = fee;
   return quote;
 }
@@ -55,7 +58,7 @@ async function getNetSwapQuote(params) {
     getSmartRouterQuote(params),
     getDclQuote(params),
     getHybridQuote(params),
-    params.noIntear ? Promise.reject(new Error('skipped')) : getIntearQuotes(params)
+    params.noIntear ? Promise.reject(new Error('skipped')) : getIntearQuotes(params.intearAmountIn ? { ...params, amountIn: params.intearAmountIn } : params)
   ]);
   if (params.signal?.aborted) throw router.reason || new DOMException('Aborted', 'AbortError');
 

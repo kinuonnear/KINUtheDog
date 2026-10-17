@@ -15,7 +15,8 @@
 //     that a withdrawal just got from a 1Click quote whose signature verified (allowBridgeDeposit),
 //     and only that quote's token and amount
 
-import { CONTRACTS, PLATFORM_FEE } from '../config.js';
+import { CONTRACTS, INTEAR_FEE, PLATFORM_FEE } from '../config.js';
+import { INTEAR_FEE_RECIPIENTS } from './intearRouter.js';
 
 const ONE_NEAR = 10n ** 24n;
 const MAX_FEE_DEPOSIT = 2n * ONE_NEAR; // storage / registration costs stay far below this
@@ -102,8 +103,11 @@ export function assertSafeTransactions(transactions, signerId) {
         return;
       }
       if (methodName === 'ft_transfer') {
-        // Only the platform fee, only to the treasury; its size is checked over the whole bundle below.
-        if (!PLATFORM_FEE.enabled || args.receiver_id !== PLATFORM_FEE.treasury) {
+        // Only KINU's fees: the platform fee to the treasury, or (once live) an Intear route's fee to
+        // KINU's and Intear's fee accounts. Their size is checked over the whole bundle below.
+        const platformFee = PLATFORM_FEE.enabled && args.receiver_id === PLATFORM_FEE.treasury;
+        const intearFee = INTEAR_FEE.live && INTEAR_FEE_RECIPIENTS.has(args.receiver_id);
+        if (!platformFee && !intearFee) {
           refuse(tx, `tokens would be sent to "${args.receiver_id}"`);
         }
         if (BigInt(deposit || '0') !== 1n) refuse(tx, 'unexpected deposit on a fee transfer');
@@ -154,6 +158,9 @@ export function assertSafeTransactions(transactions, signerId) {
  * A platform fee in a token may be at most `bps` of what is spent in that token in the same
  * request (fee + the amounts sent into Rhea), so a bug can never send more than the fee.
  */
+// The highest fee rate any one swap may carry (platform fee, or an Intear route's fee).
+const MAX_FEE_BPS = Math.max(PLATFORM_FEE.enabled ? PLATFORM_FEE.bps : 0, INTEAR_FEE.live ? INTEAR_FEE.bps : 0);
+
 function assertFeeWithinRate(transactions) {
   const fee = new Map();
   const spent = new Map();
@@ -166,7 +173,7 @@ function assertFeeWithinRate(transactions) {
   );
   fee.forEach((amount, token) => {
     const gross = amount + (spent.get(token) || 0n);
-    if (!spent.get(token) || amount * 10_000n > gross * BigInt(PLATFORM_FEE.bps) + 10_000n) {
+    if (!spent.get(token) || amount * 10_000n > gross * BigInt(MAX_FEE_BPS) + 10_000n) {
       refuse({ receiverId: token }, 'the platform fee is larger than the published rate');
     }
   });
