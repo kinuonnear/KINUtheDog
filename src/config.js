@@ -116,7 +116,13 @@ export const PLATFORM_FEE_TOKENS = [
   { id: 'blackdragon.tkn.near', symbol: 'BLACKDRAGON' },
   { id: 'token.sweat', symbol: 'SWEAT' },
   { id: 'linear-protocol.near', symbol: 'LiNEAR' },
-  { id: 'meta-pool.near', symbol: 'stNEAR' }
+  { id: 'meta-pool.near', symbol: 'stNEAR' },
+  { id: 'qtc.omft.near', symbol: 'QTC' },
+  { id: 'zec.omft.near', symbol: 'ZEC' },
+  { id: 'aaaaaa20d9e0e2461697782ef11675f668207961.factory.bridge.near', symbol: 'AURORA' },
+  // Nearly tokens can tax transfers, so the treasury may receive slightly less than the fee.
+  { id: 'nearly-993927.nearlytrade.near', symbol: 'NEARLY' },
+  { id: 'batman-4.nearlytrade.near', symbol: 'BATMAN' }
 ];
 
 // Account KINU passes as `referrer_id` to the Intear DEX Aggregator: swaps are tracked under it and
