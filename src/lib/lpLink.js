@@ -4,6 +4,8 @@
 //
 //   /pools/<pool>?range=10&in=NEAR&amount=5&strategy=spot
 //     range     ±% around the price when the link is opened (0.5–99), or "full"
+//     below     one-sided: from that % below the price up to the price (holds the pool's 2nd token)
+//     above     one-sided: from the price up to that % above it (holds the pool's 1st token)
 //     in        the token to zap in with: NEAR, or a pool token's symbol / contract
 //     amount    how much of it (capped by the wallet's balance in the form)
 //     strategy  spot | curve | bidask
@@ -21,6 +23,10 @@ export function parseLpLink(search) {
     const pct = Number(range.replace('%', ''));
     if (Number.isFinite(pct) && pct >= 0.5 && pct <= 99) out.range = String(pct);
   }
+  for (const key of ['below', 'above']) {
+    const pct = Number((search.get(key) || '').replace('%', ''));
+    if (search.has(key) && Number.isFinite(pct) && pct >= 0.5 && pct <= 99) out[key] = String(pct);
+  }
   const amount = (search.get('amount') || '').replace(/,/g, '');
   if (/^\d*\.?\d+$/.test(amount) && Number(amount) > 0) out.amount = amount;
   const token = (search.get('in') || '').trim();
@@ -31,9 +37,11 @@ export function parseLpLink(search) {
 }
 
 /** The query string that carries an LP link's fields (without the leading "?"). */
-export function lpLinkQuery({ range, in: token, amount, strategy } = {}) {
+export function lpLinkQuery({ range, below, above, in: token, amount, strategy } = {}) {
   const params = new URLSearchParams();
   if (range) params.set('range', String(range));
+  if (below) params.set('below', String(below));
+  if (above) params.set('above', String(above));
   if (token) params.set('in', token);
   if (amount) params.set('amount', String(amount));
   if (strategy) params.set('strategy', strategy);

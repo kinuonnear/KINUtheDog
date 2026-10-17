@@ -67,7 +67,8 @@ function trimDecimals(text) {
 
 /**
  * `initial`: { left, right } points to start from (e.g. "Use this range" on Smart LP), or
- * { preset: '10' } for ±% around the price now (an LP link's range=).
+ * { preset: '10' } for ±% around the price now (an LP link's range=), or { below: '50' } /
+ * { above: '50' } for a one-sided range from the price down / up by that % (below= / above=).
  */
 export function useDclRange(pool, x, y, initial = null) {
   const delta = pool.point_delta;
@@ -94,6 +95,15 @@ export function useDclRange(pool, x, y, initial = null) {
   const [range, setRangeState] = useState(() => {
     if (!initial) return presetRange('10');
     if (initial.preset) return presetRange(initial.preset);
+    // One-sided: below the price holds only the 2nd token (y), above it only the 1st (x).
+    if (initial.below) {
+      const right = alignPoint(current, delta, 'floor');
+      return { left: Math.min(toPoint(currentPrice * (1 - Number(initial.below) / 100), 'floor'), right - delta), right };
+    }
+    if (initial.above) {
+      const left = alignPoint(current + 1, delta, 'ceil');
+      return { left, right: Math.max(toPoint(currentPrice * (1 + Number(initial.above) / 100), 'ceil'), left + delta) };
+    }
     const left = alignPoint(initial.left, delta, 'floor');
     return { left, right: Math.max(alignPoint(initial.right, delta, 'ceil'), left + delta) };
   });
@@ -449,14 +459,24 @@ export default function DclCreatePosition({ pool, x, y, rangeState, onDone, retr
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
+  // One-sided link (below= / above=): the amount goes on the side that range holds, when `in`
+  // names that side's token (NEAR for wNEAR).
+  const [linkSide] = useState(() => {
+    const side = link?.below ? 'y' : link?.above ? 'x' : null;
+    if (!side || !link.amount || !link.in) return null;
+    const token = side === 'x' ? x : y;
+    const want = link.in.toLowerCase();
+    const named = want === token.id.toLowerCase() || want === token.symbol?.toLowerCase() || (want === 'near' && token.id === CONTRACTS.wrapNear);
+    return named ? side : null;
+  });
   const [strategy, setStrategy] = useState(link?.strategy || 'spot');
-  const [inputs, setInputs] = useState({ x: '', y: '' });
+  const [inputs, setInputs] = useState(() => (linkSide ? { x: '', y: '', [linkSide]: link.amount } : { x: '', y: '' }));
   const [focused, setFocused] = useState(null); // the amount field being typed in
-  const [lastEdited, setLastEdited] = useState('x');
+  const [lastEdited, setLastEdited] = useState(() => linkSide || 'x');
   const [submitting, setSubmitting] = useState(false);
-  const [mode, setMode] = useState(linkZap && link?.amount ? 'zap' : 'dual'); // 'dual' | 'zap'
+  const [mode, setMode] = useState(linkZap && link?.amount && !link.below && !link.above ? 'zap' : 'dual'); // 'dual' | 'zap'
   const [zapToken, setZapToken] = useState(() => linkZap || defaultZapToken(x, y));
-  const [zapText, setZapText] = useState(linkZap && link?.amount ? link.amount : '');
+  const [zapText, setZapText] = useState(linkZap && link?.amount && !link.below && !link.above ? link.amount : '');
   const [linkNote, setLinkNote] = useState(Boolean(link));
   const { range, current, full } = rangeState;
 

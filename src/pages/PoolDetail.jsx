@@ -468,12 +468,14 @@ function DclWorkspace({ bar, links, poolId, pool, x, y, reserves, positions, onA
   const { accountId } = useApp();
   // ?left=&right= (points): open the form on that range — Smart LP's "Use this range".
   const { search } = useLocation();
-  // ?range=10 (an LP link, lib/lpLink.js): ±10% around the price now.
+  // ?range=10 (an LP link, lib/lpLink.js): ±10% around the price now; ?below= / ?above=: one-sided.
   const [initialRange] = useState(() => {
     const left = Number(search.get('left'));
     const right = Number(search.get('right'));
     if (search.has('left') && search.has('right') && Number.isInteger(left) && Number.isInteger(right) && right > left) return { left, right };
     const link = parseLpLink(search);
+    if (link?.below) return { below: link.below };
+    if (link?.above) return { above: link.above };
     return link?.range ? { preset: link.range } : null;
   });
   const rangeState = useDclRange(pool, x, y, initialRange);

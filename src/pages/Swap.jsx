@@ -319,10 +319,13 @@ export default function Swap() {
     if (e.key === 'ArrowDown') setChartHeight((h) => clampChart(h + 30));
   };
 
-  // Initial tokens from the URL (?from=…&to=…), e.g. links from pool pages.
+  // Initial tokens from the URL (?from=…&to=…), e.g. links from pool pages; ?amount= from the
+  // Telegram bot's /swap (the user still reviews the quote and signs).
   useEffect(() => {
     const from = search.get('from');
     const to = search.get('to');
+    const linkAmount = (search.get('amount') || '').replace(/,/g, '');
+    if (Number(linkAmount) > 0 && Number.isFinite(Number(linkAmount))) setAmount(linkAmount);
     if (from) getToken(from).then((t) => t && setTokenIn(t));
     if (to) getToken(to).then((t) => t && setTokenOut(t));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -891,7 +894,7 @@ export default function Swap() {
       )}
 
       {/* keep URL clean if it carried initial tokens */}
-      {search.get('from') || search.get('to') ? <UrlCleaner /> : null}
+      {search.get('from') || search.get('to') || search.get('amount') ? <UrlCleaner /> : null}
     </div>
   );
 }
