@@ -362,6 +362,8 @@ async function poolCard(poolId, fallback = null) {
 }
 
 const STRATEGY_NAMES = { spot: 'Spot', curve: 'Curve', bidask: 'Bid-Ask' };
+// The same icon as the strategy's button, wherever the choice is shown.
+const STRATEGY_ICONS = { spot: '▤', curve: '⛰', bidask: '📐' };
 const sideLabel = (side, [sx, sy], hasNear) => (side === 'b' ? `${sy} only` : side === 'a' ? `${sx} only` : hasNear ? 'Zap NEAR' : 'Both tokens');
 
 /** Step 2: the shape. KINU spreads Curve most near the price and Bid-Ask most far from it. */
@@ -389,7 +391,7 @@ function strategyStep(poolId, side, symbols) {
 /** Step 3: how wide — ± around the price for both sides, down / up from it for one side. */
 function widthStep(poolId, side, strategy, symbols) {
   const hasNear = poolId.split('|').includes(WNEAR);
-  const head = `📐 <a href="${stateUrl(poolId, { side, strategy })}">${esc(`${symbols[0]} / ${symbols[1]}`)}</a> · ${esc(sideLabel(side, symbols, hasNear))} · ${STRATEGY_NAMES[strategy] || 'Spot'}`;
+  const head = `${STRATEGY_ICONS[strategy] || '▤'} <a href="${stateUrl(poolId, { side, strategy })}">${esc(`${symbols[0]} / ${symbols[1]}`)}</a> · ${esc(sideLabel(side, symbols, hasNear))} · ${STRATEGY_NAMES[strategy] || 'Spot'}`;
   if (side === 'z') {
     const both = hasNear ? '⚡' : '⚖';
     return {
