@@ -118,10 +118,30 @@ async function headAndPace() {
   return { height, time: Number(now.header.timestamp) / 1e6, secPerBlock };
 }
 
+// Readings that only change slowly are kept in the browser, so a visit doesn't re-read the
+// public archival node (it rate-limits): APY for an hour, the weekly history for six.
+function stored(name, ttlMs) {
+  try {
+    const hit = JSON.parse(localStorage.getItem(name) || 'null');
+    return hit && Date.now() - hit.at < ttlMs ? hit.value : null;
+  } catch {
+    return null;
+  }
+}
+function store(name, value) {
+  try {
+    localStorage.setItem(name, JSON.stringify({ at: Date.now(), value }));
+  } catch {
+    // storage full or blocked: just don't cache
+  }
+}
+const HISTORY_TTL_MS = 6 * 3600_000;
+const APY_TTL_MS = 3600_000;
+
 const historyCache = new Map();
 /**
  * The token's yield history over `days` (default 90): its NEAR value every 7 days and the APY of
- * each week ({ weeks: [{ end, apy }], apy30, apy90 }). Read from archival RPC, cached per session.
+ * each week ({ points: [{ at, price }], weeks: [{ end, apy }], apy30, apy90 }). Read from archival RPC, cached per session.
  */
 export function getApyHistory(key, days = 90) {
   const id = `${key}:${days}`;
@@ -129,6 +149,8 @@ export function getApyHistory(key, days = 90) {
     historyCache.set(
       id,
       (async () => {
+        const saved = stored(`kinu.stake.history.${id}`, HISTORY_TTL_MS);
+        if (saved) return saved;
         const { height, time, secPerBlock } = await headAndPace();
         const blocksPerDay = 86_400 / secPerBlock;
         const steps = Math.round(days / 7);
@@ -142,7 +164,9 @@ export function getApyHistory(key, days = 90) {
         const last = points[points.length - 1].price;
         const ago = (d) => points[Math.max(0, points.length - 1 - Math.round(d / 7))].price;
         const yearly = (p0, d) => (Math.pow(last / p0, 365 / d) - 1) * 100;
-        return { weeks, apy30: yearly(ago(28), 28), apy90: yearly(points[0].price, steps * 7) };
+        const result = { key, points, weeks, apy30: yearly(ago(28), 28), apy90: yearly(points[0].price, steps * 7) };
+        store(`kinu.stake.history.${id}`, result);
+        return result;
       })().catch((e) => {
         historyCache.delete(id);
         throw e;
@@ -192,6 +216,8 @@ let apyCache = null;
 export function getStakingApy() {
   if (apyCache) return apyCache;
   apyCache = (async () => {
+    const saved = stored('kinu.stake.apy', APY_TTL_MS);
+    if (saved) return saved;
     const now = await archival('block', { finality: 'final' });
     const height = now.header.height;
     const ref = await archival('block', { block_id: height - 100_000 });
@@ -212,6 +238,8 @@ export function getStakingApy() {
         }
       })
     );
+    if (Object.values(out).every((v) => v != null)) store('kinu.stake.apy', out);
+    else apyCache = null; // try again on the next read
     return out;
   })().catch(() => {
     apyCache = null;

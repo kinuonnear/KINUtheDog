@@ -28,7 +28,7 @@ import {
   unstakeTx,
   withdrawTx
 } from '../lib/staking.js';
-import { getSwapQuote } from '../lib/swap.js';
+import { buildSwapTransactions, getSwapQuote } from '../lib/swap.js';
 import { getTokens } from '../lib/tokens.js';
 import { formatAmount, formatUnits, formatUsd, toBigInt, tryParseUnits } from '../lib/format.js';
 import { NATIVE_NEAR, NEAR_GAS_RESERVE } from '../config.js';
@@ -74,19 +74,43 @@ function TokenIcon({ tokens, k, size = 28 }) {
   return src ? <img className="stk-icon" src={src} alt="" width={size} height={size} /> : <span className="stk-icon stk-icon--blank" style={{ width: size, height: size }} />;
 }
 
-/** Weekly APY of the selected token over the last 30 or 90 days, as bars (archival prices). */
-function ApyHistory({ pick }) {
+/**
+ * The selected token's yield: what 1 LiNEAR / stNEAR is worth in NEAR over the last 30 or 90 days
+ * (archival prices, one point a week) as an area chart, with the APY that growth works out to.
+ */
+function ApyHistory({ pick, tokens, apy90 }) {
   const [range, setRange] = useState(90);
   const history = useAsync(() => getApyHistory(pick, 90), [pick]);
-  const weeks = history.data ? history.data.weeks.slice(range === 30 ? -4 : 0) : [];
-  const top = Math.max(1, ...weeks.map((w) => w.apy));
-  const avg = history.data ? (range === 30 ? history.data.apy30 : history.data.apy90) : null;
+  // Only the selected token's own history (never the previous token's while the new one loads).
+  const data = history.data?.key === pick ? history.data : null;
+  const points = data ? data.points.slice(range === 30 ? -5 : 0) : [];
+  // 90D shows the same 90-day APY as the cards above it; 30D the last four weeks.
+  const apyValue = range === 90 ? (apy90 ?? data?.apy90 ?? null) : (data?.apy30 ?? null);
+  const W = 320;
+  const H = 120;
+  const chart = useMemo(() => {
+    if (points.length < 2) return null;
+    const prices = points.map((p) => p.price);
+    const lo = Math.min(...prices);
+    const hi = Math.max(...prices);
+    const pad = (hi - lo) * 0.15 || hi * 0.0005;
+    const y = (v) => H - ((v - (lo - pad)) / (hi + pad - (lo - pad))) * H;
+    const x = (i) => (i / (points.length - 1)) * W;
+    const line = points.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(p.price).toFixed(1)}`).join(' ');
+    return { line, area: `${line} L${W} ${H} L0 ${H} Z`, last: { x: x(points.length - 1), y: y(prices[prices.length - 1]) }, lo, hi };
+  }, [points]);
+  const day = (ms) => new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  const first = points[0];
+  const last = points[points.length - 1];
   return (
     <section className="card stk-history">
       <div className="stk-history__head">
-        <div>
-          <h3>{STAKING[pick].symbol} APY history</h3>
-          <small className="muted">{avg != null ? `${avg.toFixed(2)}% a year over the last ${range === 30 ? '4' : '13'} weeks · each bar is one week` : 'Reading the chain…'}</small>
+        <div className="stk-history__title">
+          <TokenIcon tokens={tokens} k={pick} size={22} />
+          <span>
+            <small className="dep-label">{STAKING[pick].symbol} yield · last {range} days</small>
+            <strong>{apyValue != null ? `${apyValue.toFixed(2)}%` : '…'} <em>APY</em></strong>
+          </span>
         </div>
         <div className="segmented">
           {[30, 90].map((r) => (
@@ -96,21 +120,37 @@ function ApyHistory({ pick }) {
           ))}
         </div>
       </div>
-      {history.error && <p className="muted small">History unavailable right now.</p>}
-      {history.data && pick === 'linear' && (
-        <p className="muted small">LiNEAR books its rewards in steps, so some weeks show 0% and a later week catches up. The longer the period, the closer to the real rate.</p>
+      {history.error && !data && (
+        <p className="muted small">
+          Couldn&apos;t read the history from the chain just now.{' '}
+          <button type="button" className="link-button" onClick={history.reload}>
+            Retry
+          </button>
+        </p>
       )}
-      {!history.data && !history.error && <Skeleton height={120} />}
-      {history.data && (
-        <div className="stk-bars" role="img" aria-label={`Weekly APY of ${STAKING[pick].symbol}`}>
-          {weeks.map((w) => (
-            <div key={w.end} className="stk-bar" title={`Week to ${new Date(w.end).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}: ${w.apy.toFixed(2)}%`}>
-              <span className="stk-bar__value">{w.apy.toFixed(1)}%</span>
-              <i style={{ height: `${Math.max(4, (Math.max(0, w.apy) / top) * 100)}%` }} />
-              <small>{new Date(w.end).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</small>
-            </div>
-          ))}
-        </div>
+      {!data && !history.error && <Skeleton height={150} />}
+      {chart && (
+        <>
+          <svg className="stk-chart" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={`Value of 1 ${STAKING[pick].symbol} in NEAR`}>
+            <defs>
+              <linearGradient id="stk-area" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0" stopColor="currentColor" stopOpacity="0.28" />
+                <stop offset="1" stopColor="currentColor" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            <path d={chart.area} fill="url(#stk-area)" />
+            <path d={chart.line} fill="none" stroke="currentColor" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+            <circle cx={chart.last.x} cy={chart.last.y} r="3.5" fill="currentColor" vectorEffect="non-scaling-stroke" />
+          </svg>
+          <div className="stk-chart__axis">
+            <span>{day(first.at)} · {first.price.toFixed(4)} NEAR</span>
+            <span>{day(last.at)} · {last.price.toFixed(4)} NEAR</span>
+          </div>
+          <p className="muted small stk-chart__note">
+            Value of 1 {STAKING[pick].symbol} in NEAR, read from the chain each week.
+            {pick === 'linear' ? ' LiNEAR books its rewards in steps, so the line climbs in stairs; longer periods give the truer rate.' : ''}
+          </p>
+        </>
       )}
     </section>
   );
@@ -175,7 +215,10 @@ export default function Stake() {
 
   const run = async (build, labels) => {
     setBusy(true);
-    const done = await execute(async () => [build()], labels);
+    const done = await execute(async () => {
+      const txs = await build();
+      return Array.isArray(txs) ? txs : [txs];
+    }, labels);
     setBusy(false);
     if (done) {
       setAmount('');
@@ -190,14 +233,25 @@ export default function Stake() {
       const min = (instantOut * (10_000n - LIQUID_SLIPPAGE_BPS)) / 10_000n;
       return run(() => liquidUnstakeTx(raw, min), { pending: `Unstaking ${amount} stNEAR instantly`, success: 'NEAR is back in your wallet' });
     }
+    if (exit === 'instant') {
+      return run(
+        async () => {
+          const tokenIn = tokens.data?.[s.contract];
+          const quote = await getSwapQuote({ tokenIn, tokenOut: NATIVE_NEAR, amountIn: raw.toString(), slippage: 0.5, user: accountId });
+          if (quote.hybrid) throw new Error('This sale needs two swaps right now. Use the Swap page for it.');
+          // Never sign a price clearly worse than the one shown.
+          if (toBigInt(quote.amountOut) * 100n < instantOut * 99n) throw new Error('The price moved by more than 1%. Check the new price and try again.');
+          return buildSwapTransactions({ tokenIn, tokenOut: NATIVE_NEAR, quote, accountId });
+        },
+        { pending: `Selling ${amount} LiNEAR for NEAR`, success: 'NEAR is back in your wallet' }
+      );
+    }
     return run(() => unstakeTx(pick, delayedOut, raw >= held), {
       pending: `Unstaking ${amount} ${s.symbol}`,
       success: `Unstake started: withdraw in about ${unlockText}`
     });
   };
 
-  const swapLink = `/swap?from=${s.contract}&to=near${amount ? `&amount=${amount}` : ''}`;
-  const sellOnSwap = mode === 'unstake' && exit === 'instant' && pick === 'linear';
 
   let label;
   if (!accountId) label = 'Connect wallet';
@@ -205,7 +259,7 @@ export default function Stake() {
   else if (tooMuch) label = mode === 'stake' ? 'More than your NEAR' : `More than your ${s.symbol}`;
   else if (belowMin) label = `Minimum is ${near(s.minStake)} NEAR`;
   else if (mode === 'stake') label = `Stake ${amount} NEAR`;
-  else if (exit === 'instant') label = instant.loading || !instantOut ? 'Getting a price…' : sellOnSwap ? `Sell on Swap for ≈ ${near(instantOut)} NEAR` : `Unstake now for ≈ ${near(instantOut)} NEAR`;
+  else if (exit === 'instant') label = instant.loading || !instantOut ? 'Getting a price…' : `Unstake now for ≈ ${near(instantOut)} NEAR`;
   else label = `Start unstake · ≈ ${near(delayedOut)} NEAR in ~${unlockText}`;
 
   // Hero numbers.
@@ -302,7 +356,7 @@ export default function Stake() {
                   <b>Instant</b>
                   <strong>{raw > 0n ? (instant.loading ? '…' : instantOut ? `≈ ${near(instantOut)} NEAR` : '—') : '—'}</strong>
                   <small className="muted">
-                    {pick === 'stnear' ? 'Meta Pool’s pool' : 'Sold on Rhea'}
+                    {pick === 'stnear' ? 'Meta Pool’s pool' : 'Best of Rhea & Intear DEX'}
                     {instantGap != null ? ` · ${instantGap.toFixed(2)}% below full value` : ''}
                   </small>
                 </button>
@@ -326,8 +380,8 @@ export default function Stake() {
                       ? `Worth ${amount} NEAR now${yearly != null ? ` · earns ≈ ${formatAmount(yearly)} NEAR a year at today's ${rate.toFixed(2)}%` : ''}.`
                       : exit === 'delayed'
                         ? `Withdraw from “Your staking” once it unlocks, in about ${unlockText} (four epochs).`
-                        : sellOnSwap
-                          ? 'Swap re-checks the price on Rhea before you sign.'
+                        : pick === 'linear'
+                          ? 'Sold now on the best route across Rhea and Intear DEX, re-priced just before you sign.'
                           : 'Paid out now from Meta Pool’s NEAR/stNEAR pool.'}
                   </small>
                 </>
@@ -340,10 +394,6 @@ export default function Stake() {
               <button type="button" className="button button--primary button--block button--lg" onClick={connect}>
                 Connect wallet
               </button>
-            ) : sellOnSwap ? (
-              <Link to={swapLink} className={`button button--primary button--block button--lg ${ready ? '' : 'is-disabled'}`} aria-disabled={!ready}>
-                {label}
-              </Link>
             ) : (
               <button
                 type="button"
@@ -359,10 +409,35 @@ export default function Stake() {
             </small>
           </section>
 
-          <ApyHistory pick={pick} />
         </div>
 
         <aside className="stk-side">
+          <ApyHistory pick={pick} tokens={tokens} apy90={apy.data?.[pick]} />
+
+          <section className="card stk-earn">
+            <h3>Put it to work</h3>
+            <p className="muted small">In a staking-token pool your liquidity earns trading fees while the token keeps its staking rewards.</p>
+            {!pools.data && !pools.error && <Skeleton height={56} />}
+            {pools.data?.map((p) => (
+              <div key={p.id} className="stk-pool">
+                <TokenIcon tokens={tokens} k={p.stakeKey} size={24} />
+                <div>
+                  <b>{p.symbols.join(' / ')}</b>
+                  <small className="muted">
+                    {p.label} · TVL {formatUsd(p.tvl, { compactAbove: 1e3 })}
+                    {apy.data?.[p.stakeKey] != null ? ` · ~${(apy.data[p.stakeKey] / 2).toFixed(2)}% staking` : ''}
+                    {p.apy > 0 ? ` + ${p.apy >= 0.01 ? p.apy.toFixed(2) : '<0.01'}% fees` : ''}
+                  </small>
+                </div>
+                <Link to={poolPath(p.id)} className="button button--outline button--sm">
+                  Add LP
+                </Link>
+              </div>
+            ))}
+          </section>
+        </aside>
+
+        <aside className="stk-faq">
           <section className="card stk-positions">
             <h3>Your staking</h3>
             {!accountId && <p className="muted small">Connect your wallet to see your LiNEAR and stNEAR.</p>}
@@ -412,31 +487,6 @@ export default function Stake() {
               })}
           </section>
 
-          <section className="card stk-earn">
-            <h3>Put it to work</h3>
-            <p className="muted small">In a staking-token pool your liquidity earns trading fees while the token keeps its staking rewards.</p>
-            {!pools.data && !pools.error && <Skeleton height={56} />}
-            {pools.data?.map((p) => (
-              <div key={p.id} className="stk-pool">
-                <TokenIcon tokens={tokens} k={p.stakeKey} size={24} />
-                <div>
-                  <b>{p.symbols.join(' / ')}</b>
-                  <small className="muted">
-                    {p.label} · TVL {formatUsd(p.tvl, { compactAbove: 1e3 })}
-                    {apy.data?.[p.stakeKey] != null ? ` · ~${(apy.data[p.stakeKey] / 2).toFixed(2)}% staking` : ''}
-                    {p.apy > 0 ? ` + ${p.apy >= 0.01 ? p.apy.toFixed(2) : '<0.01'}% fees` : ''}
-                  </small>
-                </div>
-                <Link to={poolPath(p.id)} className="button button--outline button--sm">
-                  Add LP
-                </Link>
-              </div>
-            ))}
-          </section>
-
-        </aside>
-
-        <aside className="stk-faq">
           <div className="card dep-faq">
             <details>
               <summary>Where does the yield come from?</summary>

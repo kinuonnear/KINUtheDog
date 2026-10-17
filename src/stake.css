@@ -388,11 +388,11 @@
   font-size: 12px;
 }
 
-/* ---------- APY history ---------- */
+/* ---------- APY history: value of one token in NEAR, as an area chart ---------- */
 .stk-history {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
 }
 
 .stk-history__head {
@@ -402,61 +402,49 @@
   gap: 12px;
 }
 
-.stk-history__head h3 {
-  font-size: 16px;
-}
-
-.stk-history__head small {
-  font-size: 12px;
-}
-
-.stk-bars {
+.stk-history__title {
   display: flex;
-  align-items: flex-end;
-  gap: 6px;
-  height: 150px;
+  align-items: center;
+  gap: 10px;
 }
 
-.stk-bar {
+.stk-history__title > span {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: flex-end;
   gap: 4px;
-  flex: 1;
-  min-width: 0;
-  height: 100%;
 }
 
-.stk-bar i {
-  display: block;
-  width: 100%;
-  max-width: 34px;
-  border-radius: 6px 6px 2px 2px;
-  background: var(--accent-soft);
-  border: 1px solid var(--border-strong);
-}
-
-.stk-bar:hover i {
-  background: var(--accent);
-}
-
-.stk-bar__value {
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--muted);
+.stk-history__title strong {
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
 }
 
-.stk-bar small {
-  font-size: 9.5px;
-  color: var(--faint);
-  white-space: nowrap;
+.stk-history__title em {
+  font-style: normal;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
 }
 
-@media (max-width: 560px) {
-  .stk-bar__value,
-  .stk-bar small {
-    display: none;
-  }
+.stk-chart {
+  display: block;
+  width: 100%;
+  height: 150px;
+  color: var(--up, #5fe3a1);
+  overflow: visible;
+}
+
+.stk-chart__axis {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font: 500 11px/1.3 var(--mono);
+  color: var(--faint);
+}
+
+.stk-chart__note {
+  line-height: 1.5;
 }
