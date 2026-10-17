@@ -13,7 +13,8 @@
 //   TELEGRAM_WEBHOOK_SECRET  any long random string; also given to setWebhook as secret_token
 //   KINU_APP_URL             optional, defaults to https://kinudefi.com
 //
-// Messages: /start (menu), /help, /pools, /swap <contract> [$amount], /lp <contract>, or a pasted
+// Messages: /start (menu), /help, /pools, /swap <contract> [$amount], /lp <contract>, /balance and
+// /positions <account> (read-only), /terminal, or a pasted
 // token contract.
 
 const RHEA_API = 'https://api.rhea.finance';
@@ -262,6 +263,8 @@ const HELP = [
   '🔥 <b>Trending</b>: Rhea CLMM pools by volume in the last 1h or 6h.',
   '💰 <b>Top yield</b>: fee APR over the last 24h (pools with at least $1K TVL).',
   '⇄ <b>/swap</b> <code>contract</code>: buy or sell for NEAR in dollars.',
+  '👛 <b>/balance</b> · 📊 <b>/positions</b> <code>account.near</code>: tokens and LP positions of any account (read-only).',
+  '💻 <b>/terminal</b>: the full KINU app.',
   '',
   'KINU never holds your keys or funds: you check everything in KINU and confirm in your wallet (HOT Wallet works inside Telegram). Liquidity can lose value against holding (impermanent loss); this is not financial advice.'
 ].join('\n');
@@ -273,16 +276,25 @@ function menu() {
       inline_keyboard: [
         [cb('💧 New LP', 'm:new'), cb('🐕 KINU / NEAR', 'm:kinu')],
         [cb('🔥 Trending 1h', 'm:t1'), cb('🔥 Trending 6h', 'm:t6')],
-        [cb('💰 Top yield', 'm:y'), open('⇄ Swap', `${appUrl()}/swap`)],
-        [open('🐕 Open KINU', `${appUrl()}/pools`)]
+        [cb('💰 Top yield', 'm:y'), cb('⇄ Swap', 'm:swap')],
+        [cb('👛 Balance', 'm:bal'), cb('📊 LP positions', 'm:pos')],
+        [cb('💻 Terminal', 'm:term')]
       ]
     }
   };
 }
 
+// Prompts for a contract answer with a forced reply: the contract the user sends comes back as a
+// reply to the prompt, and the prompt's first words say which flow it belongs to (no state kept).
+const LP_PROMPT = '💧 New LP';
+const SWAP_PROMPT = '⇄ Swap';
 const ASK_CONTRACT = {
   text: '💧 <b>New LP</b>\nPaste the token contract, e.g. <code>kinu-3.nearlytrade.near</code>.\nContracts only: names and tickers can point at look-alike tokens.',
-  reply_markup: { inline_keyboard: [MENU_ROW] }
+  reply_markup: { force_reply: true, input_field_placeholder: 'Token contract to LP' }
+};
+const ASK_SWAP = {
+  text: '⇄ <b>Swap</b>\nPaste the token contract to buy or sell, e.g. <code>kinu-3.nearlytrade.near</code>. Add a dollar amount if you like: <code>kinu-3.nearlytrade.near $75</code>.',
+  reply_markup: { force_reply: true, input_field_placeholder: 'Token contract to swap' }
 };
 
 /** Trending (1h / 6h volume) or top yield: ten pools, each a button to its pool card. */
@@ -461,8 +473,221 @@ async function tokenReply(token) {
   };
 }
 
-/** The reply for a text message. */
-export async function replyFor(text) {
+/* ---------------------------------------------------------------- accounts (read-only) */
+
+// The bot holds no wallets: /balance and /positions read any account's public data, by name.
+const RPCS = ['https://near.drpc.org', 'https://free.rpc.fastnear.com'];
+const FASTNEAR_API = 'https://api.fastnear.com';
+const PRICES_API = 'https://prices.intear.tech/list-token-price';
+const DCL = 'dclv2.ref-labs.near';
+const BAL_PROMPT = '👛 Balance';
+const POS_PROMPT = '📊 LP positions';
+const MAX_ROWS = 10;
+
+async function rpc(params) {
+  let last;
+  for (const url of RPCS) {
+    try {
+      const json = await getJson(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'query', params }) });
+      if (json.error) {
+        const cause = json.error.cause?.name || json.error.data || json.error.message;
+        if (/UNKNOWN_ACCOUNT|does not exist/i.test(JSON.stringify(cause))) return { missing: true };
+        throw new Error(String(cause));
+      }
+      return json.result;
+    } catch (error) {
+      last = error;
+    }
+  }
+  throw last;
+}
+
+async function viewCall(contract, method, args) {
+  const result = await rpc({ request_type: 'call_function', finality: 'final', account_id: contract, method_name: method, args_base64: Buffer.from(JSON.stringify(args)).toString('base64') });
+  if (result.missing) throw new Error(`${contract} not found`);
+  return JSON.parse(Buffer.from(result.result).toString());
+}
+
+// Intear's price list (~0.5 MB): price, symbol and decimals of every NEAR token, kept a while.
+let priceCache = { at: 0, map: null };
+async function tokenPrices() {
+  if (priceCache.map && Date.now() - priceCache.at < 120_000) return priceCache.map;
+  const map = await getJson(PRICES_API);
+  priceCache = { at: Date.now(), map };
+  return map;
+}
+
+const symbolOf = (prices, id) => nearSymbol(prices?.[id]?.symbol || id.split('.')[0].slice(0, 10).toUpperCase());
+const decimalsOf = (prices, id) => Number(prices?.[id]?.decimal ?? (id === WNEAR ? 24 : 18));
+const priceOf = (prices, id) => Number(prices?.[id]?.price) || 0;
+const amount = (v) =>
+  v >= 1e6 ? v.toLocaleString('en-US', { maximumFractionDigits: 0 }) : v >= 1 ? v.toLocaleString('en-US', { maximumFractionDigits: 4 }) : v > 0 ? units(v) : '0';
+/** A price as a plain number, four significant digits (no $). */
+const plain = (v) => (v >= 1 ? v.toFixed(4) : v.toFixed(Math.min(20, 3 - Math.floor(Math.log10(v)))));
+const accountLink = (account) => `<a href="${appUrl()}/lp/${encodeURIComponent(account)}">${esc(account)}</a>`;
+
+/** The account a message's link names (the bot's balance / positions replies link it). */
+function accountIn(message) {
+  const base = `${appUrl()}/lp/`;
+  const link = (message?.entities || []).find((e) => e.type === 'text_link' && e.url?.startsWith(base));
+  return link ? decodeURIComponent(link.url.slice(base.length).split(/[?#]/)[0]) : null;
+}
+
+const accountButtons = (account, other) => [
+  [other === 'pos' ? cb('📊 LP positions', 'v:pos') : cb('👛 Balance', 'v:bal'), open('🐕 Open in KINU', `${appUrl()}/lp/${encodeURIComponent(account)}`)],
+  MENU_ROW
+];
+
+const ASK_BALANCE = {
+  text: '👛 <b>Balance</b>\nSend a NEAR account, e.g. <code>yourname.near</code> or <code>yourname.tg</code>.\nRead-only: the bot never connects to your wallet.',
+  reply_markup: { force_reply: true, input_field_placeholder: 'NEAR account' }
+};
+const ASK_POSITIONS = {
+  text: '📊 <b>LP positions</b>\nSend a NEAR account, e.g. <code>yourname.near</code> or <code>yourname.tg</code>.\nRead-only: the bot never connects to your wallet.',
+  reply_markup: { force_reply: true, input_field_placeholder: 'NEAR account' }
+};
+
+/** /balance: NEAR and the account's tokens with their dollar value. */
+async function balanceReply(account) {
+  const [view, fts, prices] = await Promise.all([
+    rpc({ request_type: 'view_account', finality: 'final', account_id: account }),
+    getJson(`${FASTNEAR_API}/v1/account/${encodeURIComponent(account)}/ft`).catch(() => ({ tokens: [] })),
+    tokenPrices().catch(() => ({}))
+  ]);
+  if (view.missing) return { text: `No NEAR account named <code>${esc(account)}</code>.`, reply_markup: { inline_keyboard: [MENU_ROW] } };
+  const nearAmount = Number(view.amount) / 1e24;
+  const rows = [{ symbol: 'NEAR', amount: nearAmount, usd: nearAmount * priceOf(prices, WNEAR) }];
+  let unpriced = 0;
+  for (const t of fts.tokens || []) {
+    if (!(Number(t.balance) > 0)) continue;
+    if (!prices[t.contract_id]) {
+      unpriced += 1;
+      continue;
+    }
+    const value = Number(t.balance) / 10 ** decimalsOf(prices, t.contract_id);
+    rows.push({ symbol: t.contract_id === WNEAR ? 'wNEAR' : symbolOf(prices, t.contract_id), amount: value, usd: value * priceOf(prices, t.contract_id) });
+  }
+  const shown = rows.filter((r, i) => i === 0 || r.usd >= 0.01).sort((a, b) => b.usd - a.usd);
+  const total = rows.reduce((s, r) => s + r.usd, 0);
+  const hidden = shown.length - MAX_ROWS;
+  const lines = [
+    `👛 ${accountLink(account)} · ≈ <b>${usd(total)}</b>`,
+    '',
+    ...shown.slice(0, MAX_ROWS).map((r) => `• <b>${esc(r.symbol)}</b> ${amount(r.amount)} · ${usd(r.usd)}`),
+    hidden > 0 ? `… and ${hidden} more` : null,
+    unpriced ? `${unpriced} token${unpriced === 1 ? '' : 's'} without a price not counted.` : null,
+    '',
+    'Read-only, from public data. LP positions are not included: tap 📊.'
+  ].filter((l) => l !== null);
+  return { text: lines.join('\n'), reply_markup: { inline_keyboard: accountButtons(account, 'pos') } };
+}
+
+/** "In range · 32% to edge" / "Out of range · 16% above", like the pool page. */
+function rangeStatus(lo, hi, now, inBins, bins) {
+  if (now < lo) return `🔴 Out of range · ${pct(((lo - now) / lo) * 100)}% below`;
+  if (now >= hi) return `🔴 Out of range · ${pct(((now - hi) / hi) * 100)}% above`;
+  const edge = (Math.min(now - lo, hi - now) / now) * 100;
+  return `🟢 In range · ${pct(edge)}% to edge${bins > 1 ? ` · ${inBins}/${bins} bins earning` : ''}`;
+}
+
+/** /positions: the account's Rhea CLMM positions, per pool: range, status, value, unclaimed fees. */
+async function positionsReply(account) {
+  const view = await rpc({ request_type: 'view_account', finality: 'final', account_id: account });
+  if (view.missing) return { text: `No NEAR account named <code>${esc(account)}</code>.`, reply_markup: { inline_keyboard: [MENU_ROW] } };
+  const [liquidities, prices] = await Promise.all([viewCall(DCL, 'list_liquidities', { account_id: account }), tokenPrices().catch(() => ({}))]);
+  if (!liquidities?.length) {
+    return { text: `📊 ${accountLink(account)}\nNo CLMM positions on Rhea.`, reply_markup: { inline_keyboard: accountButtons(account, 'bal') } };
+  }
+  const groups = new Map();
+  liquidities.forEach((l) => groups.set(l.pool_id, [...(groups.get(l.pool_id) || []), l]));
+  const pools = Object.fromEntries(await Promise.all([...groups.keys()].map(async (id) => [id, await viewCall(DCL, 'get_pool', { pool_id: id }).catch(() => null)])));
+  let total = 0;
+  const blocks = [];
+  for (const [poolId, list] of groups) {
+    const pool = pools[poolId];
+    if (!pool) continue;
+    const [x, y, fee] = poolId.split('|');
+    const dx = decimalsOf(prices, x);
+    const dy = decimalsOf(prices, y);
+    const current = pool.current_point;
+    let ax = 0;
+    let ay = 0;
+    let fx = 0;
+    let fy = 0;
+    let inBins = 0;
+    list.forEach((l) => {
+      const split = Math.min(Math.max(current, l.left_point), l.right_point);
+      const sqrt = (p) => Math.pow(Math.sqrt(1.0001), p);
+      const r = Math.sqrt(1.0001);
+      const L = Number(l.amount);
+      if (l.right_point > split) ax += (L * (1 / sqrt(split) - 1 / sqrt(l.right_point)) * r) / (r - 1);
+      if (split > l.left_point) ay += (L * (sqrt(split) - sqrt(l.left_point))) / (r - 1);
+      fx += Number(l.unclaimed_fee_x || 0);
+      fy += Number(l.unclaimed_fee_y || 0);
+      if (current >= l.left_point && current < l.right_point) inBins += 1;
+    });
+    const px = priceOf(prices, x);
+    const py = priceOf(prices, y);
+    const value = (ax / 10 ** dx) * px + (ay / 10 ** dy) * py;
+    const fees = (fx / 10 ** dx) * px + (fy / 10 ** dy) * py;
+    total += value + fees;
+    const toPrice = (point) => Math.pow(1.0001, point) * 10 ** (dx - dy);
+    const lo = toPrice(Math.min(...list.map((l) => l.left_point)));
+    const hi = toPrice(Math.max(...list.map((l) => l.right_point)));
+    const now = toPrice(current);
+    const [sx, sy] = [symbolOf(prices, x), symbolOf(prices, y)];
+    blocks.push({
+      value,
+      text: [
+        `<b>${esc(sx)} / ${esc(sy)}</b> · ${Number(fee) / 1e4}% · ${list.length} bin${list.length === 1 ? '' : 's'}`,
+        `   ${rangeStatus(lo, hi, now, inBins, list.length)}`,
+        `   ${usd(value)} · unclaimed fees ${usd(fees)}`,
+        `   ${plain(lo)} – ${plain(hi)} ${esc(sy)}/${esc(sx)}`
+      ].join('\n')
+    });
+  }
+  blocks.sort((a, b) => b.value - a.value);
+  const lines = [
+    `📊 ${accountLink(account)} · ${blocks.length} CLMM pool${blocks.length === 1 ? '' : 's'} · ≈ <b>${usd(total)}</b>`,
+    '',
+    ...blocks.slice(0, MAX_ROWS).map((b, i) => `${i + 1}. ${b.text}`),
+    blocks.length > MAX_ROWS ? `… and ${blocks.length - MAX_ROWS} more pools` : null,
+    '',
+    'Read-only, from public data. Manage them in KINU: claim, add, rebalance, remove.'
+  ].filter((l) => l !== null);
+  return { text: lines.join('\n'), reply_markup: { inline_keyboard: accountButtons(account, 'bal') } };
+}
+
+/** /terminal: the full KINU app, inside Telegram or in a browser. */
+function terminal() {
+  return {
+    text: [
+      '💻 <b>KINU Terminal</b> ✨',
+      'The full KINU app: swap, every pool on NEAR, LP positions with PnL, portfolio and charts.',
+      '',
+      '🔐 Opened from Telegram it connects with HOT Wallet right here, nothing to sign up for.',
+      `In a browser: <a href="${appUrl()}">kinudefi.com</a>`
+    ].join('\n'),
+    reply_markup: {
+      inline_keyboard: [[open('💻 Open Terminal', `${appUrl()}/app`)], [{ text: '🌐 Open in browser', url: appUrl() }], [cb('🎛 Menu: Commands', 'm')]]
+    }
+  };
+}
+
+/** The first NEAR account named in a message (an account id with a dot, or a 64-hex implicit one). */
+function accountFrom(text) {
+  for (const raw of String(text || '').trim().split(/\s+/)) {
+    const w = raw.replace(/^@/, '').toLowerCase();
+    if (CONTRACT.test(w) && w.length >= 2 && w.length <= 64) return w;
+  }
+  return null;
+}
+
+/**
+ * The reply for a text message. `replyTo`: the text of the bot message it answers, if any (a
+ * contract sent in reply to the swap prompt is a swap, not an LP).
+ */
+export async function replyFor(text, replyTo = '') {
   const trimmed = String(text || '').trim();
   const match = trimmed.match(/^\/([a-z]+)(@\w+)?\s*/i);
   const name = match ? match[1].toLowerCase() : null;
@@ -471,9 +696,25 @@ export async function replyFor(text) {
   if (name === 'pools') return { text: 'Every pool on NEAR (Rhea and Intear DEX), sorted by what it pays LPs.', reply_markup: { inline_keyboard: [[open('🐕 Open Pools', `${appUrl()}/pools`)], MENU_ROW] } };
   if (name === 'trending') return poolList('t1');
   if (name === 'yield') return poolList('y');
+  if (name === 'terminal') return terminal();
+  // Balance / positions: an account in the command, or sent in reply to their prompt.
+  const replied = !name ? String(replyTo) : '';
+  if (['balance', 'mybalance', 'bal'].includes(name) || replied.startsWith(BAL_PROMPT)) {
+    const account = accountFrom(rest);
+    return account ? balanceReply(account) : ASK_BALANCE;
+  }
+  if (['positions', 'position', 'pos', 'mypositions'].includes(name) || replied.startsWith(POS_PROMPT)) {
+    const account = accountFrom(rest);
+    return account ? positionsReply(account) : ASK_POSITIONS;
+  }
   const req = parseRequest(rest);
-  if (!req.token) return name === 'swap' ? { text: 'Send <code>/swap</code> with a token contract, e.g. <code>/swap kinu-3.nearlytrade.near</code> or <code>/swap kinu-3.nearlytrade.near $75</code>.', reply_markup: { inline_keyboard: [MENU_ROW] } } : UNKNOWN;
-  return name === 'swap' ? swapReply(req) : tokenReply(req.token);
+  const swap = name === 'swap' || (!name && String(replyTo).startsWith(SWAP_PROMPT));
+  if (!req.token) {
+    if (swap) return ASK_SWAP;
+    if (name === 'lp' || String(replyTo).startsWith(LP_PROMPT)) return ASK_CONTRACT;
+    return UNKNOWN;
+  }
+  return swap ? swapReply(req) : tokenReply(req.token);
 }
 
 /** The reply for a button press (`data`) on one of the bot's messages. */
@@ -484,10 +725,20 @@ export async function replyForButton(data, message) {
   if (kind === 'm') {
     if (!a) return menu();
     if (a === 'new') return ASK_CONTRACT;
+    if (a === 'swap') return ASK_SWAP;
+    if (a === 'bal') return ASK_BALANCE;
+    if (a === 'pos') return ASK_POSITIONS;
+    if (a === 'term') return terminal();
     if (a === 'kinu') return poolCard(KINU_POOL);
     return poolList(a);
   }
   if (kind === 'l') return links[Number(a)] ? poolCard(links[Number(a)].poolId) : menu();
+  // Balance <-> positions of the account linked in the message.
+  if (kind === 'v') {
+    const account = accountIn(message);
+    if (!account) return a === 'pos' ? ASK_POSITIONS : ASK_BALANCE;
+    return a === 'pos' ? positionsReply(account) : balanceReply(account);
+  }
   if (!state?.poolId) return menu();
   const [x, y] = state.poolId.split('|');
   if (kind === 's') return swapReply({ token: x === WNEAR ? y : x });
@@ -530,7 +781,7 @@ export default async function handler(req, res) {
       await telegram('answerCallbackQuery', { callback_query_id: callback.id }).catch(() => {});
       await send(message.chat.id, await replyForButton(callback.data, message));
     } else if (typeof message.text === 'string') {
-      await send(message.chat.id, await replyFor(message.text));
+      await send(message.chat.id, await replyFor(message.text, message.reply_to_message?.text));
     }
   } catch (error) {
     await send(message.chat.id, { text: "Couldn't load pool data right now. Try again in a minute.", reply_markup: { inline_keyboard: [MENU_ROW] } }).catch(() => {});
