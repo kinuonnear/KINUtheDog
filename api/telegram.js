@@ -13,6 +13,7 @@
 //   <token> [amount] [range%]   e.g. "kinu", "kinu-3.nearlytrade.near 5", "$TEAR 2 25%"
 
 const RHEA_API = 'https://api.rhea.finance';
+const DEXSCREENER_API = 'https://api.dexscreener.com';
 const WNEAR = 'wrap.near';
 // Tickers people type, mapped to their contracts (anything else: paste the contract).
 const ALIASES = {
@@ -51,6 +52,48 @@ export function parseRequest(text) {
 
 /** The token's CLMM pool to LP in: the deepest one paired with NEAR, else the deepest. */
 export async function findPool(token) {
+  // Rhea's API can turn away server requests (it answered from browsers but not from Vercel):
+  // DexScreener lists the same CLMM pools with their liquidity and volume.
+  let pools;
+  try {
+    pools = await rheaPools(token);
+  } catch (error) {
+    console.error('rhea pools', error.message);
+    pools = await dexScreenerPools(token);
+  }
+  pools.sort((a, b) => b.tvl - a.tvl);
+  return pools.find((p) => p.tokens.includes(WNEAR)) || pools[0] || null;
+}
+
+/** The token's CLMM pools from DexScreener (pair "refv2-<x>:<y>:<fee>" is Rhea pool "<x>|<y>|<fee>"). */
+async function dexScreenerPools(token) {
+  const response = await fetch(`${DEXSCREENER_API}/latest/dex/tokens/${encodeURIComponent(token)}`);
+  if (!response.ok) throw new Error(`DexScreener HTTP ${response.status}`);
+  const json = await response.json();
+  return (json.pairs || [])
+    .filter((p) => p.chainId === 'near' && /^refv2-[^:]+:[^:]+:\d+$/.test(p.pairAddress || ''))
+    .map((p) => {
+      const [x, y, fee] = p.pairAddress.slice('refv2-'.length).split(':');
+      const symbolOf = (id) => {
+        const s = id === p.baseToken?.address ? p.baseToken.symbol : id === p.quoteToken?.address ? p.quoteToken.symbol : id;
+        return s === 'wNEAR' ? 'NEAR' : s;
+      };
+      const volume = Number(p.volume?.h24) || 0;
+      return {
+        id: `${x}|${y}|${fee}`,
+        tokens: [x, y],
+        symbols: [symbolOf(x), symbolOf(y)],
+        tvl: Number(p.liquidity?.usd) || 0,
+        volume,
+        fees: (volume * Number(fee)) / 1e6,
+        feePct: Number(fee) / 1e4
+      };
+    })
+    .filter((p) => p.tokens.includes(token));
+}
+
+/** The token's CLMM pools from Rhea's API. */
+async function rheaPools(token) {
   const params = new URLSearchParams({
     type: 'dcl',
     sort: 'tvl',
@@ -67,7 +110,8 @@ export async function findPool(token) {
   const response = await fetch(`${RHEA_API}/pool/search?${params}`);
   if (!response.ok) throw new Error(`Rhea API HTTP ${response.status}`);
   const json = await response.json();
-  const pools = (json.data?.list || [])
+  if (json.code !== 0) throw new Error(json.msg || 'Rhea API error');
+  return (json.data?.list || [])
     .filter((p) => p.pool_kind === 'DCL' && (p.token_account_ids || []).includes(token))
     .map((p) => ({
       id: p.id,
@@ -77,9 +121,7 @@ export async function findPool(token) {
       volume: Number(p.volume_24h) || 0,
       fees: Number(p.fee_volume_24h) || 0,
       feePct: (Number(p.total_fee) || 0) * 100
-    }))
-    .sort((a, b) => b.tvl - a.tvl);
-  return pools.find((p) => p.tokens.includes(WNEAR)) || pools[0] || null;
+    }));
 }
 
 /* ---------------------------------------------------------------- replies */
@@ -175,7 +217,7 @@ export default async function handler(req, res) {
   try {
     await send(message.chat.id, await replyFor(message.text));
   } catch (error) {
-    await send(message.chat.id, { text: "Couldn't reach Rhea right now. Try again in a minute." }).catch(() => {});
+    await send(message.chat.id, { text: "Couldn't load pool data right now. Try again in a minute." }).catch(() => {});
     console.error('telegram bot', error);
   }
   return res.status(200).end();

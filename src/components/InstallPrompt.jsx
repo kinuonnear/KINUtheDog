@@ -1,9 +1,11 @@
 // "Install KINU" banner on phones: Android / Chrome use the browser's install prompt; iPhone
 // and iPad get the Share → "Add to Home Screen" steps (Safari has no prompt). Hidden once the
-// app is installed, inside wallet in-app browsers, and for 14 days after "Not now".
+// app is installed, inside wallet in-app browsers and Telegram's Mini App, and for 14 days after
+// "Not now".
 
 import { useEffect, useState } from 'react';
 import { inMeteorApp } from '../lib/wallet.js';
+import { inTelegram } from '../lib/telegram.js';
 
 const DISMISS_KEY = 'kinu.install.dismissedAt';
 const DISMISS_MS = 14 * 86_400_000;
@@ -31,7 +33,7 @@ function ShareIcon() {
 
 export default function InstallPrompt() {
   const [deferred, setDeferred] = useState(null);
-  const [hidden, setHidden] = useState(() => isStandalone() || inMeteorApp() || dismissedRecently());
+  const [hidden, setHidden] = useState(() => isStandalone() || inMeteorApp() || inTelegram() || dismissedRecently());
   const [steps, setSteps] = useState(false);
   const ios = isIos();
 
