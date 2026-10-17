@@ -2,6 +2,8 @@
 // anything not built is marked Proposed, and it must stay in step with the security page.
 
 import { Link } from '../router.jsx';
+import { bpsText, PLATFORM_FEE } from '../config.js';
+import { KINU_FEE_BPS, KINU_FEE_STABLE_BPS, feePercent } from '../lib/intentsFees.js';
 
 const KINU = 'kinu-3.nearlytrade.near';
 
@@ -147,7 +149,9 @@ export const WHITEPAPER = (
     </p>
     <ul>
       <li>
-        <strong>Today</strong> <Live />: no platform fee. The only income is the creator share of the KINU/RHEA pool fee.
+        <strong>Today</strong> <Live />: {PLATFORM_FEE.enabled ? `a ${bpsText(PLATFORM_FEE.bps)} platform fee on swaps (table below)` : 'no platform fee on swaps or liquidity'}
+        ; the creator share of the KINU/RHEA pool fee; and the Bridge&apos;s {feePercent(KINU_FEE_BPS)} service fee (
+        {feePercent(KINU_FEE_STABLE_BPS)} for stablecoins and the same asset across chains), shared with NEAR Intents.
       </li>
       <li>
         <strong>Rhea referral</strong> <Proposed label="Proposed · next" />: Rhea keeps 20% of every pool fee as a protocol fee
@@ -155,11 +159,11 @@ export const WHITEPAPER = (
         Rhea DAO receive part of that share. Users pay nothing extra and see the same price as on Rhea.
       </li>
       <li>
-        <strong>Platform fee</strong> <Proposed />: see the table below.
+        <strong>Platform fee</strong> {PLATFORM_FEE.enabled ? <Live /> : <Proposed />}: see the table below.
       </li>
     </ul>
     <Table
-      head={['Action', 'Proposed platform fee']}
+      head={['Action', PLATFORM_FEE.enabled ? 'Platform fee' : 'Proposed platform fee']}
       rows={[
         ['Swap', '0.1% of the input amount'],
         ['Zap In · Rebalance', '0.1% of the swapped part only'],

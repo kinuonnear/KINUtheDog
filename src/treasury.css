@@ -282,3 +282,26 @@
     grid-column: 2 / -1;
   }
 }
+
+/* Platform fee setup (KINU's own accounts only) */
+.ts-admin {
+  border-style: dashed;
+}
+
+.ts-admin__tokens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ts-admin__tokens span {
+  padding: 4px 9px;
+  border: 1px solid rgba(242, 243, 238, 0.1);
+  border-radius: 999px;
+}
+
+.ts-admin .button {
+  justify-self: start;
+}

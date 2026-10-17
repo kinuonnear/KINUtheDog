@@ -12,7 +12,7 @@ import { getToken } from '../lib/tokens.js';
 import { enrichTokens } from '../lib/trending.js';
 import { FEATURED, loadSmartLps } from '../lib/smartMoney.js';
 import { formatPrice, formatUsd } from '../lib/format.js';
-import { CONTRACTS, FEE_SUMMARY, INTEAR_FEE, NATIVE_NEAR } from '../config.js';
+import { CONTRACTS, FEE_SUMMARY, NATIVE_NEAR, SWAP_FEE_LIVE } from '../config.js';
 import { loadBoard } from '../components/SmartLp.jsx';
 import { CopyButton, TokenIcon } from '../components/ui.jsx';
 import { AgentBot } from '../components/AgentBot.jsx';
@@ -35,7 +35,7 @@ const EMBLEM = '/site/kinu-emblem.svg';
 const ext = { target: '_blank', rel: 'noopener noreferrer' };
 const K = { compactAbove: 1e4 };
 
-const TRUST = ['Non-custodial', 'You sign every transaction', 'LP co-pilot', 'Built on NEAR', 'Live on-chain PnL', 'Transaction guard', INTEAR_FEE.live ? 'Fees shown before you sign' : 'No platform fee'];
+const TRUST = ['Non-custodial', 'You sign every transaction', 'LP co-pilot', 'Built on NEAR', 'Live on-chain PnL', 'Transaction guard', SWAP_FEE_LIVE ? 'Fees shown before you sign' : 'No platform fee'];
 
 // The closing timeline: how to start, in four words each.
 const START = [
@@ -73,7 +73,7 @@ const SAFETY = [
   ['Non-custodial', 'Your funds stay in your wallet. Nothing moves until you sign it.'],
   ['Transaction guard', 'Every request is checked before your wallet sees it: tokens only go to the DEX contracts (Rhea, Intear DEX) and swap output comes back to you.'],
   ['Open source', 'The code that builds your transactions is public. Read it, verify it.'],
-  INTEAR_FEE.live ? ['Clear fees', FEE_SUMMARY] : ['No platform fee', 'KINU adds nothing on top. You pay the pool fee and network gas, and that’s all.']
+  SWAP_FEE_LIVE ? ['Clear fees', FEE_SUMMARY] : ['No platform fee', 'KINU adds nothing on top of swaps and liquidity: you pay the pool fee and network gas. The Bridge’s fee is shown in every quote.']
 ];
 
 /** True once the element has scrolled into view (then stays true). */

@@ -6,7 +6,8 @@
 //   - only FunctionCall actions (no NEAR transfers, key changes or deploys)
 //   - per contract, only the methods KINU uses
 //   - tokens may only be sent (ft_transfer_call) to Rhea's contracts or Intear DEX (aggregator routes)
-//   - storage is only ever bought for the signer (or for Rhea's contracts on a new token)
+//   - storage is only ever bought for the signer (or for Rhea's contracts on a new token, or for
+//     KINU's public treasury so it can receive the platform fee)
 //   - attached NEAR is capped, except when wrapping NEAR or depositing it into Intear DEX
 //     (the amount the user typed; Intear routes are also checked in lib/intearRouter.js)
 //   - tokens may be sent (ft_transfer) and storage bought only for a NEAR Intents deposit address
@@ -124,7 +125,8 @@ export function assertSafeTransactions(transactions, signerId) {
         args.account_id &&
         args.account_id !== signerId &&
         !TOKEN_DESTINATIONS.has(args.account_id) &&
-        !isBridgeDeposit(args.account_id)
+        !isBridgeDeposit(args.account_id) &&
+        args.account_id !== PLATFORM_FEE.treasury
       ) {
         refuse(tx, `storage would be bought for "${args.account_id}" instead of you`);
       }

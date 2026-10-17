@@ -101,6 +101,24 @@ export const KINU_TOKEN = 'kinu-3.nearlytrade.near';
 // only after the docs, security page and an announcement say so. bps: 10 = 0.1%.
 export const PLATFORM_FEE = { enabled: false, bps: 10, treasury: 'kinu-treasury.near' };
 
+// Tokens the treasury is registered on so it can receive the platform fee (a fee in any other
+// token is skipped). Registered from the Treasury page by KINU's own accounts. $KINU swaps pay no
+// fee, so it is not listed.
+export const PLATFORM_FEE_TOKENS = [
+  { id: 'wrap.near', symbol: 'wNEAR' },
+  { id: '17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1', symbol: 'USDC' },
+  { id: 'usdt.tether-token.near', symbol: 'USDT' },
+  { id: 'a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.factory.bridge.near', symbol: 'USDC.e' },
+  { id: 'dac17f958d2ee523a2206206994597c13d831ec7.factory.bridge.near', symbol: 'USDT.e' },
+  { id: 'token.rhealab.near', symbol: 'RHEA' },
+  { id: '2260fac5e5542a773aa44fbcfedf7c193bc2c599.factory.bridge.near', symbol: 'WBTC' },
+  { id: 'token.intear.near', symbol: 'INTEAR' },
+  { id: 'blackdragon.tkn.near', symbol: 'BLACKDRAGON' },
+  { id: 'token.sweat', symbol: 'SWEAT' },
+  { id: 'linear-protocol.near', symbol: 'LiNEAR' },
+  { id: 'meta-pool.near', symbol: 'stNEAR' }
+];
+
 // Account KINU passes as `referrer_id` to the Intear DEX Aggregator: swaps are tracked under it and
 // its referral fee (INTEAR_FEE) is paid to it.
 export const INTEAR_REFERRER = 'kinu-treasury.near';
@@ -113,9 +131,15 @@ export const INTEAR_FEE = { live: false, bps: 20, stableBps: 5 };
 /** "0.2%" for basis points. */
 export const bpsText = (bps) => `${Number((bps / 100).toFixed(2))}%`;
 
+/** Whether KINU charges any fee of its own on swaps (the platform fee or the Intear referral fee). */
+export const SWAP_FEE_LIVE = PLATFORM_FEE.enabled || INTEAR_FEE.live;
+
+const PLATFORM_FEE_LINE = `Swaps include a ${bpsText(PLATFORM_FEE.bps)} KINU platform fee (on Zap In and Rebalance, only on the part that is swapped; none on $KINU swaps or on adding or removing liquidity), shown before you sign and paid to ${PLATFORM_FEE.treasury}.`;
+const INTEAR_FEE_LINE = `Swaps routed through Intear DEX include a ${bpsText(INTEAR_FEE.bps)} KINU fee (${bpsText(INTEAR_FEE.stableBps)} on stable pairs), shown before you sign and paid to ${INTEAR_REFERRER}.`;
+
 /** One line describing KINU's fees, for the landing, Security and Docs. */
-export const FEE_SUMMARY = INTEAR_FEE.live
-  ? `No fee on Rhea routes. Swaps routed through Intear DEX include a ${bpsText(INTEAR_FEE.bps)} KINU fee (${bpsText(INTEAR_FEE.stableBps)} on stable pairs), shown before you sign and paid to ${INTEAR_REFERRER}.`
+export const FEE_SUMMARY = SWAP_FEE_LIVE
+  ? [PLATFORM_FEE.enabled ? PLATFORM_FEE_LINE : 'No fee on Rhea routes.', INTEAR_FEE.live ? INTEAR_FEE_LINE : ''].filter(Boolean).join(' ')
   : 'No platform fee today. Any future fee will be shown before you sign.';
 
 // Tokens KINU has checked by hand (official project tokens) and treats as verified, next to

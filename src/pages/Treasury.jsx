@@ -13,7 +13,8 @@ import { loadDclPositions, markDclRows } from '../lib/smartLp.js';
 import { asPoolToken, getTokens, priceOf } from '../lib/tokens.js';
 import { getClassicPositions } from '../lib/rhea.js';
 import { formatAmount, formatUsd, toNumber } from '../lib/format.js';
-import { bpsText, ENDPOINTS, INTEAR_FEE, INTEAR_REFERRER, KINU_TOKEN, NATIVE_NEAR } from '../config.js';
+import { bpsText, ENDPOINTS, INTEAR_FEE, INTEAR_REFERRER, KINU_TOKEN, NATIVE_NEAR, PLATFORM_FEE, PLATFORM_FEE_TOKENS } from '../config.js';
+import { ensureStorageTx, isStorageRegistered } from '../lib/tx.js';
 import { ErrorNotice, PairIcons, Skeleton } from '../components/ui.jsx';
 import { FlowLines } from '../components/FlowLines.jsx';
 import '../pools.css';
@@ -21,6 +22,8 @@ import '../treasury.css';
 
 const K = { compactAbove: 1e3 };
 const explorer = (path) => `${ENDPOINTS.explorer}/${path}`;
+// KINU's own accounts: the creator / LP wallet and the treasury itself.
+const FEE_ADMINS = new Set([TREASURY.creator, PLATFORM_FEE.treasury]);
 
 function Tile({ label, value, hint, loading }) {
   return (
@@ -121,6 +124,53 @@ function KinuHealth({ prices, kinu }) {
   );
 }
 
+/**
+ * For KINU's own accounts only: register the treasury on the tokens it takes the platform fee in.
+ * A fee in a token the treasury isn't registered on is skipped, so users never pay its storage.
+ */
+function FeeSetup() {
+  const { accountId, execute } = useApp();
+  const status = useAsync(
+    () => Promise.all(PLATFORM_FEE_TOKENS.map(async (t) => ({ ...t, ok: await isStorageRegistered(t.id, PLATFORM_FEE.treasury).catch(() => null) }))),
+    [],
+    { enabled: FEE_ADMINS.has(accountId) }
+  );
+  if (!FEE_ADMINS.has(accountId)) return null;
+  const list = status.data || [];
+  const missing = list.filter((t) => t.ok === false);
+  const register = async () => {
+    const done = await execute(
+      async () => (await Promise.all(missing.map((t) => ensureStorageTx(t.id, PLATFORM_FEE.treasury)))).filter(Boolean),
+      { pending: `Registering ${PLATFORM_FEE.treasury} on ${missing.length} token(s)`, success: 'Treasury registered' }
+    );
+    if (done) status.reload();
+  };
+  return (
+    <section className="ts-section ts-admin">
+      <h2>Platform fee setup</h2>
+      <p className="muted small">
+        Visible to KINU&apos;s accounts only. The platform fee ({bpsText(PLATFORM_FEE.bps)}, currently {PLATFORM_FEE.enabled ? 'ON' : 'OFF'}) is only taken in
+        tokens <span className="mono">{PLATFORM_FEE.treasury}</span> is registered on. Registering costs about 0.00125 NEAR per token, paid by the signing
+        account.
+      </p>
+      {!status.data ? (
+        <Skeleton height={60} />
+      ) : (
+        <div className="ts-admin__tokens">
+          {list.map((t) => (
+            <span key={t.id} className={t.ok ? 'up' : t.ok === false ? 'down' : 'muted'} title={t.id}>
+              {t.ok ? '✓' : t.ok === false ? '✗' : '?'} {t.symbol}
+            </span>
+          ))}
+        </div>
+      )}
+      <button type="button" className="button button--primary" disabled={!missing.length} onClick={register}>
+        {status.data && !missing.length ? 'Registered on every fee token' : `Register treasury on ${missing.length} token(s)`}
+      </button>
+    </section>
+  );
+}
+
 export default function Treasury() {
   const { prices } = useApp();
   const info = useAsync(getCreatorFeeInfo, [], { refreshMs: 120_000 });
@@ -184,6 +234,8 @@ export default function Treasury() {
         <h1 className="pt-title">Treasury</h1>
         <p>Where $KINU&apos;s creator fee goes: operations first, the rest into liquidity. Every number links to the chain.</p>
       </header>
+
+      <FeeSetup />
 
       {/* 1. What comes in */}
       <section className="ts-section">
