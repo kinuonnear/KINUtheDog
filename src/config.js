@@ -97,9 +97,9 @@ export const NATIVE_NEAR = {
 // The official $KINU (relaunched 2026-10-12, paired with RHEA). kinu / kinu-2 are not official.
 export const KINU_TOKEN = 'kinu-3.nearlytrade.near';
 
-// Platform fee on swaps (whitepaper section 6). OFF until it is announced: set enabled to true
-// only after the docs, security page and an announcement say so. bps: 10 = 0.1%.
-export const PLATFORM_FEE = { enabled: false, bps: 10, treasury: 'kinu-treasury.near' };
+// Platform fee on swaps (whitepaper section 6), ON since 2026-10-18. bps: 10 = 0.1%. The landing,
+// Security, Docs/Terms and whitepaper copy follow this switch (SWAP_FEE_LIVE / FEE_SUMMARY).
+export const PLATFORM_FEE = { enabled: true, bps: 10, treasury: 'kinu-treasury.near' };
 
 // Tokens the treasury is registered on so it can receive the platform fee (a fee in any other
 // token is skipped). Registered from the Treasury page by KINU's own accounts. $KINU swaps pay no

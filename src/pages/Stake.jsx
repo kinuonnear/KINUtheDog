@@ -31,7 +31,7 @@ import {
 import { buildSwapTransactions, getSwapQuote } from '../lib/swap.js';
 import { getTokens } from '../lib/tokens.js';
 import { formatAmount, formatUnits, formatUsd, toBigInt, tryParseUnits } from '../lib/format.js';
-import { NATIVE_NEAR, NEAR_GAS_RESERVE } from '../config.js';
+import { bpsText, NATIVE_NEAR, NEAR_GAS_RESERVE, PLATFORM_FEE } from '../config.js';
 import { ErrorNotice, Skeleton, Spinner } from '../components/ui.jsx';
 import { FlowLines } from '../components/FlowLines.jsx';
 import '../deposit.css';
@@ -280,7 +280,7 @@ export default function Stake() {
             <b>{bestApy != null && Number.isFinite(bestApy) ? `up to ${bestApy.toFixed(2)}%` : '…'}</b> APY
           </span>
           <span>
-            <b>0%</b> KINU fee
+            <b>0%</b> staking fee
           </span>
           <span>
             <b>✓</b> DAO-owned contracts
@@ -356,7 +356,7 @@ export default function Stake() {
                   <b>Instant</b>
                   <strong>{raw > 0n ? (instant.loading ? '…' : instantOut ? `≈ ${near(instantOut)} NEAR` : '—') : '—'}</strong>
                   <small className="muted">
-                    {pick === 'stnear' ? 'Meta Pool’s pool' : 'Best of Rhea & Intear DEX'}
+                    {pick === 'stnear' ? 'Meta Pool’s pool' : `Best of Rhea & Intear DEX${PLATFORM_FEE.enabled ? ` · incl. ${bpsText(PLATFORM_FEE.bps)} KINU fee` : ''}`}
                     {instantGap != null ? ` · ${instantGap.toFixed(2)}% below full value` : ''}
                   </small>
                 </button>
@@ -381,7 +381,7 @@ export default function Stake() {
                       : exit === 'delayed'
                         ? `Withdraw from “Your staking” once it unlocks, in about ${unlockText} (four epochs).`
                         : pick === 'linear'
-                          ? 'Sold now on the best route across Rhea and Intear DEX, re-priced just before you sign.'
+                          ? `Sold now on the best route across Rhea and Intear DEX, re-priced just before you sign${PLATFORM_FEE.enabled ? `; includes KINU's ${bpsText(PLATFORM_FEE.bps)} swap fee` : ''}.`
                           : 'Paid out now from Meta Pool’s NEAR/stNEAR pool.'}
                   </small>
                 </>
@@ -405,7 +405,7 @@ export default function Stake() {
               </button>
             )}
             <small className="muted stk-fine">
-              Staking goes straight from your wallet to {s.contract}. KINU adds no fee and never holds your NEAR.
+              Staking goes straight from your wallet to {s.contract}. KINU takes no fee on staking and never holds your NEAR.
             </small>
           </section>
 
@@ -535,7 +535,10 @@ export default function Stake() {
             </details>
             <details>
               <summary>Does KINU take a fee?</summary>
-              <p>No. The staking providers keep a share of validator rewards (already reflected in the APY). KINU adds nothing.</p>
+              <p>
+                Not on staking, a delayed unstake or stNEAR's instant exit: the staking providers keep a share of validator rewards (already reflected in the APY), and
+                KINU adds nothing.{PLATFORM_FEE.enabled ? ` Selling LiNEAR instantly is a swap, so it carries KINU's ${bpsText(PLATFORM_FEE.bps)} swap fee, shown before you sign.` : ''}
+              </p>
             </details>
           </div>
         </aside>
