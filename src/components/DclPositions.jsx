@@ -551,22 +551,20 @@ export function PositionDistribution({ positions, x, y }) {
   );
 }
 
-/** Mini range track: every position as a segment, plus the current price. */
-/** Track scale: point -> % across the track (the range plus the current price, padded). */
+/**
+ * Track scale: point -> % across the track. The range runs edge to edge; a price outside it takes
+ * the far end instead, with a little room so its marker stays inside the track.
+ */
 function trackScale(positions) {
   const current = positions[0]?.currentPoint ?? 0;
-  const lo = Math.min(current, ...positions.map((p) => p.leftPoint));
-  const hi = Math.max(current, ...positions.map((p) => p.rightPoint));
-  const pad = (hi - lo) * 0.06 || 1;
-  return { current, pos: (pt) => ((pt - (lo - pad)) / (hi - lo + 2 * pad)) * 100 };
-}
-
-/** Where the position's range sits on the track (%), for lining things up under it. */
-function rangeSpan(positions) {
-  const { pos } = trackScale(positions);
-  const start = pos(Math.min(...positions.map((p) => p.leftPoint)));
-  const end = pos(Math.max(...positions.map((p) => p.rightPoint)));
-  return { start, width: end - start };
+  const left = Math.min(...positions.map((p) => p.leftPoint));
+  const right = Math.max(...positions.map((p) => p.rightPoint));
+  const lo = Math.min(current, left);
+  const hi = Math.max(current, right);
+  const room = (hi - lo) * 0.04 || 1;
+  const from = current < left ? lo - room : lo;
+  const to = current > right ? hi + room : hi;
+  return { current, pos: (pt) => ((pt - from) / (to - from)) * 100 };
 }
 
 function RangeTrack({ positions }) {
@@ -583,16 +581,6 @@ function RangeTrack({ positions }) {
       <span className="range-track__now" style={{ left: `${pos(current)}%` }} />
     </div>
   );
-}
-
-/**
- * "Show on chart" lines up under the range bar of the track (same start and width; the track
- * is at most 220px wide). A range too short for the label falls back to the track's full width.
- */
-function chartToggleStyle(positions) {
-  const { start, width } = rangeSpan(positions);
-  if (!(width >= 55)) return undefined;
-  return { marginLeft: `calc(min(100%, 220px) * ${start / 100})`, width: `calc(min(100%, 220px) * ${width / 100})` };
 }
 
 /** "updated 8s ago", ticking. */
@@ -656,13 +644,13 @@ function PositionRow({ poolId, group, x, y, pool, loading, pnl, onDone, onChart,
             {y.symbol} per {x.symbol} · {positions.length} bin{positions.length === 1 ? '' : 's'}
           </small>
           <RangeTrack positions={positions} />
+          <RangeStatus summary={summary} />
           {toggleChart && (
             <button
               type="button"
               className={`chart-toggle ${onChart ? 'chart-toggle--on' : ''}`}
               onClick={toggleChart}
               aria-pressed={onChart}
-              style={chartToggleStyle(positions)}
             >
               {onChart ? '◉ Shown on chart' : '◎ Show on chart'}
             </button>
