@@ -1,7 +1,7 @@
 // KINU as a Telegram Mini App (the KINU LP bot's "Open in KINU" buttons). Telegram opens the app
 // with its launch data in the URL hash (#tgWebAppData=…); only then is Telegram's own Web App
 // script loaded (other visitors never fetch it). HOT Wallet needs it to sign inside Telegram:
-// window.Telegram.WebApp switches HOT to its Telegram flow (lib/wallet.js, TELEGRAM_BOT).
+// with window.Telegram.WebApp, HOT's module (lib/wallet.js) asks HOT's Telegram app.
 
 const SDK_URL = 'https://telegram.org/js/telegram-web-app.js';
 const SESSION_KEY = 'kinu.tg';

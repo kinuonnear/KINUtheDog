@@ -4,7 +4,7 @@
 // Wallet packages are large, so they load in their own chunk after first paint.
 import '@near-wallet-selector/modal-ui/styles.css';
 
-import { CONTRACTS, ENDPOINTS, NETWORK_ID, TELEGRAM_BOT } from '../config.js';
+import { CONTRACTS, ENDPOINTS, NETWORK_ID } from '../config.js';
 import { mergeTransactions } from './tx.js';
 import { inTelegram } from './telegram.js';
 import { assertSafeTransactions } from './txGuard.js';
@@ -44,23 +44,6 @@ const withoutAutoConnect = (factory) => async (...args) => {
   return module && { ...module, metadata: { ...module.metadata, runOnStartup: meteorAppConnected() } };
 };
 
-/**
- * HOT Wallet inside Telegram: connect by signing a message (no access key added). HOT's Telegram
- * app can't read the add-key request this wallet module sends (it has no receiver), so a sign-in
- * with a contract fails there. Every transaction is still confirmed in HOT.
- */
-const signInWithoutKey = (factory) => async (...args) => {
-  const module = await factory(...args);
-  if (!module) return module;
-  return {
-    ...module,
-    init: async (config) => {
-      const wallet = await module.init(config);
-      return { ...wallet, signIn: (data) => wallet.signIn({ ...data, contractId: '' }) };
-    }
-  };
-};
-
 let selectorPromise = null;
 let selectorRef = null; // the loaded selector, for synchronous reads in tap handlers
 let modal = null;
@@ -71,7 +54,9 @@ async function loadWalletModules() {
     import('@near-wallet-selector/core'),
     inMeteorApp() ? import('@near-wallet-selector/meteor-wallet-app') : import('@near-wallet-selector/meteor-wallet'),
     import('@near-wallet-selector/intear-wallet'),
-    import('@near-wallet-selector/here-wallet'),
+    // Inside Telegram (lib/telegram.js): HOT's own module, which asks HOT's Telegram app and waits
+    // for its answer while KINU stays open. Elsewhere the HERE module (HOT's web / app flow).
+    inTelegram() ? import('@near-wallet-selector/hot-wallet') : import('@near-wallet-selector/here-wallet'),
     import('@near-wallet-selector/my-near-wallet'),
     import('@near-wallet-selector/modal-ui')
   ]);
@@ -92,13 +77,7 @@ export function getSelector() {
             ? withoutAutoConnect(meteor.setupMeteorWalletApp({ contractId: CONTRACTS.signIn }))
             : meteor.setupMeteorWallet(),
           intear.setupIntearWallet(),
-          // Inside Telegram (lib/telegram.js) HOT signs in its own Telegram app, then returns to
-          // KINU's Mini App (TELEGRAM_BOT).
-          inTelegram()
-            ? signInWithoutKey(
-                here.setupHereWallet({ walletOptions: { botId: `${TELEGRAM_BOT.bot}/${TELEGRAM_BOT.app}`, walletId: 'herewalletbot/app' } })
-              )
-            : here.setupHereWallet(),
+          here.setupHotWallet ? here.setupHotWallet() : here.setupHereWallet(),
           myNear.setupMyNearWallet()
         ]
       });
