@@ -149,6 +149,38 @@ export async function getPoolStats(poolId) {
 }
 
 /**
+ * withDexScreenerVolume for a whole list (a pools table): classic pools with liquidity but no volume
+ * from Rhea are looked up on DexScreener, 30 pairs per request. Other rows are returned as they are.
+ */
+export async function fillClassicVolumes(list) {
+  const gaps = list.filter((p) => !p.isDcl && !(p.volume24h > 0) && p.tvl >= 1);
+  if (!gaps.length) return list;
+  const found = new Map();
+  for (let i = 0; i < gaps.length; i += 30) {
+    const ids = gaps.slice(i, i + 30).map((p) => `refv1-${p.id}`).join(',');
+    try {
+      const response = await fetch(`${ENDPOINTS.dexscreener}/latest/dex/pairs/near/${ids}`);
+      if (!response.ok) continue;
+      ((await response.json())?.pairs || []).forEach((pair) => {
+        const id = String(pair.pairAddress || '').replace(/^refv1-/, '');
+        const volume = Number(pair.volume?.h24);
+        if (volume > 0) found.set(id, volume);
+      });
+    } catch {
+      // DexScreener unavailable: Rhea's numbers stay
+    }
+  }
+  if (!found.size) return list;
+  return list.map((p) => {
+    const volume = found.get(p.id);
+    if (!volume || p.isDcl || p.volume24h > 0) return p;
+    const fees = (volume * p.feePercent) / 100;
+    const estimate = p.tvl >= APR_ESTIMATE_MIN_TVL ? { apy: (fees / p.tvl) * 365 * 100, apyEstimated: true } : {};
+    return { ...p, volume24h: volume, feeVolume24h: fees, ...estimate, volumeSource: 'DexScreener' };
+  });
+}
+
+/**
  * Rhea's API can report no volume for a classic pool for a while after it is created (its index
  * hasn't picked the pool up yet). DexScreener lists the same pool as refv1-<id>: when it has seen
  * trades, its 24h volume is used, the fees follow from the pool's fee and the APR is an estimate.

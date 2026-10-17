@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../state.jsx';
 import { useAsync, useDebounced, useLocalStorage } from '../hooks.js';
 import { Link, navigate, poolPath, rememberPoolsPath, useLocation } from '../router.jsx';
-import { getClassicPositions, getDclPositions, POOL_TYPES, searchPools } from '../lib/rhea.js';
+import { fillClassicVolumes, getClassicPositions, getDclPositions, POOL_TYPES, searchPools } from '../lib/rhea.js';
 import { asPoolToken, getCachedToken, getTokens, priceOf } from '../lib/tokens.js';
 import { getTokenInfoCached, isQuoteToken } from '../lib/intear.js';
 import { ESTIMATED_WINDOWS, fetchWindowVolumes, WINDOWS } from '../lib/gecko.js';
@@ -522,36 +522,38 @@ export default function Pools() {
   const tokenQuery = q && (q.includes('.') || /^[0-9a-f]{64}$/.test(q)) ? q : '';
   const favKey = favorites.slice().sort().join(',');
   const result = useAsync(
-    () => {
-      if (view === 'favorites') {
-        if (!favorites.length) return Promise.resolve({ list: [], total: 0 });
-        return searchPools({ poolIds: favorites.join(','), hideLow: false, limit: favorites.length });
-      }
-      if (view === 'mine') {
-        if (!mineIds.length) return Promise.resolve({ list: [], total: 0 });
-        return searchPools({ poolIds: mineKey, hideLow: false, limit: mineIds.length });
-      }
-      if (ranked) {
-        // The most actively traded pools: Top Performers ranks them by window fees, Trending by
-        // window volume against their size (below).
-        return searchPools({ type: tab.type, labels: tab.labels || '', sort: 'volume_24h', order: 'desc', limit, hideLow: true });
-      }
-      // A token address (from a "Add LP" link) asks Rhea for that token's pools, small ones included;
-      // anything else filters the largest pools below.
-      return searchPools({
-        type: tab.type,
-        labels: tab.labels || '',
-        sort: apiSort,
-        order,
-        limit,
-        offset: 0,
-        hideLow: q ? false : hideLow,
-        ...(tokenQuery ? { tokenList: tokenQuery } : {})
-      });
-    },
+    () => loadList().then(async (res) => ({ ...res, list: await fillClassicVolumes(res.list || []) })),
     [view, category, apiSort, order, limit, hideLow, Boolean(q), tokenQuery, view === 'favorites' ? favKey : view === 'mine' ? mineKey : ''],
     { refreshMs: 60_000 }
   );
+  // New classic pools Rhea hasn't indexed yet get their volume from DexScreener (fillClassicVolumes).
+  function loadList() {
+    if (view === 'favorites') {
+      if (!favorites.length) return Promise.resolve({ list: [], total: 0 });
+      return searchPools({ poolIds: favorites.join(','), hideLow: false, limit: favorites.length });
+    }
+    if (view === 'mine') {
+      if (!mineIds.length) return Promise.resolve({ list: [], total: 0 });
+      return searchPools({ poolIds: mineKey, hideLow: false, limit: mineIds.length });
+    }
+    if (ranked) {
+      // The most actively traded pools: Top Performers ranks them by window fees, Trending by
+      // window volume against their size (below).
+      return searchPools({ type: tab.type, labels: tab.labels || '', sort: 'volume_24h', order: 'desc', limit, hideLow: true });
+    }
+    // A token address (from a "Add LP" link) asks Rhea for that token's pools, small ones included;
+    // anything else filters the largest pools below.
+    return searchPools({
+      type: tab.type,
+      labels: tab.labels || '',
+      sort: apiSort,
+      order,
+      limit,
+      offset: 0,
+      hideLow: q ? false : hideLow,
+      ...(tokenQuery ? { tokenList: tokenQuery } : {})
+    });
+  }
 
   useEffect(() => setPages(1), [view, category, sort, order, hideLow, windowKey]);
 
