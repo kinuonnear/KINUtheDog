@@ -12,7 +12,8 @@ import { Link } from '../router.jsx';
 import {
   ADDRESS_HINT,
   CHAIN_NAMES,
-  chainIcon,
+  assetLogos,
+  chainLogos,
   depositQuote,
   depositStatus,
   FINAL_STATUSES,
@@ -25,6 +26,7 @@ import {
 import { formatAmount, formatUsd, toBigInt, tryParseUnits } from '../lib/format.js';
 import { ENDPOINTS } from '../config.js';
 import { CopyButton, ErrorNotice, Skeleton, Spinner } from '../components/ui.jsx';
+import DepositHero from '../components/DepositHero.jsx';
 import '../deposit.css';
 
 const ACTIVE_KEY = 'kinu.deposit.active';
@@ -43,12 +45,23 @@ const timeLeft = (ms) => {
   return `${minutes}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
 };
 
-/** A round logo, or the name's initial on a soft disc when there's no image (or it fails). */
+/**
+ * A logo: `src` is one URL or a list tried in order (the next on a failed load), then the name's
+ * initial on a soft disc. KINU's vector logos (/logos) show as they are; image fallbacks are round.
+ */
 function Logo({ src, name, size = 28, badge }) {
-  const [failed, setFailed] = useState(false);
+  const list = (Array.isArray(src) ? src : [src]).filter(Boolean);
+  const listKey = list.join('|');
+  const [index, setIndex] = useState(0);
+  useEffect(() => setIndex(0), [listKey]);
+  const url = list[index];
   return (
     <span className="dep-logo" style={{ width: size, height: size }}>
-      {src && !failed ? <img src={src} alt="" width={size} height={size} loading="lazy" onError={() => setFailed(true)} /> : <i>{String(name || '?').slice(0, 1)}</i>}
+      {url ? (
+        <img key={url} src={url} alt="" width={size} height={size} loading="lazy" className={url.startsWith('/logos/') ? 'is-vector' : ''} onError={() => setIndex((i) => i + 1)} />
+      ) : (
+        <i>{String(name || '?').slice(0, 1)}</i>
+      )}
       {badge && (
         <span className="dep-logo__badge" style={{ width: size * 0.48, height: size * 0.48 }}>
           {badge}
@@ -172,7 +185,7 @@ function ActiveDeposit({ active, icons, onDone }) {
       {!final && !expired && (
         <>
           <div className="dep-send">
-            <Logo src={icons[active.assetIcon] || null} name={active.symbol} size={44} badge={<Logo src={chainIcon(active.chain)} name={chainName(active.chain)} size={20} />} />
+            <Logo src={active.logos || []} name={active.symbol} size={44} badge={<Logo src={chainLogos(active.chain)} name={chainName(active.chain)} size={20} />} />
             <div>
               <span className="dep-label">Send exactly</span>
               <strong>
@@ -336,7 +349,7 @@ export default function Deposit() {
         deadline: q.deadline || q.request?.deadline,
         amountInFormatted: q.amountInFormatted,
         symbol: asset.symbol,
-        assetIcon: asset.coingeckoId || null,
+        logos: assetLogos(asset, icons),
         chain: asset.blockchain,
         receive,
         recipient,
@@ -355,30 +368,45 @@ export default function Deposit() {
   const lowGas = receive === 'near' && accountId && nearBalance && toBigInt(nearBalance.available) < LOW_GAS_YOCTO;
   const q = preview.data;
   const cost = q && usdIn > 0 && q.amountOutUsd ? ((usdIn - Number(q.amountOutUsd)) / usdIn) * 100 : null;
-  const chainOptions = chains.map((c) => ({ value: c, label: chainName(c), icon: chainIcon(c) }));
+  const chainOptions = chains.map((c) => ({ value: c, label: chainName(c), icon: chainLogos(c) }));
   const assetOptions = chainAssets.map((t) => ({
     value: t.assetId,
     label: t.symbol,
     sub: t.price ? formatUsd(t.price) : '',
-    icon: icons[t.coingeckoId] || null
+    icon: assetLogos(t, icons)
   }));
 
   return (
     <div className="page deposit">
-      <header className="dep-head">
-        <div className="dep-head__title">
-          <h1>Deposit from any chain</h1>
-          <span className="dep-beta">Beta</span>
+      <header className="dep-hero">
+        <div className="dep-hero__copy">
+          <span className="dep-hero__eyebrow">
+            <i /> NEAR Intents · <span className="dep-beta">Beta</span>
+          </span>
+          <h1>
+            Any chain in.
+            <br />
+            <em>NEAR out.</em>
+          </h1>
+          <p>
+            Bring USDC, USDT, ETH, SOL, BTC and more from Base, Solana, Ethereum, Tron and 30+ chains onto NEAR in about a minute. You send from your own wallet or exchange; KINU never holds the funds.
+          </p>
+          <div className="dep-hero__stats">
+            <span>
+              <b>{chains.length || 36}</b> chains
+            </span>
+            <span>
+              <b>~35s</b> to arrive
+            </span>
+            <span>
+              <b>✓</b> signed quotes
+            </span>
+            <span>
+              <b>0</b> custody
+            </span>
+          </div>
         </div>
-        <p className="muted">
-          Bring USDC, USDT, ETH, SOL, BTC and more from Base, Solana, Ethereum, Tron and 30+ chains onto NEAR in about a minute, through NEAR Intents. You send from your own wallet or exchange; KINU never holds the funds.
-        </p>
-        <div className="dep-chainstrip" aria-hidden="true">
-          {['base', 'sol', 'eth', 'arb', 'bsc', 'tron', 'btc', 'op', 'pol', 'avax', 'ton', 'sui'].map((c) => (
-            <Logo key={c} src={chainIcon(c)} name={chainName(c)} size={22} />
-          ))}
-          <span>+{Math.max(0, chains.length - 12) || 20} more</span>
-        </div>
+        <DepositHero chainCount={chains.length} />
       </header>
 
       <div className="dep-grid">
@@ -407,7 +435,7 @@ export default function Deposit() {
                 <div className="dep-field">
                   <span className="dep-label">Amount</span>
                   <div className="dep-amount">
-                    <Logo src={icons[asset?.coingeckoId] || null} name={asset?.symbol} size={30} badge={<Logo src={chainIcon(chain)} name={chainName(chain)} size={14} />} />
+                    <Logo src={assetLogos(asset, icons)} name={asset?.symbol} size={30} badge={<Logo src={chainLogos(chain)} name={chainName(chain)} size={14} />} />
                     <input inputMode="decimal" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value.replace(',', '.').replace(/[^\d.]/g, ''))} />
                     <span>{asset?.symbol}</span>
                   </div>
@@ -498,7 +526,7 @@ export default function Deposit() {
                 <h3>Review your deposit</h3>
                 <div className="dep-review__flow">
                   <div>
-                    <Logo src={icons[asset.coingeckoId] || null} name={asset.symbol} size={40} badge={<Logo src={chainIcon(chain)} name={chainName(chain)} size={18} />} />
+                    <Logo src={assetLogos(asset, icons)} name={asset.symbol} size={40} badge={<Logo src={chainLogos(chain)} name={chainName(chain)} size={18} />} />
                     <b>
                       {amount} {asset.symbol}
                     </b>
@@ -506,7 +534,7 @@ export default function Deposit() {
                   </div>
                   <span className="dep-review__arrow">→</span>
                   <div>
-                    <Logo src={RECEIVE_ICONS[receive]} name={RECEIVE[receive].symbol} size={40} badge={<Logo src={chainIcon('near')} name="NEAR" size={18} />} />
+                    <Logo src={RECEIVE_ICONS[receive]} name={RECEIVE[receive].symbol} size={40} badge={<Logo src={chainLogos('near')} name="NEAR" size={18} />} />
                     <b>
                       ≈ {formatAmount(Number(q.amountOutFormatted))} {RECEIVE[receive].symbol}
                     </b>

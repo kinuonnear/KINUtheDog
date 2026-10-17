@@ -46,7 +46,7 @@ const MORE_ROUTES = new Set(['docs', 'security', 'treasury', 'deposit']);
 
 // Trading screens use the full window width (like Meteora / Intear). CLMM pool
 // pages are an app-style workspace that fills the viewport, so they have no footer.
-const FULL_WIDTH_ROUTES = new Set(['app', 'pool', 'pools', 'swap', 'portfolio', 'new', 'discover', 'token', 'agent', 'lp', 'intear']);
+const FULL_WIDTH_ROUTES = new Set(['app', 'pool', 'pools', 'swap', 'portfolio', 'new', 'discover', 'token', 'agent', 'lp', 'intear', 'deposit']);
 
 const TITLES = {
   home: 'KINU — The Dog That Follows the Flow',

@@ -7,7 +7,10 @@
 // only labels the swaps as coming from KINU. Every quote's 1Click signature is checked
 // (lib/intentsSignature.js): a live quote that fails it is never shown.
 
+import { keccak_256 } from '@noble/hashes/sha3';
+import { bytesToHex } from '@noble/hashes/utils';
 import { verifyQuoteSignature } from './intentsSignature.js';
+import { CHAIN_SVGS, TOKEN_SVGS } from './logoManifest.js';
 
 const API = 'https://1click.chaindefuser.com/v0';
 const REFERRAL = 'kinu';
@@ -129,40 +132,89 @@ export const FINAL_STATUSES = new Set(['SUCCESS', 'REFUNDED', 'FAILED']);
 
 /* ---------------------------------------------------------------- logos */
 
-// Chain logos (DefiLlama's icon set); chains it doesn't have get an initial instead.
-const LLAMA_CHAIN = {
+// Logos, best source first: KINU's own vector logos (public/logos: Web3 Icons' original logos for
+// every chain and major token — lib/logoManifest.js), then Trust Wallet's curated asset repository
+// (256 px, per token contract, via jsDelivr), then CoinGecko's image, then the base asset's vector
+// for wrapped / bridged versions, then an initial (ui).
+const TW = 'https://cdn.jsdelivr.net/gh/trustwallet/assets@master/blockchains';
+const TW_CHAIN = {
   eth: 'ethereum',
   base: 'base',
   arb: 'arbitrum',
   sol: 'solana',
-  bsc: 'binance',
+  bsc: 'smartchain',
   tron: 'tron',
   btc: 'bitcoin',
   op: 'optimism',
   pol: 'polygon',
-  avax: 'avalanche',
+  avax: 'avalanchec',
   ton: 'ton',
   sui: 'sui',
   aptos: 'aptos',
   near: 'near',
-  zec: 'zcash',
+  doge: 'doge',
   xrp: 'ripple',
   ltc: 'litecoin',
-  bch: 'bitcoincash',
+  zec: 'zcash',
   stellar: 'stellar',
   cardano: 'cardano',
+  bch: 'bitcoincash',
   gnosis: 'xdai',
-  bera: 'berachain',
-  monad: 'monad',
   scroll: 'scroll',
-  hypercore: 'hyperliquid'
+  monad: 'monad'
 };
-export const chainIcon = (chain) => (LLAMA_CHAIN[chain] ? `https://icons.llamao.fi/icons/chains/rsz_${LLAMA_CHAIN[chain]}.jpg` : null);
+// DefiLlama's chain icons, for chains Trust Wallet doesn't have.
+const LLAMA_CHAIN = { bera: 'berachain', hypercore: 'hyperliquid', starknet: 'starknet' };
+const EVM = new Set(['eth', 'base', 'arb', 'bsc', 'op', 'pol', 'avax', 'gnosis', 'scroll', 'monad']);
+// A native coin's logo is its home chain's logo.
+const NATIVE_HOME = { ETH: 'eth', SOL: 'sol', BTC: 'btc', BNB: 'bsc', TRX: 'tron', POL: 'pol', AVAX: 'avax', TON: 'ton', SUI: 'sui', APT: 'aptos', DOGE: 'doge', XRP: 'xrp', LTC: 'ltc', ZEC: 'zec', BCH: 'bch', XLM: 'stellar', ADA: 'cardano', NEAR: 'near' };
 
-const ICONS_KEY = 'kinu.intents.icons.v1';
+const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+const tokenSvg = (symbol) => (TOKEN_SVGS.has(norm(symbol)) ? `/logos/tokens/${norm(symbol)}.svg` : null);
+// Wrapped / bridged / renamed versions that look like their base asset.
+const BASE_ASSET = { weth: 'ETH', wnear: 'NEAR', usdt0: 'USDT', usdt0deprecated: 'USDT', nrusdt: 'USDT', btcomni: 'BTC', xbtc: 'BTC', cbbtc: 'BTC', hemibtc: 'BTC', wsteth: 'ETH', xdai: 'DAI', usdcx: 'USDC', susdc: 'USDC' };
+
+/** Logo candidates for a chain, best first. */
+export function chainLogos(chain) {
+  return [CHAIN_SVGS.has(chain) && `/logos/chains/${chain}.svg`, TW_CHAIN[chain] && `${TW}/${TW_CHAIN[chain]}/info/logo.png`, LLAMA_CHAIN[chain] && `https://icons.llamao.fi/icons/chains/rsz_${LLAMA_CHAIN[chain]}.jpg`].filter(Boolean);
+}
+/** Kept for callers that want one chain logo. */
+export const chainIcon = (chain) => chainLogos(chain)[0] || null;
+
+/** EIP-55 checksum casing of an EVM address (Trust Wallet's folders use it). */
+function checksum(address) {
+  const lower = address.toLowerCase().replace(/^0x/, '');
+  const hash = bytesToHex(keccak_256(new TextEncoder().encode(lower)));
+  return `0x${[...lower].map((c, i) => (parseInt(hash[i], 16) >= 8 ? c.toUpperCase() : c)).join('')}`;
+}
+
+/** Logo candidates for a deposit asset, best first; `cg`: CoinGecko images by id (getAssetIcons). */
+export function assetLogos(asset, cg = {}) {
+  if (!asset) return [];
+  const out = [];
+  const own = tokenSvg(asset.symbol);
+  if (own) out.push(own);
+  const twChain = TW_CHAIN[asset.blockchain];
+  const contract = asset.contractAddress;
+  if (twChain && contract) {
+    const id = EVM.has(asset.blockchain) && /^0x[0-9a-fA-F]{40}$/.test(contract) ? checksum(contract) : contract;
+    out.push(`${TW}/${twChain}/assets/${id}/logo.png`);
+  }
+  const home = NATIVE_HOME[String(asset.symbol).toUpperCase()];
+  if (!contract && home) out.push(...chainLogos(home));
+  if (asset.coingeckoId && cg[asset.coingeckoId]) out.push(cg[asset.coingeckoId]);
+  const base = BASE_ASSET[norm(asset.symbol)];
+  if (base && tokenSvg(base)) out.push(tokenSvg(base));
+  return [...new Set(out)];
+}
+
+const ICONS_KEY = 'kinu.intents.icons.v2';
 const ICONS_TTL_MS = 7 * 86_400_000;
 
-/** Coin logos by CoinGecko id (one CoinGecko call for the whole list, kept a week in this browser). */
+/**
+ * CoinGecko images by id, the fallback after Trust Wallet (one call for the whole list, kept a week
+ * in this browser). Ids are only remembered as "no image" when CoinGecko actually answered.
+ */
 export async function getAssetIcons(assets) {
   let cached = {};
   try {
@@ -173,16 +225,18 @@ export async function getAssetIcons(assets) {
   }
   const ids = [...new Set(assets.map((a) => a.coingeckoId).filter(Boolean))];
   const missing = ids.filter((id) => !(id in cached));
-  if (missing.length) {
-    const found = {};
-    for (let i = 0; i < missing.length; i += 250) {
-      const query = new URLSearchParams({ vs_currency: 'usd', ids: missing.slice(i, i + 250).join(','), per_page: '250' });
-      const response = await fetch(`https://api.coingecko.com/api/v3/coins/markets?${query}`).catch(() => null);
-      const list = response?.ok ? await response.json().catch(() => []) : [];
-      (Array.isArray(list) ? list : []).forEach((c) => (found[c.id] = c.image));
-    }
-    // Ids CoinGecko didn't return are remembered as empty so they aren't asked for again.
-    missing.forEach((id) => (cached[id] = found[id] || ''));
+  let answered = false;
+  for (let i = 0; i < missing.length; i += 250) {
+    const chunk = missing.slice(i, i + 250);
+    const query = new URLSearchParams({ vs_currency: 'usd', ids: chunk.join(','), per_page: '250' });
+    const response = await fetch(`https://api.coingecko.com/api/v3/coins/markets?${query}`).catch(() => null);
+    const list = response?.ok ? await response.json().catch(() => null) : null;
+    if (!Array.isArray(list)) continue;
+    answered = true;
+    const found = Object.fromEntries(list.map((c) => [c.id, c.image]));
+    chunk.forEach((id) => (cached[id] = found[id] || ''));
+  }
+  if (answered) {
     try {
       localStorage.setItem(ICONS_KEY, JSON.stringify({ at: Date.now(), icons: cached }));
     } catch {
@@ -193,7 +247,4 @@ export async function getAssetIcons(assets) {
 }
 
 /** Logos of what deposits arrive as on NEAR. */
-export const RECEIVE_ICONS = {
-  near: 'https://coin-images.coingecko.com/coins/images/10365/large/near.jpg',
-  usdc: 'https://coin-images.coingecko.com/coins/images/6319/large/USDC.png'
-};
+export const RECEIVE_ICONS = { near: '/logos/tokens/near.svg', usdc: '/logos/tokens/usdc.svg' };

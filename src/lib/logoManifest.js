@@ -1,0 +1,4 @@
+// Generated from @web3icons/core 4.0.58 (MIT), "branded" style (original logos): which vector logos are in
+// public/logos (chains by 1Click chain id, tokens by symbol lowercased without punctuation).
+export const CHAIN_SVGS = new Set(["abs","aleo","aptos","arb","avax","base","bch","bera","bsc","btc","cardano","dash","doge","eth","gnosis","hood","hypercore","ltc","monad","movement","near","op","plasma","pol","scroll","sol","starknet","stellar","sui","ton","tron","xlayer","xrp","zec"]);
+export const TOKEN_SVGS = new Set(["aave","ada","adi","aleo","apt","arb","aurora","avax","bch","bnb","btc","cow","dai","dash","doge","eth","eure","fogo","gmx","gno","gram","hapi","knc","link","ltc","mog","move","near","op","pepe","pol","safe","shib","sol","spx","strk","sui","sweat","trx","uni","usdc","usde","usdt","wbtc","xaut","xlm","xrp","zec"]);
