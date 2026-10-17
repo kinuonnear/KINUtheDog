@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../state.jsx';
 import { useAsync, useClickOutside, useDebounced, useLocalStorage } from '../hooks.js';
-import { navigate, useLocation } from '../router.jsx';
+import { Link, navigate, useLocation } from '../router.jsx';
 import TokenPicker from '../components/TokenPicker.jsx';
 import TokenHeader from '../components/swap/TokenHeader.jsx';
 import SwapActivity, { TokenFlow } from '../components/swap/SwapActivity.jsx';
@@ -661,7 +661,12 @@ export default function Swap() {
             <div className="swap-card__head">
               <div>
                 <h2>Swap</h2>
-                <span className="muted small">Best route across Rhea & Intear DEX</span>
+                <span className="muted small">
+                  Best route across Rhea & Intear DEX ·{' '}
+                  <Link to="/deposit" className="swap-deposit-link">
+                    Deposit from another chain
+                  </Link>
+                </span>
               </div>
               <div className="swap-card__tools">
                 <button type="button" className="pill-button" onClick={() => setShowChart(!showChart)}>

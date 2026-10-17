@@ -1,0 +1,243 @@
+/* Deposit from any chain (/deposit) */
+.deposit .dep-head h1 {
+  font-size: 30px;
+  letter-spacing: -0.02em;
+}
+
+.deposit .dep-head p {
+  max-width: 720px;
+  margin-top: 6px;
+}
+
+.dep-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 16px;
+  margin-top: 18px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .dep-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dep-form,
+.dep-active,
+.dep-info {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dep-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.dep-row label,
+.dep-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.dep-form select,
+.dep-form input,
+.dep-tx input {
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2, #0f151e);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  min-width: 0;
+}
+
+.dep-amount {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dep-amount input {
+  flex: 1;
+  font-size: 20px !important;
+  font-weight: 700 !important;
+}
+
+.dep-amount span {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.dep-field .segmented button small {
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.dep-to {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.dep-to input {
+  flex: 1;
+}
+
+.dep-quote {
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.dep-note {
+  padding: 9px 12px;
+  border: 1px solid rgba(255, 181, 71, 0.35);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 181, 71, 0.08);
+  font-size: 12px;
+}
+
+.dep-active__lead {
+  font-size: 15px;
+}
+
+.dep-address {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  border: 1px solid rgba(184, 255, 61, 0.35);
+  border-radius: var(--radius-sm);
+  background: rgba(184, 255, 61, 0.06);
+}
+
+.dep-address code {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.dep-address--memo span {
+  font-size: 12px;
+  color: var(--warn);
+  font-weight: 700;
+}
+
+.dep-steps {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.dep-steps li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--faint);
+}
+
+.dep-steps li i {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  font-style: normal;
+  font-size: 11px;
+}
+
+.dep-steps li.on {
+  color: var(--text);
+}
+
+.dep-steps li.on i {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.dep-steps li.done {
+  color: var(--muted);
+}
+
+.dep-steps li.done i {
+  border-color: var(--mint);
+  color: var(--mint);
+}
+
+.dep-result {
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+}
+
+.dep-result--ok {
+  border: 1px solid rgba(61, 220, 151, 0.4);
+  background: rgba(61, 220, 151, 0.08);
+}
+
+.dep-result--warn {
+  border: 1px solid rgba(255, 181, 71, 0.35);
+  background: rgba(255, 181, 71, 0.08);
+}
+
+.dep-next {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.dep-tx {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.dep-tx > div {
+  display: flex;
+  gap: 8px;
+}
+
+.dep-tx input {
+  flex: 1;
+}
+
+.dep-new {
+  align-self: flex-start;
+}
+
+.dep-info h3 {
+  font-size: 14px;
+}
+
+.dep-info ol,
+.dep-info ul {
+  display: grid;
+  gap: 6px;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--muted);
+}

@@ -49,7 +49,9 @@ const ROUTES = [
   // Intear DEX pools: the Intear DEX card on the Pools page.
   { name: 'intear', pattern: /^\/intear-dex$/ },
   // Where $KINU's creator fee goes (More menu).
-  { name: 'treasury', pattern: /^\/treasury$/ }
+  { name: 'treasury', pattern: /^\/treasury$/ },
+  // Deposit from any chain through NEAR Intents (More menu, Swap).
+  { name: 'deposit', pattern: /^\/deposit$/ }
 ];
 
 export function matchRoute(pathname) {

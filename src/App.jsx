@@ -31,6 +31,7 @@ const Agent = lazy(() => import('./pages/Agent.jsx'));
 const LpProfile = lazy(() => import('./pages/LpProfile.jsx'));
 const IntearPools = lazy(() => import('./pages/IntearPools.jsx'));
 const Treasury = lazy(() => import('./pages/Treasury.jsx'));
+const Deposit = lazy(() => import('./pages/Deposit.jsx'));
 
 // Liquidity first: Pools (and Create) right after Home. Docs and the rest live under More.
 const NAV = [
@@ -41,7 +42,7 @@ const NAV = [
   { to: '/portfolio', label: 'Portfolio', match: ['portfolio'] },
   { to: '/agent', label: 'Agent', match: ['agent'] }
 ];
-const MORE_ROUTES = new Set(['docs', 'security', 'treasury']);
+const MORE_ROUTES = new Set(['docs', 'security', 'treasury', 'deposit']);
 
 // Trading screens use the full window width (like Meteora / Intear). CLMM pool
 // pages are an app-style workspace that fills the viewport, so they have no footer.
@@ -64,6 +65,7 @@ const TITLES = {
   lp: 'LP wallet · Smart LP · KINU',
   intear: 'Intear DEX pools · KINU',
   treasury: 'Treasury · KINU',
+  deposit: 'Deposit from any chain · KINU',
   notfound: 'Not found · KINU'
 };
 
@@ -178,6 +180,9 @@ export default function App() {
       break;
     case 'treasury':
       page = <Treasury />;
+      break;
+    case 'deposit':
+      page = <Deposit />;
       break;
     case 'token':
       page = <Token key={route.params[0]} id={route.params[0]} />;
