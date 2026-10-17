@@ -131,6 +131,45 @@ export async function submitDepositTx(depositAddress, txHash, depositMemo) {
   });
 }
 
+/* ---------------------------------------------------------------- status and help */
+
+/** Where people get help with a transfer. near.com's help centre and chat are NEAR Intents' own. */
+export const SUPPORT = {
+  status: 'https://partners.near-intents.org/shield/status',
+  helpCenter: 'https://near-com.helpscoutdocs.com/',
+  chat: 'https://near.com/',
+  explorer: (depositAddress) => `https://explorer.near-intents.org/transactions/${encodeURIComponent(depositAddress)}`
+};
+
+const BRIDGE_NAMES = { hot: 'HOT bridge', omni: 'Omni bridge', poa: 'PoA bridge' };
+const STATUS_TTL_MS = 60_000;
+let statusCache = { at: 0, value: null };
+
+/**
+ * Open NEAR Intents Shield incidents: while one is open, deposits, withdrawals and swaps on that
+ * chain (or through that bridge) are paused. Read through /api/intents-status (no CORS upstream).
+ * { chains: Set of 1Click chain ids, items: [{ id, kind, chain, label, since }] }; empty when unreachable.
+ */
+export async function getShieldStatus() {
+  if (statusCache.value && Date.now() - statusCache.at < STATUS_TTL_MS) return statusCache.value;
+  const value = { chains: new Set(), items: [] };
+  try {
+    const response = await fetch('/api/intents-status');
+    const json = response.ok ? await response.json() : {};
+    for (const i of json.activeIncidents || []) {
+      if (i.status && i.status !== 'active') continue;
+      const kind = i.scopeType === 'bridge' ? 'bridge' : 'chain';
+      if (kind === 'chain') value.chains.add(i.scopeValue);
+      const label = kind === 'chain' ? CHAIN_NAMES[i.scopeValue] || i.scopeValue.toUpperCase() : BRIDGE_NAMES[i.scopeValue] || `${i.scopeValue} bridge`;
+      value.items.push({ id: i.id, kind, chain: kind === 'chain' ? i.scopeValue : null, label, since: i.createdAt });
+    }
+  } catch {
+    // Status is a courtesy: if it can't be read, the quote itself still fails on a paused chain.
+  }
+  statusCache = { at: Date.now(), value };
+  return value;
+}
+
 /* ---------------------------------------------------------------- withdrawals (NEAR -> other chains) */
 
 /** What can be sent out from NEAR (1Click's NEAR-side assets), wNEAR first and shown as NEAR. */

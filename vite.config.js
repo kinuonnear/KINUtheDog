@@ -42,6 +42,16 @@ export default defineConfig({
   optimizeDeps: {
     include: ['buffer', 'process']
   },
+  server: {
+    // NEAR Intents Shield status has no CORS; production reads it via api/intents-status.js.
+    proxy: {
+      '/api/intents-status': {
+        target: 'https://partners.near-intents.org',
+        changeOrigin: true,
+        rewrite: () => '/api/shield/public/status'
+      }
+    }
+  },
   preview: {
     headers: securityHeaders
   },

@@ -19,7 +19,9 @@ import {
   FINAL_STATUSES,
   getAssetIcons,
   getDepositAssets,
+  getShieldStatus,
   getWithdrawAssets,
+  SUPPORT,
   buildWithdrawTransactions,
   withdrawQuote,
   RECEIVE,
@@ -56,6 +58,130 @@ const HOW_SEND = [
 ];
 
 const chainName = (id) => CHAIN_NAMES[id] || id.toUpperCase();
+const NO_INCIDENTS = { chains: new Set(), items: [] };
+const SHIELD_POLL_MS = 60_000;
+const sinceText = (iso) => {
+  const t = new Date(iso);
+  return Number.isNaN(t.getTime()) ? '' : t.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+};
+
+/**
+ * NEAR Intents' own incident flag, top right of the page: while Shield has an incident open on a
+ * chain or bridge, transfers there are paused until it is resolved. Opens a list of what is paused.
+ */
+function ShieldBadge({ shield }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useClickOutside(ref, () => setOpen(false), open);
+  const count = shield.items.length;
+  if (!count) {
+    return (
+      <a className="dep-shield dep-shield--ok" href={SUPPORT.status} target="_blank" rel="noopener noreferrer">
+        <i /> All networks running
+      </a>
+    );
+  }
+  return (
+    <div className="dep-shield-wrap" ref={ref}>
+      <button type="button" className="dep-shield dep-shield--warn" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+        <span aria-hidden="true">⚠</span> {count === 1 ? `${shield.items[0].label} paused` : `${count} networks paused`}
+      </button>
+      {open && (
+        <div className="dep-shield__panel">
+          <b>Paused by NEAR Intents</b>
+          <p className="muted small">Deposits, withdrawals and swaps on these wait until the incident is resolved. Funds already sent are not lost: they continue or are refunded.</p>
+          <ul>
+            {shield.items.map((i) => (
+              <li key={i.id}>
+                <span>
+                  <Logo src={i.chain ? chainLogos(i.chain) : []} name={i.label} size={18} />
+                  {i.label}
+                </span>
+                <small className="muted">since {sinceText(i.since)}</small>
+              </li>
+            ))}
+          </ul>
+          <a href={SUPPORT.status} target="_blank" rel="noopener noreferrer" className="small">
+            Live status on NEAR Intents ↗
+          </a>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Shown under the form when the chosen chain is paused. */
+function PausedNote({ chain, shield }) {
+  if (!shield.chains.has(chain)) return null;
+  return (
+    <p className="dep-note">
+      ⚠ NEAR Intents has paused {chainName(chain)} for now. Transfers there wait until the incident is resolved: pick another chain, or{' '}
+      <a href={SUPPORT.status} target="_blank" rel="noopener noreferrer">
+        check its status ↗
+      </a>
+      .
+    </p>
+  );
+}
+
+/** Help for one transfer: follow it on NEAR Intents' explorer, and what to send their support. */
+function TransferHelp({ active, state, details }) {
+  const report = [
+    `KINU Bridge transfer (${active.kind === 'withdraw' ? 'NEAR → ' + chainName(active.toChain) : chainName(active.chain) + ' → NEAR'})`,
+    `Deposit address: ${active.depositAddress}`,
+    active.depositMemo ? `Memo: ${active.depositMemo}` : null,
+    active.kind === 'withdraw'
+      ? `Amount: ${active.amountInFormatted} ${active.fromSymbol} from ${active.account} → ${active.toSymbol} to ${active.recipient}`
+      : `Amount: ${active.amountInFormatted} ${active.symbol} on ${chainName(active.chain)} → ${active.recipient} (refund to ${active.refundTo})`,
+    `Status: ${state}`,
+    details.originChainTxHashes?.[0]?.hash ? `Origin tx: ${details.originChainTxHashes[0].hash}` : null,
+    details.nearTxHashes?.length ? `NEAR tx: ${details.nearTxHashes.join(', ')}` : null,
+    `Started: ${new Date(active.createdAt).toISOString()}`,
+    `Explorer: ${SUPPORT.explorer(active.depositAddress)}`
+  ]
+    .filter(Boolean)
+    .join('\n');
+  return (
+    <details className="dep-help">
+      <summary>Need help with this transfer?</summary>
+      <div className="dep-help__body">
+        <p className="muted small">
+          KINU never holds your funds, so it can&apos;t move them; NEAR Intents can. Most delays clear on their own: a transfer that can&apos;t complete is refunded
+          {active.kind === 'withdraw' ? ' to your NEAR account' : ' to your refund address'}. If it has been over an hour, contact NEAR Intents support with the details below.
+        </p>
+        <div className="dep-help__links">
+          <a className="button button--outline button--sm" href={SUPPORT.explorer(active.depositAddress)} target="_blank" rel="noopener noreferrer">
+            Track on NEAR Intents Explorer ↗
+          </a>
+          <CopyButton text={report} label="Copy support details" />
+        </div>
+        <ol className="dep-help__steps">
+          <li>
+            Copy the support details above (deposit address, amounts, transactions).
+          </li>
+          <li>
+            Open{' '}
+            <a href={SUPPORT.chat} target="_blank" rel="noopener noreferrer">
+              near.com ↗
+            </a>{' '}
+            and use the chat button (bottom right) → <i>Ask</i>, or search the{' '}
+            <a href={SUPPORT.helpCenter} target="_blank" rel="noopener noreferrer">
+              NEAR Intents help centre ↗
+            </a>
+            .
+          </li>
+          <li>
+            Check the{' '}
+            <a href={SUPPORT.status} target="_blank" rel="noopener noreferrer">
+              network status ↗
+            </a>
+            : a paused chain explains most delays.
+          </li>
+        </ol>
+      </div>
+    </details>
+  );
+}
 /** "72h 29m" / "9:41" — 1Click deposit addresses can stay open for days. */
 const timeLeft = (ms) => {
   const minutes = Math.floor(ms / 60000);
@@ -170,7 +296,7 @@ const STEPS = [
 ];
 
 /** The live deposit: where to send (address, QR), a countdown, its progress, and what arrived. */
-function ActiveDeposit({ active, icons, onDone }) {
+function ActiveDeposit({ active, icons, shield, onDone }) {
   const [now, setNow] = useState(Date.now());
   const [txHash, setTxHash] = useState('');
   const [sent, setSent] = useState(null);
@@ -307,6 +433,8 @@ function ActiveDeposit({ active, icons, onDone }) {
         </p>
       )}
       {status.error && <p className="muted small">Status unavailable right now: {status.error.message}</p>}
+      {!final && <PausedNote chain={active.chain} shield={shield} />}
+      <TransferHelp active={{ ...active, kind: 'deposit' }} state={expired ? 'EXPIRED' : state} details={details} />
 
       <button type="button" className="button button--ghost button--sm dep-new" onClick={onDone}>
         {final || expired ? 'New transfer' : 'Cancel and start over (only if you have not sent anything)'}
@@ -323,7 +451,7 @@ const W_STEPS = [
 ];
 
 /** A withdrawal after signing: where it goes and its progress. */
-function ActiveWithdraw({ active, onDone }) {
+function ActiveWithdraw({ active, shield, onDone }) {
   const status = useAsync(() => depositStatus(active.depositAddress, active.depositMemo), [active.depositAddress], {
     refreshMs: STATUS_POLL_MS
   });
@@ -396,6 +524,8 @@ function ActiveWithdraw({ active, onDone }) {
           ))}
         </p>
       )}
+      {!final && <PausedNote chain={active.toChain} shield={shield} />}
+      <TransferHelp active={active} state={state} details={details} />
       <button type="button" className="button button--ghost button--sm dep-new" onClick={onDone}>
         {final ? 'New transfer' : 'Hide (it keeps going; you can track it on NEAR Intents)'}
       </button>
@@ -413,7 +543,7 @@ function spendableOf(asset, balances, nearBalance) {
 }
 
 /** Withdraw: from the connected NEAR account to an address on another chain. */
-function WithdrawForm({ destinations, icons, onStarted }) {
+function WithdrawForm({ destinations, icons, shield, onStarted }) {
   const { accountId, connect, balances, nearBalance, execute } = useApp();
   const sources = useAsync(() => getWithdrawAssets(), []);
   const [fromId, setFromId] = useState('');
@@ -433,7 +563,8 @@ function WithdrawForm({ destinations, icons, onStarted }) {
   const raw = from ? tryParseUnits(amount || '0', from.decimals) || '0' : '0';
   const spendable = spendableOf(from, balances, nearBalance);
   const tooMuch = accountId && toBigInt(raw) > spendable;
-  const ready = Boolean(accountId && from && to && toBigInt(raw) > 0n && !tooMuch && recipient.trim());
+  const paused = shield.chains.has(chain);
+  const ready = Boolean(accountId && from && to && toBigInt(raw) > 0n && !tooMuch && recipient.trim() && !paused);
   const formKey = [from?.assetId, raw, to?.assetId, recipient.trim(), accountId].join('|');
   useEffect(() => {
     setReviewing(false);
@@ -499,7 +630,7 @@ function WithdrawForm({ destinations, icons, onStarted }) {
     sub: `${formatAmount(Number(formatUnits(spendableOf(t, balances, nearBalance), t.decimals)))} on NEAR`,
     icon: t.contractAddress === WNEAR_ID ? [RECEIVE_ICONS.near] : assetLogos(t, icons)
   }));
-  const chainOptions = chains.map((c) => ({ value: c, label: chainName(c), icon: chainLogos(c) }));
+  const chainOptions = chains.map((c) => ({ value: c, label: chainName(c), sub: shield.chains.has(c) ? '⚠ Paused by NEAR Intents' : '', icon: chainLogos(c) }));
   const toOptions = chainAssets.map((t) => ({ value: t.assetId, label: t.symbol, sub: t.price ? formatUsd(t.price) : '', icon: assetLogos(t, icons) }));
   const fromLogo = from?.contractAddress === WNEAR_ID ? [RECEIVE_ICONS.near] : assetLogos(from, icons);
 
@@ -614,7 +745,11 @@ function WithdrawForm({ destinations, icons, onStarted }) {
       </label>
 
       <div className="dep-quote">
-        {!ready && <span className="muted small">{tooMuch ? 'More than your balance.' : 'Pick an asset, an amount and the recipient address to see the quote.'}</span>}
+        {!ready && (
+          <span className="muted small">
+            {paused ? `${chainName(chain)} is paused by NEAR Intents.` : tooMuch ? 'More than your balance.' : 'Pick an asset, an amount and the recipient address to see the quote.'}
+          </span>
+        )}
         {ready && preview.loading && (
           <span className="muted small">
             <Spinner size={12} /> Getting a quote…
@@ -638,8 +773,12 @@ function WithdrawForm({ destinations, icons, onStarted }) {
         )}
       </div>
 
+      <PausedNote chain={chain} shield={shield} />
+
       <button type="button" className="button button--primary button--block button--lg" disabled={!ready || !q || Boolean(preview.error) || preview.loading} onClick={() => setReviewing(true)}>
-        {!(toBigInt(raw) > 0n)
+        {paused
+          ? `${chainName(chain)} is paused for now`
+          : !(toBigInt(raw) > 0n)
           ? 'Enter an amount'
           : tooMuch
             ? 'More than your balance'
@@ -657,6 +796,7 @@ export default function Deposit() {
   const { accountId, connect, nearBalance } = useApp();
   const assets = useAsync(() => getDepositAssets(), []);
   const icons = useAsync(() => getAssetIcons(assets.data), [Boolean(assets.data)], { enabled: Boolean(assets.data) }).data || {};
+  const shield = useAsync(() => getShieldStatus(), [], { refreshMs: SHIELD_POLL_MS }).data || NO_INCIDENTS;
   const [active, setActive] = useLocalStorage(ACTIVE_KEY, null);
   const [activeW, setActiveW] = useLocalStorage(ACTIVE_W_KEY, null);
   const [mode, setMode] = useLocalStorage(MODE_KEY, 'deposit');
@@ -678,7 +818,8 @@ export default function Deposit() {
   const recipient = accountId || recipientInput.trim().toLowerCase();
   const raw = asset ? tryParseUnits(amount || '0', asset.decimals) || '0' : '0';
   const usdIn = asset ? Number(amount || 0) * (asset.price || 0) : 0;
-  const ready = Boolean(asset && toBigInt(raw) > 0n && refundTo.trim() && recipient);
+  const paused = shield.chains.has(chain);
+  const ready = Boolean(asset && toBigInt(raw) > 0n && refundTo.trim() && recipient && !paused);
 
   // Changing anything after Review goes back to the form.
   const formKey = [asset?.assetId, raw, receive, recipient, refundTo.trim()].join('|');
@@ -724,7 +865,7 @@ export default function Deposit() {
   const lowGas = receive === 'near' && accountId && nearBalance && toBigInt(nearBalance.available) < LOW_GAS_YOCTO;
   const q = preview.data;
   const cost = q && usdIn > 0 && q.amountOutUsd ? ((usdIn - Number(q.amountOutUsd)) / usdIn) * 100 : null;
-  const chainOptions = chains.map((c) => ({ value: c, label: chainName(c), icon: chainLogos(c) }));
+  const chainOptions = chains.map((c) => ({ value: c, label: chainName(c), sub: shield.chains.has(c) ? '⚠ Paused by NEAR Intents' : '', icon: chainLogos(c) }));
   const assetOptions = chainAssets.map((t) => ({
     value: t.assetId,
     label: t.symbol,
@@ -735,6 +876,7 @@ export default function Deposit() {
   return (
     <div className="page deposit">
       <header className="card dep-hero">
+        <ShieldBadge shield={shield} />
         <div className="dep-hero__copy">
           <span className="dep-hero__eyebrow">
             NEAR Intents · Bridge <span className="dep-beta">Beta</span>
@@ -775,14 +917,14 @@ export default function Deposit() {
           </div>
         {mode === 'withdraw' ? (
           activeW ? (
-            <ActiveWithdraw active={activeW} onDone={() => setActiveW(null)} />
+            <ActiveWithdraw active={activeW} shield={shield} onDone={() => setActiveW(null)} />
           ) : (
             <section className="card dep-card dep-form">
-              <WithdrawForm destinations={list} icons={icons} onStarted={setActiveW} />
+              <WithdrawForm destinations={list} icons={icons} shield={shield} onStarted={setActiveW} />
             </section>
           )
         ) : active ? (
-          <ActiveDeposit active={active} icons={icons} onDone={() => setActive(null)} />
+          <ActiveDeposit active={active} icons={icons} shield={shield} onDone={() => setActive(null)} />
         ) : (
           <section className="card dep-card dep-form">
             {assets.error && <ErrorNotice error={assets.error} onRetry={assets.reload} />}
@@ -860,7 +1002,11 @@ export default function Deposit() {
                 </div>
 
                 <div className="dep-quote">
-                  {!ready && <span className="muted small">Enter an amount{refundTo.trim() ? '' : ' and your refund address'} to see what you receive.</span>}
+                  {!ready && (
+                    <span className="muted small">
+                      {paused ? `${chainName(chain)} is paused by NEAR Intents.` : `Enter an amount${refundTo.trim() ? '' : ' and your refund address'} to see what you receive.`}
+                    </span>
+                  )}
                   {ready && preview.loading && (
                     <span className="muted small">
                       <Spinner size={12} /> Getting a quote…
@@ -885,9 +1031,12 @@ export default function Deposit() {
                 </div>
 
                 {lowGas && <p className="dep-note">Your account has under 0.05 NEAR for gas. The deposit arrives as wNEAR, so keep a little native NEAR to sign your first LP or swap.</p>}
+                <PausedNote chain={chain} shield={shield} />
 
                 <button type="button" className="button button--primary button--block button--lg" disabled={!ready || !q || Boolean(preview.error) || preview.loading} onClick={() => setReviewing(true)}>
-                  {!(toBigInt(raw) > 0n)
+                  {paused
+                    ? `${chainName(chain)} is paused for now`
+                    : !(toBigInt(raw) > 0n)
                     ? 'Enter an amount'
                     : !refundTo.trim()
                       ? `Add your ${chainName(chain)} refund address`
@@ -980,6 +1129,17 @@ export default function Deposit() {
             <details>
               <summary>What if something goes wrong?</summary>
               <p>{mode === 'withdraw' ? 'It is refunded to your NEAR account.' : 'The deposit is refunded to your refund address on the chain it came from. Sending more than quoted still goes through; the extra is refunded.'}</p>
+            </details>
+            <details>
+              <summary>My transfer is late or hasn&apos;t arrived</summary>
+              <p>
+                Most transfers land in about a minute; a busy or paused chain can take longer. Open the transfer and use <i>Need help with this transfer?</i>: it links it on
+                the NEAR Intents Explorer and copies the details NEAR Intents support needs (chat at near.com, bottom right). Network incidents are listed{' '}
+                <a href={SUPPORT.status} target="_blank" rel="noopener noreferrer">
+                  here ↗
+                </a>
+                . A transfer that can&apos;t complete is refunded, never kept.
+              </p>
             </details>
             <details>
               <summary>Is there a minimum?</summary>
