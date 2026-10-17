@@ -12,7 +12,7 @@ import { useApp } from '../state.jsx';
 import { useAsync, useDebounced } from '../hooks.js';
 import { appendCounterpart, buildDclAppendTransactions, freshPool, getDclAssets, planAppend, pointToPrice, positionsAtPoint } from '../lib/dclLiquidity.js';
 import { useLiveDclPool } from '../lib/liveEvents.js';
-import { wrapNeededFor } from '../lib/tx.js';
+import { wNearBalance, wrapNeededFor } from '../lib/tx.js';
 import { buildZapAppendTransactions, quoteZapToPosition } from '../lib/zap.js';
 import { priceOf } from '../lib/tokens.js';
 import { formatAmount, formatChartPrice, formatUnits, formatUsd, toBigInt, toNumber, tryParseUnits } from '../lib/format.js';
@@ -162,7 +162,12 @@ export function AddToPositionForm({ positions: basePositions, x, y, title, onClo
     const ok = await execute(
       async () => {
         // Read the pool once more right before signing: amounts and slippage limits use that price.
-        const pool = await freshPool(poolId);
+        // The wallet's wNEAR balance is read at the same time (not one after the other).
+        const W = CONTRACTS.wrapNear;
+        const [pool, heldW] = await Promise.all([
+          freshPool(poolId),
+          mode === 'dual' && (x.id === W || y.id === W) ? wNearBalance(accountId, balances[W]) : null
+        ]);
         const now = positionsAtPoint(basePositions, pool.current_point);
         if (mode === 'dual') {
           const side = input.side;
@@ -176,9 +181,8 @@ export function AddToPositionForm({ positions: basePositions, x, y, title, onClo
           }
           const fresh = planAppend(now, { inX: fx, inY: fy });
           // NEAR to wrap from the wallet's wNEAR balance read now (the page's balance can lag).
-          const W = CONTRACTS.wrapNear;
           const wantW = x.id === W ? fresh.totalX : y.id === W ? fresh.totalY : 0n;
-          const wrap = await wrapNeededFor(accountId, wantW.toString(), balances[W]);
+          const wrap = await wrapNeededFor(accountId, wantW.toString(), balances[W], heldW);
           return buildDclAppendTransactions({
             positions: now,
             inX: fx,

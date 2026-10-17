@@ -60,16 +60,20 @@ export async function ensureStorageTx(tokenContract, accountId) {
  * NEAR to wrap so the wallet holds `amount` (raw) of wNEAR, from its on-chain wNEAR balance read
  * right now — the page's balances can be a refresh behind (e.g. just after a wrap). Raw string.
  */
-export async function wrapNeededFor(accountId, amount, fallbackBalance = '0') {
+export async function wrapNeededFor(accountId, amount, fallbackBalance = '0', heldNow = null) {
   const need = BigInt(amount || '0');
   if (need <= 0n) return '0';
-  let held;
-  try {
-    held = BigInt((await view(CONTRACTS.wrapNear, 'ft_balance_of', { account_id: accountId }, { fresh: true })) || '0');
-  } catch {
-    held = BigInt(fallbackBalance || '0');
-  }
+  const held = BigInt((heldNow ?? (await wNearBalance(accountId, fallbackBalance))) || '0');
   return need > held ? (need - held).toString() : '0';
+}
+
+/** The wallet's wNEAR balance read right now (raw string); `fallback` when the read fails. */
+export async function wNearBalance(accountId, fallback = '0') {
+  try {
+    return String((await view(CONTRACTS.wrapNear, 'ft_balance_of', { account_id: accountId }, { fresh: true })) || '0');
+  } catch {
+    return String(fallback || '0');
+  }
 }
 
 export function wrapNearTx(amount) {

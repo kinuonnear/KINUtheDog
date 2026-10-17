@@ -270,9 +270,8 @@ async function livePositions(positions, accountId) {
 }
 
 async function tokenStorageTxs(position, accountId) {
-  const txs = [];
-  for (const token of [position.tokenX, position.tokenY]) txs.push(await ensureStorageTx(token, accountId));
-  return txs;
+  // Both tokens are checked at once (each check is an RPC read).
+  return Promise.all([position.tokenX, position.tokenY].map((token) => ensureStorageTx(token, accountId)));
 }
 
 /**
@@ -655,8 +654,11 @@ export async function buildDclAppendTransactions({ positions, inX, inY, slippage
   const plan = planAppend(positions, { inX: toBigInt(inX), inY: toBigInt(inY) });
   if (!plan.items.length) throw new Error('Enter an amount.');
   const { tokenX, tokenY } = positions[0];
-  const txs = await tokenStorageTxs(positions[0], accountId);
-  const funded = await fundDeposits(accountId, { [tokenX]: plan.totalX, [tokenY]: plan.totalY });
+  // Storage checks and the CLMM balance / tax reads don't depend on each other: read them together.
+  const [txs, funded] = await Promise.all([
+    tokenStorageTxs(positions[0], accountId),
+    fundDeposits(accountId, { [tokenX]: plan.totalX, [tokenY]: plan.totalY })
+  ]);
   txs.push(
     ...(await depositTxs({
       tokenX,
