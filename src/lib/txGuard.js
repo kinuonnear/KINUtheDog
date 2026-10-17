@@ -10,7 +10,8 @@
 //   - attached NEAR is capped, except when wrapping NEAR or depositing it into Intear DEX
 //     (the amount the user typed; Intear routes are also checked in lib/intearRouter.js)
 //   - tokens may be sent (ft_transfer) and storage bought only for a NEAR Intents deposit address
-//     that a withdrawal just got from a 1Click quote whose signature verified (allowBridgeDeposit)
+//     that a withdrawal just got from a 1Click quote whose signature verified (allowBridgeDeposit),
+//     and only that quote's token and amount
 
 import { CONTRACTS, PLATFORM_FEE } from '../config.js';
 
@@ -52,13 +53,21 @@ const BRIDGE_TTL_MS = 30 * 60_000;
 // One registry for the whole page, even if this module is loaded twice (as the dev server can).
 const bridgeDeposits = (globalThis.__kinuBridgeDeposits ||= new Map());
 
-/** Lets one verified NEAR Intents deposit address (a 64-hex implicit account) receive a withdrawal. */
-export function allowBridgeDeposit(address) {
+/**
+ * Lets one verified NEAR Intents deposit address (a 64-hex implicit account) receive one
+ * withdrawal: exactly `amount` (raw) of `token`, the quote's own figures.
+ */
+export function allowBridgeDeposit(address, token, amount) {
   if (!/^[0-9a-f]{64}$/.test(String(address))) throw new Error('Unexpected deposit address for a withdrawal.');
-  bridgeDeposits.set(address, Date.now() + BRIDGE_TTL_MS);
+  if (!token || !/^\d+$/.test(String(amount))) throw new Error('Unexpected withdrawal amount.');
+  bridgeDeposits.set(address, { until: Date.now() + BRIDGE_TTL_MS, token, amount: String(amount) });
 }
 
-const isBridgeDeposit = (address) => (bridgeDeposits.get(address) || 0) > Date.now();
+const bridgeDeposit = (address) => {
+  const entry = bridgeDeposits.get(address);
+  return entry && entry.until > Date.now() ? entry : null;
+};
+const isBridgeDeposit = (address) => Boolean(bridgeDeposit(address));
 
 function refuse(tx, reason) {
   throw new Error(`Blocked for your safety: ${reason} (${tx.receiverId}). Nothing was sent to your wallet.`);
@@ -77,7 +86,10 @@ export function assertSafeTransactions(transactions, signerId) {
       if (action?.type !== 'FunctionCall') refuse(tx, `"${action?.type}" actions are never used by KINU`);
       const { methodName, args = {}, deposit = '0' } = action.params || {};
       if (methodName === 'ft_transfer' && isBridgeDeposit(args.receiver_id)) {
-        // A withdrawal to other chains: to the verified 1Click deposit address only.
+        // A withdrawal to other chains: to the verified 1Click deposit address only, and only the
+        // token and amount of that quote.
+        const quote = bridgeDeposit(args.receiver_id);
+        if (tx.receiverId !== quote.token || String(args.amount) !== quote.amount) refuse(tx, 'this withdrawal differs from its verified quote');
         if (BigInt(deposit || '0') !== 1n) refuse(tx, 'unexpected deposit on a withdrawal transfer');
         return;
       }

@@ -28,7 +28,26 @@ async function symbols() {
   return tokens.symbols;
 }
 
-const allowed = (origin) => ORIGINS.concat((process.env.KINU_ALLOWED_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean)).includes(origin);
+/** KINU's own pages: the listed origins, or the page this function is served with (any KINU domain). */
+function allowed(origin, host) {
+  if (!origin) return false;
+  if (ORIGINS.concat((process.env.KINU_ALLOWED_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean)).includes(origin)) return true;
+  try {
+    const url = new URL(origin);
+    return url.protocol === 'https:' && url.host === host;
+  } catch {
+    return false;
+  }
+}
+
+function parse(body) {
+  if (typeof body !== 'string') return body;
+  try {
+    return JSON.parse(body || 'null');
+  } catch {
+    return null;
+  }
+}
 
 /** The request the Bridge sends, checked field by field; null when anything is off. */
 function clean(b) {
@@ -56,8 +75,8 @@ function clean(b) {
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'POST') return res.status(405).json({ message: 'POST only' });
-  if (!allowed(req.headers.origin)) return res.status(403).json({ message: 'Not allowed' });
-  const body = clean(typeof req.body === 'string' ? JSON.parse(req.body || 'null') : req.body);
+  if (!allowed(req.headers.origin, req.headers.host)) return res.status(403).json({ message: 'Not allowed' });
+  const body = clean(parse(req.body));
   if (!body) return res.status(400).json({ message: 'Invalid quote request' });
   try {
     const map = await symbols();

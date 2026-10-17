@@ -92,6 +92,21 @@ async function postQuote(body) {
   return json;
 }
 
+const BOUND_FIELDS = ['swapType', 'originAsset', 'depositType', 'destinationAsset', 'amount', 'recipient', 'recipientType', 'refundTo', 'refundType'];
+const same = (a, b) => String(a ?? '').trim().toLowerCase() === String(b ?? '').trim().toLowerCase();
+
+/**
+ * A signed quote must also be the quote that was asked for: 1Click signs the request it echoes,
+ * so a genuine quote made for someone else's recipient, refund address or amount would still
+ * verify. Anything between KINU and 1Click that swapped one in is caught here.
+ */
+function assertQuoteMatches(sent, json) {
+  const echoed = json?.quoteRequest || {};
+  const off = BOUND_FIELDS.find((k) => !same(echoed[k], sent[k]));
+  if (off) throw new Error(`This quote doesn't match your request (${off}), so it isn't used. Try again.`);
+  if (json.quote && String(json.quote.amountIn) !== String(sent.amount)) throw new Error("This quote's amount doesn't match your request, so it isn't used. Try again.");
+}
+
 const symbolOf = (assetId) => (tokensCache.all || []).find((t) => t.assetId === assetId)?.symbol || (assetId === RECEIVE.near.assetId ? 'NEAR' : '');
 
 /** Every asset that can be deposited from another chain (cached a few minutes). */
@@ -134,6 +149,7 @@ export async function depositQuote({ asset, amount, receive, recipient, refundTo
     referral: REFERRAL
   };
   const json = await postQuote(body);
+  assertQuoteMatches(body, json);
   const verified = verifyQuoteSignature(json);
   // A deposit address is only ever shown when 1Click signed it.
   if (!dry && !verified) throw new Error("This deposit address couldn't be verified as coming from NEAR Intents, so it isn't shown. Try again.");
@@ -234,6 +250,7 @@ export async function withdrawQuote({ fromAsset, toAsset, amount, recipient, acc
     referral: REFERRAL
   };
   const json = await postQuote(body);
+  assertQuoteMatches(body, json);
   const verified = verifyQuoteSignature(json);
   if (!dry && !verified) throw new Error("This withdrawal couldn't be verified as coming from NEAR Intents, so nothing was sent. Try again.");
   if (!dry && !/^[0-9a-f]{64}$/.test(String(json.quote?.depositAddress))) throw new Error('Unexpected deposit address from NEAR Intents. Nothing was sent.');
@@ -248,7 +265,7 @@ export async function withdrawQuote({ fromAsset, toAsset, amount, recipient, acc
 export async function buildWithdrawTransactions({ quote, fromAsset, accountId, wrap = '0' }) {
   const token = fromAsset.contractAddress;
   const to = quote.depositAddress;
-  allowBridgeDeposit(to);
+  allowBridgeDeposit(to, token, String(quote.amountIn));
   const txs = [];
   if (token === CONTRACTS.wrapNear && BigInt(wrap) > 0n) {
     txs.push(await ensureStorageTx(CONTRACTS.wrapNear, accountId));

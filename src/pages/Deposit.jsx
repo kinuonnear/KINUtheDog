@@ -30,6 +30,7 @@ import {
 } from '../lib/intents.js';
 import { formatAmount, formatUnits, formatUsd, toBigInt, tryParseUnits } from '../lib/format.js';
 import { wrapNeededFor } from '../lib/tx.js';
+import { viewAccount } from '../lib/rpc.js';
 import { CONTRACTS, ENDPOINTS, NEAR_GAS_RESERVE } from '../config.js';
 import { CopyButton, ErrorNotice, Skeleton, Spinner } from '../components/ui.jsx';
 import { KINU_FEE_BPS, KINU_FEE_STABLE_BPS, feePercent, kinuFeeBps } from '../lib/intentsFees.js';
@@ -60,6 +61,22 @@ const HOW_SEND = [
 ];
 
 const chainName = (id) => CHAIN_NAMES[id] || id.toUpperCase();
+const NEAR_ACCOUNT = /^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/;
+
+/**
+ * Whether a typed NEAR account can receive a deposit: implicit accounts (64-hex, 0x…) always can;
+ * a named one must exist. null when the RPC can't tell right now (the form doesn't block on that).
+ */
+async function nearAccountExists(id) {
+  if (/^[0-9a-f]{64}$/.test(id) || /^0x[0-9a-f]{40}$/.test(id)) return true;
+  if (id.length < 2 || id.length > 64 || !NEAR_ACCOUNT.test(id)) return false;
+  try {
+    await viewAccount(id);
+    return true;
+  } catch (error) {
+    return error.rpc?.cause?.name === 'UNKNOWN_ACCOUNT' || /does not exist/i.test(error.message) ? false : null;
+  }
+}
 const NO_INCIDENTS = { chains: new Set(), items: [] };
 const SHIELD_POLL_MS = 60_000;
 const sinceText = (iso) => {
@@ -823,7 +840,12 @@ export default function Deposit() {
   const raw = asset ? tryParseUnits(amount || '0', asset.decimals) || '0' : '0';
   const usdIn = asset ? Number(amount || 0) * (asset.price || 0) : 0;
   const paused = shield.chains.has(chain);
-  const ready = Boolean(asset && toBigInt(raw) > 0n && refundTo.trim() && recipient && !paused);
+  // A typed (not connected) NEAR account is checked to exist: a deposit to a typo can't come back.
+  const typed = accountId ? '' : recipient;
+  const typedKey = useDebounced(typed, 500);
+  const accountCheck = useAsync(() => nearAccountExists(typedKey), [typedKey], { enabled: Boolean(typedKey) && typedKey === typed });
+  const badAccount = Boolean(typed) && (typedKey !== typed || accountCheck.loading || accountCheck.data === false);
+  const ready = Boolean(asset && toBigInt(raw) > 0n && refundTo.trim() && recipient && !paused && !badAccount);
 
   // Changing anything after Review goes back to the form.
   const formKey = [asset?.assetId, raw, receive, recipient, refundTo.trim()].join('|');
@@ -1001,6 +1023,9 @@ export default function Deposit() {
                       </button>
                     </div>
                   )}
+                  {typed && typedKey === typed && accountCheck.data === false && (
+                    <small className="down">There&apos;s no NEAR account called &quot;{typed}&quot;. Check the spelling, or connect your wallet.</small>
+                  )}
                 </div>
 
                 <div className="dep-quote">
@@ -1044,6 +1069,10 @@ export default function Deposit() {
                       ? `Add your ${chainName(chain)} refund address`
                       : !recipient
                         ? 'Enter your NEAR account'
+                        : badAccount
+                        ? accountCheck.data === false
+                          ? 'Check the NEAR account'
+                          : 'Checking the NEAR account…'
                         : preview.loading || !q
                           ? 'Getting a quote…'
                           : 'Review deposit'}
