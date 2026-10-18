@@ -32,6 +32,8 @@ const AGENT_PATH = '/agent';
 const SMART_LP_PATH = '/discover?tab=smartlp';
 const SMART_MONEY_PATH = '/discover?tab=smartmoney';
 const EMBLEM = '/site/kinu-emblem.svg';
+// Company mark (nav, footer); the dog emblem stays the face of the $KINU token.
+const MARK = '/brand/kinu-mark.svg';
 const ext = { target: '_blank', rel: 'noopener noreferrer' };
 const K = { compactAbove: 1e4 };
 
@@ -885,7 +887,7 @@ export default function Welcome() {
       <header className="lx-nav-wrap">
         <nav className="lx-nav">
           <a className="lx-brand" href="#top">
-            <img src={EMBLEM} alt="" width="28" height="28" />
+            <img src={MARK} alt="" width="28" height="28" />
             <span>KINU</span>
           </a>
           <div className={`lx-nav__links${menuOpen ? ' is-open' : ''}`} onClick={() => setMenuOpen(false)}>
@@ -1076,7 +1078,7 @@ export default function Welcome() {
         <div className="lx-footer__grid">
           <div className="lx-footer__brand">
             <a className="lx-brand" href="#top">
-              <img src={EMBLEM} alt="" width="28" height="28" />
+              <img src={MARK} alt="" width="28" height="28" />
               <span>KINU</span>
             </a>
             <p>The DeFi Hub on NEAR. Liquidity, with a sense of direction.</p>

@@ -13301,3 +13301,85 @@ a.amm-table__row:hover {
   height: 58%;
   filter: drop-shadow(0 0 6px rgba(95, 227, 161, 0.45));
 }
+
+/* Security page: audit history, official accounts, contracts, incident response. */
+.sec-audit {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0 14px;
+}
+
+.sec-audit summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  padding: 12px 0;
+  cursor: pointer;
+}
+
+.sec-audit[open] summary {
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 12px;
+}
+
+.sec-audit[open] {
+  padding-bottom: 14px;
+}
+
+.sec-audit summary small {
+  margin-left: auto;
+}
+
+.sec-official {
+  display: grid;
+  gap: 12px;
+}
+
+.sec-official > div {
+  display: grid;
+  gap: 2px;
+}
+
+.sec-contracts {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+
+.sec-contracts li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+.sec-table--severity .sec-table__row {
+  grid-template-columns: 120px minmax(0, 2fr) minmax(0, 1fr);
+}
+
+.sev--critical {
+  background: rgba(255, 77, 94, 0.18);
+  color: #ff6b78;
+}
+
+.sec-steps {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding-left: 20px;
+  font-size: 13px;
+}
+
+.sec-steps li {
+  display: grid;
+  gap: 2px;
+}
+
+.sev--high {
+  background: rgba(255, 128, 64, 0.16);
+  color: #ff9a5c;
+}

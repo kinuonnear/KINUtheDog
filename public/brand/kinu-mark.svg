@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="KINU">
+  <!-- KINU Facet: a solid stem (the foundation) and a chevron (the flow), apart by a fine gap. -->
+  <g transform="translate(-9 0)">
+    <rect x="112" y="96" width="76" height="320" fill="#ece6d8"/>
+    <polygon points="214,256 334,96 418,96 298,256" fill="#ece6d8"/>
+    <polygon points="214,256 298,256 418,416 334,416" fill="#94928b"/>
+  </g>
+</svg>
