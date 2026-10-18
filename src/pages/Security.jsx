@@ -55,7 +55,7 @@ const AUDITS = [
       ['Medium', 'Earn and Treasury withdrawals accepted a “token_diff” intent that any solver could fill for nothing', 'Fixed — only a transfer to the quote’s deposit address is ever signed'],
       ['Low', 'Pay from wallet (EVM) did not name the chain in the transaction', 'Fixed — a wallet on another network refuses it'],
       ['Low', 'NEAR Intents quotes did not bind the slippage asked for', 'Fixed — the echoed slippage must match'],
-      ['Low', 'Advisories in the HERE and Meteor wallet libraries (npm audit)', 'Open — needs a major wallet library upgrade; no path to user funds found']
+      ['Low', 'Advisories in the HERE and Meteor wallet libraries (npm audit)', 'Fixed — the affected dependencies are pinned to patched versions; no high advisories left']
     ]
   },
   {
