@@ -49,7 +49,7 @@ function IndicatorMenu({ active, toggle }) {
   return (
     <div className="popover-anchor" ref={ref}>
       <button type="button" className={`ctool ${count ? 'ctool--on' : ''}`} onClick={() => setOpen((v) => !v)}>
-        <i className="fx">fx</i> Indicators {count > 0 && <b>{count}</b>}
+        <i className="fx">fx</i> <span className="ctool__label">Indicators</span> {count > 0 && <b>{count}</b>}
       </button>
       {open && (
         <div className="popover popover--left indicator-menu">
@@ -896,9 +896,12 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
         <button type="button" className="ctool" onClick={screenshot} title="Save screenshot">
           <ToolIcon kind="camera" />
         </button>
-        <button type="button" className="ctool" onClick={fullscreen} title="Fullscreen">
-          <ToolIcon kind="expand" />
-        </button>
+        {/* iOS browsers and in-app wallets (Meteor, Telegram) can't put a chart fullscreen. */}
+        {document.fullscreenEnabled && (
+          <button type="button" className="ctool" onClick={fullscreen} title="Fullscreen">
+            <ToolIcon kind="expand" />
+          </button>
+        )}
       </div>
 
       <div className="pro-chart__body">
@@ -960,7 +963,7 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
                 )}
               </span>
             )}
-            {shown && indicators.includes('volume') && <span>Volume {formatUsd(shown.volume || 0)}</span>}
+            {shown && indicators.includes('volume') && <span className="pro-chart__vol">Volume {formatUsd(shown.volume || 0)}</span>}
           </div>
           {activeTool && activeTool.points > 0 && (
             <div className="pro-chart__hint">
