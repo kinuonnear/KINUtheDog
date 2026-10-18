@@ -26,6 +26,28 @@ const PATHS = {
       <path d="M3 20c1.5-1 3-1 4.5 0s3 1 4.5 0 3-1 4.5 0 3 1 4.5 0" />
     </>
   ),
+  // Agent: a spark with an orbit
+  agent: (
+    <>
+      <path d="M12 4.5l1.6 4.2 4.2 1.6-4.2 1.6L12 16.1l-1.6-4.2-4.2-1.6 4.2-1.6z" />
+      <path d="M19 15.5l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z" />
+      <path d="M4.5 18.5a10 10 0 0 0 7.5 2" />
+    </>
+  ),
+  // Portfolio: a pie chart
+  portfolio: (
+    <>
+      <path d="M12 3.5a8.5 8.5 0 1 0 8.5 8.5H12z" />
+      <path d="M15 3.8A8.6 8.6 0 0 1 20.2 9H15z" />
+    </>
+  ),
+  // Discover: a compass
+  discover: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M15.5 8.5l-2 5-5 2 2-5z" />
+    </>
+  ),
   // Treasury: a vault door
   treasury: (
     <>

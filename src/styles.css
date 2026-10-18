@@ -13162,7 +13162,7 @@ a.amm-table__row:hover {
 
 /* Icon tile beside a page title (components/PageIcon.jsx). The title's text is a gradient clipped
    to the letters, so the tile sets its own colour. */
-.pt-title:has(.pt-icon) {
+:is(h1, .pt-title):has(> .pt-icon) {
   display: flex;
   align-items: center;
   gap: 0.32em;

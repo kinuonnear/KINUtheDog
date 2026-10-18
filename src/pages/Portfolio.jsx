@@ -20,6 +20,7 @@ import { FlowLines } from '../components/FlowLines.jsx';
 import StakingSummary from '../components/StakingSummary.jsx';
 import EarnSummary from '../components/EarnSummary.jsx';
 import '../portfolio.css';
+import PageIcon from '../components/PageIcon.jsx';
 
 const DUST_USD = 0.01;
 const ALLOCATION_COLORS = ['#b8ff3d', '#3ddc97', '#5ec8ff', '#ffb547', '#c792ff', '#5a6470'];
@@ -117,7 +118,10 @@ function AccountPrompt() {
     <div className="page">
       <div className="portfolio-gate card">
         <span className="eyebrow">Portfolio</span>
-        <h1>Your DeFi, in one place.</h1>
+        <h1>
+          <PageIcon name="portfolio" />
+          Your DeFi, in one place.
+        </h1>
         <p>
           Wallet tokens, Rhea liquidity positions, concentrated ranges, farm stakes and exchange deposits — valued live
           with Rhea prices.
@@ -286,6 +290,7 @@ export default function Portfolio() {
         <div>
           <span className="eyebrow">Portfolio{readOnly ? ' · read-only' : ''}</span>
           <h1 className="account-title">
+            <PageIcon name="portfolio" />
             {shortAccount(viewed, 18, 10)}
             <a href={`${ENDPOINTS.explorer}/address/${viewed}`} target="_blank" rel="noopener noreferrer" className="external" title="Open in explorer">
               ↗

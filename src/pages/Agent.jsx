@@ -17,6 +17,7 @@ import { usePoolTokens } from './Pools.jsx';
 import { AgentBot } from '../components/AgentBot.jsx';
 import { FlowLines } from '../components/FlowLines.jsx';
 import '../agent.css';
+import PageIcon from '../components/PageIcon.jsx';
 
 const SCAN_MS = 90_000;
 const FEED_MAX = 40;
@@ -317,7 +318,10 @@ export default function Agent() {
           <span className="ag-badge">
             <i className="ag-pulse" aria-hidden /> Live · beta
           </span>
-          <h1>KINU Agent</h1>
+          <h1>
+            <PageIcon name="agent" />
+            KINU Agent
+          </h1>
           <p>Your LP co-pilot. It scans NEAR liquidity pools and your positions, and explains every call. You stay in control — nothing moves until you sign it.</p>
           <p className="ag-hero__note">
             Beta · analytics only, not financial advice · <a href="#ag-disclaimer-title">Read the disclaimer</a>

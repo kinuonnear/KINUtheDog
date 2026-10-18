@@ -21,6 +21,7 @@ import SmartMoneyIn from '../components/SmartMoney.jsx';
 import { FlowLines } from '../components/FlowLines.jsx';
 import TokenizedStocks from '../components/TokenizedStocks.jsx';
 import '../discover.css';
+import PageIcon from '../components/PageIcon.jsx';
 
 // KINU is a liquidity platform: where to earn as an LP comes first. Each tab has a small
 // monochrome glyph (styles in discover.css).
@@ -503,9 +504,12 @@ export default function Discover({ defaultTab = 'lp' }) {
         <header className="page-head disc-banner__head" key={tab}>
           <span className="eyebrow">Discover</span>
           <h1>
-            {pre}
-            <span className="disc-accent">{accent}</span>
-            {post}
+            <PageIcon name="discover" />
+            <span>
+              {pre}
+              <span className="disc-accent">{accent}</span>
+              {post}
+            </span>
           </h1>
           <p>{INTROS[tab]}</p>
         </header>
