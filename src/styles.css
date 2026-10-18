@@ -522,17 +522,24 @@ p {
   background: rgba(199, 146, 255, 0.1);
 }
 
+/* Verified token: a solid green seal with a dark tick, readable at a glance. */
 .badge--verified {
   display: inline-grid;
   place-items: center;
-  width: 15px;
-  height: 15px;
+  flex: none;
+  width: 16px;
+  height: 16px;
   margin-left: 6px;
   border-radius: 50%;
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-size: 9px;
-  vertical-align: 1px;
+  background: #1fd17a;
+  color: #04120a;
+  box-shadow: 0 0 0 2px rgba(31, 209, 122, 0.22);
+  vertical-align: -2px;
+}
+
+.badge--verified svg {
+  width: 11px;
+  height: 11px;
 }
 
 .range-badge {

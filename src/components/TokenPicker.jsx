@@ -38,7 +38,13 @@ function TokenRow({ id, fallback, verified, onPick, selected }) {
       <span className="token-row__main">
         <strong>
           {meta?.symbol || '…'}
-          {verified && <span className="badge badge--verified" title="Verified: on Rhea's whitelist or checked by KINU">✓</span>}
+          {verified && (
+            <span className="badge--verified" title="Verified: on Rhea's whitelist or checked by KINU" aria-label="Verified">
+              <svg viewBox="0 0 12 12" aria-hidden="true">
+                <path d="M2.6 6.2 5 8.5l4.4-4.9" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
+          )}
         </strong>
         <small>{id === NATIVE_NEAR.id ? 'Native NEAR' : shortAccount(id, 14, 10)}</small>
       </span>
