@@ -66,7 +66,7 @@ export const CHAIN_NAMES = {
   xlayer: 'X Layer'
 };
 /** What a refund address on each chain looks like (placeholder text). */
-export const ADDRESS_HINT = { sol: 'Solana address', btc: 'bc1… / 1… / 3…', tron: 'T…', ton: 'UQ… / EQ…', sui: '0x… (Sui)', aptos: '0x… (Aptos)' };
+export const ADDRESS_HINT = { hypercore: 'Hyperliquid address (0x…)', sol: 'Solana address', btc: 'bc1… / 1… / 3…', tron: 'T…', ton: 'UQ… / EQ…', sui: '0x… (Sui)', aptos: '0x… (Aptos)' };
 /** Assets people deposit most, first within a chain. */
 const ASSET_ORDER = ['USDC', 'USDT', 'ETH', 'SOL', 'BTC', 'BNB', 'TRX', 'POL', 'AVAX', 'ARB', 'OP'];
 

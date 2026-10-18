@@ -1091,11 +1091,15 @@ function CrossForm({ assets, icons, shield, onStarted }) {
 
 const POPULAR_CHAINS = ['base', 'eth', 'sol', 'arb', 'bsc', 'btc'];
 const QUICK_TOKENS = ['USDC', 'USDT', 'ETH', 'SOL', 'BTC'];
-// Chains whose deposits need a mode KINU doesn't build yet (Stellar's memo, Hyperliquid's own rules):
-// shown dimmed as "Soon" on that side of the swap.
-const NOT_YET = { pay: new Set(['stellar', 'hypercore']), receive: new Set(['hypercore']) };
+// What can't be paid with yet, shown dimmed as "Soon": Stellar deposits need a memo mode KINU doesn't
+// build yet, and NEAR Intents takes Hyperliquid's HyperEVM USDC only as a destination (HyperCore USDC
+// works both ways).
+const NOT_YET_CHAINS = { pay: new Set(['stellar']), receive: new Set() };
+const NOT_YET_ASSETS = { pay: new Set(['1cs_v1:hypercore:erc20:0xb88339CB7199b77E23DB6E890353E22632Ba630f']), receive: new Set() };
 /** Why a chain can't be used on this side of the swap right now (null when it can). */
-const unavailableReason = (chain, side, shield) => (shield.chains.has(chain) ? 'Paused' : NOT_YET[side]?.has(chain) ? 'Soon' : null);
+const unavailableReason = (chain, side, shield) => (shield.chains.has(chain) ? 'Paused' : NOT_YET_CHAINS[side]?.has(chain) ? 'Soon' : null);
+// Hyperliquid lists USDC twice: HyperCore (spot, where trading happens) and HyperEVM.
+const variantOf = (t) => (/^1cs_v\d+:hypercore:hip1:/.test(t.assetId) ? 'HyperCore' : /^1cs_v\d+:hypercore:erc20:/.test(t.assetId) ? 'HyperEVM' : '');
 const shortAddress = (a) => (a && a.length > 12 ? `${a.slice(0, 4)}…${a.slice(-4)}` : a || '');
 
 /**
@@ -1140,6 +1144,7 @@ function TokenChainList({ side, current, assets, icons, shield, onPick }) {
   const [q, setQ] = useState('');
   const chains = useMemo(() => [...new Set(assets.map((t) => t.blockchain))], [assets]);
   const off = (c) => unavailableReason(c, side, shield);
+  const tokenOff = (t) => off(t.blockchain) || (NOT_YET_ASSETS[side]?.has(t.assetId) ? 'Soon' : null);
   const az = [...chains].sort((a, b) => Boolean(off(a)) - Boolean(off(b)) || chainName(a).localeCompare(chainName(b)));
   const chainNeedle = chainQ.trim().toLowerCase();
   const chainHits = chainNeedle ? az.filter((c) => chainName(c).toLowerCase().includes(chainNeedle) || c.includes(chainNeedle)) : null;
@@ -1147,7 +1152,7 @@ function TokenChainList({ side, current, assets, icons, shield, onPick }) {
   const tokens = assets
     .filter((t) => chain === 'all' || t.blockchain === chain)
     .filter((t) => !needle || `${t.symbol} ${chainName(t.blockchain)} ${t.contractAddress || ''}`.toLowerCase().includes(needle))
-    .sort((a, b) => Boolean(off(a.blockchain)) - Boolean(off(b.blockchain)))
+    .sort((a, b) => Boolean(tokenOff(a)) - Boolean(tokenOff(b)))
     .slice(0, 300);
 
   const chainRow = (c, group = '') => {
@@ -1203,7 +1208,7 @@ function TokenChainList({ side, current, assets, icons, shield, onPick }) {
         <small className="tcp__group">{chain === 'all' ? 'All chains' : chainName(chain)}</small>
         <div className="tcp__token-list">
           {tokens.map((t) => {
-            const why = off(t.blockchain);
+            const why = tokenOff(t);
             return (
             <button
               key={t.assetId}
@@ -1218,6 +1223,7 @@ function TokenChainList({ side, current, assets, icons, shield, onPick }) {
                 <b>{t.symbol}</b>
                 <small>
                   {chainName(t.blockchain)}
+                  {variantOf(t) ? ` · ${variantOf(t)}` : ''}
                   {t.contractAddress ? ` · ${shortAddress(t.contractAddress)}` : ' · native'}
                 </small>
               </span>

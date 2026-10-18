@@ -14,7 +14,8 @@ import { allowed, parse, rateLimited } from './_origin.js';
 
 const API = 'https://1click.chaindefuser.com/v0';
 const TOKENS_TTL_MS = 10 * 60_000;
-const ASSET = /^nep\d+:[\w.:-]{2,200}$/;
+// NEAR assets are "nep141:…" / "nep245:…"; Hyperliquid's are "1cs_v1:hypercore:…".
+const ASSET = /^(nep\d+|1cs_v\d+):[\w.:-]{2,200}$/;
 const ADDRESS = /^[\w.:@-]{2,200}$/;
 
 let tokens = { at: 0, symbols: null };
