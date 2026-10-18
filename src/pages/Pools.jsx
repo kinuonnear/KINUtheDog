@@ -11,6 +11,7 @@ import AprValue from '../components/AprValue.jsx';
 import { formatChartPrice, formatPercent, formatUsd, shortAccount } from '../lib/format.js';
 import { ErrorNotice, PairIcons, Skeleton, TokenIcon } from '../components/ui.jsx';
 import { FlowLines } from '../components/FlowLines.jsx';
+import PageIcon from '../components/PageIcon.jsx';
 import PoolSourceTabs from '../components/PoolSourceTabs.jsx';
 import '../pools.css';
 
@@ -718,7 +719,10 @@ export default function Pools() {
     <div className="page page--discover page--pools">
       <header className="pt-hero">
         <FlowLines />
-        <h1 className="pt-title">Pools</h1>
+        <h1 className="pt-title">
+          <PageIcon name="pools" />
+          Pools
+        </h1>
         <p>Every pool on NEAR, sorted by what it pays LPs.</p>
         <PoolSourceTabs active="rhea" rhea={overview.data ? { pools: totals.pools, tvl: totals.tvl } : undefined} />
         <Link to="/start-lp" className="pt-start">

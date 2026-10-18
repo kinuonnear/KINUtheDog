@@ -19,6 +19,7 @@ import { convertToUsdc, getIntentsHoldings, withdrawToWalletTxs } from '../lib/i
 import { CHAIN_NAMES } from '../lib/intents.js';
 import { ErrorNotice, PairIcons, Skeleton, Spinner } from '../components/ui.jsx';
 import { FlowLines } from '../components/FlowLines.jsx';
+import PageIcon from '../components/PageIcon.jsx';
 import '../pools.css';
 import '../treasury.css';
 
@@ -337,7 +338,10 @@ export default function Treasury() {
     <div className="page page--discover page--pools page--treasury">
       <header className="pt-hero">
         <FlowLines />
-        <h1 className="pt-title">Treasury</h1>
+        <h1 className="pt-title">
+          <PageIcon name="treasury" />
+          Treasury
+        </h1>
         <p>Where $KINU&apos;s creator fee goes: operations first, the rest into liquidity. Every number links to the chain.</p>
       </header>
 

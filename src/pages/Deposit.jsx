@@ -37,6 +37,7 @@ import { KINU_FEE_BPS, KINU_FEE_STABLE_BPS, feePercent, kinuFeeBps } from '../li
 import DepositHero from '../components/DepositHero.jsx';
 import { FlowLines } from '../components/FlowLines.jsx';
 import '../deposit.css';
+import PageIcon from '../components/PageIcon.jsx';
 
 const ACTIVE_KEY = 'kinu.deposit.active';
 const ACTIVE_W_KEY = 'kinu.withdraw.active';
@@ -906,7 +907,10 @@ export default function Deposit() {
         <FlowLines />
         <ShieldBadge shield={shield} />
         <div className="dep-hero__copy">
-          <h1 className="pt-title">Bridge</h1>
+          <h1 className="pt-title">
+            <PageIcon name="bridge" />
+            Bridge
+          </h1>
           <p>
             Any chain ⇄ NEAR. Move USDC, USDT, ETH, SOL and BTC between NEAR and {chains.length || 36} chains in about a minute, through NEAR Intents.
           </p>

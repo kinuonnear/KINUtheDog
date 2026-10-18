@@ -13,6 +13,7 @@ import { FlowLines } from '../components/FlowLines.jsx';
 import PoolSourceTabs from '../components/PoolSourceTabs.jsx';
 import '../pools.css';
 import '../intear.css';
+import PageIcon from '../components/PageIcon.jsx';
 
 const PAGE = 30;
 const LOW_TVL = 1_000;
@@ -63,7 +64,10 @@ export default function IntearPools() {
     <div className="page page--discover page--pools page--intear">
       <header className="pt-hero">
         <FlowLines />
-        <h1 className="pt-title">Pools</h1>
+        <h1 className="pt-title">
+          <PageIcon name="pools" />
+          Pools
+        </h1>
         <p>Every pool on NEAR, sorted by what it pays LPs.</p>
         <PoolSourceTabs active="intear" intear={pools.data ? { pools: all.length, tvl: totals.tvl } : undefined} />
         <p>Plach AMM pools on Intear DEX: fees, liquidity, volume and APY at a glance.</p>

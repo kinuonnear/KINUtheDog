@@ -34,6 +34,7 @@ import { formatAmount, formatUnits, formatUsd, toBigInt, tryParseUnits } from '.
 import { bpsText, NATIVE_NEAR, NEAR_GAS_RESERVE, PLATFORM_FEE } from '../config.js';
 import { ErrorNotice, Skeleton, Spinner } from '../components/ui.jsx';
 import { FlowLines } from '../components/FlowLines.jsx';
+import PageIcon from '../components/PageIcon.jsx';
 import '../deposit.css';
 import '../stake.css';
 
@@ -271,7 +272,10 @@ export default function Stake({ switcher = null }) {
     <div className="page stake">
       <header className="pt-hero stk-hero">
         <FlowLines />
-        <h1 className="pt-title">{switcher ? 'Earn' : 'Stake'}</h1>
+        <h1 className="pt-title">
+          <PageIcon name="earn" />
+          {switcher ? 'Earn' : 'Stake'}
+        </h1>
         <p>Stake NEAR and keep it liquid. Earn validator rewards with LiNEAR or stNEAR, then put the token to work in Rhea pools.</p>
         {switcher}
         <div className="dep-hero__stats">

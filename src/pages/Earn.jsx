@@ -31,6 +31,7 @@ import { NEAR_GAS_RESERVE } from '../config.js';
 import { priceOf } from '../lib/tokens.js';
 import { ErrorNotice, Skeleton, Spinner } from '../components/ui.jsx';
 import { FlowLines } from '../components/FlowLines.jsx';
+import PageIcon from '../components/PageIcon.jsx';
 import '../deposit.css';
 import '../stake.css';
 import '../earn.css';
@@ -251,7 +252,10 @@ function VaultsView({ switcher }) {
     <div className="page stake earn">
       <header className="pt-hero stk-hero">
         <FlowLines />
-        <h1 className="pt-title">Earn</h1>
+        <h1 className="pt-title">
+          <PageIcon name="earn" />
+          Earn
+        </h1>
         <p>Put USDC or NEAR to work in leading yield vaults on Base and Solana, straight from your NEAR wallet. Powered by NEAR Intents.</p>
         {switcher}
         <div className="dep-hero__stats">

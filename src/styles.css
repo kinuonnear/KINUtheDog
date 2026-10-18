@@ -13159,3 +13159,33 @@ a.amm-table__row:hover {
     animation: none;
   }
 }
+
+/* Icon tile beside a page title (components/PageIcon.jsx). The title's text is a gradient clipped
+   to the letters, so the tile sets its own colour. */
+.pt-title:has(.pt-icon) {
+  display: flex;
+  align-items: center;
+  gap: 0.32em;
+}
+
+.pt-icon {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 0.92em;
+  height: 0.92em;
+  border: 1px solid rgba(95, 227, 161, 0.35);
+  border-radius: 0.26em;
+  background:
+    radial-gradient(120% 120% at 30% 20%, rgba(95, 227, 161, 0.22), transparent 60%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02));
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.4) inset, 0 12px 30px -14px rgba(95, 227, 161, 0.55);
+  color: #5fe3a1;
+  -webkit-text-fill-color: initial;
+}
+
+.pt-icon svg {
+  width: 58%;
+  height: 58%;
+  filter: drop-shadow(0 0 6px rgba(95, 227, 161, 0.45));
+}
