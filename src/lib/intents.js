@@ -54,7 +54,16 @@ export const CHAIN_NAMES = {
   monad: 'Monad',
   starknet: 'Starknet',
   scroll: 'Scroll',
-  hypercore: 'Hyperliquid'
+  hypercore: 'Hyperliquid',
+  abs: 'Abstract',
+  adi: 'ADI Chain',
+  aleo: 'Aleo',
+  dash: 'Dash',
+  fogo: 'Fogo',
+  hood: 'Robinhood Chain',
+  movement: 'Movement',
+  plasma: 'Plasma',
+  xlayer: 'X Layer'
 };
 /** What a refund address on each chain looks like (placeholder text). */
 export const ADDRESS_HINT = { sol: 'Solana address', btc: 'bc1… / 1… / 3…', tron: 'T…', ton: 'UQ… / EQ…', sui: '0x… (Sui)', aptos: '0x… (Aptos)' };
@@ -133,13 +142,26 @@ export async function getDepositAssets() {
  * address valid until `deadline` (30 min here).
  */
 export async function depositQuote({ asset, amount, receive, recipient, refundTo, dry = true, slippageBps = 100 }) {
+  return chainQuote({ fromAsset: asset, toAssetId: RECEIVE[receive].assetId, amount, recipient, refundTo, dry, slippageBps });
+}
+
+/**
+ * Any chain to any chain: `amount` of `fromAsset` sent on its own chain arrives as `toAsset` at
+ * `recipient` on the other chain; a failed swap goes back to `refundTo` on the first chain. Same
+ * deposit-address flow (and checks) as a deposit to NEAR.
+ */
+export async function crossQuote({ fromAsset, toAsset, amount, recipient, refundTo, dry = true, slippageBps = 100 }) {
+  return chainQuote({ fromAsset, toAssetId: toAsset.assetId, amount, recipient: recipient.trim(), refundTo, dry, slippageBps });
+}
+
+async function chainQuote({ fromAsset, toAssetId, amount, recipient, refundTo, dry, slippageBps }) {
   const body = {
     dry,
     swapType: 'EXACT_INPUT',
     slippageTolerance: slippageBps,
-    originAsset: asset.assetId,
+    originAsset: fromAsset.assetId,
     depositType: 'ORIGIN_CHAIN',
-    destinationAsset: RECEIVE[receive].assetId,
+    destinationAsset: toAssetId,
     amount: String(amount),
     recipient,
     recipientType: 'DESTINATION_CHAIN',

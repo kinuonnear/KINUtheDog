@@ -23,6 +23,7 @@ import {
   getWithdrawAssets,
   SUPPORT,
   buildWithdrawTransactions,
+  crossQuote,
   withdrawQuote,
   RECEIVE,
   RECEIVE_ICONS,
@@ -32,15 +33,17 @@ import { formatAmount, formatUnits, formatUsd, toBigInt, tryParseUnits } from '.
 import { wrapNeededFor } from '../lib/tx.js';
 import { viewAccount } from '../lib/rpc.js';
 import { CONTRACTS, ENDPOINTS, NEAR_GAS_RESERVE } from '../config.js';
-import { AmountInput, CopyButton, ErrorNotice, Skeleton, Spinner } from '../components/ui.jsx';
+import { AmountInput, CopyButton, ErrorNotice, Modal, Skeleton, Spinner } from '../components/ui.jsx';
 import { KINU_FEE_BPS, KINU_FEE_STABLE_BPS, feePercent, kinuFeeBps } from '../lib/intentsFees.js';
 import DepositHero from '../components/DepositHero.jsx';
 import { FlowLines } from '../components/FlowLines.jsx';
 import '../deposit.css';
 import PageIcon from '../components/PageIcon.jsx';
+import PayFromWallet from '../components/PayFromWallet.jsx';
 
 const ACTIVE_KEY = 'kinu.deposit.active';
 const ACTIVE_W_KEY = 'kinu.withdraw.active';
+const ACTIVE_X_KEY = 'kinu.cross.active';
 const MODE_KEY = 'kinu.bridge.mode';
 const WNEAR_ID = CONTRACTS.wrapNear;
 const STATUS_POLL_MS = 5_000;
@@ -147,7 +150,7 @@ function PausedNote({ chain, shield }) {
 /** Help for one transfer: follow it on NEAR Intents' explorer, and what to send their support. */
 function TransferHelp({ active, state, details }) {
   const report = [
-    `KINU Bridge transfer (${active.kind === 'withdraw' ? 'NEAR → ' + chainName(active.toChain) : chainName(active.chain) + ' → NEAR'})`,
+    `KINU Bridge transfer (${active.kind === 'withdraw' ? 'NEAR → ' + chainName(active.toChain) : chainName(active.chain) + ' → ' + (active.to ? chainName(active.to.chain) : 'NEAR')})`,
     `Deposit address: ${active.depositAddress}`,
     active.depositMemo ? `Memo: ${active.depositMemo}` : null,
     active.kind === 'withdraw'
@@ -333,7 +336,9 @@ function ActiveDeposit({ active, icons, shield, onDone }) {
   const left = Math.max(0, new Date(active.deadline).getTime() - now);
   const expired = left === 0 && state === 'PENDING_DEPOSIT';
   const stepIndex = Math.max(0, STEPS.findIndex((s) => s.key === state));
-  const receive = RECEIVE[active.receive];
+  // What arrives where: a deposit lands on NEAR as NEAR/USDC; an any-chain transfer on active.to.chain.
+  const dest = active.to || { symbol: RECEIVE[active.receive].symbol, logos: [RECEIVE_ICONS[active.receive]], chain: 'near', near: active.receive };
+  const steps = dest.chain === 'near' ? STEPS : STEPS.map((s) => (s.key === 'PROCESSING' ? { ...s, label: `Moving it to ${chainName(dest.chain)}` } : s.key === 'SUCCESS' ? { ...s, label: `Arrived on ${chainName(dest.chain)}` } : s));
 
   const submit = async () => {
     try {
@@ -381,11 +386,14 @@ function ActiveDeposit({ active, icons, shield, onDone }) {
               </small>
             </div>
           </div>
+          {state === 'PENDING_DEPOSIT' && (
+            <PayFromWallet active={active} chainLabel={chainName(active.chain)} onPaid={(hash) => setSent(hash ? 'ok' : null)} />
+          )}
         </>
       )}
 
       <ol className="dep-steps">
-        {STEPS.map((s, i) => (
+        {steps.map((s, i) => (
           <li key={s.key} className={i < stepIndex || state === 'SUCCESS' ? 'done' : i === stepIndex && !final ? 'on' : ''}>
             <i>{i < stepIndex || state === 'SUCCESS' ? '✓' : i + 1}</i>
             {s.label}
@@ -395,15 +403,22 @@ function ActiveDeposit({ active, icons, shield, onDone }) {
 
       {state === 'SUCCESS' && (
         <div className="dep-result dep-result--ok">
-          <Logo src={RECEIVE_ICONS[receive.key]} name={receive.symbol} size={36} />
+          <Logo src={dest.logos} name={dest.symbol} size={36} />
           <div>
             <b>
-              {details.amountOutFormatted ? `${formatAmount(Number(details.amountOutFormatted))} ${receive.symbol}` : receive.symbol} landed in {active.recipient}
+              {details.amountOutFormatted ? `${formatAmount(Number(details.amountOutFormatted))} ${dest.symbol}` : dest.symbol} landed in {active.recipient}
+              {dest.chain !== 'near' ? ` on ${chainName(dest.chain)}` : ''}
             </b>
             <small className="muted">
               {details.amountOutUsd ? `≈ ${formatUsd(Number(details.amountOutUsd))}` : ''}
-              {receive.key === 'near' ? ' · as wNEAR, used directly by KINU pools and swaps' : ''}
+              {dest.near === 'near' ? ' · as wNEAR, used directly by KINU pools and swaps' : ''}
             </small>
+            {dest.chain !== 'near' && (details.destinationChainTxHashes || [])[0]?.explorerUrl && (
+              <a href={details.destinationChainTxHashes[0].explorerUrl} target="_blank" rel="noopener noreferrer" className="small">
+                View on {chainName(dest.chain)} explorer ↗
+              </a>
+            )}
+            {dest.chain === 'near' && (
             <div className="dep-next">
               <Link to="/pools" className="button button--primary button--sm">
                 Put it to work · Provide liquidity
@@ -412,6 +427,7 @@ function ActiveDeposit({ active, icons, shield, onDone }) {
                 Swap
               </Link>
             </div>
+            )}
           </div>
         </div>
       )}
@@ -778,7 +794,13 @@ function WithdrawForm({ destinations, icons, shield, onStarted }) {
             <Spinner size={12} /> Getting a quote…
           </span>
         )}
-        {ready && preview.error && <span className="down small">{preview.error.message}</span>}
+        {ready && preview.error && <span className="down small">{/internal server error/i.test(preview.error.message)
+            ? `NEAR Intents can't quote this. Check that both addresses are normal wallet addresses on their chains.`
+            : /no liquidity/i.test(preview.error.message)
+              ? `NEAR Intents can't swap ${from?.symbol} on ${chainName(fromChain)} into ${to?.symbol} right now. Try USDC, USDT or the chain's own coin.`
+              : /not available/i.test(preview.error.message)
+                ? 'This pair isn’t available right now. Try another token or chain.'
+                : preview.error.message}</span>}
         {ready && q && !preview.loading && (
           <div className="dep-quote__row">
             <Logo src={assetLogos(to, icons)} name={to.symbol} size={34} />
@@ -815,6 +837,401 @@ function WithdrawForm({ destinations, icons, shield, onStarted }) {
   );
 }
 
+/** Any chain → any chain: send from one chain (not NEAR), receive on another, through a one-time deposit address. */
+function CrossForm({ assets, icons, shield, onStarted }) {
+  const [fromChain, setFromChain] = useState('base');
+  const [fromId, setFromId] = useState('');
+  const [toChain, setToChain] = useState('sol');
+  const [toId, setToId] = useState('');
+  const [amount, setAmount] = useState('');
+  const [recipient, setRecipient] = useState('');
+  const [refundTo, setRefundTo] = useState('');
+  const [reviewing, setReviewing] = useState(false);
+  const [agreed, setAgreed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  const fromList = useMemo(() => assets.filter((t) => t.blockchain === fromChain), [assets, fromChain]);
+  const toList = useMemo(() => assets.filter((t) => t.blockchain === toChain), [assets, toChain]);
+  const from = fromList.find((t) => t.assetId === fromId) || fromList[0] || null;
+  const to = toList.find((t) => t.assetId === toId) || toList[0] || null;
+  const raw = from ? tryParseUnits(amount || '0', from.decimals) || '0' : '0';
+  const usdIn = from ? Number(amount || 0) * (from.price || 0) : 0;
+  const paused = shield.chains.has(fromChain) || shield.chains.has(toChain);
+  const sameAsset = Boolean(from && to && from.assetId === to.assetId);
+  const ready = Boolean(from && to && !sameAsset && toBigInt(raw) > 0n && recipient.trim() && refundTo.trim() && !paused);
+
+  const formKey = [from?.assetId, raw, to?.assetId, recipient.trim(), refundTo.trim()].join('|');
+  useEffect(() => {
+    setReviewing(false);
+    setAgreed(false);
+  }, [formKey]);
+  const key = useDebounced(formKey, 600);
+  const preview = useAsync(() => crossQuote({ fromAsset: from, toAsset: to, amount: raw, recipient, refundTo, dry: true }), [key], {
+    enabled: ready && key === formKey
+  });
+  const q = preview.data;
+  const feeBps = kinuFeeBps(from?.symbol, to?.symbol);
+
+  const start = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const live = await crossQuote({ fromAsset: from, toAsset: to, amount: raw, recipient, refundTo, dry: false });
+      if (!live.depositAddress) throw new Error('No deposit address came back. Try again.');
+      onStarted({
+        depositAddress: live.depositAddress,
+        depositMemo: live.depositMemo || null,
+        deadline: live.deadline || live.request?.deadline,
+        amountInFormatted: live.amountInFormatted,
+        amountIn: String(live.amountIn),
+        asset: { contractAddress: from.contractAddress || null, decimals: from.decimals },
+        symbol: from.symbol,
+        logos: assetLogos(from, icons),
+        chain: from.blockchain,
+        to: { symbol: to.symbol, logos: assetLogos(to, icons), chain: to.blockchain },
+        recipient: recipient.trim(),
+        refundTo: refundTo.trim(),
+        createdAt: Date.now()
+      });
+    } catch (e) {
+      setError(e);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (reviewing && q) {
+    return (
+      <div className="dep-review">
+        <h3>Review your swap</h3>
+        <div className="dep-review__flow">
+          <div>
+            <Logo src={assetLogos(from, icons)} name={from.symbol} size={40} badge={<Logo src={chainLogos(fromChain)} name={chainName(fromChain)} size={18} />} />
+            <b>
+              {amount} {from.symbol}
+            </b>
+            <small>on {chainName(fromChain)}</small>
+          </div>
+          <span className="dep-review__arrow">→</span>
+          <div>
+            <Logo src={assetLogos(to, icons)} name={to.symbol} size={40} badge={<Logo src={chainLogos(toChain)} name={chainName(toChain)} size={18} />} />
+            <b>
+              ≈ {formatAmount(Number(q.amountOutFormatted))} {to.symbol}
+            </b>
+            <small>on {chainName(toChain)}</small>
+          </div>
+        </div>
+        <div className="dep-recipient">
+          <span className="dep-label">Recipient on {chainName(toChain)}</span>
+          <code>{recipient.trim()}</code>
+        </div>
+        <dl className="kv">
+          <div>
+            <dt>Refund to</dt>
+            <dd className="dep-mono">{refundTo.trim()}</dd>
+          </div>
+          <div>
+            <dt>Minimum received</dt>
+            <dd>
+              {q.minAmountOut ? formatAmount(Number(q.minAmountOut) / 10 ** to.decimals) : '—'} {to.symbol}
+            </dd>
+          </div>
+          <div>
+            <dt>Time</dt>
+            <dd>≈ {q.timeEstimate || 60}s after your deposit confirms</dd>
+          </div>
+          <div>
+            <dt>Fees</dt>
+            <dd>Included in the quote: {feePercent(feeBps)} service fee (shared by KINU and NEAR Intents)</dd>
+          </div>
+        </dl>
+        <label className="dep-agree">
+          <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
+          <span>
+            I&apos;ll send exactly {amount} {from.symbol}, only on {chainName(fromChain)}, to the one-time address shown next. The recipient can receive {to.symbol} on{' '}
+            {chainName(toChain)} and the refund address is mine. I accept the <Link to="/docs/terms">Terms</Link>, including the Bridge section.
+          </span>
+        </label>
+        {error && <p className="down small">{error.message}</p>}
+        <div className="dep-review__actions">
+          <button type="button" className="button button--outline" onClick={() => setReviewing(false)}>
+            Back
+          </button>
+          <button type="button" className="button button--primary button--lg" disabled={!agreed || busy} onClick={start}>
+            {busy && <Spinner size={14} />} Get deposit address
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const pickFrom = (t) => {
+    if (t.blockchain !== fromChain) setRefundTo('');
+    setFromChain(t.blockchain);
+    setFromId(t.assetId);
+  };
+  const pickTo = (t) => {
+    if (t.blockchain !== toChain) setRecipient('');
+    setToChain(t.blockchain);
+    setToId(t.assetId);
+  };
+  const flip = () => {
+    if (!from || !to) return;
+    setFromChain(to.blockchain);
+    setFromId(to.assetId);
+    setToChain(from.blockchain);
+    setToId(from.assetId);
+    setRefundTo(recipient);
+    setRecipient(refundTo);
+    setAmount('');
+  };
+  // Until both addresses are in (1Click needs them for a quote), an estimate from the listed prices.
+  const estimate = from?.price && to?.price && Number(amount) > 0 ? ((Number(amount) * from.price) / to.price) * (1 - feeBps / 10_000) : 0;
+  const outText = q && ready && !preview.loading ? formatAmount(Number(q.amountOutFormatted)) : estimate ? formatAmount(estimate) : '';
+  const outUsd = q && ready ? Number(q.amountOutUsd) : estimate * (to?.price || 0);
+
+  return (
+    <div className="xswap">
+      <div className="swap-field">
+        <div className="swap-field__top">
+          <span>You pay</span>
+          <span className="muted">on {chainName(fromChain)}</span>
+        </div>
+        <div className="swap-field__row">
+          <AmountInput placeholder="0.0" value={amount} onChange={(v) => setAmount(v.replace(/[^\d.]/g, ''))} aria-label="You pay amount" />
+          <AssetChainPicker side="pay" asset={from} assets={assets} icons={icons} shield={shield} onPick={pickFrom} />
+        </div>
+        <div className="swap-field__bottom">
+          <span>{usdIn > 0 ? formatUsd(usdIn) : ' '}</span>
+        </div>
+      </div>
+
+      <div className="swap-flip-wrap">
+        <button type="button" className="swap-flip" onClick={flip} aria-label="Switch sides">
+          ↓↑
+        </button>
+      </div>
+
+      <div className="swap-field swap-field--readonly">
+        <div className="swap-field__top">
+          <span>You receive</span>
+          <span className="muted">on {chainName(toChain)}</span>
+        </div>
+        <div className="swap-field__row">
+          <AmountInput placeholder="0.0" value={outText.replace(/,/g, '')} readOnly aria-label="You receive amount" />
+          <AssetChainPicker side="receive" asset={to} assets={assets} icons={icons} shield={shield} onPick={pickTo} />
+        </div>
+        <div className="swap-field__bottom">
+          <span>{ready && preview.loading ? <Spinner size={12} /> : outUsd > 0 ? formatUsd(outUsd) : ' '}</span>
+          {!(q && ready) && estimate > 0 && <span className="muted">estimate · add the addresses for a signed quote</span>}
+        </div>
+      </div>
+
+      {usdIn >= LARGE_USD && <p className="dep-note">First time? Try a small amount first to see it arrive, then send the rest.</p>}
+
+      <div className="xswap__addrs">
+        <label className="xswap__addr">
+          <span className="dep-label">Recipient on {chainName(toChain)}</span>
+          <input className="dep-input" placeholder={ADDRESS_HINT[toChain] || `${chainName(toChain)} address (0x…)`} value={recipient} onChange={(e) => setRecipient(e.target.value)} spellCheck={false} />
+        </label>
+        <label className="xswap__addr">
+          <span className="dep-label" title="If the swap can't complete, it goes back here. Use an address you control, not an exchange deposit address.">
+            Refund on {chainName(fromChain)} ⓘ
+          </span>
+          <input className="dep-input" placeholder={ADDRESS_HINT[fromChain] || `Your ${chainName(fromChain)} address (0x…)`} value={refundTo} onChange={(e) => setRefundTo(e.target.value)} spellCheck={false} />
+        </label>
+      </div>
+
+      {ready && preview.error && (
+        <p className="down small">
+          {/internal server error/i.test(preview.error.message) ? `NEAR Intents can't quote this. Check that both addresses are normal wallet addresses on their chains.` : preview.error.message}
+        </p>
+      )}
+      {(q && ready) || estimate > 0 ? (
+        <dl className="xswap__info">
+          <div>
+            <dt>Rate</dt>
+            <dd>
+              1 {from?.symbol} ≈ {formatAmount(q && ready ? Number(q.amountOutFormatted) / Number(amount) : estimate / Number(amount))} {to?.symbol}
+            </dd>
+          </div>
+          <div>
+            <dt>Fee</dt>
+            <dd>{feePercent(feeBps)} (included)</dd>
+          </div>
+          <div>
+            <dt>Time</dt>
+            <dd>≈ {(q && ready && q.timeEstimate) || 60}s</dd>
+          </div>
+        </dl>
+      ) : null}
+
+      <PausedNote chain={fromChain} shield={shield} />
+      {toChain !== fromChain && <PausedNote chain={toChain} shield={shield} />}
+
+      <button type="button" className="button button--primary button--block button--lg" disabled={!ready || !q || Boolean(preview.error) || preview.loading} onClick={() => setReviewing(true)}>
+        {paused
+          ? 'Paused for now'
+          : sameAsset
+            ? 'Pick a different asset to receive'
+            : !(toBigInt(raw) > 0n)
+              ? 'Enter an amount'
+              : !recipient.trim()
+                ? `Add the ${chainName(toChain)} recipient`
+                : !refundTo.trim()
+                  ? `Add your ${chainName(fromChain)} refund address`
+                  : preview.loading || !q
+                    ? 'Getting a quote…'
+                    : 'Review swap'}
+      </button>
+    </div>
+  );
+}
+
+const POPULAR_CHAINS = ['base', 'eth', 'sol', 'arb', 'bsc', 'btc'];
+const QUICK_TOKENS = ['USDC', 'USDT', 'ETH', 'SOL', 'BTC'];
+// Chains whose deposits need a mode KINU doesn't build yet (Stellar's memo, Hyperliquid's own rules):
+// shown dimmed as "Soon" on that side of the swap.
+const NOT_YET = { pay: new Set(['stellar', 'hypercore']), receive: new Set(['hypercore']) };
+/** Why a chain can't be used on this side of the swap right now (null when it can). */
+const unavailableReason = (chain, side, shield) => (shield.chains.has(chain) ? 'Paused' : NOT_YET[side]?.has(chain) ? 'Soon' : null);
+const shortAddress = (a) => (a && a.length > 12 ? `${a.slice(0, 4)}…${a.slice(-4)}` : a || '');
+
+/**
+ * The token button of the swap widget. Opens a token picker like a cross-chain swap app: chains on
+ * the left (search, all chains, popular, A–Z), tokens of the chosen chain on the right (search by
+ * symbol, chain or contract; quick picks).
+ */
+function AssetChainPicker({ side, asset, assets, icons, shield, onPick }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" className="token-select xswap-token" onClick={() => setOpen(true)}>
+        <Logo src={assetLogos(asset, icons)} name={asset?.symbol} size={26} badge={asset && <Logo src={chainLogos(asset.blockchain)} name={chainName(asset.blockchain)} size={13} />} />
+        <span className="xswap-token__text">
+          <strong>{asset?.symbol || 'Select'}</strong>
+          {asset && <small>{chainName(asset.blockchain)}</small>}
+        </span>
+        <span aria-hidden>▾</span>
+      </button>
+      {open && (
+        <Modal title="Select token" onClose={() => setOpen(false)} width={760}>
+          <TokenChainList
+            side={side}
+            current={asset}
+            assets={assets}
+            icons={icons}
+            shield={shield}
+            onPick={(t) => {
+              onPick(t);
+              setOpen(false);
+            }}
+          />
+        </Modal>
+      )}
+    </>
+  );
+}
+
+function TokenChainList({ side, current, assets, icons, shield, onPick }) {
+  const [chain, setChain] = useState(current?.blockchain || 'all');
+  const [chainQ, setChainQ] = useState('');
+  const [q, setQ] = useState('');
+  const chains = useMemo(() => [...new Set(assets.map((t) => t.blockchain))], [assets]);
+  const off = (c) => unavailableReason(c, side, shield);
+  const az = [...chains].sort((a, b) => Boolean(off(a)) - Boolean(off(b)) || chainName(a).localeCompare(chainName(b)));
+  const chainNeedle = chainQ.trim().toLowerCase();
+  const chainHits = chainNeedle ? az.filter((c) => chainName(c).toLowerCase().includes(chainNeedle) || c.includes(chainNeedle)) : null;
+  const needle = q.trim().toLowerCase();
+  const tokens = assets
+    .filter((t) => chain === 'all' || t.blockchain === chain)
+    .filter((t) => !needle || `${t.symbol} ${chainName(t.blockchain)} ${t.contractAddress || ''}`.toLowerCase().includes(needle))
+    .sort((a, b) => Boolean(off(a.blockchain)) - Boolean(off(b.blockchain)))
+    .slice(0, 300);
+
+  const chainRow = (c, group = '') => {
+    const why = off(c);
+    return (
+      <button
+        key={`${group}${c}`}
+        type="button"
+        className={`${c === chain ? 'is-on' : ''} ${why ? 'is-off' : ''}`}
+        onClick={() => setChain(c)}
+        title={why === 'Paused' ? 'Paused by NEAR Intents for now' : why ? 'Not supported here yet' : chainName(c)}
+      >
+        <Logo src={chainLogos(c)} name={chainName(c)} size={20} />
+        <span>{chainName(c)}</span>
+        {why && <em>{why}</em>}
+      </button>
+    );
+  };
+
+  return (
+    <div className="tcp">
+      <aside className="tcp__chains">
+        <input placeholder="Search chains" value={chainQ} onChange={(e) => setChainQ(e.target.value)} />
+        <div className="tcp__chain-list">
+          {chainHits ? (
+            chainHits.length ? chainHits.map((c) => chainRow(c)) : <p className="muted small">No chain matches.</p>
+          ) : (
+            <>
+              <button type="button" className={chain === 'all' ? 'is-on' : ''} onClick={() => setChain('all')}>
+                <span className="tcp__all" aria-hidden>
+                  ◎
+                </span>
+                <span>All chains</span>
+              </button>
+              <small className="tcp__group">Popular</small>
+              {POPULAR_CHAINS.filter((c) => chains.includes(c)).map((c) => chainRow(c, 'popular-'))}
+              <small className="tcp__group">Chains A–Z</small>
+              {az.map((c) => chainRow(c))}
+            </>
+          )}
+        </div>
+      </aside>
+      <section className="tcp__tokens">
+        <input autoFocus placeholder={`Search ${chain === 'all' ? 'all chains' : chainName(chain)}: token or contract`} value={q} onChange={(e) => setQ(e.target.value)} />
+        <div className="tcp__quick">
+          {QUICK_TOKENS.map((s) => (
+            <button key={s} type="button" className={q.toUpperCase() === s ? 'is-on' : ''} onClick={() => setQ(q.toUpperCase() === s ? '' : s)}>
+              <Logo src={assetLogos({ symbol: s }, icons)} name={s} size={16} />
+              {s}
+            </button>
+          ))}
+        </div>
+        <small className="tcp__group">{chain === 'all' ? 'All chains' : chainName(chain)}</small>
+        <div className="tcp__token-list">
+          {tokens.map((t) => {
+            const why = off(t.blockchain);
+            return (
+            <button
+              key={t.assetId}
+              type="button"
+              className={`${t.assetId === current?.assetId ? 'is-on' : ''} ${why ? 'is-off' : ''}`}
+              disabled={Boolean(why)}
+              title={why === 'Paused' ? `${chainName(t.blockchain)} is paused by NEAR Intents for now` : why ? `Not supported on this side yet` : undefined}
+              onClick={() => onPick(t)}
+            >
+              <Logo src={assetLogos(t, icons)} name={t.symbol} size={30} badge={<Logo src={chainLogos(t.blockchain)} name={chainName(t.blockchain)} size={14} />} />
+              <span className="tcp__token-name">
+                <b>{t.symbol}</b>
+                <small>
+                  {chainName(t.blockchain)}
+                  {t.contractAddress ? ` · ${shortAddress(t.contractAddress)}` : ' · native'}
+                </small>
+              </span>
+              <span className="tcp__token-price">{why ? <em className="tcp__off">{why}</em> : t.price ? formatUsd(t.price) : ''}</span>
+            </button>
+            );
+          })}
+          {!tokens.length && <p className="muted small">Nothing matches.</p>}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 export default function Deposit() {
   const { accountId, connect, nearBalance } = useApp();
   const assets = useAsync(() => getDepositAssets(), []);
@@ -822,6 +1239,7 @@ export default function Deposit() {
   const shield = useAsync(() => getShieldStatus(), [], { refreshMs: SHIELD_POLL_MS }).data || NO_INCIDENTS;
   const [active, setActive] = useLocalStorage(ACTIVE_KEY, null);
   const [activeW, setActiveW] = useLocalStorage(ACTIVE_W_KEY, null);
+  const [activeX, setActiveX] = useLocalStorage(ACTIVE_X_KEY, null);
   const [mode, setMode] = useLocalStorage(MODE_KEY, 'deposit');
   const [chain, setChain] = useState('base');
   const [assetId, setAssetId] = useState('');
@@ -873,6 +1291,8 @@ export default function Deposit() {
         depositMemo: q.depositMemo || null,
         deadline: q.deadline || q.request?.deadline,
         amountInFormatted: q.amountInFormatted,
+        amountIn: String(q.amountIn),
+        asset: { contractAddress: asset.contractAddress || null, decimals: asset.decimals },
         symbol: asset.symbol,
         logos: assetLogos(asset, icons),
         chain: asset.blockchain,
@@ -912,7 +1332,7 @@ export default function Deposit() {
             Bridge
           </h1>
           <p>
-            Any chain ⇄ NEAR. Move USDC, USDT, ETH, SOL and BTC between NEAR and {chains.length || 36} chains in about a minute, through NEAR Intents.
+            Any chain ⇄ NEAR, or any chain ⇄ any chain. Move USDC, USDT, ETH, SOL and BTC across {chains.length || 36} chains in about a minute, through NEAR Intents. Pay straight from MetaMask or Phantom.
           </p>
           <div className="dep-hero__stats">
             <span>
@@ -936,10 +1356,10 @@ export default function Deposit() {
         <div className="dep-main">
           <div className="segmented segmented--full dep-tabs" role="tablist">
             <button type="button" role="tab" aria-selected={mode !== 'withdraw'} className={mode !== 'withdraw' ? 'active' : ''} onClick={() => setMode('deposit')}>
-              ↓ Bring to NEAR
+              ↓ Deposit
             </button>
             <button type="button" role="tab" aria-selected={mode === 'withdraw'} className={mode === 'withdraw' ? 'active' : ''} onClick={() => setMode('withdraw')}>
-              ↑ Send from NEAR
+              ↑ Withdraw
             </button>
           </div>
         {mode === 'withdraw' ? (
@@ -1148,6 +1568,19 @@ export default function Deposit() {
         </div>
 
         <section className="dep-how">
+          {activeX ? (
+            <ActiveDeposit active={activeX} icons={icons} shield={shield} onDone={() => setActiveX(null)} />
+          ) : (
+            <section className="card dep-card dep-swap">
+              <header className="dep-swap__head">
+                <h3>⇄ Cross-chain swap</h3>
+                <small className="muted">Any chain to any chain · pay from your wallet</small>
+              </header>
+              {assets.error && <ErrorNotice error={assets.error} onRetry={assets.reload} />}
+              {!assets.data && !assets.error && <Skeleton height={260} />}
+              {assets.data && <CrossForm assets={list} icons={icons} shield={shield} onStarted={setActiveX} />}
+            </section>
+          )}
           <div className="card dep-how__steps">
             <h3 className="dep-how__title">How it works</h3>
             {(mode === 'withdraw' ? HOW_SEND : HOW_BRING).map((step, i) => (

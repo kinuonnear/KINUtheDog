@@ -1030,3 +1030,328 @@
   color: var(--muted);
   font-size: 12px;
 }
+
+/* ---------- pay from wallet ---------- */
+.dep-pay {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.dep-pay__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dep-pay__list .button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dep-pay__list img {
+  border-radius: 4px;
+}
+
+@media (max-width: 600px) {
+  .dep-tabs button {
+    font-size: 12.5px;
+    padding: 0 6px;
+  }
+}
+
+/* ---------- Swap tab: a swap widget (the Swap page's fields), any chain to any chain ---------- */
+.xswap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.xswap .swap-flip-wrap {
+  margin: -16px 0;
+}
+
+.xswap .swap-field__top .muted {
+  font-size: 12px;
+}
+
+.xswap-token {
+  gap: 8px;
+  flex: none;
+}
+
+.xswap-token__text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.1;
+}
+
+.xswap-token__text small {
+  font-size: 11px;
+  color: var(--faint, #6b7684);
+}
+
+/* Token picker (modal): chains on the left, tokens on the right. */
+.tcp {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap: 14px;
+  height: min(560px, 70vh);
+}
+
+.modal .tcp input {
+  width: 100%;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.1));
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  color: inherit;
+  font: inherit;
+}
+
+.tcp__chains,
+.tcp__tokens {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+.tcp__chains {
+  padding-right: 12px;
+  border-right: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+}
+
+.tcp__chain-list,
+.tcp__token-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.tcp__chain-list button,
+.tcp__token-list button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tcp__chain-list button {
+  font-size: 13.5px;
+}
+
+.tcp__chain-list button:hover,
+.tcp__token-list button:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.tcp__chain-list button.is-on,
+.tcp__token-list button.is-on {
+  background: rgba(34, 226, 131, 0.09);
+}
+
+.tcp__chain-list em {
+  margin-left: auto;
+  font-style: normal;
+  color: #ffb547;
+}
+
+.tcp__all {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  color: var(--accent, #22e283);
+}
+
+.tcp__group {
+  margin: 6px 8px 2px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--faint, #6b7684);
+}
+
+.tcp__quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tcp__quick button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px 0 7px;
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.1));
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tcp__quick button.is-on {
+  border-color: var(--accent, #22e283);
+  background: rgba(34, 226, 131, 0.08);
+}
+
+.tcp__token-name {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tcp__token-name small {
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--faint, #6b7684);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tcp__token-price {
+  font-size: 13px;
+  color: var(--muted, #9aa4b2);
+}
+
+@media (max-width: 640px) {
+  .tcp {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+    height: 75vh;
+  }
+
+  .tcp__chains {
+    padding: 0 0 10px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+  }
+
+  .tcp__chain-list {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .tcp__chain-list button {
+    flex: none;
+    width: auto;
+    padding: 6px 10px;
+    border: 1px solid var(--line, rgba(255, 255, 255, 0.1));
+    border-radius: 999px;
+  }
+
+  .tcp__chain-list .tcp__group {
+    display: none;
+  }
+}
+
+.xswap__addrs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.xswap__addr {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.xswap__info {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 6px 16px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+  font-size: 13px;
+}
+
+.xswap__info div {
+  display: flex;
+  gap: 6px;
+}
+
+.xswap__info dt {
+  color: var(--faint, #6b7684);
+}
+
+.xswap__info dd {
+  margin: 0;
+}
+
+@media (max-width: 600px) {
+  .xswap__addrs {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* The swap's own card, top of the right column. */
+.dep-swap__head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dep-swap__head h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.dep-swap .xswap__addrs {
+  grid-template-columns: 1fr;
+}
+
+/* Chains and tokens that can't be used right now (paused by NEAR Intents, or not supported yet). */
+.tcp__chain-list button.is-off,
+.tcp__token-list button.is-off {
+  opacity: 0.42;
+}
+
+.tcp__token-list button.is-off {
+  cursor: not-allowed;
+}
+
+.tcp__token-list button.is-off:hover {
+  background: transparent;
+}
+
+.tcp__chain-list button.is-off em,
+.tcp__off {
+  margin-left: auto;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(255, 181, 71, 0.12);
+  color: #ffb547;
+  font-size: 10.5px;
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
