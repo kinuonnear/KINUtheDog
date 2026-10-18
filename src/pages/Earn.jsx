@@ -26,6 +26,7 @@ import {
 import { submitDepositTx, SUPPORT } from '../lib/intents.js';
 import { formatAmount, formatUnits, formatUsd, toBigInt, tryParseUnits } from '../lib/format.js';
 import { NEAR_GAS_RESERVE } from '../config.js';
+import { priceOf } from '../lib/tokens.js';
 import { ErrorNotice, Skeleton, Spinner } from '../components/ui.jsx';
 import { FlowLines } from '../components/FlowLines.jsx';
 import '../deposit.css';
@@ -34,8 +35,9 @@ import '../earn.css';
 
 const PRESETS = [25, 50, 75, 100];
 const STATUS_POLL_MS = 8000;
-// NEAR Intents quotes nothing much below this (checked 18 Oct 2026: $10 fails, $12 quotes).
-const MIN_USD = 12;
+// NEAR Intents quotes nothing below about $12 (checked 18 Oct 2026: $10 fails, $12 quotes). KINU asks
+// for $15 on every deposit and withdrawal, so a position can still be withdrawn after fees and a dip.
+const MIN_USD = 15;
 /** 1Click's errors in words that say what to do. */
 const explain = (error) =>
   /no liquidity/i.test(error?.message || '') ? new Error(`No route for this amount. NEAR Intents needs about $${MIN_USD} or more per deposit or withdrawal.`) : error;
@@ -122,7 +124,7 @@ function Tracker({ entry, onDone }) {
 }
 
 export default function Earn() {
-  const { accountId, connect, balances, nearBalance, execute, toast } = useApp();
+  const { accountId, connect, balances, nearBalance, execute, toast, prices } = useApp();
   const stats = useAsync(() => getVaultStats(), [], { refreshMs: 600_000 });
   const positions = useAsync(() => getEarnPositions(accountId), [accountId], { enabled: Boolean(accountId), refreshMs: 60_000 });
   const [pending, setPending] = useState(() => readPending(accountId));
@@ -145,12 +147,20 @@ export default function Earn() {
   const heldUsd = positions.data?.[pick]?.usd || 0;
   const shares = (held * BigInt(share)) / 100n;
   const tooMuch = mode === 'deposit' && accountId && raw > spendable;
+  // Dollar sizes, to keep every deposit and withdrawal above the minimum.
+  const payPrice = payKey === 'usdc' ? 1 : priceOf(prices, 'wrap.near') || 0;
+  const depositUsd = Number(formatUnits(raw, pay.decimals)) * payPrice;
+  const withdrawUsd = (heldUsd * share) / 100;
+  const leftUsd = heldUsd - withdrawUsd;
+  const belowMin = mode === 'deposit' ? raw > 0n && payPrice > 0 && depositUsd < MIN_USD : held > 0n && withdrawUsd < MIN_USD;
+  // A partial withdrawal must not leave a remainder too small to withdraw later.
+  const smallRest = mode === 'withdraw' && share < 100 && leftUsd > 0 && leftUsd < MIN_USD;
   const s = stats.data?.[pick];
 
   // A dry quote for what the user would get, re-asked as they type.
   const formKey = mode === 'deposit' ? `d|${pick}|${payKey}|${raw}` : `w|${pick}|${payKey}|${shares}`;
   const key = useDebounced(formKey, 500);
-  const wantQuote = Boolean(accountId) && key === formKey && (mode === 'deposit' ? raw > 0n && !tooMuch : shares > 0n);
+  const wantQuote = Boolean(accountId) && key === formKey && (mode === 'deposit' ? raw > 0n && !tooMuch : shares > 0n) && !belowMin && !smallRest;
   const preview = useAsync(
     () => (mode === 'deposit' ? earnDepositQuote({ vault, payKey, amount: raw, accountId }) : earnWithdrawQuote({ vault, toKey: payKey, shares, accountId })),
     [key],
@@ -221,12 +231,15 @@ export default function Earn() {
   else if (mode === 'deposit') {
     if (!(raw > 0n)) label = 'Enter an amount';
     else if (tooMuch) label = `More than your ${pay.symbol}`;
+    else if (belowMin) label = `Minimum deposit is $${MIN_USD}`;
     else if (preview.loading || !q) label = 'Getting a price…';
     else label = `Deposit ${amount} ${pay.symbol}`;
   } else if (!(held > 0n)) label = 'Nothing to withdraw';
+  else if (belowMin) label = heldUsd < MIN_USD ? `Position is below the $${MIN_USD} minimum` : `Minimum withdrawal is $${MIN_USD}`;
+  else if (smallRest) label = `Withdraw All: the rest would be under $${MIN_USD}`;
   else if (preview.loading || !q) label = 'Getting a price…';
   else label = `Withdraw ≈ ${formatAmount(Number(q.amountOutFormatted))} ${pay.symbol}`;
-  const ready = Boolean(accountId && q && agreed && (mode === 'deposit' ? raw > 0n && !tooMuch : shares > 0n));
+  const ready = Boolean(accountId && q && agreed && !belowMin && !smallRest && (mode === 'deposit' ? raw > 0n && !tooMuch : shares > 0n));
 
   const best = stats.data ? Math.max(...VAULTS.map((v) => stats.data[v.key]?.apy ?? -Infinity)) : null;
   const tvl = stats.data ? VAULTS.reduce((sum, v) => sum + (stats.data[v.key]?.tvlUsd || 0), 0) : null;
@@ -345,6 +358,17 @@ export default function Earn() {
               </div>
             )}
 
+            {(belowMin || smallRest) && (
+              <p className="earn-note earn-note--warn">
+                {mode === 'deposit'
+                  ? `Deposits start at $${MIN_USD}. NEAR Intents can’t route less, and a smaller position might be impossible to withdraw later.`
+                  : heldUsd < MIN_USD
+                    ? `This position is worth less than $${MIN_USD}, which NEAR Intents may not be able to route. Deposit a little more, then withdraw All.`
+                    : smallRest
+                      ? `That would leave ≈ ${formatUsd(leftUsd)}, too little to withdraw later. Withdraw All instead, or a smaller share.`
+                      : `Withdrawals start at $${MIN_USD}. Pick a larger share.`}
+              </p>
+            )}
             {preview.error && wantQuote && <ErrorNotice error={explain(preview.error)} onRetry={preview.reload} />}
 
             <div className="stk-quote">
