@@ -20,6 +20,8 @@ const INTENTS = 'intents.near';
 const REFERRAL = 'kinu';
 const QUOTE_TTL_MS = 30 * 60_000;
 const SLIPPAGE_BPS = 100;
+// 1Click's withdrawal messages are valid for about 3 days (seen 18 Oct 2026); anything far longer is refused.
+const MAX_INTENT_LIFETIME_MS = 7 * 86_400_000;
 
 /** What a deposit can be paid with and a withdrawal paid out in (NEAR-side 1Click assets). */
 export const PAY = {
@@ -225,7 +227,7 @@ function assertWithdrawIntent(intent, { accountId, depositAddress, assetId, amou
   }
   const deadline = Date.parse(m.deadline);
   const sends = new Map();
-  let ok = m.signer_id === accountId && Number.isFinite(deadline) && deadline > Date.now() && deadline < Date.now() + 2 * 86_400_000 && Array.isArray(m.intents) && m.intents.length > 0;
+  let ok = m.signer_id === accountId && Number.isFinite(deadline) && deadline > Date.now() && deadline < Date.now() + MAX_INTENT_LIFETIME_MS && Array.isArray(m.intents) && m.intents.length > 0;
   for (const i of ok ? m.intents : []) {
     if (i.intent === 'transfer' && i.receiver_id === depositAddress && i.tokens && typeof i.tokens === 'object') {
       for (const [token, value] of Object.entries(i.tokens)) sends.set(token, (sends.get(token) || 0n) + BigInt(value));
