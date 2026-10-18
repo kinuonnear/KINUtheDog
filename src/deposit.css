@@ -14,17 +14,6 @@
   color: var(--faint);
 }
 
-.dep-beta {
-  margin-left: 6px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--accent-soft);
-  color: var(--accent);
-  font: 600 10px/1.4 var(--mono);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
 /* ---------- header: the same open title as Pools (.pt-hero / .pt-title), chains art on the right ---------- */
 .dep-hero.pt-hero {
   position: relative;
@@ -50,16 +39,6 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-}
-
-/* Beta tag beside the title, not inside its gradient text. */
-.dep-hero .pt-title .dep-beta {
-  display: inline-block;
-  margin-left: 12px;
-  vertical-align: middle;
-  -webkit-text-fill-color: var(--accent);
-  font-size: 11px;
-  letter-spacing: 0.1em;
 }
 
 .dep-hero p {

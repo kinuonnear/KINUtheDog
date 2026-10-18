@@ -906,9 +906,7 @@ export default function Deposit() {
         <FlowLines />
         <ShieldBadge shield={shield} />
         <div className="dep-hero__copy">
-          <h1 className="pt-title">
-            Bridge <span className="dep-beta">Beta</span>
-          </h1>
+          <h1 className="pt-title">Bridge</h1>
           <p>
             Any chain ⇄ NEAR. Move USDC, USDT, ETH, SOL and BTC between NEAR and {chains.length || 36} chains in about a minute, through NEAR Intents.
           </p>
