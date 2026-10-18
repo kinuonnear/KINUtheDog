@@ -1381,6 +1381,19 @@ a.pool-row:hover + .pool-row {
   }
 }
 
+/* Phones: same, and the buttons wrap instead of running off the card. */
+@media (max-width: 640px) {
+  .swap-card__head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .swap-card__tools {
+    flex-wrap: wrap;
+  }
+}
+
 .swap-field {
   padding: 14px 16px;
   border-radius: var(--radius);
