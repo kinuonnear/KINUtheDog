@@ -251,9 +251,7 @@ function VaultsView({ switcher }) {
     <div className="page stake earn">
       <header className="pt-hero stk-hero">
         <FlowLines />
-        <h1 className="pt-title">
-          Earn <span className="earn-beta">BETA</span>
-        </h1>
+        <h1 className="pt-title">Earn</h1>
         <p>Put USDC or NEAR to work in leading yield vaults on Base and Solana, straight from your NEAR wallet. Powered by NEAR Intents.</p>
         {switcher}
         <div className="dep-hero__stats">

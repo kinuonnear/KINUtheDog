@@ -1,17 +1,5 @@
 /* Earn (/earn): built on the Stake page's layout (stake.css) and the Bridge's pieces (deposit.css). */
 
-.earn-beta {
-  margin-left: 10px;
-  padding: 3px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 999px;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  vertical-align: middle;
-}
-
 .earn-icon {
   position: relative;
   display: inline-block;
