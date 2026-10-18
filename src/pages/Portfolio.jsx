@@ -18,6 +18,7 @@ import DustSweeper from '../components/DustSweeper.jsx';
 import { EmptyState, ErrorNotice, Skeleton, Spinner, Stat, Tabs, TokenIcon } from '../components/ui.jsx';
 import { FlowLines } from '../components/FlowLines.jsx';
 import StakingSummary from '../components/StakingSummary.jsx';
+import EarnSummary from '../components/EarnSummary.jsx';
 import '../portfolio.css';
 
 const DUST_USD = 0.01;
@@ -323,6 +324,7 @@ export default function Portfolio() {
       </section>
 
       <StakingSummary account={viewed} readOnly={readOnly} />
+      <EarnSummary account={viewed} readOnly={readOnly} />
 
       <Tabs
         tabs={[

@@ -1,11 +1,13 @@
-// Earn (/earn): put USDC or NEAR into yield vaults on other chains (Morpho on Base, Kamino on
-// Solana) straight from a NEAR wallet, through NEAR Intents (lib/earn.js). Shares stay in the user's
-// own NEAR Intents balance; a withdrawal is a message they sign. KINU's fee is 0.10% each way.
+// Earn (/earn): two ways to grow what you hold, picked at the top.
+//   Vaults  — USDC or NEAR into yield vaults on other chains (Morpho on Base, Kamino on Solana) straight
+//             from a NEAR wallet, through NEAR Intents (lib/earn.js). Shares stay in the user's own NEAR
+//             Intents balance; a withdrawal is a message they sign. KINU's fee is 0.10% each way.
+//   Staking — liquid staking with LiNEAR or stNEAR (pages/Stake.jsx; /stake opens this tab).
 
-import { useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { useApp } from '../state.jsx';
 import { useAsync, useDebounced } from '../hooks.js';
-import { Link } from '../router.jsx';
+import { Link, navigate } from '../router.jsx';
 import {
   buildEarnDepositTransactions,
   depositStatus,
@@ -123,7 +125,7 @@ function Tracker({ entry, onDone }) {
   );
 }
 
-export default function Earn() {
+function VaultsView({ switcher }) {
   const { accountId, connect, balances, nearBalance, execute, toast, prices } = useApp();
   const stats = useAsync(() => getVaultStats(), [], { refreshMs: 600_000 });
   const positions = useAsync(() => getEarnPositions(accountId), [accountId], { enabled: Boolean(accountId), refreshMs: 60_000 });
@@ -253,6 +255,7 @@ export default function Earn() {
           Earn <span className="earn-beta">BETA</span>
         </h1>
         <p>Put USDC or NEAR to work in leading yield vaults on Base and Solana, straight from your NEAR wallet. Powered by NEAR Intents.</p>
+        {switcher}
         <div className="dep-hero__stats">
           <span>
             <b>{best != null && Number.isFinite(best) ? `up to ${best.toFixed(2)}%` : '…'}</b> APY
@@ -599,4 +602,64 @@ export default function Earn() {
       </div>
     </div>
   );
+}
+
+const Stake = lazy(() => import('./Stake.jsx'));
+const TABS = [
+  {
+    key: 'vaults',
+    label: 'Vaults',
+    sub: 'USDC & SOL · Base, Solana',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <ellipse cx="12" cy="6" rx="7" ry="3" />
+        <path d="M5 6v6c0 1.66 3.13 3 7 3s7-1.34 7-3V6" />
+        <path d="M5 12v6c0 1.66 3.13 3 7 3s7-1.34 7-3v-6" />
+      </svg>
+    )
+  },
+  {
+    key: 'staking',
+    label: 'Staking',
+    sub: 'NEAR · LiNEAR, stNEAR',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M12 3l7 4v5c0 4.2-2.9 7.6-7 9-4.1-1.4-7-4.8-7-9V7z" />
+        <path d="M9 12l2 2 4-4" />
+      </svg>
+    )
+  }
+];
+
+/** Earn: the Vaults / Staking choice, kept in the URL (/earn?tab=staking; /stake opens Staking). */
+export default function Earn({ initialTab = 'vaults' }) {
+  const [tab, setTab] = useState(() => {
+    const q = new URLSearchParams(window.location.search).get('tab');
+    return q === 'staking' || q === 'vaults' ? q : initialTab;
+  });
+  const choose = (key) => {
+    setTab(key);
+    navigate(key === 'vaults' ? '/earn' : '/earn?tab=staking', { replace: true });
+  };
+  const switcher = (
+    <div className="earn-tabs" role="tablist" aria-label="Earn with">
+      {TABS.map((x) => (
+        <button key={x.key} type="button" role="tab" aria-selected={tab === x.key} className={tab === x.key ? 'is-on' : ''} onClick={() => choose(x.key)}>
+          <span className="earn-tabs__icon">{x.icon}</span>
+          <span className="earn-tabs__text">
+            <b>{x.label}</b>
+            <small>{x.sub}</small>
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+  if (tab === 'staking') {
+    return (
+      <Suspense fallback={<div className="page stake"><Skeleton height={320} /></div>}>
+        <Stake switcher={switcher} />
+      </Suspense>
+    );
+  }
+  return <VaultsView switcher={switcher} />;
 }

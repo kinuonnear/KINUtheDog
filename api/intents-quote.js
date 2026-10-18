@@ -32,6 +32,9 @@ async function symbols() {
 // NEAR Intents balance) and an Earn withdrawal (shares paid from that balance, by a signed intent).
 const isBridge = (b) => b.depositType === 'ORIGIN_CHAIN' && b.recipientType === 'DESTINATION_CHAIN' && b.refundType === 'ORIGIN_CHAIN';
 const isEarnDeposit = (b) => b.depositType === 'ORIGIN_CHAIN' && b.recipientType === 'INTENTS' && b.refundType === 'ORIGIN_CHAIN' && isEarnAsset(b.destinationAsset);
+// The treasury converting fees in its own Intents balance to USDC in its wallet (no fee to itself).
+const isTreasuryConvert = (b) =>
+  b.depositType === 'INTENTS' && b.recipientType === 'DESTINATION_CHAIN' && b.refundType === 'INTENTS' && b.recipient === KINU_FEE_RECIPIENT && b.refundTo === KINU_FEE_RECIPIENT;
 const isEarnWithdraw = (b) => b.depositType === 'INTENTS' && b.recipientType === 'DESTINATION_CHAIN' && b.refundType === 'INTENTS' && isEarnAsset(b.originAsset);
 
 /** The request the page sends, checked field by field; null when anything is off. */
@@ -45,7 +48,7 @@ function clean(b) {
     b.slippageTolerance <= 500 &&
     ASSET.test(b.originAsset) &&
     ASSET.test(b.destinationAsset) &&
-    (isBridge(b) || isEarnDeposit(b) || isEarnWithdraw(b)) &&
+    (isBridge(b) || isEarnDeposit(b) || isEarnWithdraw(b) || isTreasuryConvert(b)) &&
     /^\d{1,40}$/.test(b.amount) &&
     ADDRESS.test(b.recipient) &&
     ADDRESS.test(b.refundTo) &&
@@ -63,7 +66,7 @@ export default async function handler(req, res) {
   if (!body) return res.status(400).json({ message: 'Invalid quote request' });
   try {
     const map = await symbols();
-    body.appFees = [{ recipient: KINU_FEE_RECIPIENT, fee: quoteFeeBps(body.originAsset, body.destinationAsset, (id) => map.get(id)) }];
+    if (!isTreasuryConvert(body)) body.appFees = [{ recipient: KINU_FEE_RECIPIENT, fee: quoteFeeBps(body.originAsset, body.destinationAsset, (id) => map.get(id)) }];
     const key = process.env.NEAR_INTENTS_API_KEY;
     const r = await fetch(`${API}/quote`, {
       method: 'POST',

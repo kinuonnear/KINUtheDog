@@ -32,7 +32,6 @@ const LpProfile = lazy(() => import('./pages/LpProfile.jsx'));
 const IntearPools = lazy(() => import('./pages/IntearPools.jsx'));
 const Treasury = lazy(() => import('./pages/Treasury.jsx'));
 const Deposit = lazy(() => import('./pages/Deposit.jsx'));
-const Stake = lazy(() => import('./pages/Stake.jsx'));
 const Earn = lazy(() => import('./pages/Earn.jsx'));
 
 // Liquidity first: Pools (and Create) right after Home. Docs and the rest live under More.
@@ -42,8 +41,7 @@ const NAV = [
   { to: '/discover', label: 'Discover', match: ['discover', 'new', 'token', 'lp'] },
   { to: '/swap', label: 'Swap', match: ['swap'] },
   { to: '/bridge', label: 'Bridge', match: ['deposit'] },
-  { to: '/stake', label: 'Stake', match: ['stake'] },
-  { to: '/earn', label: 'Earn', match: ['earn'] },
+  { to: '/earn', label: 'Earn', match: ['earn', 'stake'] },
   { to: '/portfolio', label: 'Portfolio', match: ['portfolio'] },
   { to: '/agent', label: 'Agent', match: ['agent'] }
 ];
@@ -192,7 +190,7 @@ export default function App() {
       page = <Deposit />;
       break;
     case 'stake':
-      page = <Stake />;
+      page = <Earn initialTab="staking" />;
       break;
     case 'earn':
       page = <Earn />;

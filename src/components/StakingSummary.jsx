@@ -1,5 +1,5 @@
 // Portfolio: the viewed account's liquid staking (LiNEAR, stNEAR) as staking — NEAR value, APY and
-// any delayed unstake — with a link to /stake. Renders nothing when the account has none.
+// any delayed unstake — with a link to Earn's Staking tab. Renders nothing when the account has none.
 
 import { useAsync } from '../hooks.js';
 import { Link } from '../router.jsx';
@@ -34,8 +34,8 @@ export default function StakingSummary({ account, readOnly }) {
     <section className="card stk-summary">
       <div className="stk-summary__head">
         <span className="eyebrow">Staking</span>
-        <Link to="/stake" className="link-button">
-          {readOnly ? 'Open Stake →' : 'Manage on Stake →'}
+        <Link to="/earn?tab=staking" className="link-button">
+          {readOnly ? 'Open Earn →' : 'Manage on Earn →'}
         </Link>
       </div>
       <div className="stk-summary__rows">

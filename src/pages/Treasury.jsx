@@ -2,7 +2,7 @@
 // KINU's health (the trigger for moving LP profits into $KINU support), how each payment is split (operations, audit reserve, liquidity), every allocation with its
 // transaction, and the public LP wallet's live positions. Read-only. Linked from the More menu.
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useApp } from '../state.jsx';
 import { useAsync } from '../hooks.js';
 import { Link, poolPath } from '../router.jsx';
@@ -15,7 +15,9 @@ import { getClassicPositions } from '../lib/rhea.js';
 import { formatAmount, formatUsd, toNumber } from '../lib/format.js';
 import { bpsText, ENDPOINTS, INTEAR_FEE, INTEAR_REFERRER, KINU_TOKEN, NATIVE_NEAR, PLATFORM_FEE, PLATFORM_FEE_TOKENS } from '../config.js';
 import { ensureStorageTx, isStorageRegistered } from '../lib/tx.js';
-import { ErrorNotice, PairIcons, Skeleton } from '../components/ui.jsx';
+import { convertToUsdc, getIntentsHoldings, withdrawToWalletTxs } from '../lib/intentsTreasury.js';
+import { CHAIN_NAMES } from '../lib/intents.js';
+import { ErrorNotice, PairIcons, Skeleton, Spinner } from '../components/ui.jsx';
 import { FlowLines } from '../components/FlowLines.jsx';
 import '../pools.css';
 import '../treasury.css';
@@ -171,6 +173,110 @@ function FeeSetup() {
   );
 }
 
+// 1Click won't route much below ~$12 (lib/earn.js), so conversions start here.
+const CONVERT_MIN_USD = 15;
+
+/**
+ * Bridge and Earn fees: paid into the treasury's balance inside NEAR Intents. Public; the treasury
+ * account itself can withdraw NEAR tokens to its wallet or convert bridged ones to USDC.
+ */
+function IntentsFees() {
+  const { accountId, execute, toast } = useApp();
+  const owner = PLATFORM_FEE.treasury;
+  const holdings = useAsync(() => getIntentsHoldings(owner), [], { refreshMs: 120_000 });
+  const [busy, setBusy] = useState('');
+  const isOwner = accountId === owner;
+  const total = (holdings.data || []).reduce((s, h) => s + h.usd, 0);
+  const amountText = (h) => formatAmount(Number(h.amount) / 10 ** h.decimals);
+
+  const withdraw = async (h) => {
+    setBusy(h.assetId);
+    const done = await execute(() => withdrawToWalletTxs({ assetId: h.assetId, amount: h.amount, accountId }), {
+      pending: `Withdrawing ${amountText(h)} ${h.symbol} to ${owner}`,
+      success: 'Fees withdrawn to the treasury wallet'
+    });
+    setBusy('');
+    if (done) holdings.reload();
+  };
+  const convert = async (h) => {
+    setBusy(h.assetId);
+    try {
+      await convertToUsdc({
+        assetId: h.assetId,
+        amount: h.amount,
+        accountId,
+        registerKey: (txs) => execute(async () => txs, { pending: 'Registering the treasury key with NEAR Intents (one time)', success: 'Key registered' })
+      });
+      toast('success', 'Conversion sent', `${h.symbol} → USDC, paid to ${owner} in a few minutes.`);
+      setTimeout(() => holdings.reload(), 20_000);
+    } catch (e) {
+      toast('error', 'Conversion not sent', e.message || String(e));
+    }
+    setBusy('');
+  };
+
+  return (
+    <section className="ts-section">
+      <h2>Bridge &amp; Earn fees</h2>
+      <p className="muted">
+        KINU&apos;s share of Bridge and Earn fees is paid by NEAR Intents into{' '}
+        <a href={`https://near-intents.org/account?user=near:${owner}`} target="_blank" rel="noopener noreferrer" className="mono">
+          {owner}
+        </a>
+        &apos;s balance inside NEAR Intents, in the token each user sent.
+      </p>
+      {holdings.error && <ErrorNotice error={holdings.error} onRetry={holdings.reload} />}
+      {!holdings.data && !holdings.error && <Skeleton height={80} />}
+      {holdings.data && (
+        <>
+          <div className="ts-tiles">
+            <Tile label="Fee balance in NEAR Intents" value={formatUsd(total)} hint={`${holdings.data.length} token${holdings.data.length === 1 ? '' : 's'}`} />
+          </div>
+          {holdings.data.length > 0 && (
+            <div className="ts-ifees">
+              {holdings.data.map((h) => (
+                <div key={h.assetId} className="ts-ifee">
+                  <div>
+                    <b>
+                      {amountText(h)} {h.symbol}
+                    </b>
+                    <small className="muted">
+                      ≈ {formatUsd(h.usd)}
+                      {h.chain && h.chain !== 'near' ? ` · bridged from ${CHAIN_NAMES[h.chain] || h.chain}` : ''}
+                    </small>
+                  </div>
+                  {isOwner &&
+                    (h.onNear ? (
+                      <button type="button" className="button button--outline button--sm" disabled={Boolean(busy)} onClick={() => withdraw(h)}>
+                        {busy === h.assetId && <Spinner size={12} />} Withdraw to wallet
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="button button--outline button--sm"
+                        disabled={Boolean(busy) || h.usd < CONVERT_MIN_USD}
+                        title={h.usd < CONVERT_MIN_USD ? `NEAR Intents converts from about ${CONVERT_MIN_USD}` : undefined}
+                        onClick={() => convert(h)}
+                      >
+                        {busy === h.assetId && <Spinner size={12} />} {h.usd < CONVERT_MIN_USD ? `Convert from ${CONVERT_MIN_USD}` : 'Convert to USDC'}
+                      </button>
+                    ))}
+                </div>
+              ))}
+            </div>
+          )}
+          {isOwner && (
+            <p className="muted small">
+              NEAR tokens come out to the treasury wallet as they are. Bridged tokens and vault shares are converted to USDC on NEAR (from ≈ $
+              {CONVERT_MIN_USD}; you sign a message, and the first time register the key with NEAR Intents).
+            </p>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
 export default function Treasury() {
   const { prices } = useApp();
   const info = useAsync(getCreatorFeeInfo, [], { refreshMs: 120_000 });
@@ -236,6 +342,7 @@ export default function Treasury() {
       </header>
 
       <FeeSetup />
+      <IntentsFees />
 
       {/* 1. What comes in */}
       <section className="ts-section">

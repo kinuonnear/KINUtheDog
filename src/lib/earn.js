@@ -124,8 +124,15 @@ export async function getAssetPrices() {
   if (tokenCache.map && Date.now() - tokenCache.at < 5 * 60_000) return tokenCache.map;
   const r = await fetch(`${API}/tokens`);
   if (!r.ok) throw new Error(`NEAR Intents HTTP ${r.status}`);
-  tokenCache = { at: Date.now(), map: new Map((await r.json()).map((t) => [t.assetId, Number(t.price) || 0])) };
+  const list = await r.json();
+  tokenCache = { at: Date.now(), map: new Map(list.map((t) => [t.assetId, Number(t.price) || 0])), info: new Map(list.map((t) => [t.assetId, t])) };
   return tokenCache.map;
+}
+
+/** 1Click's token record (symbol, decimals, chain, price) by asset id. */
+export async function getAssetInfo() {
+  await getAssetPrices();
+  return tokenCache.info;
 }
 
 /** The user's vault shares in their NEAR Intents balance, with a USD value: { [vaultKey]: { shares, usd } }. */
@@ -207,7 +214,7 @@ export async function buildEarnDepositTransactions({ quote, payKey, accountId, w
 async function intentCall(payload) {
   const r = await fetch('/api/intents-intent', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) });
   const json = await r.json().catch(() => ({}));
-  if (r.status === 404) throw new Error('Withdrawals from Earn need kinudefi.com (they are signed through KINU’s server).');
+  if (r.status === 404 || r.status === 503) throw new Error('This needs kinudefi.com: withdrawals from NEAR Intents are signed through KINU’s server.');
   if (!r.ok) throw new Error(json.message || `NEAR Intents HTTP ${r.status}`);
   return json;
 }
@@ -246,14 +253,13 @@ function assertWithdrawIntent(intent, { accountId, depositAddress, assetId, amou
 const base64ToBytes = (b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
 
 /**
- * Withdraw a vault position: a fresh signed quote, the withdrawal message from 1Click (checked), the
- * user's signature, a one-time key registration on intents.near if their key isn't known there yet
- * (`registerKey(txs)` sends it through the app's wallet flow), then submit. Returns the quote.
+ * Pays a live `depositType: INTENTS` quote from the account's NEAR Intents balance: the message from
+ * 1Click (checked), the user's signature, a one-time key registration on intents.near if their key
+ * isn't known there yet (`registerKey(txs)` sends it through the app's wallet flow), then submit.
  */
-export async function earnWithdraw({ vault, toKey, shares, accountId, registerKey }) {
-  const quote = await earnWithdrawQuote({ vault, toKey, shares, accountId, dry: false });
+export async function payFromIntents({ quote, accountId, registerKey }) {
   const { intent } = await intentCall({ action: 'generate', depositAddress: quote.depositAddress, signerId: accountId });
-  assertWithdrawIntent(intent, { accountId, depositAddress: quote.depositAddress, assetId: vault.receipt.assetId, amount: quote.amountIn });
+  assertWithdrawIntent(intent, { accountId, depositAddress: quote.depositAddress, assetId: quote.request?.originAsset, amount: quote.amountIn });
 
   const signed = await signMessage({ message: intent.payload.message, recipient: intent.payload.recipient, nonce: Buffer.from(intent.payload.nonce, 'base64') });
   if (signed.accountId && signed.accountId !== accountId) throw new Error('Your wallet signed with a different account. Nothing was sent.');
@@ -270,6 +276,13 @@ export async function earnWithdraw({ vault, toKey, shares, accountId, registerKe
   const signature = `ed25519:${base58Encode(base64ToBytes(signed.signature))}`;
   const submitted = await intentCall({ action: 'submit', signedData: { ...intent, public_key: publicKey, signature } });
   return { ...quote, intentHash: submitted.intentHash };
+}
+
+/** Withdraw a vault position: a fresh signed quote, then paid from the user's Intents balance. */
+export async function earnWithdraw({ vault, toKey, shares, accountId, registerKey }) {
+  const quote = await earnWithdrawQuote({ vault, toKey, shares, accountId, dry: false });
+  if (quote.request?.originAsset !== vault.receipt.assetId) throw new Error('This withdrawal quote is for another token. Nothing was signed.');
+  return payFromIntents({ quote, accountId, registerKey });
 }
 
 /* ---------------------------------------------------------------- tracking */

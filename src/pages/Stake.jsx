@@ -156,7 +156,8 @@ function ApyHistory({ pick, tokens, apy90 }) {
   );
 }
 
-export default function Stake() {
+/** `switcher`: shown inside Earn (pages/Earn.jsx) as its Staking tab, under Earn's title. */
+export default function Stake({ switcher = null }) {
   const { accountId, connect, nearBalance, execute } = useApp();
   const { info, apy, tokens, pools, clock, positions } = useStakingData(accountId);
   // What each held position has earned since it was staked (NearBlocks + archival prices).
@@ -270,8 +271,9 @@ export default function Stake() {
     <div className="page stake">
       <header className="pt-hero stk-hero">
         <FlowLines />
-        <h1 className="pt-title">Stake</h1>
+        <h1 className="pt-title">{switcher ? 'Earn' : 'Stake'}</h1>
         <p>Stake NEAR and keep it liquid. Earn validator rewards with LiNEAR or stNEAR, then put the token to work in Rhea pools.</p>
+        {switcher}
         <div className="dep-hero__stats">
           <span>
             <b>{totalAll != null ? nearCompact(totalAll) : '…'}</b> NEAR staked
