@@ -848,7 +848,7 @@ export default function Swap() {
                   {INTEAR_FEE.live && quote.intear?.feeBps > 0 && (
                     <div>
                       <dt>KINU fee</dt>
-                      <dd title={`On Intear routes: 80% to ${INTEAR_REFERRER}, 20% to Intear; ${bpsText(INTEAR_FEE.stableBps)} when both tokens are stable. Already included in You receive.`}>
+                      <dd title={`On Intear routes: 80% to ${INTEAR_REFERRER}, 20% to Intear${INTEAR_FEE.stableBps !== INTEAR_FEE.bps ? `; ${bpsText(INTEAR_FEE.stableBps)} when both tokens are stable` : ''}. Already included in You receive.`}>
                         {bpsText(quote.intear.feeBps)}{' '}
                         <small className="muted">· included</small>
                       </dd>

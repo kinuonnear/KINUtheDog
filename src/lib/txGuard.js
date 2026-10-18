@@ -194,7 +194,7 @@ function assertFeeWithinRate(transactions) {
   );
   fee.forEach((amount, token) => {
     const gross = amount + (spent.get(token) || 0n);
-    if (!spent.get(token) || amount * 10_000n > gross * BigInt(MAX_FEE_BPS) + 10_000n) {
+    if (!spent.get(token) || amount * 100_000n > gross * BigInt(Math.round(MAX_FEE_BPS * 10)) + 100_000n) {
       refuse({ receiverId: token }, 'the platform fee is larger than the published rate');
     }
   });

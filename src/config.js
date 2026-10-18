@@ -129,19 +129,20 @@ export const PLATFORM_FEE_TOKENS = [
 // its referral fee (INTEAR_FEE) is paid to it.
 export const INTEAR_REFERRER = 'kinu-treasury.near';
 
-// KINU's referral fee on Intear DEX (Plach) routes, set on Intear's side for INTEAR_REFERRER (Rhea
-// routes carry no KINU fee). Quotes already have it taken out. `live` turns on its disclosure across
-// the app (swap details, landing, Security, Docs); set it true only once the fee is actually set.
-export const INTEAR_FEE = { live: false, bps: 20, stableBps: 5 };
+// KINU's fee on Intear Aggregator routes, asked per quote (`fees`). Intear pays 80% of it to
+// INTEAR_REFERRER and keeps 20%: at 12.5 bps the user pays 0.125% and KINU nets 0.1%, the same as the
+// platform fee on other routes (a swap never pays both). Quotes already have it taken out. `live`
+// brings Intear routes back to Swap and turns on its disclosure across the app.
+export const INTEAR_FEE = { live: true, bps: 12.5, stableBps: 12.5 };
 
 /** "0.2%" for basis points. */
-export const bpsText = (bps) => `${Number((bps / 100).toFixed(2))}%`;
+export const bpsText = (bps) => `${Number((bps / 100).toFixed(3))}%`;
 
 /** Whether KINU charges any fee of its own on swaps (the platform fee or the Intear referral fee). */
 export const SWAP_FEE_LIVE = PLATFORM_FEE.enabled || INTEAR_FEE.live;
 
 const PLATFORM_FEE_LINE = `Swaps include a ${bpsText(PLATFORM_FEE.bps)} KINU platform fee (on Zap In and Rebalance, only on the part that is swapped; none on $KINU swaps or on adding or removing liquidity), shown before you sign and paid to ${PLATFORM_FEE.treasury}.`;
-const INTEAR_FEE_LINE = `Swaps routed through Intear DEX include a ${bpsText(INTEAR_FEE.bps)} KINU fee (${bpsText(INTEAR_FEE.stableBps)} on stable pairs), shown before you sign and paid to ${INTEAR_REFERRER}.`;
+const INTEAR_FEE_LINE = `Swaps routed through the Intear aggregator include a ${bpsText(INTEAR_FEE.bps)} fee instead${INTEAR_FEE.stableBps !== INTEAR_FEE.bps ? ` (${bpsText(INTEAR_FEE.stableBps)} on stable pairs)` : ''}: 80% to ${INTEAR_REFERRER}, 20% to Intear; shown before you sign.`;
 
 /** One line describing KINU's fees, for the landing, Security and Docs. */
 export const FEE_SUMMARY = SWAP_FEE_LIVE

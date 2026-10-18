@@ -31,7 +31,7 @@ const METHODS = {
 };
 
 // KINU's own fee on Intear routes (docs.intear.tech/dex-aggregator/guides/referral-fees): sent per
-// request as `referral_fees`; on Rhea / Rhea CLMM routes it is paid by an ft_transfer of the input
+// request as `fees` (renamed from `referral_fees` before launch); on Rhea / Rhea CLMM routes it is paid by an ft_transfer of the input
 // token in a fee transaction after the swap, 80% to KINU's account and 20% to Intear's protocol
 // account; on Intear DEX pools it is taken on chain. Off until INTEAR_FEE.live.
 const INTEAR_PROTOCOL_FEE_ACCOUNT = 'plach.intear.near';
@@ -197,7 +197,7 @@ export function assertIntearRoute(transactions, { tokenIn, amountIn, user, feeBp
     });
   });
   if (nearSpent > limit) throw new Error('route attaches more NEAR than the swap amount');
-  if (feeSpent * 10_000n > limit * BigInt(feeBps) + 10_000n) throw new Error('route fee above the agreed rate');
+  if (feeSpent * 100_000n > limit * BigInt(Math.round(feeBps * 10)) + 100_000n) throw new Error('route fee above the agreed rate');
   if (tokenSpent + feeSpent > limit) throw new Error('route spends more than the swap amount');
   if (tokenSpent === 0n && nearSpent === 0n) throw new Error('route does not spend the input');
 }
@@ -224,7 +224,7 @@ export async function getIntearQuotes({ tokenIn, tokenOut, amountIn, slippage, u
     referrer_id: INTEAR_REFERRER
   });
   const feeBps = intearFeeBps(tokenIn, tokenOut);
-  if (feeBps > 0) params.set('referral_fees', JSON.stringify({ [INTEAR_REFERRER]: feeBps / 10_000 }));
+  if (feeBps > 0) params.set('fees', JSON.stringify({ [INTEAR_REFERRER]: feeBps / 10_000 }));
   if (user) params.set('trader_account_id', user);
 
   const controller = new AbortController();

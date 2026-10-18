@@ -392,7 +392,7 @@ export default function Treasury() {
         )}
         {INTEAR_FEE.live && (
           <p className="muted small">
-            Also in: KINU&apos;s {bpsText(INTEAR_FEE.bps)} fee ({bpsText(INTEAR_FEE.stableBps)} on stable pairs) on swaps routed through Intear DEX,
+            Also in: KINU&apos;s {bpsText(INTEAR_FEE.bps)} fee on swaps routed through the Intear aggregator (80% to KINU),
             paid to{' '}
             <a href={explorer(`address/${INTEAR_REFERRER}`)} target="_blank" rel="noopener noreferrer" className="mono">
               {INTEAR_REFERRER}
