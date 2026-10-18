@@ -56,6 +56,13 @@ const PATHS = {
       <path d="M12 8v1.2M12 13.8V15M8.5 11.5h1.2M14.3 11.5h1.2" />
       <path d="M6.5 19v1.5M17.5 19v1.5" />
     </>
+  ),
+  // NEAR DeFi Pulse: a heartbeat line over a baseline
+  pulse: (
+    <>
+      <path d="M3 12h4l2-5 3.5 10 2.5-7 1.5 2H21" />
+      <path d="M3 20h18" />
+    </>
   )
 };
 

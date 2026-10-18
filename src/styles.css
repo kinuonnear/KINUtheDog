@@ -154,6 +154,8 @@ p {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  /* Hero flow lines are 100vw wide, scrollbar included: clip (not hidden) keeps the sticky top bar working. */
+  overflow-x: clip;
 }
 
 .topbar {

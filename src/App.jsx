@@ -33,6 +33,7 @@ const IntearPools = lazy(() => import('./pages/IntearPools.jsx'));
 const Treasury = lazy(() => import('./pages/Treasury.jsx'));
 const Deposit = lazy(() => import('./pages/Deposit.jsx'));
 const Earn = lazy(() => import('./pages/Earn.jsx'));
+const Pulse = lazy(() => import('./pages/Pulse.jsx'));
 
 // Liquidity first: Pools (and Create) right after Home. Docs and the rest live under More.
 const NAV = [
@@ -43,13 +44,14 @@ const NAV = [
   { to: '/bridge', label: 'Bridge', match: ['deposit'] },
   { to: '/earn', label: 'Earn', match: ['earn', 'stake'] },
   { to: '/portfolio', label: 'Portfolio', match: ['portfolio'] },
-  { to: '/agent', label: 'Agent', match: ['agent'] }
+  { to: '/agent', label: 'Agent', match: ['agent'] },
+  { to: '/pulse', label: 'Pulse', match: ['pulse'] }
 ];
 const MORE_ROUTES = new Set(['docs', 'security', 'treasury']);
 
 // Trading screens use the full window width (like Meteora / Intear). CLMM pool
 // pages are an app-style workspace that fills the viewport, so they have no footer.
-const FULL_WIDTH_ROUTES = new Set(['app', 'pool', 'pools', 'swap', 'portfolio', 'new', 'discover', 'token', 'agent', 'lp', 'intear', 'deposit', 'stake', 'earn']);
+const FULL_WIDTH_ROUTES = new Set(['app', 'pool', 'pools', 'swap', 'portfolio', 'new', 'discover', 'token', 'agent', 'lp', 'intear', 'deposit', 'stake', 'earn', 'pulse']);
 
 const TITLES = {
   home: 'KINU — The DeFi Hub on NEAR',
@@ -71,6 +73,7 @@ const TITLES = {
   deposit: 'Bridge · any chain ⇄ NEAR · KINU',
   stake: 'Stake NEAR · LiNEAR & stNEAR · KINU',
   earn: 'Earn · USDC & SOL vaults · KINU',
+  pulse: 'NEAR DeFi Pulse · TVL, volume & yields · KINU',
   notfound: 'Not found · KINU'
 };
 
@@ -185,6 +188,9 @@ export default function App() {
       break;
     case 'treasury':
       page = <Treasury />;
+      break;
+    case 'pulse':
+      page = <Pulse />;
       break;
     case 'deposit':
       page = <Deposit />;

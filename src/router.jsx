@@ -54,7 +54,9 @@ const ROUTES = [
   { name: 'deposit', pattern: /^\/(bridge|deposit)$/ },
   // Liquid staking: LiNEAR and stNEAR.
   { name: 'stake', pattern: /^\/stake$/ },
-  { name: 'earn', pattern: /^\/earn$/ }
+  { name: 'earn', pattern: /^\/earn$/ },
+  // NEAR DeFi Pulse: chain-wide TVL, volume, stablecoins and yields (More menu).
+  { name: 'pulse', pattern: /^\/pulse$/ }
 ];
 
 export function matchRoute(pathname) {

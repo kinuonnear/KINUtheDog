@@ -1,0 +1,322 @@
+/* NEAR DeFi Pulse (/pulse). The hero reuses the Pools header (pools.css), sections and tiles
+   the Treasury ones (treasury.css); this file adds the charts, tables and staking bars. */
+
+/* Use the whole content width (Treasury, whose tiles it borrows, stops at 1100px). */
+.page--treasury.page--pulse {
+  max-width: none;
+}
+
+.page--pulse .pl-up {
+  color: var(--up);
+}
+
+.page--pulse .pl-down {
+  color: #ff5d6c;
+}
+
+.pl-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.pl-head h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.pl-cta {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.pl-cta:hover {
+  color: var(--up);
+}
+
+.pl-grid2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px;
+}
+
+/* Charts */
+.pl-chart {
+  position: relative;
+}
+
+.pl-chart--empty {
+  height: 260px;
+}
+
+.pl-chart svg {
+  display: block;
+  width: 100%;
+  height: 260px;
+  touch-action: pan-y;
+}
+
+.pl-chart__readout {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.pl-chart__readout b {
+  font-size: 22px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.pl-chart__readout span,
+.pl-chart__axis {
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.pl-chart__axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+.pl-grid {
+  stroke: rgba(236, 230, 216, 0.06);
+}
+
+.pl-area {
+  fill: rgba(143, 211, 168, 0.12);
+}
+
+.pl-line {
+  fill: none;
+  stroke: #8fd3a8;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+
+.pl-cursor {
+  stroke: rgba(236, 230, 216, 0.35);
+  stroke-dasharray: 4 4;
+}
+
+.pl-bar {
+  fill: rgba(143, 211, 168, 0.5);
+}
+
+.pl-bar--on {
+  fill: #22e283;
+}
+
+/* Tables */
+.pl-table {
+  display: grid;
+}
+
+.pl-row {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1.6fr) minmax(0, 1.2fr) 100px 80px 120px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 4px;
+  border-top: 1px solid rgba(242, 243, 238, 0.06);
+  font-size: 14px;
+}
+
+.pl-table--yields .pl-row {
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) 90px 70px;
+}
+
+.pl-row--head {
+  border-top: 0;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.pl-row .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.pl-name {
+  overflow: hidden;
+  color: var(--text);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+a.pl-name:hover {
+  color: var(--up);
+}
+
+/* Liquid staking bars */
+.pl-bars {
+  display: grid;
+  gap: 16px;
+}
+
+.pl-barrow label {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.pl-barrow label span {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.pl-barrow div {
+  height: 12px;
+  margin-top: 8px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.pl-barrow i {
+  display: block;
+  height: 100%;
+  border-radius: 6px;
+  background: linear-gradient(90deg, rgba(143, 211, 168, 0.35), #8fd3a8);
+}
+
+@media (max-width: 900px) {
+  .pl-grid2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Phones: the protocol table drops the category and rank, the KINU link wraps under the name. */
+@media (max-width: 720px) {
+  .pl-chart svg,
+  .pl-chart--empty {
+    height: 200px;
+  }
+
+  .pl-row {
+    grid-template-columns: minmax(0, 1fr) 84px 64px;
+    font-size: 13px;
+  }
+
+  .pl-row > :nth-child(1),
+  .pl-row > :nth-child(3) {
+    display: none;
+  }
+
+  .pl-row > :nth-child(6) {
+    grid-column: 1 / -1;
+    margin-top: -6px;
+    text-align: left;
+  }
+
+  .pl-row > :nth-child(6):empty {
+    display: none;
+  }
+
+  .pl-table--yields .pl-row {
+    grid-template-columns: minmax(0, 1fr) 80px 60px;
+  }
+
+  .pl-table--yields .pl-row > :nth-child(1) {
+    display: block;
+  }
+
+  .pl-table--yields .pl-row > :nth-child(2) {
+    display: none;
+  }
+
+  .pl-table--yields .pl-row > :nth-child(3) {
+    display: block;
+  }
+}
+
+/* The headline tiles sit above the hero's flow lines, like the sections. */
+.page--pulse > .ts-tiles {
+  position: relative;
+  z-index: 1;
+}
+
+.page--pulse > .ts-tiles .ts-tile {
+  background: rgba(10, 13, 19, 0.94);
+}
+
+@media (max-width: 720px) {
+  .page--pulse > .ts-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .page--pulse > .ts-tiles .ts-tile strong {
+    font-size: 19px;
+  }
+}
+
+/* Top: the TVL chart on the left, Stablecoins over DEX volume on the right, both columns one height. */
+.pl-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr);
+  gap: 28px;
+  align-items: stretch;
+}
+
+.pl-top__side {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: 28px;
+  min-width: 0;
+}
+
+.pl-top__main {
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+/* The TVL chart grows to the height of the right column. */
+.pl-top__main .pl-chart {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.pl-top__main .pl-chart svg {
+  flex: 1;
+  height: auto;
+  min-height: 300px;
+}
+
+.pl-small .pl-chart svg,
+.pl-small .pl-chart--empty {
+  height: 150px;
+}
+
+@media (max-width: 1080px) {
+  .pl-top {
+    grid-template-columns: 1fr;
+  }
+
+  .pl-top__side {
+    grid-template-rows: none;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pl-top__main .pl-chart svg {
+    flex: none;
+    height: 260px;
+  }
+}
+
+@media (max-width: 720px) {
+  .pl-top__side {
+    grid-template-columns: 1fr;
+  }
+}
