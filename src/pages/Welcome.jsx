@@ -922,15 +922,15 @@ export default function Welcome() {
             <i />
           </div>
           <div className="lx-kicker">
-            <i /> Manage liquidity made simple · Built on NEAR
+            <i /> The DeFi Hub on NEAR · Non-custodial
           </div>
           <h1 className="lx-hero__title">
             Liquidity, with a <em>sense of direction.</em>
           </h1>
-          <p className="lx-hero__sub">Earn where liquidity actually works.</p>
+          <p className="lx-hero__sub">Swap, bridge, earn and LP — all in one place.</p>
           <p className="lx-hero__text">
-            KINU finds the pools that pay, shows you the LPs who are winning, and gets you in with one click. Non-custodial, on
-            NEAR.
+            KINU finds the best price, the pools that pay and the yield worth having, then gets you in with one click. Every
+            transaction is signed in your own wallet.
           </p>
           <div className="lx-hero__cta">
             <Link className="lx-btn lx-btn--primary" to={APP_PATH}>
@@ -1079,7 +1079,7 @@ export default function Welcome() {
               <img src={EMBLEM} alt="" width="28" height="28" />
               <span>KINU</span>
             </a>
-            <p>Liquidity, with a sense of direction. Built on NEAR.</p>
+            <p>The DeFi Hub on NEAR. Liquidity, with a sense of direction.</p>
           </div>
           <div>
             <h4>Product</h4>

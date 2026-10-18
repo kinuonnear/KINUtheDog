@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "KINU — Liquidity on NEAR",
+  "name": "KINU — The DeFi Hub on NEAR",
   "short_name": "KINU",
-  "description": "Best-price swaps, smart LP and live PnL on Rhea Finance. Non-custodial: every transaction is signed in your own wallet.",
+  "description": "The DeFi Hub on NEAR: best-price swaps, a 36-chain bridge, yield vaults, staking and liquidity pools. Non-custodial: every transaction is signed in your own wallet.",
   "start_url": "/app",
   "scope": "/",
   "display": "standalone",
@@ -18,7 +18,8 @@
   "shortcuts": [
     { "name": "Swap", "url": "/swap", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
     { "name": "Pools", "url": "/pools", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
-    { "name": "My positions", "short_name": "Positions", "url": "/pools?view=mine", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Earn", "url": "/earn", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Bridge", "url": "/bridge", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
     { "name": "Portfolio", "url": "/portfolio", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
   ]
 }

@@ -52,8 +52,8 @@ const MORE_ROUTES = new Set(['docs', 'security', 'treasury']);
 const FULL_WIDTH_ROUTES = new Set(['app', 'pool', 'pools', 'swap', 'portfolio', 'new', 'discover', 'token', 'agent', 'lp', 'intear', 'deposit', 'stake', 'earn']);
 
 const TITLES = {
-  home: 'KINU — The Dog That Follows the Flow',
-  app: 'KINU — Liquidity on NEAR',
+  home: 'KINU — The DeFi Hub on NEAR',
+  app: 'KINU — The DeFi Hub on NEAR',
   swap: 'Swap · KINU',
   pools: 'Pools · KINU',
   pool: 'Pool · KINU',
