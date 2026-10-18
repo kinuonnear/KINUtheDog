@@ -1567,7 +1567,7 @@ export default function Deposit() {
         )}
         </div>
 
-        <section className="dep-how">
+        <aside className="dep-side">
           {activeX ? (
             <ActiveDeposit active={activeX} icons={icons} shield={shield} onDone={() => setActiveX(null)} />
           ) : (
@@ -1581,6 +1581,11 @@ export default function Deposit() {
               {assets.data && <CrossForm assets={list} icons={icons} shield={shield} onStarted={setActiveX} />}
             </section>
           )}
+        </aside>
+      </div>
+
+      {/* How it works and questions: one row under both cards. */}
+      <section className="dep-info">
           <div className="card dep-how__steps">
             <h3 className="dep-how__title">How it works</h3>
             {(mode === 'withdraw' ? HOW_SEND : HOW_BRING).map((step, i) => (
@@ -1592,6 +1597,7 @@ export default function Deposit() {
             ))}
           </div>
           <div className="card dep-faq">
+            <h3 className="dep-how__title">Questions</h3>
             <details>
               <summary>Does KINU hold my funds?</summary>
               <p>No. Funds go from your wallet, through NEAR Intents, to the account or address you chose. KINU only shows the quote, checks its signature and follows the transfer.</p>
@@ -1632,8 +1638,7 @@ export default function Deposit() {
               </p>
             </details>
           </div>
-        </section>
-      </div>
+      </section>
     </div>
   );
 }

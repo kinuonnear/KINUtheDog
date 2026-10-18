@@ -774,13 +774,6 @@
 }
 
 /* ---------- how it works + FAQ ---------- */
-.dep-how {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-width: 0;
-}
-
 /* The three steps share one card, numbered down the left. */
 .dep-how__steps {
   display: flex;
@@ -1354,4 +1347,33 @@
   font-style: normal;
   font-weight: 600;
   letter-spacing: 0.02em;
+}
+
+/* Layout: the two working cards side by side (the swap stays in view while scrolling), then How it
+   works and Questions side by side under both. */
+.dep-side {
+  position: sticky;
+  top: 76px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.dep-info {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 18px;
+  margin-top: 18px;
+}
+
+@media (max-width: 900px) {
+  .dep-side {
+    position: static;
+  }
+
+  .dep-info {
+    grid-template-columns: 1fr;
+  }
 }
