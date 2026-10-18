@@ -92,7 +92,7 @@ function paintMine(ctx, mine, toY, width, height, cur, f, ySymbol) {
   });
   const lo = Math.min(...mine.map((m) => m.min));
   const hi = Math.max(...mine.map((m) => m.max));
-  ctx.font = '600 11px JetBrains Mono, ui-monospace, monospace';
+  ctx.font = '600 11px Inter, ui-sans-serif, system-ui, sans-serif';
   ctx.textBaseline = 'middle';
   [
     [hi, 'Your max'],
@@ -362,7 +362,7 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
       layout: {
         background: { color: 'transparent' },
         textColor: 'rgba(226, 234, 245, 0.5)',
-        fontFamily: 'JetBrains Mono, ui-monospace, monospace',
+        fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif',
         fontSize: 11,
         attributionLogo: false
       },

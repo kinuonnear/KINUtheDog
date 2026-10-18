@@ -28,7 +28,7 @@ import { priceOf } from '../lib/tokens.js';
 import { CONTRACTS, NATIVE_NEAR, NEAR_GAS_RESERVE } from '../config.js';
 import { useLocation } from '../router.jsx';
 import { linkToken, parseLpLink } from '../lib/lpLink.js';
-import { Spinner, TokenIcon } from './ui.jsx';
+import { AmountInput, Spinner, TokenIcon } from './ui.jsx';
 import { SlippagePicker } from './Slippage.jsx';
 import TaxNote from './TaxNote.jsx';
 import { refreshDclGraphFor } from '../lib/dclRouter.js';
@@ -709,7 +709,7 @@ export default function DclCreatePosition({ pool, x, y, rangeState, onDone, retr
   const amountRow = (which, token, value, index) => {
     const disabled = (which === 'x' && side === 'y') || (which === 'y' && side === 'x');
     // Thousands separators only while the field isn't being typed in (typing stays plain).
-    const shown = disabled ? '' : focused === which ? value : groupDigits(value);
+    const shown = disabled ? '' : value;
     const usd = Number(value) * priceOf(prices, token.id);
     return (
       <div className={`amount-row ${disabled ? 'amount-row--disabled' : ''}`}>
@@ -736,14 +736,13 @@ export default function DclCreatePosition({ pool, x, y, rangeState, onDone, retr
               ))}
             </span>
           )}
-          <input
-            inputMode="decimal"
+          <AmountInput
             placeholder={disabled ? 'Not needed' : '0.0'}
             disabled={disabled}
             value={shown}
             onFocus={() => setFocused(which)}
             onBlur={() => setFocused(null)}
-            onChange={(e) => setAmount(which, e.target.value)}
+            onChange={(value) => setAmount(which, value)}
           />
           {!disabled && usd > 0 && <small className="amount-row__usd">≈ {formatUsd(usd)}</small>}
         </div>

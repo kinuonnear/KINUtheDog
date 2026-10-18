@@ -29,7 +29,7 @@ import { submitDepositTx, SUPPORT } from '../lib/intents.js';
 import { formatAmount, formatUnits, formatUsd, toBigInt, tryParseUnits } from '../lib/format.js';
 import { NEAR_GAS_RESERVE } from '../config.js';
 import { priceOf } from '../lib/tokens.js';
-import { ErrorNotice, Skeleton, Spinner } from '../components/ui.jsx';
+import { AmountInput, ErrorNotice, Skeleton, Spinner } from '../components/ui.jsx';
 import { FlowLines } from '../components/FlowLines.jsx';
 import PageIcon from '../components/PageIcon.jsx';
 import '../deposit.css';
@@ -326,7 +326,7 @@ function VaultsView({ switcher }) {
                 <span className="dep-label">You deposit</span>
                 <div className="stk-amount">
                   <img className="stk-icon" src={pay.icon} alt="" width={28} height={28} />
-                  <input inputMode="decimal" placeholder="0.00" value={amount} onChange={(e) => setAmount(sanitize(e.target.value))} />
+                  <AmountInput placeholder="0.00" value={amount} onChange={(v) => setAmount(sanitize(v))} />
                   <span className="stk-unit">{pay.symbol}</span>
                 </div>
                 {accountId && (

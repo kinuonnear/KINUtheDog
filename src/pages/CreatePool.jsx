@@ -9,7 +9,7 @@ import { useApp } from '../state.jsx';
 import { useAsync } from '../hooks.js';
 import { Link, navigate, poolPath, useLocation } from '../router.jsx';
 import TokenPicker from '../components/TokenPicker.jsx';
-import { Spinner, TokenIcon } from '../components/ui.jsx';
+import { AmountInput, Spinner, TokenIcon } from '../components/ui.jsx';
 import { asPoolToken, priceOf } from '../lib/tokens.js';
 import { pointToPrice } from '../lib/dclLiquidity.js';
 import {
@@ -365,13 +365,11 @@ function CreateClmm() {
                 <span className="forge-price__side">
                   1 <TokenIcon token={asPoolToken(tokenA)} size={20} /> {asPoolToken(tokenA).symbol} =
                 </span>
-                <input
-                  inputMode="decimal"
+                <AmountInput
                   placeholder="0.0"
                   value={priceText}
                   autoFocus
-                  onChange={(e) => {
-                    const v = e.target.value.replace(',', '.');
+                  onChange={(v) => {
                     if (/^\d*\.?\d*(e-?\d*)?$/i.test(v)) setPriceText(v);
                   }}
                 />

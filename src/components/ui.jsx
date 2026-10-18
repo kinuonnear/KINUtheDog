@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useApp } from '../state.jsx';
 import { Link } from '../router.jsx';
+import { groupDigits } from '../lib/format.js';
 
 export function TokenIcon({ token, size = 28 }) {
   const [broken, setBroken] = useState(false);
@@ -185,5 +186,45 @@ export function CopyButton({ text, label = 'Copy' }) {
     >
       {copied ? 'Copied' : label}
     </button>
+  );
+}
+
+/**
+ * A number field that groups thousands as you type (1000000 -> 1,000,000) and keeps the caret where
+ * it was. `value` and `onChange(raw)` use the plain number text ("1000000.5"); the separators are
+ * display only. A comma typed on a keypad whose decimal key is "," counts as the decimal point.
+ */
+export function AmountInput({ value, onChange, ...rest }) {
+  const ref = useRef(null);
+  const caret = useRef(null); // characters (digits and ".") before the caret after the last edit
+  const shown = groupDigits(value ?? '') ?? '';
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (caret.current === null || !el || document.activeElement !== el) return;
+    let left = caret.current;
+    let pos = 0;
+    while (pos < el.value.length && left > 0) {
+      if (el.value[pos] !== ',') left -= 1;
+      pos += 1;
+    }
+    el.setSelectionRange(pos, pos);
+    caret.current = null;
+  });
+  return (
+    <input
+      ref={ref}
+      inputMode="decimal"
+      autoComplete="off"
+      {...rest}
+      value={shown}
+      onChange={(event) => {
+        let text = event.target.value;
+        const at = event.target.selectionStart ?? text.length;
+        // One new character, and it's a comma: the keypad's decimal key.
+        if (text.length === shown.length + 1 && text[at - 1] === ',') text = `${text.slice(0, at - 1)}.${text.slice(at)}`;
+        caret.current = text.slice(0, at).replace(/,/g, '').length;
+        onChange?.(text.replace(/,/g, ''));
+      }}
+    />
   );
 }

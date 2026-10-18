@@ -32,7 +32,7 @@ import { buildSwapTransactions, getSwapQuote } from '../lib/swap.js';
 import { getTokens } from '../lib/tokens.js';
 import { formatAmount, formatUnits, formatUsd, toBigInt, tryParseUnits } from '../lib/format.js';
 import { bpsText, NATIVE_NEAR, NEAR_GAS_RESERVE, PLATFORM_FEE } from '../config.js';
-import { ErrorNotice, Skeleton, Spinner } from '../components/ui.jsx';
+import { AmountInput, ErrorNotice, Skeleton, Spinner } from '../components/ui.jsx';
 import { FlowLines } from '../components/FlowLines.jsx';
 import PageIcon from '../components/PageIcon.jsx';
 import '../deposit.css';
@@ -339,7 +339,7 @@ export default function Stake({ switcher = null }) {
               <span className="dep-label">{mode === 'stake' ? 'You stake' : `You unstake (${s.symbol})`}</span>
               <div className="stk-amount">
                 {mode === 'stake' ? <img className="stk-icon" src="/logos/tokens/near.svg" alt="" width={28} height={28} /> : <TokenIcon tokens={tokens} k={pick} />}
-                <input inputMode="decimal" placeholder="0.00" value={amount} onChange={(e) => setAmount(sanitize(e.target.value))} />
+                <AmountInput placeholder="0.00" value={amount} onChange={(v) => setAmount(sanitize(v))} />
                 <span className="stk-unit">{mode === 'stake' ? 'NEAR' : s.symbol}</span>
               </div>
               {accountId && (

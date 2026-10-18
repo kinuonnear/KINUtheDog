@@ -8,7 +8,7 @@ import { useLpWatchlist } from '../lib/watchlist.js';
 import { ACTIVE_WINDOWS, BOARD_URL, DEFAULT_FILTERS, FEE_CHECK_MIN, filterBoard, isNearAccount, lpBadges, SORTS, sortBoard } from '../lib/smartLp.js';
 import { formatAge as since, formatUsd, shortAccount } from '../lib/format.js';
 import { formatAge as duration } from '../lib/lpHistory.js';
-import { EmptyState, ErrorNotice, Skeleton } from './ui.jsx';
+import { AmountInput, EmptyState, ErrorNotice, Skeleton } from './ui.jsx';
 
 export const loadBoard = async () => {
   const response = await fetch(BOARD_URL, { cache: 'no-cache' });
@@ -230,7 +230,7 @@ function NumberFilter({ label, value, onChange, hint, placeholder = '' }) {
         {label}
         {hint && <i aria-hidden> ⓘ</i>}
       </span>
-      <input type="text" inputMode="decimal" value={value} placeholder={placeholder} onChange={(e) => onChange(decimalOnly(e.target.value))} />
+      <AmountInput value={value} placeholder={placeholder} onChange={(v) => onChange(decimalOnly(v))} />
     </label>
   );
 }

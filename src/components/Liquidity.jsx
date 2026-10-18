@@ -38,7 +38,7 @@ import { buildClassicZapTransactions, quoteClassicZap } from '../lib/zap.js';
 import { buildClassicZapOutTransactions, quoteClassicZapOut } from '../lib/zapOut.js';
 import { defaultZapToken, useZapSpendable, ZapInput } from './ZapIn.jsx';
 import { CONTRACTS, NEAR_GAS_RESERVE } from '../config.js';
-import { EmptyState, Spinner, Tabs, TokenIcon } from './ui.jsx';
+import { AmountInput, EmptyState, Spinner, Tabs, TokenIcon } from './ui.jsx';
 import DclCreatePosition from './DclCreatePosition.jsx';
 
 /* ------------------------------------------------------------------ */
@@ -96,7 +96,7 @@ export function AmountField({ token, value, onChange, spendable, onMax, onPercen
   const { accountId, connect, prices } = useApp();
   const [focused, setFocused] = useState(false);
   // Thousands separators only while the field isn't being typed in (typing stays plain).
-  const shown = disabled ? '' : focused ? value : groupDigits(value);
+  const shown = disabled ? '' : value;
   const usd = disabled ? 0 : Number(value) * priceOf(prices, token?.id);
   return (
     <div className={`swap-field ${disabled ? 'swap-field--disabled' : ''}`}>
@@ -133,15 +133,14 @@ export function AmountField({ token, value, onChange, spendable, onMax, onPercen
         )}
       </div>
       <div className="swap-field__row">
-        <input
-          inputMode="decimal"
+        <AmountInput
           placeholder={disabled ? 'Not needed' : '0.0'}
           value={shown}
           disabled={disabled}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
-          onChange={(e) => {
-            const text = cleanDecimal(e.target.value);
+          onChange={(value) => {
+            const text = cleanDecimal(value);
             if (text !== null) onChange(text);
           }}
         />

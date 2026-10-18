@@ -165,7 +165,7 @@ export default function SwapChart({ token, counter, pools, height }) {
     if (!container || !hasData) return undefined;
     const chart = createChart(container, {
       autoSize: true,
-      layout: { background: { color: 'transparent' }, textColor: 'rgba(226, 234, 245, 0.55)', fontFamily: 'JetBrains Mono, ui-monospace, monospace', fontSize: 11, attributionLogo: false },
+      layout: { background: { color: 'transparent' }, textColor: 'rgba(226, 234, 245, 0.55)', fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif', fontSize: 11, attributionLogo: false },
       grid: { vertLines: { color: 'rgba(255,255,255,0.03)' }, horzLines: { color: 'rgba(255,255,255,0.03)' } },
       rightPriceScale: { borderColor: 'rgba(255,255,255,0.06)', scaleMargins: { top: 0.08, bottom: 0.22 } },
       timeScale: { borderColor: 'rgba(255,255,255,0.06)', timeVisible: true, secondsVisible: false, rightOffset: 6 },

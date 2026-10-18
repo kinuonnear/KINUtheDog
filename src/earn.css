@@ -41,7 +41,7 @@
 }
 
 .earn-share strong {
-  font-family: var(--mono, 'JetBrains Mono', monospace);
+  font-family: var(--mono);
   font-size: 24px;
 }
 
@@ -81,7 +81,7 @@
 
 .earn-stats dd {
   margin: 0;
-  font-family: var(--mono, 'JetBrains Mono', monospace);
+  font-family: var(--mono);
   font-size: 16px;
 }
 
@@ -112,7 +112,7 @@
 }
 
 .earn-total b {
-  font-family: var(--mono, 'JetBrains Mono', monospace);
+  font-family: var(--mono);
   font-size: 22px;
 }
 

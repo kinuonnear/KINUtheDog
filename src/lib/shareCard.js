@@ -19,7 +19,7 @@ const C = {
   down: '#ff6b6b'
 };
 const FONT = "'Inter', ui-sans-serif, system-ui, sans-serif";
-const MONO = "'JetBrains Mono', ui-monospace, monospace";
+const MONO = "Inter, ui-sans-serif, system-ui, sans-serif";
 // The KINU mascot (same as the favicon and app icon): transparent, with its own ring.
 const LOGO = '/icon-512.png';
 export const SITE_URL = 'kinudefi.com';

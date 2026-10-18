@@ -10,7 +10,7 @@ import { formatAmount, formatPercent, formatRawAmount, formatUnits, formatUsd, t
 import { CONTRACTS, NATIVE_NEAR, NEAR_GAS_RESERVE } from '../config.js';
 import { feeLabel } from '../lib/platformFee.js';
 import TokenPicker from './TokenPicker.jsx';
-import { Spinner, TokenIcon } from './ui.jsx';
+import { AmountInput, Spinner, TokenIcon } from './ui.jsx';
 
 function trimDecimals(text) {
   const [whole, fraction = ''] = String(text).split('.');
@@ -78,12 +78,10 @@ export function ZapInput({ token, setToken, text, setText, spendable, x, y }) {
               </button>
             ))}
           </span>
-          <input
-            inputMode="decimal"
+          <AmountInput
             placeholder="0.0"
             value={text}
-            onChange={(e) => {
-              const clean = e.target.value.replace(',', '.');
+            onChange={(clean) => {
               if (/^\d*\.?\d*$/.test(clean)) setText(clean);
             }}
           />

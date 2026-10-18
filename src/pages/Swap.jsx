@@ -8,7 +8,7 @@ import SwapActivity, { TokenFlow } from '../components/swap/SwapActivity.jsx';
 import { getTokenPools } from '../lib/tokenMarket.js';
 import { backgroundRefreshAllowed } from '../lib/walletActivity.js';
 import { defaultChartSide, intearTokenId } from '../lib/intear.js';
-import { Modal, Spinner, TokenIcon } from '../components/ui.jsx';
+import { AmountInput, Modal, Spinner, TokenIcon } from '../components/ui.jsx';
 import { getCachedToken, getToken, getTokens, getWhitelistedTokens, priceOf } from '../lib/tokens.js';
 import { buildSwapTransactions, getSwapQuote, quoteHybridSecondLeg, selectRoute } from '../lib/swap.js';
 import { estimateNetworkFee } from '../lib/gasEstimate.js';
@@ -228,13 +228,11 @@ function TokenField({ label, token, amount, onAmount, onPickToken, balance, usd,
         )}
       </div>
       <div className="swap-field__row">
-        <input
-          inputMode="decimal"
+        <AmountInput
           placeholder="0.0"
           value={amount}
           readOnly={readOnly}
-          onChange={(event) => {
-            const text = event.target.value.replace(',', '.');
+          onChange={(text) => {
             if (/^\d*\.?\d*$/.test(text)) onAmount?.(text);
           }}
           aria-label={`${label} amount`}

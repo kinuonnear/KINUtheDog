@@ -97,12 +97,12 @@ export default function DepositHero({ chainCount }) {
           <g key={`n-${n.id}`}>
             <circle cx={n.x} cy={n.y} r="20" fill="#0b0f16" stroke="rgba(200,220,255,0.18)" strokeWidth="1.2" />
             {chainIcon(n.id) && <image href={chainIcon(n.id)} x={n.x - 16} y={n.y - 16} width="32" height="32" clipPath={`url(#dh-clip-${n.id})`} />}
-            <text x={n.x - 28} y={n.y + 4} textAnchor="end" fill="#8a96a8" fontSize="10" fontFamily="JetBrains Mono, monospace">
+            <text x={n.x - 28} y={n.y + 4} textAnchor="end" fill="#8a96a8" fontSize="10" fontFamily="Inter, sans-serif">
               {CHAIN_NAMES[n.id]}
             </text>
           </g>
         ))}
-        <text x="16" y={H - 6} fill="#5b6678" fontSize="10" fontFamily="JetBrains Mono, monospace">
+        <text x="16" y={H - 6} fill="#5b6678" fontSize="10" fontFamily="Inter, sans-serif">
           +{Math.max(0, chainCount - SOURCES.length) || 29} more chains
         </text>
       </svg>

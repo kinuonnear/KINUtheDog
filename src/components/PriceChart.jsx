@@ -99,7 +99,7 @@ export default function PriceChart({ tokenIn, tokenOut, side, onSideChange }) {
       layout: {
         background: { color: 'transparent' },
         textColor: 'rgba(226, 234, 245, 0.5)',
-        fontFamily: 'JetBrains Mono, ui-monospace, monospace',
+        fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif',
         fontSize: 11,
         attributionLogo: false
       },

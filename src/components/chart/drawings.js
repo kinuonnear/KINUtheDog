@@ -19,7 +19,7 @@ const LINE = '#5ec8ff';
 const SELECTED = '#f2f3ee';
 
 function label(ctx, text, x, y, { bg = 'rgba(13,18,16,0.92)', fg = '#e6edf5', align = 'left' } = {}) {
-  ctx.font = '11px "JetBrains Mono", ui-monospace, monospace';
+  ctx.font = '500 11px Inter, ui-sans-serif, system-ui, sans-serif';
   const w = ctx.measureText(text).width + 10;
   const left = align === 'right' ? x - w : align === 'center' ? x - w / 2 : x;
   ctx.fillStyle = bg;

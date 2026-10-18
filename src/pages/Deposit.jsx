@@ -32,7 +32,7 @@ import { formatAmount, formatUnits, formatUsd, toBigInt, tryParseUnits } from '.
 import { wrapNeededFor } from '../lib/tx.js';
 import { viewAccount } from '../lib/rpc.js';
 import { CONTRACTS, ENDPOINTS, NEAR_GAS_RESERVE } from '../config.js';
-import { CopyButton, ErrorNotice, Skeleton, Spinner } from '../components/ui.jsx';
+import { AmountInput, CopyButton, ErrorNotice, Skeleton, Spinner } from '../components/ui.jsx';
 import { KINU_FEE_BPS, KINU_FEE_STABLE_BPS, feePercent, kinuFeeBps } from '../lib/intentsFees.js';
 import DepositHero from '../components/DepositHero.jsx';
 import { FlowLines } from '../components/FlowLines.jsx';
@@ -726,7 +726,7 @@ function WithdrawForm({ destinations, icons, shield, onStarted }) {
         <span className="dep-label">Send from NEAR</span>
         <div className="dep-amount">
           <Logo src={fromLogo} name={from?.symbol} size={30} badge={<Logo src={chainLogos('near')} name="NEAR" size={14} />} />
-          <input inputMode="decimal" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value.replace(',', '.').replace(/[^\d.]/g, ''))} />
+          <AmountInput placeholder="0.00" value={amount} onChange={(v) => setAmount(v.replace(/[^\d.]/g, ''))} />
           <button type="button" className="mini-button" onClick={() => setAmount(formatUnits(spendable, from.decimals))}>
             Max
           </button>
@@ -976,7 +976,7 @@ export default function Deposit() {
                   <span className="dep-label">Amount</span>
                   <div className="dep-amount">
                     <Logo src={assetLogos(asset, icons)} name={asset?.symbol} size={30} badge={<Logo src={chainLogos(chain)} name={chainName(chain)} size={14} />} />
-                    <input autoFocus inputMode="decimal" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value.replace(',', '.').replace(/[^\d.]/g, ''))} />
+                    <AmountInput autoFocus placeholder="0.00" value={amount} onChange={(v) => setAmount(v.replace(/[^\d.]/g, ''))} />
                     <span>{asset?.symbol}</span>
                   </div>
                   <small className="muted">{usdIn > 0 ? `≈ ${formatUsd(usdIn)}` : ' '}</small>

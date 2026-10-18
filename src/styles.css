@@ -26,7 +26,8 @@
   --radius-lg: 22px;
   --shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
   --font: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* Numbers use the same face as the text (like Jupiter), with figures of equal width. */
+  --mono: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --page-width: 1240px;
 
   color-scheme: dark;
@@ -52,6 +53,8 @@ body {
     var(--bg);
   font-size: 14px;
   line-height: 1.5;
+  /* Digits of equal width everywhere, so prices and amounts line up (Inter's tabular figures). */
+  font-variant-numeric: tabular-nums;
 }
 
 body.no-scroll {
