@@ -8,11 +8,13 @@
 
 import { Buffer } from 'buffer';
 import { assertQuoteMatches, buildWithdrawTransactions, depositStatus, postQuote } from './intents.js';
-import { verifyQuoteSignature, base58Encode } from './intentsSignature.js';
+import { ed25519 } from '@noble/curves/ed25519';
+import { sha256 } from '@noble/hashes/sha256';
+import { verifyQuoteSignature, base58Decode, base58Encode } from './intentsSignature.js';
 import { EARN_FEE_BPS, totalFeeBps } from './intentsFees.js';
 import { allowIntentsKey } from './txGuard.js';
 import { functionCall, transaction, wrapNeededFor } from './tx.js';
-import { view } from './rpc.js';
+import { rpc, view } from './rpc.js';
 import { signMessage } from './wallet.js';
 
 const API = 'https://1click.chaindefuser.com/v0';
@@ -252,6 +254,46 @@ function assertWithdrawIntent(intent, { accountId, depositAddress, assetId, amou
 
 const base64ToBytes = (b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
 
+/** The bytes a NEP-413 signature covers: sha256(borsh(tag) + borsh({ message, nonce, recipient, callbackUrl: None })). */
+function nep413Hash({ message, nonce, recipient }) {
+  const enc = new TextEncoder();
+  const str = (s) => {
+    const b = enc.encode(s);
+    const out = new Uint8Array(4 + b.length);
+    new DataView(out.buffer).setUint32(0, b.length, true);
+    out.set(b, 4);
+    return out;
+  };
+  const tag = new Uint8Array(4);
+  new DataView(tag.buffer).setUint32(0, 2 ** 31 + 413, true);
+  const parts = [tag, str(message), nonce, str(recipient), new Uint8Array([0])];
+  const all = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+  let at = 0;
+  for (const p of parts) {
+    all.set(p, at);
+    at += p.length;
+  }
+  return sha256(all);
+}
+
+/**
+ * Before a key is registered on intents.near (which lets it sign intents for the account): the
+ * wallet's signature must verify for exactly this message, and the key must be one of the
+ * account's full-access keys, never a key the page itself could hold.
+ */
+async function assertSigningKey({ accountId, publicKey, signatureB64, message, nonce, recipient }) {
+  const ok = (() => {
+    try {
+      return ed25519.verify(base64ToBytes(signatureB64), nep413Hash({ message, nonce, recipient }), base58Decode(publicKey.replace(/^ed25519:/, '')));
+    } catch {
+      return false;
+    }
+  })();
+  if (!ok) throw new Error('Your wallet’s signature didn’t check out, so nothing was sent.');
+  const key = await rpc('query', { request_type: 'view_access_key', finality: 'final', account_id: accountId, public_key: publicKey }).catch(() => null);
+  if (key?.permission !== 'FullAccess') throw new Error('Your wallet signed with a key that isn’t a full-access key of your account, so it wasn’t registered. Nothing was sent.');
+}
+
 /**
  * Pays a live `depositType: INTENTS` quote from the account's NEAR Intents balance: the message from
  * 1Click (checked), the user's signature, a one-time key registration on intents.near if their key
@@ -261,9 +303,11 @@ export async function payFromIntents({ quote, accountId, registerKey }) {
   const { intent } = await intentCall({ action: 'generate', depositAddress: quote.depositAddress, signerId: accountId });
   assertWithdrawIntent(intent, { accountId, depositAddress: quote.depositAddress, assetId: quote.request?.originAsset, amount: quote.amountIn });
 
-  const signed = await signMessage({ message: intent.payload.message, recipient: intent.payload.recipient, nonce: Buffer.from(intent.payload.nonce, 'base64') });
+  const nonce = Buffer.from(intent.payload.nonce, 'base64');
+  const signed = await signMessage({ message: intent.payload.message, recipient: intent.payload.recipient, nonce });
   if (signed.accountId && signed.accountId !== accountId) throw new Error('Your wallet signed with a different account. Nothing was sent.');
   const publicKey = signed.publicKey.startsWith('ed25519:') ? signed.publicKey : `ed25519:${signed.publicKey}`;
+  await assertSigningKey({ accountId, publicKey, signatureB64: signed.signature, message: intent.payload.message, nonce: new Uint8Array(nonce), recipient: intent.payload.recipient });
 
   // NEAR Intents only accepts signatures from keys registered for a named account (once per key).
   const known = await view(INTENTS, 'has_public_key', { account_id: accountId, public_key: publicKey }, { fresh: true }).catch(() => false);

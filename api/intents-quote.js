@@ -10,7 +10,7 @@
 // In `vite dev` the same handler runs from vite.config.js (key from .env.local, if set).
 
 import { isEarnAsset, KINU_FEE_RECIPIENT, quoteFeeBps } from '../src/lib/intentsFees.js';
-import { allowed, parse } from './_origin.js';
+import { allowed, parse, rateLimited } from './_origin.js';
 
 const API = 'https://1click.chaindefuser.com/v0';
 const TOKENS_TTL_MS = 10 * 60_000;
@@ -62,6 +62,7 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'POST') return res.status(405).json({ message: 'POST only' });
   if (!allowed(req.headers.origin, req.headers.host)) return res.status(403).json({ message: 'Not allowed' });
+  if (rateLimited(req, 60)) return res.status(429).json({ message: 'Too many requests. Wait a minute and try again.' });
   const body = clean(parse(req.body));
   if (!body) return res.status(400).json({ message: 'Invalid quote request' });
   try {

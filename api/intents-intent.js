@@ -7,7 +7,7 @@
 // POST { action: 'generate', depositAddress, signerId }  -> { intent }
 // POST { action: 'submit', signedData }                  -> { intentHash }
 
-import { allowed, parse } from './_origin.js';
+import { allowed, parse, rateLimited } from './_origin.js';
 
 const API = 'https://1click.chaindefuser.com/v0';
 const HEX64 = /^[0-9a-f]{64}$/;
@@ -46,6 +46,7 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'POST') return res.status(405).json({ message: 'POST only' });
   if (!allowed(req.headers.origin, req.headers.host)) return res.status(403).json({ message: 'Not allowed' });
+  if (rateLimited(req, 20)) return res.status(429).json({ message: 'Too many requests. Wait a minute and try again.' });
   const call = clean(parse(req.body));
   if (!call) return res.status(400).json({ message: 'Invalid request' });
   const key = process.env.NEAR_INTENTS_API_KEY;

@@ -24,3 +24,17 @@ export function parse(body) {
     return null;
   }
 }
+
+// A speed bump against scripts that fake the Origin header to use KINU's partner key: requests per
+// client IP per minute, counted per function instance (instances are short-lived, so this only
+// stops bursts; 1Click's own limits stay the backstop).
+const hits = new Map();
+export function rateLimited(req, perMinute) {
+  const ip = String(req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || '').split(',')[0].trim() || 'unknown';
+  const now = Date.now();
+  const recent = (hits.get(ip) || []).filter((t) => now - t < 60_000);
+  recent.push(now);
+  hits.set(ip, recent);
+  if (hits.size > 5000) hits.clear();
+  return recent.length > perMinute;
+}
