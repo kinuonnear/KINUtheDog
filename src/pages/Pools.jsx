@@ -8,8 +8,8 @@ import { getTokenInfoCached, isQuoteToken } from '../lib/intear.js';
 import { ESTIMATED_WINDOWS, fetchWindowVolumes, WINDOWS } from '../lib/gecko.js';
 import { swingLevel } from '../lib/poolRadar.js';
 import AprValue from '../components/AprValue.jsx';
-import { formatChartPrice, formatPercent, formatUsd } from '../lib/format.js';
-import { ErrorNotice, PairIcons, Skeleton } from '../components/ui.jsx';
+import { formatChartPrice, formatPercent, formatUsd, shortAccount } from '../lib/format.js';
+import { ErrorNotice, PairIcons, Skeleton, TokenIcon } from '../components/ui.jsx';
 import { FlowLines } from '../components/FlowLines.jsx';
 import PoolSourceTabs from '../components/PoolSourceTabs.jsx';
 import '../pools.css';
@@ -425,6 +425,53 @@ function SideSection({ title, children }) {
   );
 }
 
+/** Every Rhea pool a token trades in, as pair chips (largest first), above the table. */
+function TokenPairs({ tokenId, pools, tokensOf }) {
+  const token = getCachedToken(tokenId);
+  const list = (pools || []).filter((p) => p.tokenIds.includes(tokenId)).sort((a, b) => b.tvl - a.tvl);
+  const tvl = list.reduce((s, p) => s + p.tvl, 0);
+  return (
+    <section className="pt-pairs" aria-label="Pairs for this token">
+      <div className="pt-pairs__head">
+        <TokenIcon token={token || { id: tokenId, symbol: '?' }} size={34} />
+        <span className="pt-pairs__name">
+          <strong>{token?.symbol || shortAccount(tokenId, 12, 8)}</strong>
+          <small>{shortAccount(tokenId, 22, 12)}</small>
+        </span>
+        <span className="pt-pairs__sum">
+          {pools === null ? (
+            'Finding pairs…'
+          ) : list.length ? (
+            <>
+              <b>{list.length}</b> pair{list.length === 1 ? '' : 's'} on Rhea · <b>{formatUsd(tvl)}</b> TVL
+            </>
+          ) : (
+            <>
+              No Rhea pools for this token yet · <Link to="/create">Create one →</Link>
+            </>
+          )}
+        </span>
+      </div>
+      {list.length > 0 && (
+        <div className="pt-pairs__list">
+          {list.map((p) => {
+            const toks = tokensOf(p);
+            return (
+              <Link key={p.id} to={poolPath(p.id)} className="pt-pair">
+                <PairIcons tokens={toks} size={20} />
+                <b>{toks.map((x) => x.symbol).join(' / ')}</b>
+                <span className={`kind kind--${String(p.label).toLowerCase()}`}>{p.label}</span>
+                {p.feePercent > 0 && <small>{formatPercent(p.feePercent, p.feePercent < 0.1 ? 3 : 2)}</small>}
+                <em>{p.tvl < 1 ? '<$1' : formatUsd(p.tvl)}</em>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function Pools() {
   const { prices, accountId, connect } = useApp();
   const { search } = useLocation();
@@ -480,6 +527,14 @@ export default function Pools() {
   const [favorites, setFavorites] = useLocalStorage('kinu.pool.favorites', []);
   const q = useDebounced(query.trim().toLowerCase(), 300);
   const windowLabel = WINDOWS.find((w) => w.key === windowKey)?.label || '24H';
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (q) params.set('q', q);
+    else params.delete('q');
+    const path = `/pools${params.toString() ? `?${params}` : ''}`;
+    if (path !== window.location.pathname + window.location.search) navigate(path, { replace: true });
+    rememberPoolsPath(path);
+  }, [q]);
 
   // Top Performers only rank by 6H–24H fees; switching to it moves 1H / 4H up to 6H.
   useEffect(() => {
@@ -780,48 +835,49 @@ export default function Pools() {
         </aside>
 
         <div className="pt-main">
-          {/* Searching lives in the navbar; a filter opened from a link (/pools?q=…) shows here so it can be cleared. */}
-          {query && (
-            <div className="pt-filter">
-              <span>
-                Filtered by <b>{query.length > 24 ? `${query.slice(0, 10)}…${query.slice(-8)}` : query}</b>
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setQuery('');
-                  const params = new URLSearchParams(window.location.search);
-                  params.delete('q');
-                  navigate(`/pools${params.toString() ? `?${params}` : ''}`, { replace: true });
-                }}
-                aria-label="Clear filter"
-              >
-                ✕
-              </button>
-            </div>
+      <div className="pt-hint-row">
+        <p className="type-hint">
+          <span className={`kind kind--${view === 'mine' ? 'all' : tab.key}`}>{tab.key === 'all' || view === 'mine' ? 'All types' : tab.label}</span>
+          {view === 'top'
+            ? `Pools that earned the most fees in the last ${windowLabel} (TVL ≥ ${formatUsd(TOP_MIN_TVL)}).`
+            : view === 'trending'
+              ? `Pools trading the most for their size in the last ${windowLabel} (volume ÷ TVL, TVL ≥ ${formatUsd(TRENDING_MIN_TVL)}).`
+              : view === 'favorites'
+              ? 'Pools you starred. Tap ☆ on any row to add it here.'
+              : view === 'mine'
+                ? 'Pools where you provide liquidity. Open one to see and manage your positions.'
+                : tab.hint}
+          {ESTIMATED_WINDOWS.has(windowKey) && (
+            <span className="muted small"> · ≈ {windowLabel} values are estimated from the exact 1H / 6H / 24H data.</span>
           )}
+          {loadingWindow && (
+            <span className="muted small">
+              {' '}
+              · loading {windowLabel} data…
+            </span>
+          )}
+        </p>
+            {/* Search: a token contract lists every Rhea pair it trades in; a symbol or pool id filters the table. */}
+            <div className="pt-search">
+              <span aria-hidden>⌕</span>
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Paste token contract → all its pairs"
+                spellCheck={false}
+                aria-label="Search pools by token contract, symbol or pool id"
+              />
+              {query && (
+                <button type="button" onClick={() => setQuery('')} aria-label="Clear search">
+                  ✕
+                </button>
+              )}
+            </div>
+      </div>
 
-      <p className="type-hint">
-        <span className={`kind kind--${view === 'mine' ? 'all' : tab.key}`}>{tab.key === 'all' || view === 'mine' ? 'All types' : tab.label}</span>
-        {view === 'top'
-          ? `Pools that earned the most fees in the last ${windowLabel} (TVL ≥ ${formatUsd(TOP_MIN_TVL)}).`
-          : view === 'trending'
-            ? `Pools trading the most for their size in the last ${windowLabel} (volume ÷ TVL, TVL ≥ ${formatUsd(TRENDING_MIN_TVL)}).`
-            : view === 'favorites'
-            ? 'Pools you starred. Tap ☆ on any row to add it here.'
-            : view === 'mine'
-              ? 'Pools where you provide liquidity. Open one to see and manage your positions.'
-              : tab.hint}
-        {ESTIMATED_WINDOWS.has(windowKey) && (
-          <span className="muted small"> · ≈ {windowLabel} values are estimated from the exact 1H / 6H / 24H data.</span>
-        )}
-        {loadingWindow && (
-          <span className="muted small">
-            {' '}
-            · loading {windowLabel} data…
-          </span>
-        )}
-      </p>
+          {tokenQuery && (
+            <TokenPairs tokenId={tokenQuery} pools={result.loading && !result.data ? null : baseRows} tokensOf={tokensOf} />
+          )}
 
       <ErrorNotice error={result.error} onRetry={result.reload} />
 
