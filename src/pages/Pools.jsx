@@ -742,7 +742,7 @@ export default function Pools() {
           <button type="button" className="pt-side__toggle" onClick={() => setFiltersOpen((o) => !o)} aria-expanded={filtersOpen}>
             <span>⚙ Filters</span>
             <small>
-              {sideViews.find((v) => v.key === view)?.label} · {view === 'mine' || tab.key === 'all' ? 'All types' : tab.label} · {windowLabel}
+              {sideViews.find((v) => v.key === view)?.label} · {windowLabel}
             </small>
             <em aria-hidden>{filtersOpen ? '▴' : '▾'}</em>
           </button>
@@ -766,34 +766,6 @@ export default function Pools() {
                     {v.count > 0 && <em>{v.count}</em>}
                   </button>
                 ))}
-              </div>
-            </SideSection>
-
-            <SideSection title="POOL TYPE">
-              <div className="pt-list" role="radiogroup" aria-label="Pool type">
-                {POOL_TYPES.map((t) => {
-                  const share = typeShare(t.key);
-                  const on = category === t.key && view !== 'mine';
-                  return (
-                    <button
-                      key={t.key}
-                      type="button"
-                      role="radio"
-                      aria-checked={on}
-                      className={`pt-item ${on ? 'pt-item--on' : ''}`}
-                      onClick={() => {
-                        setCategory(t.key);
-                        // A pool type applies to the full list: leave My positions.
-                        if (view === 'mine') setView('all');
-                      }}
-                      title={t.hint}
-                    >
-                      <span className={`pt-dot pt-seg--${t.key}`} aria-hidden />
-                      {t.key === 'all' ? 'All types' : t.label}
-                      {share !== null && <small>{share.toFixed(0)}% TVL</small>}
-                    </button>
-                  );
-                })}
               </div>
             </SideSection>
 
@@ -839,9 +811,34 @@ export default function Pools() {
         </aside>
 
         <div className="pt-main">
+          {/* Pool type as buttons above the table, always in view (also on phones). */}
+          <div className="pt-types" role="radiogroup" aria-label="Pool type">
+            {POOL_TYPES.map((t) => {
+              const share = typeShare(t.key);
+              const on = category === t.key && view !== 'mine';
+              return (
+                <button
+                  key={t.key}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  className={`pt-type ${on ? 'pt-type--on' : ''}`}
+                  onClick={() => {
+                    setCategory(t.key);
+                    // A pool type applies to the full list: leave My positions.
+                    if (view === 'mine') setView('all');
+                  }}
+                  title={t.hint}
+                >
+                  {t.key !== 'all' && <span className={`pt-dot pt-seg--${t.key}`} aria-hidden />}
+                  {t.key === 'all' ? 'All types' : t.label}
+                  {share !== null && <small>{share.toFixed(0)}%</small>}
+                </button>
+              );
+            })}
+          </div>
       <div className="pt-hint-row">
         <p className="type-hint">
-          <span className={`kind kind--${view === 'mine' ? 'all' : tab.key}`}>{tab.key === 'all' || view === 'mine' ? 'All types' : tab.label}</span>
           {view === 'top'
             ? `Pools that earned the most fees in the last ${windowLabel} (TVL ≥ ${formatUsd(TOP_MIN_TVL)}).`
             : view === 'trending'

@@ -428,3 +428,69 @@
     flex-basis: 100%;
   }
 }
+
+/* Pool type buttons above the table (All types, AMM, CLMM, ALMM, Stable, Farm). */
+.pt-types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pt-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--lux-line-strong);
+  border-radius: 999px;
+  background: var(--lux-glass);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition:
+    color 0.15s,
+    border-color 0.15s,
+    background 0.15s;
+}
+
+.pt-type:hover {
+  border-color: rgba(255, 255, 255, 0.24);
+  color: var(--text);
+}
+
+.pt-type--on {
+  border-color: #f2f3ee;
+  background: #f2f3ee;
+  color: #0a0c0f;
+}
+
+.pt-type small {
+  color: var(--faint);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pt-type--on small {
+  color: rgba(10, 12, 15, 0.6);
+}
+
+/* Phones: one row that scrolls sideways. */
+@media (max-width: 720px) {
+  .pt-types {
+    flex-wrap: nowrap;
+    margin: 0 -16px;
+    padding: 0 16px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .pt-types::-webkit-scrollbar {
+    display: none;
+  }
+
+  .pt-type {
+    flex: none;
+  }
+}
