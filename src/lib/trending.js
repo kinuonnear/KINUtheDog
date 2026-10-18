@@ -16,7 +16,7 @@ export const BASE_TOKENS = new Set([
   '6b175474e89094c44da98b954eedeac495271d0f.factory.bridge.near' // DAI
 ]);
 
-/** Price / 24h change / liquidity / holders for token ids, with metadata. */
+/** Price / 24h change / market cap / liquidity / holders for token ids, with metadata. */
 export async function enrichTokens(ids) {
   const meta = await getTokens(ids);
   const infos = await Promise.all(ids.map((id) => fetchTokenInfo(id).catch(() => null)));
@@ -25,6 +25,8 @@ export async function enrichTokens(ids) {
     token: meta[id] || { id, symbol: id.slice(0, 8), decimals: 0 },
     price: infos[i]?.price ?? null,
     change24h: infos[i]?.change24h ?? null,
+    // Price × circulating supply (total supply when circulating isn't known).
+    marketCap: infos[i]?.price && (infos[i].circulatingSupply || infos[i].totalSupply) ? infos[i].price * (infos[i].circulatingSupply || infos[i].totalSupply) : null,
     liquidityUsd: infos[i]?.liquidityUsd ?? null,
     volume24hUsd: infos[i]?.volume24hUsd ?? null,
     holders: infos[i]?.holders ?? null,

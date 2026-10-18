@@ -84,7 +84,7 @@ export function NewLaunches() {
             <span>Age</span>
             <span>Price</span>
             <span>24h</span>
-            <span>FDV</span>
+            <span title="Market cap: price × total supply (fully diluted)">MC</span>
             <span title="NEAR/RHEA in the pool — what sellers can actually receive">Liquidity*</span>
             <span>Volume 24h</span>
             <span>Holders</span>
@@ -116,7 +116,7 @@ export function NewLaunches() {
                   <span data-label="24h" className={l.change24h > 0 ? 'up' : l.change24h < 0 ? 'down' : 'muted'}>
                     {l.change24h === null ? '—' : `${l.change24h > 0 ? '+' : ''}${l.change24h.toFixed(1)}%`}
                   </span>
-                  <span data-label="FDV">{formatUsd(l.fdvUsd)}</span>
+                  <span data-label="MC">{formatUsd(l.fdvUsd)}</span>
                   <span data-label="Liquidity">{formatUsd(l.liquidityUsd)}</span>
                   <span data-label="Volume 24h">{formatUsd(l.volume24hUsd)}</span>
                   <span data-label="Holders">{l.holders.toLocaleString()}</span>

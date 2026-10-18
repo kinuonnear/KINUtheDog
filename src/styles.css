@@ -7917,7 +7917,7 @@ a.dt-row:hover {
 /* Discover: trending, gainers, watchlist */
 .disc-body { margin: 16px 0; }
 .new-page__filters--bar { justify-content: flex-end; margin-bottom: 12px; }
-.disc-row { grid-template-columns: 28px minmax(200px, 2fr) repeat(5, minmax(70px, 1fr)) 80px; }
+.disc-row { grid-template-columns: 28px minmax(200px, 2fr) repeat(6, minmax(70px, 1fr)) 80px; }
 .disc-row__rank { color: var(--muted); font-family: var(--mono); font-size: 12px; }
 .disc-table .new-row--head { color: var(--muted); font-weight: 600; }
 /* Discover header: KINU banner, tabs + filters */
@@ -8873,8 +8873,10 @@ a.dt-row:hover {
 
 /* ---- LP focus: Discover actions, Pools badges and APR spikes ---- */
 @media (min-width: 1101px) {
-  .disc-row { grid-template-columns: 28px minmax(200px, 2fr) repeat(5, minmax(70px, 1fr)) 150px; }
+  .disc-row { grid-template-columns: 28px minmax(200px, 2fr) repeat(6, minmax(70px, 1fr)) 150px; }
   .disc-row--pools { grid-template-columns: 28px minmax(190px, 2fr) 64px repeat(5, minmax(70px, 1fr)) 196px; }
+  .disc-table--yield .disc-row--pools { grid-template-columns: 28px minmax(190px, 2fr) 64px repeat(6, minmax(70px, 1fr)) 150px; }
+  .disc-table--hot .disc-row--pools { grid-template-columns: 28px minmax(190px, 2fr) 64px repeat(6, minmax(70px, 1fr)) 196px; }
 }
 .kind--mine {
   color: #5ec8ff;
@@ -9906,13 +9908,13 @@ a.pair-tiers__row:hover {
    on the right. The label row stays under the category bar while the list scrolls. */
 @media (min-width: 1180px) {
   .disc-table--yield .disc-row--pools {
-    /* # · pair · age · fees · yield · APR · price · TVL · actions */
-    grid-template-columns: 28px minmax(190px, 1.6fr) 72px repeat(3, minmax(84px, 1fr)) minmax(150px, 1.2fr) minmax(96px, 1fr) 140px;
+    /* # · pair · age · MC · fees · yield · APR · price · TVL · actions */
+    grid-template-columns: 28px minmax(190px, 1.6fr) 72px repeat(4, minmax(84px, 1fr)) minmax(150px, 1.2fr) minmax(96px, 1fr) 140px;
   }
 
   .disc-table--hot .disc-row--pools {
-    /* # · pair · age · volume · trades · price · volume 24h · TVL · actions */
-    grid-template-columns: 28px minmax(180px, 1.6fr) 72px minmax(84px, 1fr) minmax(64px, 0.8fr) minmax(150px, 1.2fr) repeat(2, minmax(84px, 1fr)) 212px;
+    /* # · pair · age · MC · volume · trades · price · volume 24h · TVL · actions */
+    grid-template-columns: 28px minmax(180px, 1.6fr) 72px repeat(2, minmax(84px, 1fr)) minmax(64px, 0.8fr) minmax(150px, 1.2fr) repeat(2, minmax(84px, 1fr)) 212px;
   }
 
   .disc-table .disc-row--pools {
@@ -12582,10 +12584,10 @@ a.pair-tiers__row:hover {
 
 .smi-row {
   display: grid;
-  grid-template-columns: minmax(220px, 2.2fr) 60px minmax(100px, 1fr) repeat(3, minmax(80px, 0.9fr)) minmax(130px, 1.2fr) minmax(100px, 1fr) 120px;
+  grid-template-columns: minmax(220px, 2.2fr) 60px minmax(100px, 1fr) repeat(4, minmax(80px, 0.9fr)) minmax(130px, 1.2fr) minmax(100px, 1fr) 120px;
   gap: 12px;
   align-items: center;
-  min-width: 1080px;
+  min-width: 1170px;
   padding: 12px 18px;
   border-top: 1px solid var(--border);
   font-size: 13px;

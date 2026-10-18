@@ -13,7 +13,8 @@ import { formatAge, formatPercent, formatPrice, formatUsd } from '../lib/format.
 import { bestToLp, filterRadar, getPoolRadar, hotPairs, LP_MIN_TVL, RADAR_TYPES, RADAR_WINDOWS } from '../lib/poolRadar.js';
 import { NATIVE_NEAR } from '../config.js';
 import { NewLaunches } from './NewOnRhea.jsx';
-import { usePoolTokens } from './Pools.jsx';
+import { useBaseTokenInfo, usePoolTokens } from './Pools.jsx';
+import { isQuoteToken } from '../lib/intear.js';
 import AprValue from '../components/AprValue.jsx';
 import LiveFeed from '../components/LiveFeed.jsx';
 import SmartLpBoard from '../components/SmartLp.jsx';
@@ -102,6 +103,7 @@ function TokenTable({ rows, loading, error, onRetry, volumeLabel = 'Volume 24h',
         <span>#</span>
         <span>Token</span>
         <span>Price</span>
+        <span>MC</span>
         <span>24h</span>
         <span>{volumeLabel}</span>
         <span>Liquidity</span>
@@ -113,7 +115,7 @@ function TokenTable({ rows, loading, error, onRetry, volumeLabel = 'Volume 24h',
             <div className="new-row disc-row" key={i}>
               <Skeleton width={16} />
               <Skeleton width={140} />
-              {Array.from({ length: 5 }, (__, j) => (
+              {Array.from({ length: 6 }, (__, j) => (
                 <Skeleton key={j} width={60} />
               ))}
               <span />
@@ -131,6 +133,7 @@ function TokenTable({ rows, loading, error, onRetry, volumeLabel = 'Volume 24h',
                 </span>
               </span>
               <span data-label="Price">{r.price ? formatPrice(r.price) : '—'}</span>
+              <span data-label="MC">{r.marketCap ? formatUsd(r.marketCap, { compactAbove: 1e3 }) : '—'}</span>
               <span data-label="24h">
                 <Change value={r.change24h} />
               </span>
@@ -340,6 +343,23 @@ function PoolToolbar({ sort, sorts, onSort, filters, onFilters }) {
   );
 }
 
+/** The pool's main token: the side that isn't NEAR or a stablecoin (the first one otherwise). */
+const baseIdOf = (pool) => {
+  const [a, b] = pool.tokenIds;
+  return b && isQuoteToken(a) && !isQuoteToken(b) ? b : a;
+};
+/** Market cap in USD from Intear's token data (price × circulating supply, else total supply). */
+const marketCapOf = (info) => {
+  const supply = info?.circulatingSupply || info?.totalSupply;
+  return info?.price && supply ? info.price * supply : null;
+};
+
+/** MC cell for a pool row: its main token's market cap. */
+function McCell({ value, info }) {
+  if (!value) return <span className="muted">—</span>;
+  return <span title={`Market cap of ${info?.circulatingSupply ? 'circulating' : 'total'} supply, from Intear`}>{formatUsd(value, { compactAbove: 1e3 })}</span>;
+}
+
 function HotPairs({ filters, onFilters }) {
   const data = useAsync(getPoolRadar, [], { refreshMs: 90_000 });
   const [by, setBy] = useState('volume');
@@ -349,6 +369,8 @@ function HotPairs({ filters, onFilters }) {
     [data.data, by, window, filters]
   );
   const w = windowLabel(window);
+  const infos = useBaseTokenInfo([...new Set((rows || []).map(baseIdOf))]);
+  const mc = (r) => marketCapOf(infos[baseIdOf(r)]);
   return (
     <>
       <PoolToolbar
@@ -368,16 +390,17 @@ function HotPairs({ filters, onFilters }) {
         loading={data.loading}
         error={data.error}
         onRetry={data.reload}
-        heads={['Pair age', `Volume ${w}`, `Trades ${w}`, `Price ${w}`, 'Volume 24H', 'TVL']}
+        heads={['Pair age', 'MC', `Volume ${w}`, `Trades ${w}`, `Price ${w}`, 'Volume 24H', 'TVL']}
         cells={(r) => [
           <PairAge key="age" at={r.activity?.createdAt} />,
+          <McCell key="mc" value={mc(r)} info={infos[baseIdOf(r)]} />,
           formatUsd(r.activity.volume[window]),
           (r.activity.trades[window] || 0).toLocaleString(),
           <Change key="c" value={r.activity.change[window]} />,
           formatUsd(r.activity.volume.h24 || r.volume24h),
           formatUsd(r.tvl)
         ]}
-        values={(r) => [r.activity?.createdAt, r.activity.volume[window], r.activity.trades[window], r.activity.change[window], r.activity.volume.h24 || r.volume24h, r.tvl]}
+        values={(r) => [r.activity?.createdAt, mc(r), r.activity.volume[window], r.activity.trades[window], r.activity.change[window], r.activity.volume.h24 || r.volume24h, r.tvl]}
         action={(r) => (
           <>
             <Link className="button button--outline button--sm" to={`${poolPath(r.id)}?tab=add`}>
@@ -403,6 +426,8 @@ function BestToLp({ filters, onFilters }) {
     [data.data, mode, window, filters]
   );
   const w = windowLabel(window);
+  const infos = useBaseTokenInfo([...new Set((rows || []).map(baseIdOf))]);
+  const mc = (r) => marketCapOf(infos[baseIdOf(r)]);
   return (
     <>
       <PoolToolbar
@@ -422,9 +447,10 @@ function BestToLp({ filters, onFilters }) {
         loading={data.loading}
         error={data.error}
         onRetry={data.reload}
-        heads={['Pair age', `Fees ${w}`, `Yield ${w}`, 'APR (1-day)', `Price ${w}`, 'TVL']}
+        heads={['Pair age', 'MC', `Fees ${w}`, `Yield ${w}`, 'APR (1-day)', `Price ${w}`, 'TVL']}
         cells={(r) => [
           <PairAge key="age" at={r.activity?.createdAt} />,
+          <McCell key="mc" value={mc(r)} info={infos[baseIdOf(r)]} />,
           formatUsd(r.fees),
           <b key="y" className="up" title={`Fees over ${w} ÷ TVL: what $100 of liquidity earned`}>
             {formatPercent(r.yieldPct, 2)}
@@ -436,7 +462,7 @@ function BestToLp({ filters, onFilters }) {
           </span>,
           formatUsd(r.tvl)
         ]}
-        values={(r) => [r.activity?.createdAt, r.fees, r.yieldPct, r.apy + r.farmApy, r.change, r.tvl]}
+        values={(r) => [r.activity?.createdAt, mc(r), r.fees, r.yieldPct, r.apy + r.farmApy, r.change, r.tvl]}
         action={(r) => (
           <Link className="button button--outline button--sm" to={`${poolPath(r.id)}?tab=add`}>
             Add LP

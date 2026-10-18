@@ -199,6 +199,7 @@ export default function SmartMoneyIn() {
           <span>Token</span>
           <span>Age</span>
           <span>Price 24h</span>
+          <span>MC</span>
           <span>Liquidity</span>
           <span>↓ Vol 24h</span>
           <span>Holders</span>
@@ -210,7 +211,7 @@ export default function SmartMoneyIn() {
           ? Array.from({ length: 8 }, (_, i) => (
               <div className="smi-row" key={i}>
                 <Skeleton width={150} />
-                {Array.from({ length: 7 }, (__, j) => (
+                {Array.from({ length: 8 }, (__, j) => (
                   <Skeleton key={j} width={50} />
                 ))}
                 <span />
@@ -243,6 +244,7 @@ export default function SmartMoneyIn() {
                       {m.price ? formatPrice(m.price) : '—'}
                       <Change value={m.change24h} />
                     </span>
+                    <span data-label="MC">{m.marketCap ? usd(m.marketCap) : '—'}</span>
                     <span data-label="Liquidity">{usd(m.liquidityUsd)}</span>
                     <span data-label="Vol 24h">{usd(m.volume24hUsd)}</span>
                     <span data-label="Holders">{m.holders ? m.holders.toLocaleString() : '—'}</span>

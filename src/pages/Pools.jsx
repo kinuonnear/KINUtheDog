@@ -137,7 +137,7 @@ function baseQuote(tokens) {
 }
 
 /** Lazily loaded market data (USD price, 24h change, market cap) for base tokens. */
-function useBaseTokenInfo(ids) {
+export function useBaseTokenInfo(ids) {
   const [infos, setInfos] = useState({});
   const key = ids.join(',');
   useEffect(() => {
