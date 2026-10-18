@@ -124,7 +124,7 @@ function widenForTax(transactions, taxInBps) {
 }
 
 /** Intear DEX operations (deposit_near args or an ft_transfer_call msg) must pay the trader back. */
-function checkPlach(payload, user) {
+export function checkPlach(payload, user) {
   const list = payload?.operations?.operations ?? payload?.operations;
   if (!Array.isArray(list) || !list.length) throw new Error('Intear DEX route without operations');
   const referrer = payload?.operations?.referrer ?? payload?.referrer;

@@ -24,7 +24,7 @@ const explorer = (account) => `${ENDPOINTS.explorer}/address/${account}`;
 
 const GUARD = [
   ['Only known contracts and methods', 'Every transaction is checked against an allow-list of Rhea contracts (plus Intear DEX for Intear Aggregator routes) and the exact methods KINU uses.'],
-  ['Tokens only go to the DEX', 'Tokens can only be sent into Rhea’s exchange, CLMM or router contracts, or into Intear DEX on an Intear Aggregator route, and the swap output must come back to you — never to any other account.'],
+  ['Tokens only go to the DEX', 'Tokens can only be sent into Rhea’s exchange, CLMM or router contracts, or into Intear DEX on an Intear Aggregator route. The route message itself is read and checked: the swap output must come back to you — never to any other account.'],
   ['No transfers, keys or deploys', 'Plain NEAR transfers, access-key changes and contract deploys are always refused.'],
   ['Fees are capped', 'A token’s registration fee is capped at 0.05 NEAR, and all fees in one request at 2 NEAR (wrapping NEAR excluded).'],
   ['Quotes must match', 'A router quote that would spend a different amount or trade a different pair than you typed is rejected.'],
@@ -42,8 +42,22 @@ const SITE = [
   'Open source: the code running on this site is public'
 ];
 
-// Newest first. Every review is internal (by the KINU team) until a third-party audit is published.
+// Newest first. Every review is internal (by the KINU team) until a third-party audit is published. The
+// 19 Oct review follows the blockchain penetration-testing method BlockSec publishes (signing intent,
+// approval and withdrawal controls, fund logic, on-chain outcomes); BlockSec did not perform it.
 const AUDITS = [
+  {
+    date: '19 Oct 2026',
+    scope: 'Internal penetration test (BlockSec’s published method): signing intent, server functions, fund logic, on-chain outcomes',
+    findings: [
+      ['High', 'Rhea SmartRouter routes were signed without reading who receives the output', 'Fixed — the route is decoded and must be yours, both when quoted and before your wallet opens'],
+      ['Medium', 'The final check before signing did not read DEX swap messages (CLMM, exchange, Intear DEX)', 'Fixed — any message paying the output to another account is refused'],
+      ['Medium', 'Earn and Treasury withdrawals accepted a “token_diff” intent that any solver could fill for nothing', 'Fixed — only a transfer to the quote’s deposit address is ever signed'],
+      ['Low', 'Pay from wallet (EVM) did not name the chain in the transaction', 'Fixed — a wallet on another network refuses it'],
+      ['Low', 'NEAR Intents quotes did not bind the slippage asked for', 'Fixed — the echoed slippage must match'],
+      ['Low', 'Advisories in the HERE and Meteor wallet libraries (npm audit)', 'Open — needs a major wallet library upgrade; no path to user funds found']
+    ]
+  },
   {
     date: '18 Oct 2026',
     scope: 'Earn and Treasury withdrawals from NEAR Intents, server functions',
@@ -107,7 +121,7 @@ const RESPONSE = [
 const RISKS = [
   ['Market risk', 'Token prices move. $KINU is a young community token with thin liquidity — trades can move its price a lot.'],
   ['Liquidity risk', 'Providing liquidity can lose value against holding (impermanent loss), and CLMM ranges stop earning when the price leaves them.'],
-  ['Protocol risk', 'Swaps and pools run on Rhea Finance’s contracts (and Intear DEX’s, for some swap routes). KINU checks every transaction, but cannot change how those contracts behave.'],
+  ['Protocol risk', 'Swaps and pools run on Rhea Finance’s contracts (and Intear DEX’s, for some swap routes); Bridge, cross-chain swaps and Earn run on NEAR Intents, which had an incident on 30 Sep 2026 (refund validation). KINU checks every transaction and stops transfers on chains NEAR Intents pauses, but cannot change how those contracts behave.'],
   ['Data providers', 'Prices, charts and history come from Rhea, Intear, FastNEAR and DexScreener. They are shown for information; your wallet shows what is actually signed.']
 ];
 
@@ -201,7 +215,7 @@ export default function Security() {
             <summary>
               <b>{audit.date}</b>
               <span>{audit.scope}</span>
-              <small className="muted">Internal review · {audit.findings.length} findings, all addressed</small>
+              <small className="muted">Internal review · {audit.findings.length} findings</small>
             </summary>
             <div className="sec-table">
               <div className="sec-table__row sec-table__row--head">
@@ -222,8 +236,9 @@ export default function Security() {
           </details>
         ))}
         <p className="muted small">
-          Internal reviews of KINU’s app and server functions by the KINU team, not third-party audits. KINU has no smart
-          contracts of its own; Rhea Finance’s contracts are audited by Trail of Bits, BlockSec and Resonance (see{' '}
+          Internal reviews of KINU’s app and server functions by the KINU team, not third-party audits. The 19 Oct
+          penetration test follows the method BlockSec publishes; it was not performed or reviewed by BlockSec. KINU has no
+          smart contracts of its own; Rhea Finance’s contracts are audited by Trail of Bits, BlockSec and Resonance (see{' '}
           <a href="https://guide.rhea.finance/developers/audits" {...ext}>
             Rhea’s audits ↗
           </a>

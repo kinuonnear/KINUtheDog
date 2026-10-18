@@ -101,7 +101,7 @@ export async function postQuote(body) {
   return json;
 }
 
-const BOUND_FIELDS = ['swapType', 'originAsset', 'depositType', 'destinationAsset', 'amount', 'recipient', 'recipientType', 'refundTo', 'refundType'];
+const BOUND_FIELDS = ['swapType', 'slippageTolerance', 'originAsset', 'depositType', 'destinationAsset', 'amount', 'recipient', 'recipientType', 'refundTo', 'refundType'];
 const same = (a, b) => String(a ?? '').trim().toLowerCase() === String(b ?? '').trim().toLowerCase();
 
 /**

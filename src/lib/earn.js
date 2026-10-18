@@ -238,15 +238,10 @@ function assertWithdrawIntent(intent, { accountId, depositAddress, assetId, amou
   const sends = new Map();
   let ok = m.signer_id === accountId && Number.isFinite(deadline) && deadline > Date.now() && deadline < Date.now() + MAX_INTENT_LIFETIME_MS && Array.isArray(m.intents) && m.intents.length > 0;
   for (const i of ok ? m.intents : []) {
+    // Only transfers to the quote's deposit address. A token_diff that only gives tokens away could
+    // be filled by any solver for nothing, so it is never signed.
     if (i.intent === 'transfer' && i.receiver_id === depositAddress && i.tokens && typeof i.tokens === 'object') {
       for (const [token, value] of Object.entries(i.tokens)) sends.set(token, (sends.get(token) || 0n) + BigInt(value));
-    } else if (i.intent === 'token_diff' && i.diff && typeof i.diff === 'object') {
-      // A diff may only take the shares out; it may not take or give anything else.
-      for (const [token, value] of Object.entries(i.diff)) {
-        const v = BigInt(value);
-        if (v > 0n) ok = false;
-        else sends.set(token, (sends.get(token) || 0n) - v);
-      }
     } else ok = false;
   }
   if (!ok || sends.size !== 1 || sends.get(assetId) !== BigInt(amount)) throw new Error('This withdrawal message doesn’t match your request, so it wasn’t signed. Try again.');

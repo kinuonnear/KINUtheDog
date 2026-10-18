@@ -3,6 +3,7 @@
 // route message that is executed by the aggregator contract — the same
 // flow app.rhea.finance uses.
 
+import { checkSmartRouterRoute } from './routeMsg.js';
 import { CONTRACTS, DEPOSIT, ENDPOINTS, GAS, INTEAR_FEE } from '../config.js';
 import { view } from './rpc.js';
 import {
@@ -292,6 +293,14 @@ async function getSmartRouterQuote({ tokenIn, tokenOut, amountIn, slippage, user
       (path.length && (path[0] !== contractOf(tokenIn) || path[path.length - 1] !== contractOf(tokenOut)))
     ) {
       throw new Error('SmartRouter returned a quote that does not match your swap. Refresh the quote.');
+    }
+    // The signed route itself names who gets the output: it must be this user (lib/routeMsg.js).
+    if (user) {
+      try {
+        checkSmartRouterRoute(data.msg, user);
+      } catch (error) {
+        throw new Error(`SmartRouter returned a route that doesn't pay you (${error.message}). Refresh the quote.`);
+      }
     }
     const taxed = inBps || outBps;
     return {

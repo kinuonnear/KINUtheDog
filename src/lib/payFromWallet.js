@@ -97,9 +97,9 @@ export async function payEvm({ provider, chain, chainLabel, asset, to, amount })
   const tx = asset.contractAddress
     ? (() => {
         if (!EVM_ADDRESS.test(asset.contractAddress)) throw new Error('Unexpected token address. Nothing was sent.');
-        return { from, to: asset.contractAddress, value: '0x0', data: `0xa9059cbb${pad32(to)}${pad32(hex(amount))}` };
+        return { from, to: asset.contractAddress, value: '0x0', data: `0xa9059cbb${pad32(to)}${pad32(hex(amount))}`, chainId: hex(chainId) };
       })()
-    : { from, to, value: hex(amount) };
+    : { from, to, value: hex(amount), chainId: hex(chainId) };
   return provider.request({ method: 'eth_sendTransaction', params: [tx] });
 }
 

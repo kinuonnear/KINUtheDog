@@ -14,12 +14,15 @@
 //   - tokens may be sent (ft_transfer) and storage bought only for a NEAR Intents deposit address
 //     that a withdrawal just got from a 1Click quote whose signature verified (allowBridgeDeposit),
 //     and only that quote's token and amount
+//   - the message of every transfer into a DEX must pay the output to the signer: Rhea routes,
+//     CLMM / exchange swaps and Intear DEX operations (lib/routeMsg.js, lib/intearRouter.js)
 //   - on NEAR Intents' Verifier (intents.near) only registering the key the user just signed an Earn
 //     withdrawal with (allowIntentsKey), so the Verifier accepts that signature, and withdrawing a
 //     token from the signer's own Intents balance to the signer's own wallet
 
 import { CONTRACTS, INTEAR_FEE, PLATFORM_FEE } from '../config.js';
-import { INTEAR_FEE_RECIPIENTS } from './intearRouter.js';
+import { checkPlach, INTEAR_FEE_RECIPIENTS } from './intearRouter.js';
+import { checkRheaTransferMsg } from './routeMsg.js';
 
 const ONE_NEAR = 10n ** 24n;
 const MAX_FEE_DEPOSIT = 2n * ONE_NEAR; // storage / registration costs stay far below this
@@ -92,6 +95,14 @@ const bridgeDeposit = (address) => {
 };
 const isBridgeDeposit = (address) => Boolean(bridgeDeposit(address));
 
+function parseMsg(msg) {
+  try {
+    return JSON.parse(msg);
+  } catch {
+    return null;
+  }
+}
+
 function refuse(tx, reason) {
   throw new Error(`Blocked for your safety: ${reason} (${tx.receiverId}). Nothing was sent to your wallet.`);
 }
@@ -154,6 +165,14 @@ export function assertSafeTransactions(transactions, signerId) {
 
       if (methodName === 'ft_transfer_call' && !TOKEN_DESTINATIONS.has(args.receiver_id)) {
         refuse(tx, `tokens would be sent to "${args.receiver_id}", which is not a Rhea or Intear DEX contract`);
+      }
+      // What the DEX is asked to do with the tokens: the output must come back to the signer.
+      try {
+        if (methodName === 'ft_transfer_call' && args.receiver_id === CONTRACTS.intearDex) checkPlach(parseMsg(args.msg), signerId);
+        else if (methodName === 'ft_transfer_call') checkRheaTransferMsg(args.receiver_id, args.msg, signerId, CONTRACTS.aggregator);
+        if (tx.receiverId === CONTRACTS.intearDex && methodName === 'deposit_near') checkPlach(args, signerId);
+      } catch (error) {
+        refuse(tx, error.message);
       }
       // Storage is bought for the signer — or, when a token is new to Rhea, for Rhea's own
       // contracts so they can hold it (needed before a pool with that token can be used).
