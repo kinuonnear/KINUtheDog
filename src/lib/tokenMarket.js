@@ -47,10 +47,15 @@ function pairPoolAddresses(a, b) {
 }
 
 /**
- * The token's pools, deepest first: [{ address, rheaId, name, dex, baseId, quoteId, tvl, volume24, buys24, sells24, fee }].
+ * The token's pools, deepest first: [{ address, rheaId, name, dex, baseId, quoteId, tvl, volume24, buys24, sells24, fee,
+ *   windows: { m5|h1|h6|h24: { volume, buys, sells, change } } }] (change: the pool's base-token price, %).
  * GeckoTerminal lists a token's top 20 pools, which big NEAR Intents pools can fill: the Rhea pools
  * pairing it with `counterId` (the other side of the swap) are always looked up as well.
  */
+/** The activity windows the Swap page shows (DexScreener's and GeckoTerminal's keys). */
+export const WINDOW_KEYS = ['m5', 'h1', 'h6', 'h24'];
+const num = (v) => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
+
 export function getTokenPools(tokenId, counterId = null) {
   return cached(`pools:${tokenId}:${counterId || ''}`, 60_000, async () => {
     // DexScreener first: same pool addresses as GeckoTerminal, a far roomier rate limit
@@ -88,7 +93,13 @@ async function dexScreenerPools(tokenId) {
         tvl: Number(p.liquidity?.usd) || 0,
         volume24: Number(p.volume?.h24) || 0,
         buys24: Number(p.txns?.h24?.buys) || 0,
-        sells24: Number(p.txns?.h24?.sells) || 0
+        sells24: Number(p.txns?.h24?.sells) || 0,
+        windows: Object.fromEntries(
+          WINDOW_KEYS.map((w) => [
+            w,
+            { volume: Number(p.volume?.[w]) || 0, buys: Number(p.txns?.[w]?.buys) || 0, sells: Number(p.txns?.[w]?.sells) || 0, change: num(p.priceChange?.[w]) }
+          ])
+        )
       };
     })
     .sort((a, b) => b.tvl - a.tvl);
@@ -130,7 +141,18 @@ async function geckoTokenPools(tokenId, counterId) {
         tvl: Number(a.reserve_in_usd) || 0,
         volume24: Number(a.volume_usd?.h24) || 0,
         buys24: Number(tx.buys) || 0,
-        sells24: Number(tx.sells) || 0
+        sells24: Number(tx.sells) || 0,
+        windows: Object.fromEntries(
+          WINDOW_KEYS.map((w) => [
+            w,
+            {
+              volume: Number(a.volume_usd?.[w]) || 0,
+              buys: Number(a.transactions?.[w]?.buys) || 0,
+              sells: Number(a.transactions?.[w]?.sells) || 0,
+              change: num(a.price_change_percentage?.[w])
+            }
+          ])
+        )
       };
     })
     .sort((a, b) => b.tvl - a.tvl);

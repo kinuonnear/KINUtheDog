@@ -26,6 +26,10 @@ export default function TokenHeader({ token }) {
   const p = profile.data;
   const d = info.data;
   const mcap = d?.circulatingSupply && d?.price ? d.circulatingSupply * d.price : null;
+  const fdv = d?.totalSupply && d?.price ? d.totalSupply * d.price : null;
+  // The price in NEAR (NEAR itself: none).
+  const nearInfo = useAsync(() => fetchTokenInfo(CONTRACTS.wrapNear), [], { enabled: !native, refreshMs: 30_000 });
+  const priceNear = !native && d?.price && nearInfo.data?.price ? d.price / nearInfo.data.price : null;
   // DexScreener's page for the token's deepest pair; its token search otherwise.
   const dexUrl = p?.dexscreener || `https://dexscreener.com/near/${encodeURIComponent(tokenId || '')}`;
 
@@ -102,12 +106,24 @@ export default function TokenHeader({ token }) {
           </em>
         )}
         <span className="muted small">24h</span>
+        {priceNear != null && (
+          <span className="token-head__quote" title={`Price in NEAR, at NEAR's price of ${formatChartPrice(nearInfo.data.price)}`}>
+            <small>Price</small>
+            <b>
+              {formatChartPrice(priceNear)} <i>NEAR</i>
+            </b>
+          </span>
+        )}
       </div>
 
       <dl className="token-head__stats">
         <div>
-          <dt>Market cap</dt>
+          <dt title="Market cap: price × circulating supply">MCap</dt>
           <dd>{mcap ? formatUsd(mcap) : '—'}</dd>
+        </div>
+        <div>
+          <dt>FDV</dt>
+          <dd title="Fully diluted value: price × total supply">{fdv ? formatUsd(fdv) : '—'}</dd>
         </div>
         <div>
           <dt>Liquidity</dt>

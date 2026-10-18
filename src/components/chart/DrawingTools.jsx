@@ -1,10 +1,12 @@
 // Drawing tools shared by the charts: the left toolbar, its icons, and
 // `attachDrawings`, which wires the drawing canvas to a lightweight-charts
-// instance (data <-> screen mapping, magnet, click-to-select, placing points).
+// instance (data <-> screen mapping, magnet, selecting, placing and editing points).
+// Like TradingView: a two-point tool is placed with two clicks or one press-drag-release; in cursor
+// mode a drawing is selected by pressing on it, dragged by its body, and reshaped by its handles.
 
 import { useEffect } from 'react';
 import { formatChartPrice } from '../../lib/format.js';
-import { drawAll, hitTest, TOOLS } from './drawings.js';
+import { drawAll, handleAt, hitTest, TOOLS } from './drawings.js';
 
 export function ToolIcon({ kind }) {
   const paths = {
@@ -13,7 +15,8 @@ export function ToolIcon({ kind }) {
     hline: <path d="M1 9h16" />,
     rect: <rect x="3" y="4" width="12" height="10" rx="1" />,
     fib: <path d="M2 3h14M2 7h14M2 11h14M2 15h14" />,
-    measure: <path d="M3 15 15 3M3 11v4h4M15 7V3h-4" />,
+    // A ruler
+    measure: <path d="M2.5 11.5 11.5 2.5l4 4-9 9zM5 9l1.5 1.5M7 7l2 2M9 5l1.5 1.5M11 3.5 12.5 5" />,
     magnet: <path d="M4 3v6a5 5 0 0 0 10 0V3M4 6h3M11 6h3" />,
     eye: <path d="M1 9s3-5 8-5 8 5 8 5-3 5-8 5-8-5-8-5ZM9 11a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" />,
     trash: <path d="M3 5h12M7 5V3h4v2M5 5l1 10h6l1-10" />,
@@ -140,6 +143,9 @@ export function attachDrawings({ chart, series, data, step, container, canvas, l
 
   const ctx = canvas.getContext('2d');
   let disposed = false;
+  // A drawing being dragged is shown from here until the drag ends (one state update, on release).
+  let dragged = null;
+  let hoverId = null;
   const paint = () => {
     if (disposed) return;
     const width = Math.max(0, container.clientWidth - chart.priceScale('right').width());
@@ -155,7 +161,8 @@ export function attachDrawings({ chart, series, data, step, container, canvas, l
     geo.width = width;
     geo.height = height;
     const pending = pendingRef.current ? [pendingRef.current] : [];
-    drawAll(ctx, live.current.hidden ? pending : [...live.current.drawings, ...pending], geo, live.current.selected);
+    const list = dragged ? live.current.drawings.map((d) => (d.id === dragged.id ? dragged : d)) : live.current.drawings;
+    drawAll(ctx, live.current.hidden ? pending : [...list, ...pending], geo, live.current.selected, hoverId);
   };
 
   // Repaint on chart changes; every frame only while the pointer is over the chart.
@@ -180,36 +187,131 @@ export function attachDrawings({ chart, series, data, step, container, canvas, l
   resize.observe(container);
   requestAnimationFrame(paint);
 
-  // Cursor mode: click selects a drawing.
-  chart.subscribeClick((param) => {
-    if (live.current.tool !== 'cursor' || !param?.point) return;
-    const hit = live.current.hidden ? null : hitTest(live.current.drawings, geo, param.point.x, param.point.y);
-    live.current.setSelected(hit ? hit.id : null);
-  });
-
-  // Drawing tools: the canvas captures pointer events only while a tool is active.
   const pos = (e) => {
     const rect = canvas.getBoundingClientRect();
     return [e.clientX - rect.left, e.clientY - rect.top];
   };
+  const inPlot = ([x, y]) => x >= 0 && y >= 0 && x <= geo.width && y <= geo.height;
+
+  // ---- Cursor mode: select, move, reshape. Listens before the chart (capture), and only takes the
+  // press when it lands on a drawing, so panning and zooming the chart work everywhere else.
+  let edit = null; // { id, mode: 'point' | 'move', index, from: { time, price }, orig }
+  let quick = false; // a Shift-drag measurement is on screen (in pendingRef)
+  const onQuickMove = (e) => {
+    if (!quick || !pendingRef.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+    pendingRef.current = { ...pendingRef.current, points: [pendingRef.current.points[0], toData(...pos(e))] };
+    paint();
+  };
+  const onQuickUp = () => {
+    window.removeEventListener('pointermove', onQuickMove, true);
+    window.removeEventListener('pointerup', onQuickUp, true);
+  };
+  const onHostDown = (e) => {
+    if (live.current.tool !== 'cursor' || e.button > 0) return;
+    const p = pos(e);
+    if (!inPlot(p)) return;
+    // The last quick measurement goes away with the next press.
+    if (quick) {
+      quick = false;
+      pendingRef.current = null;
+      paint();
+    }
+    if (e.shiftKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      const point = toData(...p);
+      quick = true;
+      pendingRef.current = { id: 'quick-measure', type: 'measure', points: [point, point] };
+      window.addEventListener('pointermove', onQuickMove, true);
+      window.addEventListener('pointerup', onQuickUp, true);
+      paint();
+      return;
+    }
+    if (live.current.hidden) return;
+    const grip = handleAt(live.current.drawings, geo, p[0], p[1], live.current.selected);
+    const body = grip ? grip.drawing : hitTest(live.current.drawings, geo, p[0], p[1]);
+    if (!body) {
+      if (live.current.selected) live.current.setSelected(null);
+      return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    live.current.setSelected(body.id);
+    edit = { id: body.id, mode: grip ? 'point' : 'move', index: grip?.index ?? 0, from: toData(...p), orig: body };
+    window.addEventListener('pointermove', onEditMove, true);
+    window.addEventListener('pointerup', onEditUp, true);
+  };
+  const onEditMove = (e) => {
+    if (!edit) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const now = toData(...pos(e));
+    const o = edit.orig;
+    if (edit.mode === 'point') {
+      dragged = { ...o, points: o.points.map((pt, i) => (i === edit.index ? now : pt)) };
+    } else {
+      const dt = now.time - edit.from.time;
+      const dp = now.price - edit.from.price;
+      dragged = { ...o, points: o.points.map((pt) => ({ time: Math.round(pt.time + dt), price: pt.price + dp })) };
+    }
+    paint();
+  };
+  const onEditUp = (e) => {
+    window.removeEventListener('pointermove', onEditMove, true);
+    window.removeEventListener('pointerup', onEditUp, true);
+    if (dragged) {
+      const done = dragged;
+      live.current.setDrawings((list) => list.map((d) => (d.id === done.id ? done : d)));
+      e.stopPropagation();
+    }
+    dragged = null;
+    edit = null;
+    paint();
+  };
+  // Hover: a drawing lights up and the cursor shows what a press would do.
+  const onHostMove = (e) => {
+    if (edit || live.current.tool !== 'cursor' || live.current.hidden) return;
+    const p = pos(e);
+    const grip = inPlot(p) ? handleAt(live.current.drawings, geo, p[0], p[1], live.current.selected) : null;
+    const body = grip ? grip.drawing : inPlot(p) ? hitTest(live.current.drawings, geo, p[0], p[1]) : null;
+    const next = body?.id ?? null;
+    container.style.cursor = grip ? 'grab' : body ? 'move' : '';
+    if (next !== hoverId) {
+      hoverId = next;
+      paint();
+    }
+  };
+  host.addEventListener('pointerdown', onHostDown, true);
+  host.addEventListener('pointermove', onHostMove, true);
+
+  // ---- Drawing tools: the canvas takes the pointer only while a tool is active. Two clicks, or one
+  // press-drag-release, place a two-point drawing.
   const finish = (d) => {
     live.current.setDrawings((list) => [...list, d]);
     live.current.setSelected(d.id);
     live.current.setTool('cursor');
   };
+  let pressAt = null; // where the press that started the pending drawing was
   const onDown = (e) => {
     const toolDef = TOOLS.find((t) => t.key === live.current.tool);
     if (!toolDef || toolDef.points === 0) return;
-    const point = toData(...pos(e));
+    e.preventDefault();
+    const p = pos(e);
+    const point = toData(...p);
     if (toolDef.points === 1) {
       finish({ id: `${Date.now()}`, type: toolDef.key, points: [point] });
       return;
     }
     if (!pendingRef.current) {
       pendingRef.current = { id: `${Date.now()}`, type: toolDef.key, points: [point, point] };
+      pressAt = p;
+      canvas.setPointerCapture?.(e.pointerId);
     } else {
       const d = { ...pendingRef.current, points: [pendingRef.current.points[0], point] };
       pendingRef.current = null;
+      pressAt = null;
       finish(d);
     }
     paint();
@@ -219,8 +321,21 @@ export function attachDrawings({ chart, series, data, step, container, canvas, l
     pendingRef.current = { ...pendingRef.current, points: [pendingRef.current.points[0], toData(...pos(e))] };
     paint();
   };
+  // Released after dragging: that was the second point.
+  const onUp = (e) => {
+    if (!pendingRef.current || !pressAt) return;
+    const p = pos(e);
+    const moved = Math.hypot(p[0] - pressAt[0], p[1] - pressAt[1]) > 6;
+    pressAt = null;
+    if (!moved) return; // a click: wait for the second one
+    const d = { ...pendingRef.current, points: [pendingRef.current.points[0], toData(...p)] };
+    pendingRef.current = null;
+    finish(d);
+    paint();
+  };
   canvas.addEventListener('pointerdown', onDown);
   canvas.addEventListener('pointermove', onMove);
+  canvas.addEventListener('pointerup', onUp);
 
   const dispose = () => {
     disposed = true;
@@ -229,6 +344,13 @@ export function attachDrawings({ chart, series, data, step, container, canvas, l
     host.removeEventListener('pointerleave', stopLoop);
     canvas.removeEventListener('pointerdown', onDown);
     canvas.removeEventListener('pointermove', onMove);
+    canvas.removeEventListener('pointerup', onUp);
+    host.removeEventListener('pointerdown', onHostDown, true);
+    host.removeEventListener('pointermove', onHostMove, true);
+    window.removeEventListener('pointermove', onEditMove, true);
+    window.removeEventListener('pointerup', onEditUp, true);
+    window.removeEventListener('pointermove', onQuickMove, true);
+    window.removeEventListener('pointerup', onQuickUp, true);
     resize.disconnect();
   };
   return { paint, dispose };

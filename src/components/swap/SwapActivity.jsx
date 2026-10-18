@@ -7,7 +7,7 @@
 
 import { useState } from 'react';
 import { useApp } from '../../state.jsx';
-import { useAsync } from '../../hooks.js';
+import { useAsync, useLocalStorage } from '../../hooks.js';
 import { fetchTokenInfo, fetchTrades, intearTokenId } from '../../lib/intear.js';
 import { getTopHolders, getTopTraders } from '../../lib/tokenMarket.js';
 import { formatAmount, formatChartPrice, formatUsd, shortAccount, toNumber } from '../../lib/format.js';
@@ -316,20 +316,58 @@ export default function SwapActivity({ token, pools, poolsError, flush }) {
   );
 }
 
-/** 24h flow across the token's pools: volume, buys and sells. */
+const FLOW_WINDOWS = [
+  ['m5', '5M'],
+  ['h1', '1H'],
+  ['h6', '6H'],
+  ['h24', '24H']
+];
+
+/**
+ * The token's price move in a window, from its deepest pool that reports one. A pool quotes its
+ * base token, so when the token is the quote side the move is inverted.
+ */
+function windowChange(pools, tokenId, w) {
+  // The deepest pool (pools come deepest first) that reports a move in this window; when none
+  // does, nothing traded in it, so the price didn't move.
+  const mine = (pools || []).filter((p) => p.windows && (p.baseId === tokenId || p.quoteId === tokenId));
+  if (!mine.length) return null;
+  const pool = mine.find((p) => p.windows[w]?.change != null && (p.windows[w].buys || p.windows[w].sells));
+  if (!pool) return 0;
+  const c = pool.windows[w].change;
+  return pool.baseId === tokenId ? c : c > -100 ? (100 / (1 + c / 100) - 100) : null;
+}
+
+/** Flow across the token's pools for a chosen window (5M, 1H, 6H, 24H): price move, volume, buys and sells. */
 export function TokenFlow({ token, pools }) {
   const tokenId = intearTokenId(token);
   const info = useAsync(() => fetchTokenInfo(tokenId), [tokenId], { enabled: Boolean(tokenId), refreshMs: 30_000 });
-  const buys = (pools || []).reduce((s, p) => s + p.buys24, 0);
-  const sells = (pools || []).reduce((s, p) => s + p.sells24, 0);
+  const [w, setW] = useLocalStorage('kinu.swap.flowWindow', 'h24');
+  const sum = (field) => (pools || []).reduce((s, p) => s + (p.windows?.[w]?.[field] ?? (w === 'h24' ? p[`${field}24`] || 0 : 0)), 0);
+  const buys = sum('buys');
+  const sells = sum('sells');
   const total = buys + sells;
   const buyShare = total > 0 ? (buys / total) * 100 : 50;
+  // 24h volume from Intear (every pool it tracks); shorter windows from the pools' own numbers.
+  const volume = w === 'h24' && info.data ? info.data.volume24hUsd : pools ? sum('volume') : null;
+  const label = FLOW_WINDOWS.find(([k]) => k === w)?.[1] || '24H';
   return (
-    <section className="card token-flow" aria-label={`${token?.symbol} 24 hour activity`}>
+    <section className="card token-flow" aria-label={`${token?.symbol} activity`}>
+      <div className="token-flow__tabs" role="tablist" aria-label="Time window">
+        {FLOW_WINDOWS.map(([key, text]) => {
+          const c = windowChange(pools, tokenId, key);
+          return (
+            <button key={key} type="button" role="tab" aria-selected={w === key} className={w === key ? 'is-on' : ''} onClick={() => setW(key)}>
+              <span>{text}</span>
+              <b className={c == null ? 'muted' : c > 0 ? 'up' : c < 0 ? 'down' : ''}>{c == null ? '—' : `${c > 0 ? '+' : ''}${c.toFixed(2)}%`}</b>
+            </button>
+          );
+        })}
+      </div>
       <dl>
         <div>
-          <dt>24h vol</dt>
-          <dd>{info.data ? formatUsd(info.data.volume24hUsd) : '—'}</dd>
+          <dt>Vol {label}</dt>
+          <dd title={volume != null ? formatUsd(volume) : undefined}>{volume != null ? formatUsd(volume, { compactAbove: 1e4 }) : '—'}</dd>
         </div>
         <div>
           <dt>Buys</dt>

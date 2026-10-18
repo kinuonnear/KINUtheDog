@@ -9,7 +9,7 @@ export const TOOLS = [
   { key: 'hline', label: 'Horizontal line', points: 1 },
   { key: 'rect', label: 'Rectangle', points: 2 },
   { key: 'fib', label: 'Fib retracement', points: 2 },
-  { key: 'measure', label: 'Measure', points: 2 }
+  { key: 'measure', label: 'Measure: price, % and time (or hold Shift and drag)', points: 2 }
 ];
 
 export const FIB_LEVELS = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
@@ -29,9 +29,20 @@ function label(ctx, text, x, y, { bg = 'rgba(13,18,16,0.92)', fg = '#e6edf5', al
   ctx.fillText(text, left + 5, y);
 }
 
+/** "3d 4h", "5h 20m", "45m" for a span of seconds. */
+function span(seconds) {
+  const s = Math.abs(seconds);
+  const d = Math.floor(s / 86_400);
+  const h = Math.floor((s % 86_400) / 3600);
+  const m = Math.round((s % 3600) / 60);
+  if (d) return `${d}d${h ? ` ${h}h` : ''}`;
+  if (h) return `${h}h${m ? ` ${m}m` : ''}`;
+  return `${m}m`;
+}
+
 function handle(ctx, x, y) {
   ctx.beginPath();
-  ctx.arc(x, y, 4, 0, Math.PI * 2);
+  ctx.arc(x, y, 5, 0, Math.PI * 2);
   ctx.fillStyle = '#121821';
   ctx.fill();
   ctx.lineWidth = 2;
@@ -44,7 +55,7 @@ function project(d, geo) {
   return d.points.map((p) => ({ x: geo.timeToX(p.time), y: geo.priceToY(p.price), price: p.price, time: p.time }));
 }
 
-export function drawAll(ctx, drawings, geo, selectedId) {
+export function drawAll(ctx, drawings, geo, selectedId, hoverId = null) {
   ctx.clearRect(0, 0, geo.width, geo.height);
   drawings.forEach((d) => {
     const pts = project(d, geo);
@@ -52,7 +63,7 @@ export function drawAll(ctx, drawings, geo, selectedId) {
     const selected = d.id === selectedId;
     const color = selected ? SELECTED : d.color || LINE;
     ctx.save();
-    ctx.lineWidth = selected ? 2 : 1.5;
+    ctx.lineWidth = selected ? 2 : d.id === hoverId ? 2.4 : 1.5;
     ctx.strokeStyle = color;
 
     if (d.type === 'trend') {
@@ -73,6 +84,7 @@ export function drawAll(ctx, drawings, geo, selectedId) {
       ctx.stroke();
       ctx.setLineDash([]);
       label(ctx, geo.formatPrice(a.price), geo.width - 4, a.y, { bg: color, fg: '#0b1204', align: 'right' });
+      if (selected) handle(ctx, Math.min(geo.width - 90, Math.max(12, a.x)), a.y);
     }
 
     if (d.type === 'rect' || d.type === 'measure') {
@@ -87,8 +99,23 @@ export function drawAll(ctx, drawings, geo, selectedId) {
         const diff = b.price - a.price;
         const pct = a.price ? (diff / a.price) * 100 : 0;
         const bars = geo.barsBetween ? geo.barsBetween(a.time, b.time) : null;
-        const text = `${diff >= 0 ? '+' : ''}${geo.formatPrice(diff)} (${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%)${bars !== null ? ` · ${bars} bars` : ''}`;
-        label(ctx, text, (a.x + b.x) / 2, Math.min(a.y, b.y) - 14, { align: 'center', bg: up ? '#22e283' : '#ff5d6c', fg: '#0b1204' });
+        const text = `${diff >= 0 ? '+' : ''}${geo.formatPrice(diff)} (${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%)`;
+        const sub = `${bars !== null ? `${bars} bars · ` : ''}${span(b.time - a.time)}`;
+        // Above the box when rising, below it when falling (like TradingView's price range).
+        const y = up ? Math.min(a.y, b.y) - 28 : Math.max(a.y, b.y) + 14;
+        const bg = up ? '#22e283' : '#ff5d6c';
+        label(ctx, text, (a.x + b.x) / 2, y, { align: 'center', bg, fg: '#0b1204' });
+        label(ctx, sub, (a.x + b.x) / 2, y + 17, { align: 'center', bg, fg: '#0b1204' });
+        // Arrows along the middle: the direction of the move.
+        const mx = (a.x + b.x) / 2;
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(mx, a.y);
+        ctx.lineTo(mx, b.y);
+        ctx.moveTo(a.x, (a.y + b.y) / 2);
+        ctx.lineTo(b.x, (a.y + b.y) / 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
       }
       if (selected) [a, b].forEach((p) => handle(ctx, p.x, p.y));
     }
@@ -128,8 +155,23 @@ function distToSegment(px, py, a, b) {
   return Math.hypot(px - (a.x + t * dx), py - (a.y + t * dy));
 }
 
+/**
+ * The point handle of a drawing under (x, y): { drawing, index }, or null. The selected drawing's
+ * handles win, then any drawing's (topmost first).
+ */
+export function handleAt(drawings, geo, x, y, selectedId, tolerance = 10) {
+  const order = [...drawings].reverse().sort((a, b) => (b.id === selectedId) - (a.id === selectedId));
+  for (const d of order) {
+    if (d.type === 'hline') continue; // a horizontal line moves as a whole
+    const pts = project(d, geo);
+    const index = pts.findIndex((p) => p.x !== null && p.y !== null && Math.hypot(p.x - x, p.y - y) <= tolerance);
+    if (index >= 0) return { drawing: d, index };
+  }
+  return null;
+}
+
 /** Topmost drawing within `tolerance` px of (x, y), or null. */
-export function hitTest(drawings, geo, x, y, tolerance = 6) {
+export function hitTest(drawings, geo, x, y, tolerance = 8) {
   for (let i = drawings.length - 1; i >= 0; i -= 1) {
     const d = drawings[i];
     const pts = project(d, geo);

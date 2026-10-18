@@ -4346,6 +4346,7 @@ a.trades__row:hover {
 .draw-canvas--active {
   pointer-events: auto;
   cursor: crosshair;
+  touch-action: none;
 }
 
 .pro-chart__legend {
@@ -8507,7 +8508,7 @@ a.dt-row:hover {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 12px 28px;
+  gap: 12px 22px;
   padding: 14px 18px;
 }
 
@@ -8583,11 +8584,45 @@ a.dt-row:hover {
   font-weight: 700;
 }
 
+/* The NEAR price: a line under the USD price, so the header stays one row. */
+.token-head__price {
+  display: grid;
+  grid-template-columns: auto auto auto;
+  align-items: baseline;
+  column-gap: 8px;
+  row-gap: 2px;
+}
+
+.token-head__quote {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.token-head__quote small {
+  color: var(--muted);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.token-head__quote b {
+  font-family: var(--mono);
+  font-size: 14px;
+}
+
+.token-head__quote i {
+  color: var(--muted);
+  font-style: normal;
+  font-weight: 500;
+}
+
 .token-head__stats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(96px, 1fr));
-  gap: 8px;
-  flex: 1 1 340px;
+  grid-template-columns: repeat(4, minmax(104px, auto));
+  gap: 6px;
+  flex: 0 1 auto;
   margin: 0;
 }
 
@@ -8597,15 +8632,21 @@ a.dt-row:hover {
   background: var(--surface-2);
 }
 
+.token-head__stats dt,
+.token-head__stats dd {
+  white-space: nowrap;
+}
+
 .token-head__stats dt {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .token-head__stats dd {
-  margin: 2px 0 0;
+  margin: 4px 0 0;
+  font-size: 18px;
   font-family: var(--mono);
   font-weight: 700;
 }
@@ -8773,26 +8814,71 @@ a.dt-row:hover {
   padding: 14px;
 }
 
+.token-flow__tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.token-flow__tabs button {
+  display: grid;
+  gap: 2px;
+  padding: 7px 6px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.token-flow__tabs button b {
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0;
+}
+
+.token-flow__tabs button:hover {
+  border-color: var(--border-strong, rgba(255, 255, 255, 0.16));
+}
+
+.token-flow__tabs button.is-on {
+  border-color: rgba(255, 255, 255, 0.28);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+/* The window's numbers: same four columns as the tabs above, centred under them. */
 .token-flow dl {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
+  gap: 6px;
   margin: 0;
+  padding: 10px 0 2px;
+  border-top: 1px solid var(--border);
+  text-align: center;
 }
 
 .token-flow dt {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .token-flow dd {
-  margin: 2px 0 0;
+  margin: 4px 0 0;
   font-family: var(--mono);
+  font-size: 15px;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .token-flow__bar {
-  height: 6px;
+  height: 5px;
   border-radius: 999px;
   overflow: hidden;
   background: var(--danger);
@@ -8837,12 +8923,13 @@ a.dt-row:hover {
   }
 
   .token-head__stats {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 /* Swap header: links beside the name, and the pair switch ("NEAR/NEARLY ⇄") */
 .swap-pro__main > .token-head {
+  justify-content: flex-start;
   margin-bottom: 12px;
 }
 
