@@ -193,3 +193,16 @@ export function consumeRedirectResult() {
   const list = hashes.split(',').filter((h) => /^[1-9A-HJ-NP-Za-km-z]{32,64}$/.test(h));
   return list.length ? { ok: true, hashes: list } : null;
 }
+
+/**
+ * Asks the connected wallet to sign a message (NEP-413), e.g. an Earn withdrawal intent. Returns
+ * { accountId, publicKey, signature } (signature base64); wallets that can't sign here throw.
+ */
+export async function signMessage({ message, recipient, nonce }) {
+  const selector = await getSelector();
+  const wallet = await selector.wallet();
+  if (typeof wallet.signMessage !== 'function') throw new Error('Your wallet can’t sign messages. Use Meteor, Intear or HOT Wallet for this.');
+  const signed = await wallet.signMessage({ message, recipient, nonce });
+  if (!signed?.signature || !signed?.publicKey) throw new Error('Your wallet didn’t return a signature. Use Meteor, Intear or HOT Wallet for this.');
+  return signed;
+}

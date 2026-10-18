@@ -1,4 +1,4 @@
-// Bridge quotes (a Vercel function): forwards the page's 1Click quote request with KINU's partner
+// Bridge and Earn quotes (a Vercel function): forwards the page's 1Click quote request with KINU's partner
 // API key, which must stay off the browser, and sets KINU's fee (src/lib/intentsFees.js) here so
 // it can't be changed client-side. Only KINU's own pages may call it (1Click's terms: no public
 // proxy), and only the fields the Bridge uses are passed on. 1Click signs the quote; the page
@@ -9,10 +9,10 @@
 //   KINU_ALLOWED_ORIGINS   optional, comma-separated extra origins (e.g. a preview URL)
 // In `vite dev` the same handler runs from vite.config.js (key from .env.local, if set).
 
-import { KINU_FEE_RECIPIENT, kinuFeeBps } from '../src/lib/intentsFees.js';
+import { isEarnAsset, KINU_FEE_RECIPIENT, quoteFeeBps } from '../src/lib/intentsFees.js';
+import { allowed, parse } from './_origin.js';
 
 const API = 'https://1click.chaindefuser.com/v0';
-const ORIGINS = ['https://kinudefi.com', 'https://www.kinudefi.com', 'http://localhost:5173', 'http://127.0.0.1:5173'];
 const TOKENS_TTL_MS = 10 * 60_000;
 const ASSET = /^nep\d+:[\w.:-]{2,200}$/;
 const ADDRESS = /^[\w.:@-]{2,200}$/;
@@ -28,28 +28,13 @@ async function symbols() {
   return tokens.symbols;
 }
 
-/** KINU's own pages: the listed origins, or the page this function is served with (any KINU domain). */
-function allowed(origin, host) {
-  if (!origin) return false;
-  if (ORIGINS.concat((process.env.KINU_ALLOWED_ORIGINS || '').split(',').map((s) => s.trim()).filter(Boolean)).includes(origin)) return true;
-  try {
-    const url = new URL(origin);
-    return url.protocol === 'https:' && url.host === host;
-  } catch {
-    return false;
-  }
-}
+// Three shapes: a Bridge transfer (chain to chain), an Earn deposit (shares delivered to the user's
+// NEAR Intents balance) and an Earn withdrawal (shares paid from that balance, by a signed intent).
+const isBridge = (b) => b.depositType === 'ORIGIN_CHAIN' && b.recipientType === 'DESTINATION_CHAIN' && b.refundType === 'ORIGIN_CHAIN';
+const isEarnDeposit = (b) => b.depositType === 'ORIGIN_CHAIN' && b.recipientType === 'INTENTS' && b.refundType === 'ORIGIN_CHAIN' && isEarnAsset(b.destinationAsset);
+const isEarnWithdraw = (b) => b.depositType === 'INTENTS' && b.recipientType === 'DESTINATION_CHAIN' && b.refundType === 'INTENTS' && isEarnAsset(b.originAsset);
 
-function parse(body) {
-  if (typeof body !== 'string') return body;
-  try {
-    return JSON.parse(body || 'null');
-  } catch {
-    return null;
-  }
-}
-
-/** The request the Bridge sends, checked field by field; null when anything is off. */
+/** The request the page sends, checked field by field; null when anything is off. */
 function clean(b) {
   if (!b || typeof b !== 'object') return null;
   const ok =
@@ -60,9 +45,7 @@ function clean(b) {
     b.slippageTolerance <= 500 &&
     ASSET.test(b.originAsset) &&
     ASSET.test(b.destinationAsset) &&
-    b.depositType === 'ORIGIN_CHAIN' &&
-    b.recipientType === 'DESTINATION_CHAIN' &&
-    b.refundType === 'ORIGIN_CHAIN' &&
+    (isBridge(b) || isEarnDeposit(b) || isEarnWithdraw(b)) &&
     /^\d{1,40}$/.test(b.amount) &&
     ADDRESS.test(b.recipient) &&
     ADDRESS.test(b.refundTo) &&
@@ -80,7 +63,7 @@ export default async function handler(req, res) {
   if (!body) return res.status(400).json({ message: 'Invalid quote request' });
   try {
     const map = await symbols();
-    body.appFees = [{ recipient: KINU_FEE_RECIPIENT, fee: kinuFeeBps(map.get(body.originAsset), map.get(body.destinationAsset)) }];
+    body.appFees = [{ recipient: KINU_FEE_RECIPIENT, fee: quoteFeeBps(body.originAsset, body.destinationAsset, (id) => map.get(id)) }];
     const key = process.env.NEAR_INTENTS_API_KEY;
     const r = await fetch(`${API}/quote`, {
       method: 'POST',

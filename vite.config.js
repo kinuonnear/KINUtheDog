@@ -24,7 +24,8 @@ const headersFile = {
   }
 };
 
-// `vite dev` runs api/intents-quote.js (the Bridge's quotes with KINU's fee) like Vercel does; the
+// `vite dev` runs api/intents-quote.js (Bridge and Earn quotes with KINU's fee) and
+// api/intents-intent.js (Earn's signed withdrawals) like Vercel does; the
 // partner key, if any, comes from .env.local (NEAR_INTENTS_API_KEY, never committed).
 const devQuoteApi = {
   name: 'kinu-dev-quote-api',
@@ -32,10 +33,10 @@ const devQuoteApi = {
   configureServer(server) {
     const env = loadEnv(server.config.mode, server.config.root, '');
     if (env.NEAR_INTENTS_API_KEY && !process.env.NEAR_INTENTS_API_KEY) process.env.NEAR_INTENTS_API_KEY = env.NEAR_INTENTS_API_KEY;
-    server.middlewares.use('/api/intents-quote', async (req, res) => {
+    for (const route of ['/api/intents-quote', '/api/intents-intent']) server.middlewares.use(route, async (req, res) => {
       let raw = '';
       for await (const chunk of req) raw += chunk;
-      const { default: handler } = await server.ssrLoadModule('/api/intents-quote.js');
+      const { default: handler } = await server.ssrLoadModule(`${route}.js`);
       const reply = {
         statusCode: 200,
         setHeader: (k, v) => res.setHeader(k, v),

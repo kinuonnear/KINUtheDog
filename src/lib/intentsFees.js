@@ -25,3 +25,23 @@ export function kinuFeeBps(fromSymbol, toSymbol) {
 
 /** "0.40%" */
 export const feePercent = (bps) => `${(bps / 100).toFixed(2)}%`;
+
+// Earn (lib/earn.js): KINU's fee on moving into and out of a yield vault through 1Click. Below 40 bps,
+// 1Click keeps its 20 bps and KINU gets half of the fee asked: at 20 bps the user pays 0.30% each way,
+// 0.10% to KINU's treasury.
+export const EARN_FEE_BPS = 20;
+/** The vault share tokens Earn deposits into (1Click asset ids); kept here so the server knows them. */
+export const EARN_RECEIPT_ASSETS = new Set([
+  'nep141:base-0x0bb69b79bc829e1cfcc34a740110886d98d2bd14.omft.near', // Gauntlet USDC Prime (Morpho, Base)
+  'nep141:sol-0xa69aa1bcb03a369e338156a8718ad60271145803.omdep.near' // Kamino SOL Balanced (Solana)
+]);
+export const isEarnAsset = (assetId) => EARN_RECEIPT_ASSETS.has(assetId);
+
+/** The `appFees` fee (bps) for a quote: Earn's when either side is a vault share, otherwise the Bridge's. */
+export function quoteFeeBps(originAsset, destinationAsset, symbolOf) {
+  if (isEarnAsset(originAsset) || isEarnAsset(destinationAsset)) return EARN_FEE_BPS;
+  return kinuFeeBps(symbolOf(originAsset), symbolOf(destinationAsset));
+}
+
+/** What the user pays in all for a fee asked of 1Click (1Click keeps at least 20 bps; KINU gets half). */
+export const totalFeeBps = (bps) => (bps >= 40 ? bps : Math.ceil(bps / 2) + 20);

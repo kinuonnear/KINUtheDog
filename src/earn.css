@@ -1,0 +1,157 @@
+/* Earn (/earn): built on the Stake page's layout (stake.css) and the Bridge's pieces (deposit.css). */
+
+.earn-beta {
+  margin-left: 10px;
+  padding: 3px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  vertical-align: middle;
+}
+
+.earn-icon {
+  position: relative;
+  display: inline-block;
+  flex: none;
+}
+
+.earn-icon > img:first-child {
+  border-radius: 50%;
+}
+
+.earn-icon__chain {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  border: 2px solid var(--bg, #05070c);
+  border-radius: 50%;
+  background: var(--bg, #05070c);
+}
+
+.earn-pay {
+  display: inline-flex;
+  align-self: flex-start;
+}
+
+.earn-pay button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.earn-share {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.earn-share strong {
+  font-family: var(--mono, 'JetBrains Mono', monospace);
+  font-size: 24px;
+}
+
+.mini-button.is-on {
+  border-color: rgba(255, 255, 255, 0.4);
+  color: var(--text);
+}
+
+.earn-vault__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.earn-vault__head h3 {
+  margin: 0;
+}
+
+.earn-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 16px;
+  margin: 14px 0 0;
+}
+
+.earn-stats div {
+  display: grid;
+  gap: 2px;
+}
+
+.earn-stats dt {
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.earn-stats dd {
+  margin: 0;
+  font-family: var(--mono, 'JetBrains Mono', monospace);
+  font-size: 16px;
+}
+
+.earn-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 14px;
+  font-size: 13px;
+}
+
+.earn-how ol {
+  display: grid;
+  gap: 10px;
+  margin: 10px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.earn-how b {
+  color: var(--text);
+}
+
+.earn-total {
+  margin: 4px 0 6px;
+}
+
+.earn-total b {
+  font-family: var(--mono, 'JetBrains Mono', monospace);
+  font-size: 22px;
+}
+
+.earn-track {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.earn-track__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.earn-track__head div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.earn-note--warn {
+  margin: 0;
+  color: #ffcf6b;
+  font-size: 13px;
+}

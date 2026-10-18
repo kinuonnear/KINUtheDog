@@ -5,9 +5,10 @@ import { useEffect } from 'react';
 import { Link, poolPath } from '../router.jsx';
 import { FEE_SUMMARY } from '../config.js';
 import { WHITEPAPER } from './Whitepaper.jsx';
-import { KINU_FEE_BPS, KINU_FEE_STABLE_BPS, feePercent } from '../lib/intentsFees.js';
+import { EARN_FEE_BPS, KINU_FEE_BPS, KINU_FEE_STABLE_BPS, feePercent, totalFeeBps } from '../lib/intentsFees.js';
 
 const INTENTS_TERMS_URL = 'https://docs.near-intents.org/security-compliance/terms-of-service';
+const EARN_FEE_SUMMARY = `Earn deposits and withdrawals each include a service fee of ${feePercent(totalFeeBps(EARN_FEE_BPS))} (${feePercent(EARN_FEE_BPS / 2)} to KINU’s treasury, the rest to NEAR Intents), taken from the amount and shown before you sign. The vaults’ own fees are already reflected in their APY.`;
 const BRIDGE_FEE_SUMMARY = `Bridge transfers include a service fee of ${feePercent(KINU_FEE_BPS)} (${feePercent(KINU_FEE_STABLE_BPS)} for stablecoin pairs and the same asset across chains), taken from the amount sent and shown in every quote; it is shared between KINU’s treasury and NEAR Intents.`;
 
 const KINU = 'kinu-3.nearlytrade.near';
@@ -477,7 +478,7 @@ const DOCS = [
     group: 'Legal',
     slug: 'terms',
     title: 'Terms of Service',
-    summary: 'The terms for using KINU. Last updated 17 October 2026.',
+    summary: 'The terms for using KINU. Last updated 18 October 2026.',
     body: (
       <>
         <p>
@@ -517,11 +518,12 @@ const DOCS = [
             ['Smart contracts', 'Contracts can contain bugs or be upgraded by their operators; KINU does not control or audit third-party contracts.'],
             ['APR and yield', 'APRs are estimates from past fees (often a single day) and are not a promise of future returns.'],
             ['Liquid staking', 'Staking on the Stake page uses third-party contracts (LiNEAR Protocol, Meta Pool) owned by their DAOs, which can upgrade them. Their tokens can trade below their NEAR value when sold, a delayed unstake takes about four epochs (roughly a day or two), and the APY shown is past performance, not a promise.'],
+            ['Yield vaults (Earn)', 'Vaults on the Earn page are run by third parties (Morpho and Gauntlet on Base, Kamino on Solana), not by KINU or NEAR Intents. Their APY changes constantly and is not a promise; lending markets, vault contracts and the bridges used to reach them can fail or be exploited; borrowers can default; and a vault in SOL moves with SOL’s price. You can lose some or all of what you deposit.'],
             ['Network', 'Transactions can fail, be delayed or cost gas; wallets and RPC services can be unavailable or rate-limited.']
           ]}
         />
 
-        <h3>5. The Bridge (NEAR Intents)</h3>
+        <h3>5. The Bridge and Earn (NEAR Intents)</h3>
         <p>
           The Bridge (<Link to="/bridge">/bridge</Link>) moves assets between NEAR and other blockchains through the 1Click service of{' '}
           <strong>NEAR Intents</strong>, operated by Intents Technology, Ltd. (“NEAR Intents”) under{' '}
@@ -550,6 +552,14 @@ const DOCS = [
           The Bridge is a tool for you to use the NEAR Intents protocol on your own initiative. Neither KINU nor NEAR Intents recommends
           that you trade crypto-assets, and nothing on the Bridge is a recommendation, invitation or inducement to deal in them.
         </p>
+        <p>
+          <strong>Earn</strong> (<Link to="/earn">/earn</Link>) uses the same NEAR Intents service to move your USDC or NEAR into a
+          yield vault on another blockchain and back. The vault shares are held in NEAR Intents’ contract (intents.near) under your own
+          NEAR account; withdrawals are messages you sign. KINU checks each quote and withdrawal message before your wallet shows it,
+          but never holds your funds or shares and does not run, audit or control the vaults. Yield, share price and principal are
+          guaranteed by no one, and NEAR Intents’ terms on yield-bearing assets apply. Earn is a tool you use on your own initiative,
+          not investment advice.
+        </p>
 
         <h3>6. Data from third parties</h3>
         <p>
@@ -563,7 +573,7 @@ const DOCS = [
           {FEE_SUMMARY} Pool fees go to the pool’s liquidity providers; network gas and storage deposits go to NEAR.
         </p>
         <p>
-          {BRIDGE_FEE_SUMMARY}
+          {BRIDGE_FEE_SUMMARY} {EARN_FEE_SUMMARY}
         </p>
 
         <h3>8. Acceptable use</h3>

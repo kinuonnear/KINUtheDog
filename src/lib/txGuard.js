@@ -14,6 +14,8 @@
 //   - tokens may be sent (ft_transfer) and storage bought only for a NEAR Intents deposit address
 //     that a withdrawal just got from a 1Click quote whose signature verified (allowBridgeDeposit),
 //     and only that quote's token and amount
+//   - on NEAR Intents' Verifier (intents.near) only registering the key the user just signed an Earn
+//     withdrawal with (allowIntentsKey), so the Verifier accepts that signature
 
 import { CONTRACTS, INTEAR_FEE, PLATFORM_FEE } from '../config.js';
 import { INTEAR_FEE_RECIPIENTS } from './intearRouter.js';
@@ -72,6 +74,17 @@ export function allowBridgeDeposit(address, token, amount) {
   bridgeDeposits.set(address, { until: Date.now() + BRIDGE_TTL_MS, token, amount: String(amount) });
 }
 
+// Keys the user just signed an Earn withdrawal with (lib/earn.js), each for 10 minutes.
+const INTENTS_CONTRACT = 'intents.near';
+const INTENTS_KEY_TTL_MS = 10 * 60_000;
+const intentsKeys = (globalThis.__kinuIntentsKeys ||= new Map());
+
+/** Lets one public key (the one the wallet just signed with) be registered on intents.near. */
+export function allowIntentsKey(publicKey) {
+  if (!/^ed25519:[1-9A-HJ-NP-Za-km-z]{32,50}$/.test(String(publicKey))) throw new Error('Unexpected public key.');
+  intentsKeys.set(publicKey, Date.now() + INTENTS_KEY_TTL_MS);
+}
+
 const bridgeDeposit = (address) => {
   const entry = bridgeDeposits.get(address);
   return entry && entry.until > Date.now() ? entry : null;
@@ -94,6 +107,11 @@ export function assertSafeTransactions(transactions, signerId) {
     tx.actions.forEach((action) => {
       if (action?.type !== 'FunctionCall') refuse(tx, `"${action?.type}" actions are never used by KINU`);
       const { methodName, args = {}, deposit = '0' } = action.params || {};
+      if (tx.receiverId === INTENTS_CONTRACT) {
+        if (methodName !== 'add_public_key' || !(intentsKeys.get(args.public_key) > Date.now())) refuse(tx, `unexpected method "${methodName}"`);
+        if (BigInt(deposit || '0') !== 1n) refuse(tx, 'unexpected deposit on a key registration');
+        return;
+      }
       if (methodName === 'ft_transfer' && isBridgeDeposit(args.receiver_id)) {
         // A withdrawal to other chains: to the verified 1Click deposit address only, and only the
         // token and amount of that quote.

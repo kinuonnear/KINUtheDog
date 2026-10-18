@@ -10,7 +10,7 @@ import { sha256 } from '@noble/hashes/sha256';
 const ONE_CLICK_MANAGER_PUB_KEY = 'reYaWhvwu8Jzo3WUM3zhn6VrhuMEF4eADL17qtRVifc';
 const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 
-function base58Encode(bytes) {
+export function base58Encode(bytes) {
   let n = 0n;
   for (const b of bytes) n = n * 256n + BigInt(b);
   let out = '';
@@ -25,7 +25,7 @@ function base58Encode(bytes) {
   return out;
 }
 
-function base58Decode(text) {
+export function base58Decode(text) {
   let n = 0n;
   for (const c of text) {
     const i = B58.indexOf(c);

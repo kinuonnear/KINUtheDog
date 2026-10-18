@@ -53,7 +53,8 @@ const ROUTES = [
   // Deposit from any chain through NEAR Intents (More menu, Swap).
   { name: 'deposit', pattern: /^\/(bridge|deposit)$/ },
   // Liquid staking: LiNEAR and stNEAR.
-  { name: 'stake', pattern: /^\/stake$/ }
+  { name: 'stake', pattern: /^\/stake$/ },
+  { name: 'earn', pattern: /^\/earn$/ }
 ];
 
 export function matchRoute(pathname) {

@@ -14,7 +14,7 @@ import { ensureStorageTx, functionCall, transaction, wrapNearTx } from './tx.js'
 import { allowBridgeDeposit } from './txGuard.js';
 import { CONTRACTS, DEPOSIT } from '../config.js';
 import { CHAIN_SVGS, TOKEN_SVGS } from './logoManifest.js';
-import { KINU_FEE_RECIPIENT, kinuFeeBps } from './intentsFees.js';
+import { KINU_FEE_RECIPIENT, quoteFeeBps } from './intentsFees.js';
 
 const API = 'https://1click.chaindefuser.com/v0';
 const REFERRAL = 'kinu';
@@ -75,7 +75,7 @@ async function call(path, init) {
  * browser) and KINU's fee. On a host without that function the request goes straight to 1Click
  * with the same fee, unauthenticated. Either way the page verifies 1Click's signature on the answer.
  */
-async function postQuote(body) {
+export async function postQuote(body) {
   const init = { method: 'POST', headers: { 'content-type': 'application/json' } };
   let response = null;
   try {
@@ -84,7 +84,7 @@ async function postQuote(body) {
     response = null;
   }
   if (!response || response.status === 404 || response.status === 405) {
-    const fee = kinuFeeBps(symbolOf(body.originAsset), symbolOf(body.destinationAsset));
+    const fee = quoteFeeBps(body.originAsset, body.destinationAsset, symbolOf);
     return call('/quote', { ...init, body: JSON.stringify({ ...body, appFees: [{ recipient: KINU_FEE_RECIPIENT, fee }] }) });
   }
   const json = await response.json().catch(() => ({}));
@@ -100,7 +100,7 @@ const same = (a, b) => String(a ?? '').trim().toLowerCase() === String(b ?? '').
  * so a genuine quote made for someone else's recipient, refund address or amount would still
  * verify. Anything between KINU and 1Click that swapped one in is caught here.
  */
-function assertQuoteMatches(sent, json) {
+export function assertQuoteMatches(sent, json) {
   const echoed = json?.quoteRequest || {};
   const off = BOUND_FIELDS.find((k) => !same(echoed[k], sent[k]));
   if (off) throw new Error(`This quote doesn't match your request (${off}), so it isn't used. Try again.`);
