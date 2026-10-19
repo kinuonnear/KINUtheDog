@@ -81,8 +81,10 @@ export function getSelector() {
           myNear.setupMyNearWallet()
         ]
       });
+      // No contractId: signing in only shares the account. With one, wallets add a limited access
+      // key and show its gas allowance (e.g. Meteor: "Network Fee Allowance 0.25 NEAR"), which
+      // reads like a fee. KINU never uses that key: every transaction is approved in the wallet.
       modal = modalUi.setupModal(selector, {
-        contractId: CONTRACTS.signIn,
         theme: 'dark',
         description: 'Connect a NEAR wallet to trade and manage liquidity on KINU.'
       });
