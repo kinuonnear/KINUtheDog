@@ -13473,3 +13473,13 @@ a.amm-table__row:hover {
   }
 }
 
+
+/* Pool bar: a stat's phone label / compact value (pb-short) replaces the full one under 760px. */
+.pool-bar i.pb-long,
+.pool-bar i.pb-short {
+  font-style: normal;
+}
+
+.pool-bar i.pb-short {
+  display: none;
+}

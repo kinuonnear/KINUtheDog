@@ -160,13 +160,14 @@ function ClassicPool({ poolId, initialTab }) {
         swapLink={tokens.length >= 2 ? `/swap?from=${tokens[0].id === CONTRACTS.wrapNear ? NATIVE_NEAR.id : tokens[0].id}&to=${tokens[1].id}` : null}
         price={spot !== null ? { value: spot, x: tokens[0], y: tokens[1] } : null}
         stats={[
-          tvl < 1 ? { label: 'Total value locked', value: 'Empty pool', hint: 'be the first LP' } : { label: 'Total value locked', value: formatUsd(tvl) },
-          { label: '24h volume', value: stats.data ? formatUsd(stats.data.volume24h) : '-' },
-          { label: '24h fees', value: stats.data ? formatUsd(stats.data.feeVolume24h) : '-' },
+          tvl < 1 ? { label: 'Total value locked', value: 'Empty pool', hint: 'be the first LP' } : { label: 'Total value locked', short: 'TVL', value: formatUsd(tvl), compact: formatUsd(tvl, { compactAbove: 1e3 }) },
+          { label: '24h volume', short: 'Vol 24h', value: stats.data ? formatUsd(stats.data.volume24h) : '-', compact: stats.data ? formatUsd(stats.data.volume24h, { compactAbove: 1e3 }) : '-' },
+          { label: '24h fees', short: 'Fees 24h', value: stats.data ? formatUsd(stats.data.feeVolume24h) : '-', compact: stats.data ? formatUsd(stats.data.feeVolume24h, { compactAbove: 1e3 }) : '-' },
           { label: '24h fees / TVL', value: stats.data && tvl >= 1 ? formatPercent((stats.data.feeVolume24h / tvl) * 100) : '-', extra: true },
           { label: 'Trading fee', value: formatPercent(pool.feePercent, pool.feePercent < 0.1 ? 3 : 2), extra: true },
           {
             label: 'Fee APR',
+            short: 'APR',
             value: stats.data ? <AprValue apr={stats.data.apy} tokenIds={pool.tokenIds} estimated={stats.data.apyEstimated} /> : '-',
             accent: true
           }
@@ -390,11 +391,11 @@ function DclPool({ poolId, initialTab }) {
         stats={[
           empty
             ? { label: 'Total value locked', value: 'Empty pool', hint: 'be the first LP' }
-            : { label: 'Total value locked', value: formatUsd(tvl) },
+            : { label: 'Total value locked', short: 'TVL', value: formatUsd(tvl), compact: formatUsd(tvl, { compactAbove: 1e3 }) },
           // Fee APR early (the bar shares the chart column); the trading fee is the chip by the pair.
-          { label: 'Fee APR', value: stats.data ? <AprValue apr={stats.data.apy} tokenIds={[tokenX, tokenY]} estimated={stats.data.apyEstimated} /> : '-', accent: true },
-          { label: '24h volume', value: stats.data ? formatUsd(stats.data.volume24h) : '-' },
-          { label: '24h fees', value: stats.data ? formatUsd(stats.data.feeVolume24h) : '-' },
+          { label: 'Fee APR', short: 'APR', value: stats.data ? <AprValue apr={stats.data.apy} tokenIds={[tokenX, tokenY]} estimated={stats.data.apyEstimated} /> : '-', accent: true },
+          { label: '24h volume', short: 'Vol 24h', value: stats.data ? formatUsd(stats.data.volume24h) : '-', compact: stats.data ? formatUsd(stats.data.volume24h, { compactAbove: 1e3 }) : '-' },
+          { label: '24h fees', short: 'Fees 24h', value: stats.data ? formatUsd(stats.data.feeVolume24h) : '-', compact: stats.data ? formatUsd(stats.data.feeVolume24h, { compactAbove: 1e3 }) : '-' },
           { label: '24h fees / TVL', value: stats.data && tvl > 0 && !empty ? formatPercent((stats.data.feeVolume24h / tvl) * 100) : '-', extra: true }
         ]}
       />
@@ -811,9 +812,13 @@ function PoolBar({ tokens, label, feePercent, rheaUrl, swapLink, stats, price, i
         )}
         {stats.map((st) => (
           <div key={st.label} className={st.extra ? 'pool-bar__extra' : undefined}>
-            <span>{st.label}</span>
+            <span>
+              <i className="pb-long">{st.label}</i>
+              <i className="pb-short">{st.short || st.label}</i>
+            </span>
             <strong className={st.accent ? 'up' : ''}>
-              {st.value}
+              <i className="pb-long">{st.value}</i>
+              <i className="pb-short">{st.compact ?? st.value}</i>
               {st.hint && <small> {st.hint}</small>}
             </strong>
           </div>

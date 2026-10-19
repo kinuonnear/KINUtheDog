@@ -363,16 +363,19 @@ function PoolsMonitor({ ready, totals }) {
   const skeleton = <Skeleton width={80} height={22} />;
   const top = totals.topFees;
   const metrics = [
-    { key: 'tvl', label: 'Total value locked', value: formatUsd(totals.tvl) },
-    { key: 'vol', label: 'Volume 24h', value: formatUsd(totals.volume), hint: totals.tvl > 0 && `${((totals.volume / totals.tvl) * 100).toFixed(0)}% of TVL traded` },
-    { key: 'fees', label: 'Fees to LPs 24h', value: formatUsd(totals.fees, USD_K), accent: true },
-    { key: 'yield', label: 'Avg. daily yield', value: totals.tvl > 0 ? formatPercent((totals.fees / totals.tvl) * 100, 3) : '—', hint: `${totals.pools.toLocaleString()} active pools` }
+    { key: 'tvl', label: 'Total value locked', short: 'TVL', value: formatUsd(totals.tvl) },
+    { key: 'vol', label: 'Volume 24h', short: 'Vol 24h', value: formatUsd(totals.volume), hint: totals.tvl > 0 && `${((totals.volume / totals.tvl) * 100).toFixed(0)}% of TVL traded` },
+    { key: 'fees', label: 'Fees to LPs 24h', short: 'Fees 24h', value: formatUsd(totals.fees, USD_K), accent: true },
+    { key: 'yield', label: 'Avg. daily yield', short: 'Daily yield', value: totals.tvl > 0 ? formatPercent((totals.fees / totals.tvl) * 100, 3) : '—', hint: `${totals.pools.toLocaleString()} active pools` }
   ];
   return (
     <section className="pt-monitor" aria-label="NEAR liquidity at a glance, last 24 hours">
       {metrics.map((m) => (
         <div className="pt-tile" key={m.key}>
-          <span>{m.label}</span>
+          <span>
+            <i className="lbl-long">{m.label}</i>
+            <i className="lbl-short">{m.short}</i>
+          </span>
           <strong className={m.accent ? 'up' : ''}>{ready ? m.value : skeleton}</strong>
           <small>{ready && m.hint ? m.hint : ' '}</small>
         </div>
