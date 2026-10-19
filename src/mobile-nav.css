@@ -606,7 +606,7 @@ i.lbl-short {
   }
 
   /* ---------- Swap: the token card as one header row and one strip of numbers ---------- */
-  .shell .token-head {
+  .shell--swap .token-head {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
@@ -614,26 +614,26 @@ i.lbl-short {
     padding: 12px 14px;
   }
 
-  .shell .token-head .token-head__id {
+  .shell--swap .token-head .token-head__id {
     gap: 10px;
     min-width: 0;
   }
 
-  .shell .token-head .token-head__id img,
-  .shell .token-head .token-head__id .token-icon {
+  .shell--swap .token-head .token-head__id img,
+  .shell--swap .token-head .token-head__id .token-icon {
     width: 32px;
     height: 32px;
   }
 
-  .shell .token-head .token-head__title strong {
+  .shell--swap .token-head .token-head__title strong {
     font-size: 17px;
   }
 
-  .shell .token-head .token-head__meta {
+  .shell--swap .token-head .token-head__meta {
     display: none;
   }
 
-  .shell .token-head .token-head__price {
+  .shell--swap .token-head .token-head__price {
     display: flex;
     flex-direction: column;
     align-items: flex-end;
@@ -641,20 +641,20 @@ i.lbl-short {
     margin: 0;
   }
 
-  .shell .token-head .token-head__price strong {
+  .shell--swap .token-head .token-head__price strong {
     font-size: 19px;
   }
 
-  .shell .token-head .token-head__price em {
+  .shell--swap .token-head .token-head__price em {
     font-size: 12.5px;
   }
 
-  .shell .token-head .token-head__price > .muted,
-  .shell .token-head .token-head__quote {
+  .shell--swap .token-head .token-head__price > .muted,
+  .shell--swap .token-head .token-head__quote {
     display: none;
   }
 
-  .shell .token-head .token-head__stats {
+  .shell--swap .token-head .token-head__stats {
     grid-column: 1 / -1;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 0;
@@ -662,25 +662,291 @@ i.lbl-short {
     border-top: 1px solid rgba(255, 255, 255, 0.06);
   }
 
-  .shell .token-head .token-head__stats > div {
+  .shell--swap .token-head .token-head__stats > div {
     min-width: 0;
     padding: 0 6px;
     border-radius: 0;
     background: none;
   }
 
-  .shell .token-head .token-head__stats > div + div {
+  .shell--swap .token-head .token-head__stats > div + div {
     border-left: 1px solid rgba(255, 255, 255, 0.06);
   }
 
-  .shell .token-head .token-head__stats dt {
+  .shell--swap .token-head .token-head__stats dt {
     font-size: 9.5px;
   }
 
-  .shell .token-head .token-head__stats dd {
+  .shell--swap .token-head .token-head__stats dd {
     overflow: hidden;
     font-size: 13.5px;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+}
+
+/* ---------- Phones: audit fixes (inputs, tap targets, legibility) ---------- */
+@media (max-width: 760px) {
+  /* Inputs at 16px: iOS Safari zooms the page into any field smaller than that. */
+  .shell select,
+  .shell .dep-input,
+  .shell .ix-search,
+  .shell .pt-hint-row input,
+  .shell .gsearch input,
+  .modal input,
+  .msheet input {
+    font-size: 16px;
+  }
+
+  /* Tap targets of at least ~34px; text links get a taller hit area without moving the layout. */
+  .chart-footer button {
+    min-width: 36px;
+    min-height: 34px;
+  }
+
+  .install-prompt__close {
+    width: 36px;
+    height: 36px;
+  }
+
+  .watch-star,
+  .range-reset {
+    min-width: 34px;
+    min-height: 34px;
+  }
+
+  .shell a.link-button,
+  .shell button.link-button,
+  .shell .pl-cta,
+  .shell .pl-name,
+  .shell .panel-link,
+  .shell .ts-link,
+  .shell .th-sort,
+  .shell .dep-shield,
+  .shell .card-head a,
+  .shell .section-head a {
+    display: inline-block;
+    padding-block: 8px;
+    margin-block: -8px;
+  }
+
+  /* The range handles: the same dot, a finger-sized grip around it. */
+  .depth__knob {
+    position: relative;
+  }
+
+  .depth__knob::after {
+    content: '';
+    position: absolute;
+    inset: -13px;
+  }
+
+  /* Small caps labels no smaller than 10.5px. */
+  .shell .pool-bar .pool-bar__stats span,
+  .shell .pt-monitor .pt-tile > span,
+  .shell--swap .token-head .token-head__stats dt,
+  .disc-tab__badge,
+  .lx-kicker {
+    font-size: 10.5px;
+  }
+}
+
+@media (max-width: 760px) {
+  /* Plain links (e.g. "See all →"): vertical padding on an inline box widens its hit area only. */
+  .shell main a:not([class]) {
+    padding-block: 7px;
+    margin-block: -7px;
+  }
+
+  .lx-stats dt {
+    font-size: 10.5px;
+  }
+}
+
+@media (max-width: 760px) {
+  /* 25% · 50% · 75% · MAX: easy to hit with a thumb. */
+  .amount-row__pcts {
+    gap: 4px;
+  }
+
+  .amount-row__pcts button {
+    min-width: 40px;
+    min-height: 32px;
+    padding: 4px 8px;
+    border-radius: 8px;
+    font-size: 12.5px;
+  }
+
+  /* Home hero numbers' labels. */
+  .shell--home .home .hero__stats span {
+    font-size: 10.5px;
+  }
+}
+
+@media (max-width: 760px) {
+  /* New tokens: age, price, 24h, MC and liquidity (volume and holders stay on desktop). */
+  .new-row:not(.disc-row--pools) [data-label='Holders'],
+  .new-row:not(.disc-row--pools) [data-label^='Volume'],
+  .new-row:not(.disc-row--pools) [data-label^='Rhea vol'] {
+    display: none;
+  }
+
+  /* Intear DEX pools: fee, liquidity, 24h volume and APY (7d volume and reserves on desktop). */
+  .shell [data-label='7d volume'],
+  .shell [data-label='Reserves'] {
+    display: none;
+  }
+}
+
+@media (max-width: 760px) {
+  /* Discover / New banner: as tall as its title (outweighs discover.css, loaded with the page). */
+  .shell .page .disc-banner {
+    min-height: 0;
+    height: auto;
+    margin-bottom: 12px;
+  }
+
+  .shell .page .disc-banner .disc-banner__head {
+    padding: 16px 18px;
+  }
+}
+
+/* ---------- Phones: Discover filters (Top Yields, Smart LP …) sized to their text ---------- */
+@media (max-width: 760px) {
+  /* Each segmented filter spans the width; its buttons share it evenly. */
+  .shell .disc-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .shell .disc-toolbar__right {
+    display: grid;
+    gap: 8px;
+  }
+
+  .shell .segmented.disc-seg {
+    display: flex;
+    width: 100%;
+    padding: 3px;
+    border-radius: 12px;
+  }
+
+  .shell .segmented.disc-seg button {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 36px;
+    padding: 0 6px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  /* Smart LP: lookup, checks and Clear on tidy rows. */
+  .shell .slp-filters {
+    display: grid;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .shell .slp-lookup {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .shell .slp-lookup input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .shell .slp-filters__foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 14px;
+    font-size: 13.5px;
+  }
+
+  .shell .slp-filters__foot .slp-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .shell .slp-filters__foot > .button {
+    margin-left: auto;
+  }
+
+  /* Sort: one swipeable row of chips. */
+  .shell .slp-sortbar {
+    display: grid;
+    gap: 10px;
+  }
+
+  .shell .slp-sorts {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 6px;
+    margin: 0 -14px;
+    padding: 0 14px 2px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .shell .slp-sorts::-webkit-scrollbar {
+    display: none;
+  }
+
+  .shell .slp-sorts .slp-chip {
+    flex: none;
+    min-height: 34px;
+    padding: 0 12px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  /* Active window and minimum win rate side by side, labels above. */
+  .shell .slp-inline {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .shell .slp-inline label {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .shell .slp-inline label > span {
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .shell .slp-inline select,
+  .shell .slp-inline input {
+    width: 100%;
+    min-height: 40px;
+  }
+}
+
+@media (max-width: 760px) {
+  /* Discover toolbar: every control the full width. */
+  .shell .disc-toolbar,
+  .shell .disc-toolbar__right,
+  .shell .disc-toolbar__right > *,
+  .shell .disc-toolbar input {
+    width: 100%;
+    max-width: none;
+  }
+
+  .shell .segmented.disc-seg button {
+    font-size: 12.5px;
+  }
+
+  .shell .slp-inline {
+    margin-left: 0;
   }
 }

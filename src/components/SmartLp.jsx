@@ -334,7 +334,8 @@ export default function SmartLpBoard() {
               </button>
             );
           })}
-          <span className="slp-inline">
+        </div>
+        <span className="slp-inline">
             <label>
               <span>Active</span>
               <select value={f.active} onChange={(e) => set({ active: e.target.value })}>
@@ -350,7 +351,6 @@ export default function SmartLpBoard() {
               <input type="text" inputMode="decimal" value={f.minWinRate} onChange={(e) => set({ minWinRate: decimalOnly(e.target.value) })} />
             </label>
           </span>
-        </div>
         <div className="segmented disc-seg">
           {[
             ['card', '▦ Card'],
