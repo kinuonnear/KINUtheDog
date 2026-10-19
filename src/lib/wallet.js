@@ -1,4 +1,4 @@
-// NEAR wallet connection (Meteor, Intear, HOT, MyNearWallet) via wallet-selector.
+// NEAR wallet connection (Meteor, Intear, HOT, MyNearWallet, Nightly, Ledger) via wallet-selector.
 // Nothing here ever handles keys: every transaction is approved in the user's wallet.
 
 // Wallet packages are large, so they load in their own chunk after first paint.
@@ -50,7 +50,7 @@ let modal = null;
 let toNajAction = null;
 
 async function loadWalletModules() {
-  const [core, meteor, intear, here, myNear, modalUi] = await Promise.all([
+  const [core, meteor, intear, here, myNear, nightly, ledger, modalUi] = await Promise.all([
     import('@near-wallet-selector/core'),
     inMeteorApp() ? import('@near-wallet-selector/meteor-wallet-app') : import('@near-wallet-selector/meteor-wallet'),
     import('@near-wallet-selector/intear-wallet'),
@@ -58,15 +58,18 @@ async function loadWalletModules() {
     // for its answer while KINU stays open. Elsewhere the HERE module (HOT's web / app flow).
     inTelegram() ? import('@near-wallet-selector/hot-wallet') : import('@near-wallet-selector/here-wallet'),
     import('@near-wallet-selector/my-near-wallet'),
+    import('@near-wallet-selector/nightly'),
+    // Ledger over WebHID: desktop Chrome / Edge / Brave; the modal marks it unavailable elsewhere.
+    import('@near-wallet-selector/ledger'),
     import('@near-wallet-selector/modal-ui')
   ]);
   toNajAction = core.internalActionToNaj;
-  return { core, meteor, intear, here, myNear, modalUi };
+  return { core, meteor, intear, here, myNear, nightly, ledger, modalUi };
 }
 
 export function getSelector() {
   if (!selectorPromise) {
-    selectorPromise = loadWalletModules().then(async ({ core, meteor, intear, here, myNear, modalUi }) => {
+    selectorPromise = loadWalletModules().then(async ({ core, meteor, intear, here, myNear, nightly, ledger, modalUi }) => {
       const selector = await core.setupWalletSelector({
         network: NETWORK_ID,
         // The selector fails over across these, so one rate-limited endpoint no longer fails a
@@ -78,7 +81,9 @@ export function getSelector() {
             : meteor.setupMeteorWallet(),
           intear.setupIntearWallet(),
           here.setupHotWallet ? here.setupHotWallet() : here.setupHereWallet(),
-          myNear.setupMyNearWallet()
+          myNear.setupMyNearWallet(),
+          nightly.setupNightly(),
+          ledger.setupLedger()
         ]
       });
       // No contractId: signing in only shares the account. With one, wallets add a limited access
