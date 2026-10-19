@@ -49,7 +49,9 @@ function createListStore(key, max) {
     return {
       list,
       has: (id) => list.includes(id),
-      toggle: (id) => write(list.includes(id) ? list.filter((x) => x !== id) : [id, ...list].slice(0, max))
+      toggle: (id) => write(list.includes(id) ? list.filter((x) => x !== id) : [id, ...list].slice(0, max)),
+      // Several at once (an import): reads the latest list, not this render's.
+      addMany: (ids) => write([...ids.filter((id) => !cache.includes(id)), ...cache].slice(0, max))
     };
   };
 }

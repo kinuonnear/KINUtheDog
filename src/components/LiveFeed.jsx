@@ -32,7 +32,7 @@ const VIEWS = [
   { key: 'following', label: 'Following' }
 ];
 
-function timeAgo(ms, now) {
+export function timeAgo(ms, now) {
   const s = Math.max(0, Math.floor((now - ms) / 1000));
   if (s < 60) return `${s}s`;
   const m = Math.floor(s / 60);
@@ -42,11 +42,11 @@ function timeAgo(ms, now) {
 }
 
 const traderName = (id) => (id.length > 24 ? shortAccount(id, 6, 4) : id);
-const sizeLabel = (usd) => (usd < 0.01 ? '<$0.01' : formatUsd(usd));
-const poolKind = (poolId) => (String(poolId).startsWith('REFDCL') ? 'CLMM' : 'Rhea');
+export const sizeLabel = (usd) => (usd < 0.01 ? '<$0.01' : formatUsd(usd));
+export const poolKind = (poolId) => (String(poolId).startsWith('REFDCL') ? 'CLMM' : 'Rhea');
 
 /** Token metadata (icons, decimals) and circulating supply for the tokens on screen, from shared caches. */
-function useFeedTokens(ids) {
+export function useFeedTokens(ids) {
   const key = ids.join(',');
   const [meta, setMeta] = useState({});
   const [supply, setSupply] = useState({});

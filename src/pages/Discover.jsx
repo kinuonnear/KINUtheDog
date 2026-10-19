@@ -21,6 +21,7 @@ import SmartLpBoard from '../components/SmartLp.jsx';
 import SmartMoneyIn from '../components/SmartMoney.jsx';
 import { FlowLines } from '../components/FlowLines.jsx';
 import TokenizedStocks from '../components/TokenizedStocks.jsx';
+import WalletTracker from '../components/WalletTracker.jsx';
 import '../discover.css';
 import PageIcon from '../components/PageIcon.jsx';
 
@@ -30,6 +31,7 @@ const TABS = [
   { key: 'lp', label: 'Top Yields', icon: '%', anim: 'still' },
   { key: 'smartlp', label: 'Smart LP', icon: '◎', anim: 'still', badge: 'New' },
   { key: 'smartmoney', label: 'Smart Money In', icon: '◆', anim: 'still', badge: 'New' },
+  { key: 'tracker', label: 'Wallet Tracker', icon: '◉', anim: 'still', badge: 'New' },
   { key: 'hot', label: 'Hot pairs', icon: '≋', anim: 'still' },
   { key: 'trending', label: 'Trending', icon: '↗', anim: 'still' },
   { key: 'gainers', label: 'Gainers', icon: '⇡', anim: 'still' },
@@ -66,6 +68,7 @@ const TITLES = {
   lp: ['Top ', 'yields', ' on NEAR'],
   smartlp: ['Smart ', 'LP', ' on NEAR'],
   smartmoney: ['Smart money ', 'in', ''],
+  tracker: ['Wallet ', 'tracker', ''],
   new: ['New on ', 'NEAR', ''],
   stocks: ['Tokenized ', 'stocks', ''],
   watchlist: ['Your ', 'watchlist', '']
@@ -79,6 +82,7 @@ const INTROS = {
   lp: `Pools that paid their liquidity providers the most fees per dollar (TVL ≥ $${LP_MIN_TVL / 1000}K), next to how much the price moved — the bigger the move, the more impermanent loss.`,
   smartlp: 'Liquidity providers who earn on Rhea CLMM pools, ranked by on-chain PnL, fees earned and win rate. Open a wallet to see every position it holds and closed.',
   smartmoney: 'The tokens to watch: our featured picks first, then the most traded tokens by 24h volume — with the Smart LP wallets in their pools and every pool with real liquidity.',
+  tracker: 'Follow any NEAR wallet: its buys and sells show here as they happen, and on the swap chart as its own coloured bubbles. Kept in this browser, no account needed.',
   new: 'The newest tokens with a pool on NEAR, launched on Nearly. Live every minute, with the facts that matter before you buy.',
   stocks: 'US stocks and ETFs tokenized by Ondo, the ones NEAR offers on near.com. A price watch only: KINU shows their market prices and does not trade them.',
   watchlist: 'Tokens you starred, with live prices.'
@@ -562,6 +566,8 @@ export default function Discover({ defaultTab = 'lp' }) {
           <SmartLpBoard />
         ) : tab === 'smartmoney' ? (
           <SmartMoneyIn />
+        ) : tab === 'tracker' ? (
+          <WalletTracker />
         ) : tab === 'stocks' ? (
           <TokenizedStocks />
         ) : tab === 'watchlist' ? (

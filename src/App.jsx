@@ -13,6 +13,7 @@ import Pools from './pages/Pools.jsx';
 import MoreMenu from './components/MoreMenu.jsx';
 import { MobileMenuButton, MobileSearchButton, MobileTabBar } from './components/MobileNav.jsx';
 import RangeAlerts from './components/RangeAlerts.jsx';
+import TrackerAlerts from './components/TrackerAlerts.jsx';
 import './theme.css';
 import './topbar.css';
 
@@ -299,6 +300,7 @@ export default function App() {
       <MobileTabBar route={route} />
       <Toasts />
       <RangeAlerts />
+      <TrackerAlerts />
       <InstallPrompt />
     </div>
   );

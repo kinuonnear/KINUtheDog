@@ -14,6 +14,7 @@ import { formatAmount, formatChartPrice, formatUsd, shortAccount, toNumber } fro
 import { ENDPOINTS } from '../../config.js';
 import { Link, poolPath } from '../../router.jsx';
 import { Skeleton } from '../ui.jsx';
+import { useTrackedWallets } from '../../lib/walletTracker.js';
 
 const TABS = [
   ['tx', 'Transactions'],
@@ -70,6 +71,24 @@ function Rows({ loading, error, empty, children, cols }) {
   return children;
 }
 
+/** ☆ / ★: track a trader in the Wallet Tracker (its trades then show on the chart). */
+function TrackStar({ trader, accountId }) {
+  const tracker = useTrackedWallets();
+  if (!trader || trader === accountId) return null;
+  const on = tracker.has(trader);
+  return (
+    <button
+      type="button"
+      className={`watch-star activity__track ${on ? 'watch-star--on' : ''}`}
+      aria-pressed={on}
+      title={on ? 'Tracked: click to stop tracking' : 'Track this wallet: its trades show on the chart and in Discover → Wallet Tracker'}
+      onClick={() => (on ? tracker.remove(trader) : tracker.add(trader))}
+    >
+      {on ? '★' : '☆'}
+    </button>
+  );
+}
+
 function TradesTable({ token, trades, accountId }) {
   return (
     <table className="activity__table activity__table--trades">
@@ -99,6 +118,7 @@ function TradesTable({ token, trades, accountId }) {
                 <td className="num">{formatAmount(amount)}</td>
                 <td className={`num ${buy ? 'up' : 'down'}`}>{formatUsd(t.usd)}</td>
                 <td>
+                  <TrackStar trader={t.trader} accountId={accountId} />
                   <a href={accountLink(t.trader)} target="_blank" rel="noopener noreferrer">
                     {mine ? 'You' : shortAccount(t.trader, 8, 5)}
                   </a>
@@ -237,6 +257,7 @@ function TopTraders({ token, pools, accountId }) {
                 <tr key={t.trader} className={accountId === t.trader ? 'activity__mine' : ''}>
                   <td className="muted">{i + 1}</td>
                   <td>
+                    <TrackStar trader={t.trader} accountId={accountId} />
                     <a href={accountLink(t.trader)} target="_blank" rel="noopener noreferrer">
                       {accountId === t.trader ? 'You' : shortAccount(t.trader, 10, 6)}
                     </a>

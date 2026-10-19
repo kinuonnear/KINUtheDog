@@ -182,3 +182,494 @@
 .stocks__foot p {
   margin: 0;
 }
+
+/* ---------- Wallet Tracker: wallets on the left, their trades live on the right ---------- */
+.wt {
+  display: grid;
+  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+}
+
+.wt-list,
+.wt-feed {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.wt-list {
+  position: sticky;
+  top: calc(var(--disc-nav-h, 0px) + 80px);
+}
+
+.wt-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.wt-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 16px;
+}
+
+.wt-avatar {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  color: #06110b;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.wt-hint {
+  margin: 0;
+}
+
+.wt-wallets {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wt-wallet {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  border: 1px solid transparent;
+  border-radius: 12px;
+}
+
+.wt-wallet:hover,
+.wt-wallet.is-active {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.wt-wallet.is-active {
+  border-color: rgba(34, 226, 131, 0.35);
+}
+
+.wt-wallet.is-idle {
+  opacity: 0.6;
+}
+
+.wt-wallet__main {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px 4px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.wt-wallet__id {
+  display: grid;
+  min-width: 0;
+}
+
+.wt-wallet__id strong,
+.wt-wallet__id small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wt-wallet__id strong {
+  font-size: 14px;
+}
+
+.wt-wallet__id small,
+.wt-wallet__stats small {
+  color: rgba(226, 234, 245, 0.5);
+  font-size: 11.5px;
+}
+
+.wt-wallet__rename {
+  width: 100%;
+  padding: 2px 6px;
+  border: 1px solid rgba(34, 226, 131, 0.4);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.3);
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+}
+
+.wt-wallet__stats {
+  display: grid;
+  justify-items: end;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.wt-wallet__stats em {
+  font-style: normal;
+}
+
+.wt-wallet__tools {
+  display: flex;
+  justify-content: flex-end;
+  gap: 2px;
+  padding: 0 6px 6px 50px;
+}
+
+.wt-wallet__tools button,
+.wt-wallet__tools a {
+  display: grid;
+  place-items: center;
+  min-width: 28px;
+  height: 26px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: rgba(226, 234, 245, 0.5);
+  font: inherit;
+  font-size: 13px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.wt-wallet__tools button:hover,
+.wt-wallet__tools a:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #f2f3ee;
+}
+
+.wt-wallet__tools button.is-on {
+  color: #22e283;
+}
+
+.wt-feed {
+  gap: 0;
+  padding: 16px 16px 6px;
+}
+
+.wt-feed .wt-head {
+  margin-bottom: 8px;
+}
+
+.wt-filter {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 4px 10px 4px 5px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.wt-who {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #f2f3ee;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@media (max-width: 900px) {
+  .wt {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .wt-list {
+    position: static;
+  }
+}
+
+@media (max-width: 760px) {
+  .wt-list,
+  .wt-feed {
+    padding: 12px;
+  }
+}
+
+.wt-head__tools {
+  display: flex;
+  gap: 4px;
+}
+
+/* Groups: chips, "+" for a new one, ✎ Settings for the open one. */
+.wt-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.wt-groups button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 30px;
+  padding: 4px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: none;
+  color: rgba(226, 234, 245, 0.75);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.wt-groups button.is-on {
+  border-color: rgba(245, 185, 66, 0.55);
+  background: rgba(245, 185, 66, 0.08);
+  color: #f2f3ee;
+}
+
+.wt-groups em {
+  color: rgba(226, 234, 245, 0.45);
+  font-style: normal;
+}
+
+.wt-groups__bell {
+  font-size: 10px;
+  font-style: normal;
+}
+
+.wt-groups .wt-groups__add {
+  justify-content: center;
+  width: 30px;
+  padding: 0;
+  border-color: rgba(34, 226, 131, 0.45);
+  color: #22e283;
+  font-size: 16px;
+}
+
+.wt-groups .wt-groups__edit {
+  border-style: dashed;
+}
+
+.wt-search {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.25);
+  color: inherit;
+  font: inherit;
+  font-size: 13.5px;
+}
+
+.wt-add-btn {
+  justify-self: end;
+}
+
+/* Modals: add / edit wallet, group, import. */
+.wt-form {
+  display: grid;
+  gap: 14px;
+  overflow-y: auto;
+}
+
+.wt-form label,
+.wt-form__field {
+  display: grid;
+  gap: 6px;
+}
+
+.wt-form label > span,
+.wt-form__field > span {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.wt-form small {
+  color: rgba(226, 234, 245, 0.5);
+  font-size: 12px;
+}
+
+.wt-form input:not([type='checkbox']):not([type='range']),
+.wt-form select,
+.wt-form textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.3);
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+}
+
+.wt-form textarea {
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+}
+
+.wt-form__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.wt-form__usd {
+  position: relative;
+}
+
+.wt-form__usd b {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  color: rgba(226, 234, 245, 0.5);
+  transform: translateY(-50%);
+}
+
+.wt-form .wt-form__check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.wt-form__check > span {
+  flex: 1;
+  font-weight: 600;
+}
+
+.wt-form__check input {
+  width: 18px;
+  height: 18px;
+  accent-color: #22e283;
+}
+
+.wt-form__alerts {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.wt-form .wt-form__slider {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 10px;
+}
+
+.wt-form__slider input {
+  accent-color: #22e283;
+}
+
+.wt-form__slider b {
+  font-size: 13px;
+  text-align: right;
+}
+
+.wt-form__error,
+.wt-form__ok {
+  margin: 0;
+  font-size: 13px;
+}
+
+.wt-form__error {
+  color: #ff8a95;
+}
+
+.wt-form__ok {
+  color: #22e283;
+}
+
+.wt-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.wt-form__danger {
+  margin-right: auto;
+  color: #ff8a95;
+}
+
+.wt-emojis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.wt-emojis button {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 17px;
+  cursor: pointer;
+}
+
+.wt-emojis button:first-child {
+  font-size: 12px;
+}
+
+.wt-emojis button.is-on {
+  border-color: #22e283;
+  background: rgba(34, 226, 131, 0.12);
+}
+
+@media (max-width: 760px) {
+  .wt-form input:not([type='checkbox']):not([type='range']),
+  .wt-form select,
+  .wt-form textarea,
+  .wt-search {
+    font-size: 16px;
+  }
+
+  .wt-add-btn {
+    justify-self: stretch;
+  }
+}
+
+.wt-sounds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.wt-sounds button {
+  padding: 6px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.wt-sounds button.is-on {
+  border-color: #22e283;
+  background: rgba(34, 226, 131, 0.12);
+}

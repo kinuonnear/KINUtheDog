@@ -3,7 +3,8 @@
 // token's pools can be picked instead (GeckoTerminal candles, refreshed every minute). Scrolling
 // back to the first candle loads the history before it; the chart never scrolls past it.
 // The view (zoom, scroll, price scale) survives refreshes. With a wallet connected, its own buys
-// and sells of the token are marked on the candles they fell in (B / S, as on Jupiter).
+// and sells of the token are marked on the candles they fell in (B / S, as on Jupiter), and so are
+// those of the wallets in the Wallet Tracker, in each wallet's colour.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createChart, CandlestickSeries, HistogramSeries } from 'lightweight-charts';
@@ -13,10 +14,12 @@ import { fetchOhlc, fetchTokenInfo, fetchTrades, intearTokenId, RESOLUTIONS } fr
 import { fetchMarketCandles, subscribeCandles } from '../../lib/intearApi.js';
 import { fetchPoolOhlc } from '../../lib/gecko.js';
 import { CHART_BARS, lastGood, sameCandles, useBarClock, useOlderCandles, withOlder } from '../../lib/candles.js';
-import { formatChartPrice, formatUsd } from '../../lib/format.js';
+import { formatAmount, formatChartPrice, formatUsd, toNumber } from '../../lib/format.js';
 import { attachDrawings, DrawingToolbar, useDrawingKeys } from '../chart/DrawingTools.jsx';
 import ChartFooter, { applyScale, showRange, useAutoScale } from '../chart/ChartFooter.jsx';
 import { Spinner } from '../ui.jsx';
+import { useTrackedWallets } from '../../lib/walletTracker.js';
+import { Link } from '../../router.jsx';
 
 const UP = '#22e283';
 const DOWN = '#ff5d6c';
@@ -54,23 +57,38 @@ function candleAt(times, sec) {
   return times[lo];
 }
 
-/** The wallet's trades grouped per candle: { time → { buys, sells, buyUsd, sellUsd } }. */
-function tradesByCandle(trades, times) {
+/**
+ * Trades grouped per candle, wallet and side, as bubbles:
+ * { "time|wallet|side" → { time, side, who, label, color, count, usd, amount, last } }
+ * (amount in tokens, last in ms). `sources`: [{ who, label, color, trades }], the user first.
+ */
+function bubblesFor(sources, times, decimals) {
   const out = new Map();
-  for (const tr of trades || []) {
-    const time = candleAt(times, Math.floor(tr.time / 1000));
-    if (time === null) continue;
-    const g = out.get(time) || { buys: 0, sells: 0, buyUsd: 0, sellUsd: 0 };
-    if (tr.side === 'buy') {
-      g.buys += 1;
-      g.buyUsd += tr.usd;
-    } else {
-      g.sells += 1;
-      g.sellUsd += tr.usd;
+  for (const src of sources) {
+    for (const tr of src.trades || []) {
+      const time = candleAt(times, Math.floor(tr.time / 1000));
+      if (time === null) continue;
+      const side = tr.side === 'buy' ? 'buy' : 'sell';
+      const key = `${time}|${src.who}|${side}`;
+      const s = out.get(key) || { time, side, who: src.who, label: src.label, emoji: src.emoji, color: src.color, count: 0, usd: 0, amount: 0, last: 0 };
+      s.count += 1;
+      s.usd += tr.usd;
+      s.amount += decimals !== undefined ? toNumber(tr.amountRaw, decimals) : 0;
+      s.last = Math.max(s.last, tr.time);
+      out.set(key, s);
     }
-    out.set(time, g);
   }
   return out;
+}
+
+function timeAgo(ms) {
+  const s = Math.max(0, Math.floor((Date.now() - ms) / 1000));
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  if (s < 86400 * 30) return `${Math.floor(s / 86400)}d ago`;
+  if (s < 86400 * 365) return `${Math.floor(s / (86400 * 30))}mo ago`;
+  return `${Math.floor(s / (86400 * 365))}y ago`;
 }
 
 /**
@@ -82,15 +100,22 @@ function placeBubbles(layer, api, groups) {
   const { chart, series, byTime } = api;
   const width = layer.clientWidth - chart.priceScale('right').width();
   const html = [];
-  for (const [time, g] of groups) {
-    const x = chart.timeScale().timeToCoordinate(time);
-    const bar = byTime.get(time);
+  const stack = new Map(); // "time|side" → bubbles placed so far
+  for (const [key, b] of groups) {
+    const x = chart.timeScale().timeToCoordinate(b.time);
+    const bar = byTime.get(b.time);
     if (x === null || !bar || x < 0 || x > width) continue;
-    const low = series.priceToCoordinate(bar.low);
-    const high = series.priceToCoordinate(bar.high);
-    const badge = (n) => (n > 1 ? `<b>${n}</b>` : '');
-    if (g.buys && low !== null) html.push(`<i class="trade-bubble trade-bubble--buy" style="left:${x.toFixed(1)}px;top:${(low + 16).toFixed(1)}px">B${badge(g.buys)}</i>`);
-    if (g.sells && high !== null) html.push(`<i class="trade-bubble trade-bubble--sell" style="left:${x.toFixed(1)}px;top:${(high - 16).toFixed(1)}px">S${badge(g.sells)}</i>`);
+    const edge = series.priceToCoordinate(b.side === 'buy' ? bar.low : bar.high);
+    if (edge === null) continue;
+    const n = stack.get(`${b.time}|${b.side}`) || 0;
+    stack.set(`${b.time}|${b.side}`, n + 1);
+    const y = b.side === 'buy' ? edge + 16 + n * 22 : edge - 16 - n * 22;
+    const mine = b.who === 'me';
+    const letter = mine ? (b.side === 'buy' ? 'B' : 'S') : b.emoji || b.label[0]?.toUpperCase() || '?';
+    const style = `left:${x.toFixed(1)}px;top:${y.toFixed(1)}px${mine ? '' : `;background:${b.color}`}`;
+    html.push(
+      `<i class="trade-bubble trade-bubble--${b.side}${mine ? '' : ' trade-bubble--tracked'}" data-key="${key}" style="${style}">${letter}${b.count > 1 ? `<b>${b.count}</b>` : ''}</i>`
+    );
   }
   const next = html.join('');
   if (layer.dataset.html !== next) {
@@ -124,6 +149,17 @@ export default function SwapChart({ token, counter, pools, height }) {
     enabled: Boolean(tokenId && accountId),
     refreshMs: 20_000
   });
+  const { wallets: tracked } = useTrackedWallets();
+  const [showTracked, setShowTracked] = useLocalStorage('kinu.swap.tracked', true);
+  const trackedOn = showTracked ? tracked.filter((w) => w.onChart).slice(0, 15) : [];
+  const trackedIds = trackedOn.map((w) => w.id).join(',');
+  // Names, emojis and each group's min value for chart markers: a change redraws the bubbles.
+  const trackedSig = trackedOn.map((w) => [w.id, w.label, w.emoji, w.color, w.minUsd].join(':')).join(',');
+  const trackedTrades = useAsync(
+    () => Promise.all(trackedOn.map((w) => fetchTrades({ tokenId, trader: w.id, limit: 200 }).catch(() => []))),
+    [tokenId, trackedIds],
+    { enabled: Boolean(tokenId && trackedOn.length), refreshMs: 30_000 }
+  );
   const supply = info.data?.circulatingSupply;
 
   const lastGoodRef = useRef(null);
@@ -306,11 +342,27 @@ export default function SwapChart({ token, counter, pools, height }) {
   }, [scaled, viewKey, hasData]);
 
   // The wallet's buys and sells on their candles.
-  const myGroups = useMemo(
-    () => (showMine && accountId && myTrades.data?.length && scaled.length ? tradesByCandle(myTrades.data, scaled.map((c) => c.time)) : new Map()),
-    [showMine, accountId, myTrades.data, scaled]
-  );
+  const myGroups = useMemo(() => {
+    if (!scaled.length) return new Map();
+    const sources = [];
+    if (showMine && accountId && myTrades.data?.length) sources.push({ who: 'me', label: 'You', trades: myTrades.data });
+    (trackedTrades.data || []).forEach((trades, i) => {
+      const w = trackedOn[i];
+      const big = (trades || []).filter((tr) => tr.usd >= w?.minUsd);
+      if (w && big.length) sources.push({ who: w.id, label: w.label, emoji: w.emoji, color: w.color, trades: big });
+    });
+    return sources.length ? bubblesFor(sources, scaled.map((c) => c.time), token?.decimals) : new Map();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showMine, accountId, myTrades.data, trackedTrades.data, trackedSig, scaled, token?.decimals]);
   const bubblesRef = useRef(null);
+  const [tip, setTip] = useState(null); // { key, x, y }
+  useEffect(() => setTip(null), [viewKey, showMine, trackedIds]);
+  const bubbleAt = (e) => {
+    const el = e.target.closest?.('.trade-bubble');
+    if (!el) return null;
+    return { key: el.dataset.key, x: el.offsetLeft, y: el.offsetTop };
+  };
+  const tipGroup = tip ? myGroups.get(tip.key) : null;
   useEffect(() => {
     const layer = bubblesRef.current;
     if (!layer) return undefined;
@@ -366,7 +418,6 @@ export default function SwapChart({ token, counter, pools, height }) {
   const lastLoaded = scaled[scaled.length - 1];
   const last = tick && lastLoaded && tick.time >= lastLoaded.time ? tick : lastLoaded;
   const shown = legend || last;
-  const mineHere = legend ? myGroups.get(legend.time) : null;
   const change = shown && shown.open ? ((shown.close - shown.open) / shown.open) * 100 : null;
   const pairLabel = `${token?.symbol}/${usdView ? 'USD' : quoteSymbol}`;
   const sourceLabel = data?.source === 'pool' ? `${pool?.name}${pool?.fee ? ` ${pool.fee}` : ''} · GeckoTerminal` : 'all pools · Intear · live';
@@ -408,8 +459,8 @@ export default function SwapChart({ token, counter, pools, height }) {
             </button>
           </div>
         )}
-        {accountId && (
-          <div className="segmented" role="group" aria-label="Your trades">
+        <div className="segmented" role="group" aria-label="Trades on the chart">
+          {accountId && (
             <button
               type="button"
               className={showMine ? 'active' : ''}
@@ -419,8 +470,22 @@ export default function SwapChart({ token, counter, pools, height }) {
             >
               My trades
             </button>
-          </div>
-        )}
+          )}
+          {tracked.length ? (
+            <button
+              type="button"
+              className={showTracked ? 'active' : ''}
+              aria-pressed={showTracked}
+              title="Show the trades of the wallets in your Wallet Tracker"
+              onClick={() => setShowTracked(!showTracked)}
+            >
+              Tracked ({tracked.length})
+            </button>
+          ) : null}
+          <Link className="swap-chart__track" to="/discover?tab=tracker" title={tracked.length ? 'Manage tracked wallets' : 'Track wallets: their trades show on this chart'}>
+            {tracked.length ? '⚙' : '+ Track wallets'}
+          </Link>
+        </div>
         <span className="chart-toolbar__spacer" />
         {pools?.length > 0 && (
           <label className="swap-chart__pool">
@@ -454,14 +519,6 @@ export default function SwapChart({ token, counter, pools, height }) {
               </em>
             )}
             <span className="muted"> Vol {formatUsd(shown.volume)}</span>
-            {mineHere && (
-              <span className="chart-legend__mine">
-                {' '}
-                · You:
-                {mineHere.buys > 0 && <em className="up"> bought {formatUsd(mineHere.buyUsd)}{mineHere.buys > 1 ? ` (${mineHere.buys}×)` : ''}</em>}
-                {mineHere.sells > 0 && <em className="down"> sold {formatUsd(mineHere.sellUsd)}{mineHere.sells > 1 ? ` (${mineHere.sells}×)` : ''}</em>}
-              </span>
-            )}
           </span>
         )}
       </div>
@@ -486,7 +543,50 @@ export default function SwapChart({ token, counter, pools, height }) {
         />
         <div className="chart-card__canvas">
           <div ref={containerRef} className="chart-card__container" />
-          <div ref={bubblesRef} className="trade-bubbles" aria-hidden="true" />
+          <div
+            ref={bubblesRef}
+            className="trade-bubbles"
+            onPointerOver={(e) => {
+              const b = bubbleAt(e);
+              if (b) setTip(b);
+            }}
+            onPointerOut={(e) => {
+              if (e.pointerType === 'mouse' && bubbleAt(e)) setTip(null);
+            }}
+            onClick={(e) => {
+              const b = bubbleAt(e);
+              setTip((cur) => (b && !(cur && cur.key === b.key) ? b : null));
+            }}
+          />
+          {tip && tipGroup && (
+            <div
+              className={`trade-tip ${tip.x > (bubblesRef.current?.clientWidth || 0) / 2 ? 'trade-tip--left' : ''}`}
+              style={{ left: tip.x, top: tip.y }}
+              role="tooltip"
+            >
+              <div className="trade-tip__head">
+                <strong>
+                  {tipGroup.who !== 'me' && <i style={{ background: tipGroup.color }} />}
+                  {tipGroup.label}
+                </strong>
+                <span>{timeAgo(tipGroup.last)}</span>
+              </div>
+              {tipGroup.who !== 'me' && <div className="trade-tip__wallet">{tipGroup.who}</div>}
+              <div className={`trade-tip__side ${tipGroup.side === 'buy' ? 'up' : 'down'}`}>
+                {tipGroup.side === 'buy' ? 'Bought' : 'Sold'} ({tipGroup.count})
+              </div>
+              <dl>
+                <dt>Volume</dt>
+                <dd>{formatUsd(tipGroup.usd)}</dd>
+                <dt>Amount</dt>
+                <dd>
+                  {formatAmount(tipGroup.amount)} {token?.symbol}
+                </dd>
+                <dt>Avg price</dt>
+                <dd>{tipGroup.amount > 0 ? `$${formatChartPrice(tipGroup.usd / tipGroup.amount)}` : '—'}</dd>
+              </dl>
+            </div>
+          )}
           <canvas ref={canvasRef} className={`draw-canvas ${tool !== 'cursor' ? 'draw-canvas--active' : ''}`} />
           {(loading || message) && <div className="chart-card__overlay">{loading ? <Spinner size={22} /> : <span>{message}</span>}</div>}
         </div>
