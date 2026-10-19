@@ -22,7 +22,7 @@ function valuation(prices, x, y, priceXY) {
   return { valueX: priceXY, valueY: 1, usd: false };
 }
 
-export default function PoolDepth({ poolId, x, y }) {
+export default function PoolDepth({ poolId, x, y, flip }) {
   const { prices } = useApp();
   const [viewKey, setViewKey] = useState('100');
   const depth = useAsync(() => getMarketDepth(poolId), [poolId], { refreshMs: 60_000 });
@@ -33,11 +33,11 @@ export default function PoolDepth({ poolId, x, y }) {
     const val = valuation(prices, x, y, priceXY);
     const view = DEPTH_VIEWS.find((v) => v.key === viewKey) || DEPTH_VIEWS[0];
     const built = buildDepth({ depth: depth.data, decimalsX: x.decimals, decimalsY: y.decimals, valueX: val.valueX, valueY: val.valueY, view });
-    // The asset is the less quote-like token (same rule as the chart). When that is Y (e.g. USDC/QTC:
-    // axis = QTC per USDC) the chart reads against the asset's price, so show it from Y's side.
-    const invert = quoteRank(x.id) > quoteRank(y.id);
+    // Read from Y's side when asked (the page's flip, shared with the chart); by default that is when
+    // the asset is Y (e.g. USDC/QTC: axis = QTC per USDC runs against the asset's price).
+    const invert = flip ?? quoteRank(x.id) > quoteRank(y.id);
     return { priceXY, usd: val.usd, invert, data: invert ? invertDepth(built, view) : built };
-  }, [depth.data, prices, x, y, viewKey]);
+  }, [depth.data, prices, x, y, viewKey, flip]);
 
   if (depth.error && !depth.data) return <ErrorNotice error={depth.error} onRetry={depth.reload} />;
   if (!model) return <Skeleton height={220} radius={12} />;

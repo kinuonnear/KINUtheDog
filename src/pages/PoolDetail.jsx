@@ -311,6 +311,9 @@ function ClassicPool({ poolId, initialTab }) {
 
 function DclPool({ poolId, initialTab }) {
   const { accountId, prices } = useApp();
+  // Price direction, shared by the header price, the chart and the Depth tab. Default: the asset's
+  // price (USDC/QTC reads QTC in USDC); the flip button next to the price reverses all three.
+  const [flipPref, setFlipPref] = useState(null);
   const { tokenX, tokenY, fee } = parseDclPoolId(poolId);
   const tokenQuery = useAsync(() => getTokens([tokenX, tokenY]), [tokenX, tokenY]);
   // Live pool state: the price moves between quoting and signing, so the deposit form follows it.
@@ -367,6 +370,7 @@ function DclPool({ poolId, initialTab }) {
   const x = asPoolToken(tokenQuery.data[tokenX]);
   const y = asPoolToken(tokenQuery.data[tokenY]);
   const price = dclPointToPrice(chain.data.current_point, x.decimals, y.decimals);
+  const flip = flipPref ?? quoteRank(x.id) > quoteRank(y.id);
   const totalX = toNumber(chain.data.total_x || '0', x.decimals);
   const totalY = toNumber(chain.data.total_y || '0', y.decimals);
   const usdX = totalX * priceOf(prices, tokenX);
@@ -389,6 +393,8 @@ function DclPool({ poolId, initialTab }) {
         poolId={poolId}
         actions={false}
         price={{ value: price, x, y }}
+        flipped={flip}
+        onFlip={setFlipPref}
         stats={[
           empty
             ? { label: 'Total value locked', value: 'Empty pool', hint: 'be the first LP' }
@@ -411,6 +417,7 @@ function DclPool({ poolId, initialTab }) {
           [y, totalY, usdY]
         ]}
         positions={shownPositions}
+        flip={flip}
         onAdd={() => scrollToForm({ focus: true })}
         onDone={refresh}
       />
@@ -468,7 +475,7 @@ function useDockedColumns(gridRef) {
  * CLMM page body: draggable range chart + Meteora-style create form. `bar`: the pool bar, shown
  * above the chart (the side panel reaches the top); `links`: Swap / Rhea in the panel head.
  */
-function DclWorkspace({ bar, links, poolId, pool, x, y, reserves, positions, onAdd, onDone }) {
+function DclWorkspace({ bar, links, poolId, pool, x, y, reserves, positions, flip, onAdd, onDone }) {
   const { accountId } = useApp();
   // ?left=&right= (points): open the form on that range — Smart LP's "Use this range".
   const { search } = useLocation();
@@ -610,8 +617,7 @@ function DclWorkspace({ bar, links, poolId, pool, x, y, reserves, positions, onA
             onDrag={onDrag}
             mine={mine}
             hideRange={Boolean(mine)}
-            // USDC/QTC prices QTC per USDC: chart the asset (QTC in USDC) instead, as the swap chart does.
-            flip={quoteRank(x.id) > quoteRank(y.id)}
+            flip={flip}
           />
         </Suspense>
         </div>
@@ -690,7 +696,7 @@ function DclWorkspace({ bar, links, poolId, pool, x, y, reserves, positions, onA
                 ))}
               </div>
             )}
-            {panel === 'depth' && <PoolDepth poolId={poolId} x={x} y={y} />}
+            {panel === 'depth' && <PoolDepth poolId={poolId} x={x} y={y} flip={flip} />}
             {panel === 'tiers' && <FeeTiers tokenIds={[x.id, y.id]} currentId={poolId} />}
             {panel === 'trades' && <PoolTrades poolId={poolId} x={x} y={y} />}
           </div>
@@ -779,8 +785,11 @@ function PanelLinks({ links }) {
 const dexScreenerUrl = (poolId) =>
   `https://dexscreener.com/near/${String(poolId).includes('|') ? `refv2-${String(poolId).split('|').join(':')}` : `refv1-${poolId}`}`;
 
-function PoolBar({ tokens, label, feePercent, rheaUrl, swapLink, stats, price, idText, poolId, actions = true }) {
-  const [flipped, setFlipped] = useState(false);
+function PoolBar({ tokens, label, feePercent, rheaUrl, swapLink, stats, price, idText, poolId, actions = true, flipped: flippedProp, onFlip }) {
+  // The page can own the direction (CLMM pools: the chart and Depth follow it); otherwise it is local.
+  const [localFlipped, setLocalFlipped] = useState(false);
+  const flipped = flippedProp ?? localFlipped;
+  const setFlipped = (update) => (onFlip ? onFlip(typeof update === 'function' ? update(flipped) : update) : setLocalFlipped(update));
   return (
     <header className="pool-bar card">
       <Link to={poolsReturnPath()} className="pool-bar__back" aria-label="Back to pools" title="Back to pools">
