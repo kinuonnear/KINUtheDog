@@ -13783,6 +13783,23 @@ a.amm-table__row:hover {
   color: #f2f3ee;
 }
 
+.swap-chart__flip {
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.swap-chart__flip:hover {
+  border-color: rgba(226, 234, 245, 0.35);
+}
+
 /* Swap activity: ☆ to track a trader in the Wallet Tracker. */
 .activity__track {
   margin-right: 4px;

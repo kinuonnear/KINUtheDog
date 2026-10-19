@@ -663,7 +663,7 @@ export default function Swap() {
           {showChart && (
             <>
               <Suspense fallback={<div className="card chart-card chart-card--loading"><Spinner size={22} /></div>}>
-                <SwapChart token={chartToken} counter={counterToken} pools={pools} height={chartHeight} />
+                <SwapChart token={chartToken} counter={counterToken} pools={pools} height={chartHeight} onFlip={() => setInvert((v) => !v)} />
               </Suspense>
               <div
                 className="splitter swap-pro__splitter"

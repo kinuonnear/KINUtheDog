@@ -124,7 +124,7 @@ function placeBubbles(layer, api, groups) {
   }
 }
 
-export default function SwapChart({ token, counter, pools, height }) {
+export default function SwapChart({ token, counter, pools, height, onFlip }) {
   const tokenId = intearTokenId(token);
   const counterId = counter ? intearTokenId(counter) : null;
   const [resolution, setResolution] = useLocalStorage('kinu.chart.resolution', '60');
@@ -487,6 +487,11 @@ export default function SwapChart({ token, counter, pools, height }) {
           </Link>
         </div>
         <span className="chart-toolbar__spacer" />
+        {onFlip && (
+          <button type="button" className="swap-chart__flip" onClick={onFlip} title={`Flip chart to ${counter?.symbol}`} aria-label={`Flip chart to ${counter?.symbol}`}>
+            ⇄ {counter?.symbol}
+          </button>
+        )}
         {pools?.length > 0 && (
           <label className="swap-chart__pool">
             <span className="sr-only">Chart pool</span>
