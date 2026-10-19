@@ -108,7 +108,8 @@ function AlertBanner({ alert, onClose }) {
       </i>
       <div className="tk-alert__text">
         <strong>
-          {alert.label} <span className={buy ? 'up' : 'down'}>{buy ? 'bought' : 'sold'}</span> {formatUsd(alert.usd)} <span className="tk-alert__of">of ${alert.token.symbol}</span>
+          {alert.label} <span className={buy ? 'up' : 'down'}>{buy ? 'bought' : 'sold'}</span> {formatUsd(alert.usd)}
+          {alert.count > 1 && <span className="tk-alert__count"> ({alert.count}×)</span>} <span className="tk-alert__of">of ${alert.token.symbol}</span>
         </strong>
         <small>
           {alert.groupEmoji} {alert.group} · Wallet Tracker
@@ -155,10 +156,16 @@ export default function TrackerAlerts() {
     }
     const fresh = trades.filter((t) => !seen.current.has(t.id));
     fresh.forEach((t) => seen.current.add(t.id));
-    const hits = fresh.filter((t) => {
-      const w = byId.get(t.trader);
-      return w && t.usd >= (Number(w.groupConf.minUsd) || 0);
-    });
+    // Trades of one wallet in one token and direction since the last check (a swap split across
+    // pools, a bot's burst) make one alert: summed, with a count.
+    const merged = new Map();
+    for (const t of fresh) {
+      if (!byId.has(t.trader)) continue;
+      const k = `${t.trader}|${t.token}|${t.side}`;
+      const prev = merged.get(k);
+      merged.set(k, prev ? { ...prev, usd: prev.usd + t.usd, count: prev.count + 1 } : { ...t, count: 1 });
+    }
+    const hits = [...merged.values()].filter((t) => t.usd >= (Number(byId.get(t.trader).groupConf.minUsd) || 0));
     if (!hits.length) return;
     getTokens([...new Set(hits.map((t) => t.token))])
       .catch(() => ({}))
@@ -170,6 +177,7 @@ export default function TrackerAlerts() {
             id: t.id,
             side: t.side,
             usd: t.usd,
+            count: t.count,
             token: { ...token, id: t.token },
             label: w.label,
             emoji: w.emoji,

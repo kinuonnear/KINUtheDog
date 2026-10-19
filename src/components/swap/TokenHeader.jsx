@@ -9,6 +9,7 @@ import { formatChartPrice, formatPercent, formatUsd, shortAccount } from '../../
 import { CONTRACTS, ENDPOINTS, NATIVE_NEAR } from '../../config.js';
 import { Link } from '../../router.jsx';
 import { CopyButton, TokenIcon } from '../ui.jsx';
+import { ScanBadge } from '../TokenScan.jsx';
 
 function Social({ href, label, children }) {
   return (
@@ -46,6 +47,7 @@ export default function TokenHeader({ token }) {
                 <path d="M7.5 12.5l3 3 6-6.5" fill="none" stroke="#0b0f14" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             )}
+            {!native && tokenId && <ScanBadge tokenId={tokenId} />}
             {!native && (
               <span className="token-head__links">
                 <Link to={`/token/${encodeURIComponent(token?.id || '')}`} className="token-head__info">

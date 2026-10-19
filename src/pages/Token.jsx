@@ -6,6 +6,7 @@ import { useAsync } from '../hooks.js';
 import { Link, poolPath } from '../router.jsx';
 import RecentTrades from '../components/RecentTrades.jsx';
 import WatchStar from '../components/WatchStar.jsx';
+import TokenScan, { ScanBadge } from '../components/TokenScan.jsx';
 import { CopyButton, EmptyState, PairIcons, Spinner, TokenIcon } from '../components/ui.jsx';
 import { formatPercent, formatUsd } from '../lib/format.js';
 import { getToken, getWhitelistedTokens } from '../lib/tokens.js';
@@ -79,6 +80,7 @@ export default function Token({ id }) {
               </a>
             </div>
             <FlagList flags={flags} />
+            <ScanBadge tokenId={id} />
           </div>
         </div>
         <div className="token-head__actions">
@@ -111,6 +113,7 @@ export default function Token({ id }) {
         </div>
 
         <aside className="token-side">
+          <TokenScan tokenId={id} />
           {launch.data && (
             <section className="card token-facts">
               <h2>Launch</h2>
