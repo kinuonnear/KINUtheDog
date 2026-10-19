@@ -239,13 +239,20 @@ export function priceMove(view, usd, side) {
   return null;
 }
 
-/** USD needed to move the price to `pct` (negative = down). */
+/**
+ * USD needed to move the price to `pct` (negative = down): every step inside it, plus the share of
+ * the step it ends in (steps are 1% on a log scale, so +2% ends inside the second one).
+ */
 export function depthTo(view, pct) {
   const side = pct < 0 ? 'support' : 'resistance';
+  const goal = Math.abs(pct);
   let total = 0;
   for (const r of view.rows) {
     if (r.side !== side) continue;
-    if (Math.abs(r.pct) <= Math.abs(pct) + 1e-9) total += r.total;
+    const inner = Math.abs(r.inner);
+    const outer = Math.abs(r.pct);
+    if (outer <= goal) total += r.total;
+    else if (inner < goal) total += r.total * ((goal - inner) / (outer - inner));
   }
   return total;
 }
