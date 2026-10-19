@@ -8786,9 +8786,10 @@ a.dt-row:hover {
 
 .token-head__stats {
   display: grid;
-  grid-template-columns: repeat(4, minmax(104px, auto));
+  grid-template-columns: repeat(4, minmax(104px, 1fr));
   gap: 6px;
-  flex: 0 1 auto;
+  /* Beside the price when it fits; wrapped to its own row (the scan badge widens the name block), it fills that row. */
+  flex: 1 1 440px;
   margin: 0;
 }
 
