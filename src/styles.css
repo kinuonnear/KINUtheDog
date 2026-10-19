@@ -13483,3 +13483,55 @@ a.amm-table__row:hover {
 .pool-bar i.pb-short {
   display: none;
 }
+
+/* Swap chart: the wallet's own buys (B) and sells (S), as bubbles on their candles. */
+.trade-bubbles {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.trade-bubble {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin: -10px 0 0 -10px;
+  border: 1.5px solid rgba(5, 8, 13, 0.85);
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+  color: #06110b;
+  font-size: 10.5px;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.trade-bubble--buy {
+  background: #22e283;
+}
+
+.trade-bubble--sell {
+  background: #ff5d6c;
+  color: #1a0507;
+}
+
+.trade-bubble b {
+  position: absolute;
+  right: -7px;
+  bottom: -6px;
+  min-width: 13px;
+  height: 13px;
+  padding: 0 3px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: #0d1316;
+  color: #e6ebe8;
+  font-size: 8.5px;
+  font-weight: 700;
+  line-height: 11px;
+  text-align: center;
+}

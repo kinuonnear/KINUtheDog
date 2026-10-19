@@ -2,12 +2,14 @@
 // API): deep history, in USD or NEAR, kept live over a WebSocket after every block. Any of the
 // token's pools can be picked instead (GeckoTerminal candles, refreshed every minute). Scrolling
 // back to the first candle loads the history before it; the chart never scrolls past it.
-// The view (zoom, scroll, price scale) survives refreshes.
+// The view (zoom, scroll, price scale) survives refreshes. With a wallet connected, its own buys
+// and sells of the token are marked on the candles they fell in (B / S, as on Jupiter).
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createChart, CandlestickSeries, HistogramSeries } from 'lightweight-charts';
+import { useApp } from '../../state.jsx';
 import { useAsync, useLocalStorage } from '../../hooks.js';
-import { fetchOhlc, fetchTokenInfo, intearTokenId, RESOLUTIONS } from '../../lib/intear.js';
+import { fetchOhlc, fetchTokenInfo, fetchTrades, intearTokenId, RESOLUTIONS } from '../../lib/intear.js';
 import { fetchMarketCandles, subscribeCandles } from '../../lib/intearApi.js';
 import { fetchPoolOhlc } from '../../lib/gecko.js';
 import { CHART_BARS, lastGood, sameCandles, useBarClock, useOlderCandles, withOlder } from '../../lib/candles.js';
@@ -39,6 +41,64 @@ function otherSymbol(pool, symbol) {
 // The price axis: no labels below zero and "0" for dust, not "0.0000000000".
 const axisPrice = (value) => (value < 0 ? '' : value < 1e-12 ? '0' : formatChartPrice(value));
 
+/** The candle a moment (unix seconds) falls in: the last candle starting at or before it. */
+function candleAt(times, sec) {
+  let lo = 0;
+  let hi = times.length - 1;
+  if (hi < 0 || sec < times[0]) return null;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (times[mid] <= sec) lo = mid;
+    else hi = mid - 1;
+  }
+  return times[lo];
+}
+
+/** The wallet's trades grouped per candle: { time → { buys, sells, buyUsd, sellUsd } }. */
+function tradesByCandle(trades, times) {
+  const out = new Map();
+  for (const tr of trades || []) {
+    const time = candleAt(times, Math.floor(tr.time / 1000));
+    if (time === null) continue;
+    const g = out.get(time) || { buys: 0, sells: 0, buyUsd: 0, sellUsd: 0 };
+    if (tr.side === 'buy') {
+      g.buys += 1;
+      g.buyUsd += tr.usd;
+    } else {
+      g.sells += 1;
+      g.sellUsd += tr.usd;
+    }
+    out.set(time, g);
+  }
+  return out;
+}
+
+/**
+ * Places the B / S bubbles over the chart: B under the candle's low, S over its high, a badge with
+ * the count when there are several. Runs every frame while there are bubbles, so they follow zoom,
+ * scroll and the price scale.
+ */
+function placeBubbles(layer, api, groups) {
+  const { chart, series, byTime } = api;
+  const width = layer.clientWidth - chart.priceScale('right').width();
+  const html = [];
+  for (const [time, g] of groups) {
+    const x = chart.timeScale().timeToCoordinate(time);
+    const bar = byTime.get(time);
+    if (x === null || !bar || x < 0 || x > width) continue;
+    const low = series.priceToCoordinate(bar.low);
+    const high = series.priceToCoordinate(bar.high);
+    const badge = (n) => (n > 1 ? `<b>${n}</b>` : '');
+    if (g.buys && low !== null) html.push(`<i class="trade-bubble trade-bubble--buy" style="left:${x.toFixed(1)}px;top:${(low + 16).toFixed(1)}px">B${badge(g.buys)}</i>`);
+    if (g.sells && high !== null) html.push(`<i class="trade-bubble trade-bubble--sell" style="left:${x.toFixed(1)}px;top:${(high - 16).toFixed(1)}px">S${badge(g.sells)}</i>`);
+  }
+  const next = html.join('');
+  if (layer.dataset.html !== next) {
+    layer.innerHTML = next;
+    layer.dataset.html = next;
+  }
+}
+
 export default function SwapChart({ token, counter, pools, height }) {
   const tokenId = intearTokenId(token);
   const counterId = counter ? intearTokenId(counter) : null;
@@ -56,6 +116,14 @@ export default function SwapChart({ token, counter, pools, height }) {
   const step = RESOLUTIONS.find((r) => r.key === resolution)?.seconds || 3600;
 
   const info = useAsync(() => fetchTokenInfo(tokenId), [tokenId], { enabled: Boolean(tokenId), refreshMs: 60_000 });
+
+  // The connected wallet's own trades of this token, for the B / S markers.
+  const { accountId } = useApp();
+  const [showMine, setShowMine] = useLocalStorage('kinu.swap.myTrades', true);
+  const myTrades = useAsync(() => fetchTrades({ tokenId, trader: accountId, limit: 200 }), [tokenId, accountId], {
+    enabled: Boolean(tokenId && accountId),
+    refreshMs: 20_000
+  });
   const supply = info.data?.circulatingSupply;
 
   const lastGoodRef = useRef(null);
@@ -237,6 +305,27 @@ export default function SwapChart({ token, counter, pools, height }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scaled, viewKey, hasData]);
 
+  // The wallet's buys and sells on their candles.
+  const myGroups = useMemo(
+    () => (showMine && accountId && myTrades.data?.length && scaled.length ? tradesByCandle(myTrades.data, scaled.map((c) => c.time)) : new Map()),
+    [showMine, accountId, myTrades.data, scaled]
+  );
+  const bubblesRef = useRef(null);
+  useEffect(() => {
+    const layer = bubblesRef.current;
+    if (!layer) return undefined;
+    layer.innerHTML = '';
+    layer.dataset.html = '';
+    if (!myGroups.size) return undefined;
+    let frame;
+    const loop = () => {
+      if (apiRef.current) placeBubbles(layer, apiRef.current, myGroups);
+      frame = requestAnimationFrame(loop);
+    };
+    loop();
+    return () => cancelAnimationFrame(frame);
+  }, [myGroups, viewKey, hasData]);
+
   // Price scale mode (% / log), also on a new chart.
   useEffect(() => applyScale(apiRef.current?.chart, scale), [scale, viewKey, hasData]);
   const auto = useAutoScale(() => apiRef.current?.chart || null, containerRef, `${viewKey}|${hasData}`);
@@ -277,6 +366,7 @@ export default function SwapChart({ token, counter, pools, height }) {
   const lastLoaded = scaled[scaled.length - 1];
   const last = tick && lastLoaded && tick.time >= lastLoaded.time ? tick : lastLoaded;
   const shown = legend || last;
+  const mineHere = legend ? myGroups.get(legend.time) : null;
   const change = shown && shown.open ? ((shown.close - shown.open) / shown.open) * 100 : null;
   const pairLabel = `${token?.symbol}/${usdView ? 'USD' : quoteSymbol}`;
   const sourceLabel = data?.source === 'pool' ? `${pool?.name}${pool?.fee ? ` ${pool.fee}` : ''} · GeckoTerminal` : 'all pools · Intear · live';
@@ -318,6 +408,19 @@ export default function SwapChart({ token, counter, pools, height }) {
             </button>
           </div>
         )}
+        {accountId && (
+          <div className="segmented" role="group" aria-label="Your trades">
+            <button
+              type="button"
+              className={showMine ? 'active' : ''}
+              aria-pressed={showMine}
+              title="Show your buys (B) and sells (S) on the chart"
+              onClick={() => setShowMine(!showMine)}
+            >
+              My trades
+            </button>
+          </div>
+        )}
         <span className="chart-toolbar__spacer" />
         {pools?.length > 0 && (
           <label className="swap-chart__pool">
@@ -351,6 +454,14 @@ export default function SwapChart({ token, counter, pools, height }) {
               </em>
             )}
             <span className="muted"> Vol {formatUsd(shown.volume)}</span>
+            {mineHere && (
+              <span className="chart-legend__mine">
+                {' '}
+                · You:
+                {mineHere.buys > 0 && <em className="up"> bought {formatUsd(mineHere.buyUsd)}{mineHere.buys > 1 ? ` (${mineHere.buys}×)` : ''}</em>}
+                {mineHere.sells > 0 && <em className="down"> sold {formatUsd(mineHere.sellUsd)}{mineHere.sells > 1 ? ` (${mineHere.sells}×)` : ''}</em>}
+              </span>
+            )}
           </span>
         )}
       </div>
@@ -375,6 +486,7 @@ export default function SwapChart({ token, counter, pools, height }) {
         />
         <div className="chart-card__canvas">
           <div ref={containerRef} className="chart-card__container" />
+          <div ref={bubblesRef} className="trade-bubbles" aria-hidden="true" />
           <canvas ref={canvasRef} className={`draw-canvas ${tool !== 'cursor' ? 'draw-canvas--active' : ''}`} />
           {(loading || message) && <div className="chart-card__overlay">{loading ? <Spinner size={22} /> : <span>{message}</span>}</div>}
         </div>
