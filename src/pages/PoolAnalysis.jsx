@@ -4,7 +4,7 @@
 
 import { useMemo, useState } from 'react';
 import { useApp } from '../state.jsx';
-import { useAsync } from '../hooks.js';
+import { useAsync, useMediaQuery } from '../hooks.js';
 import { Link, navigate, poolPath, useLocation } from '../router.jsx';
 import { depthTo, getLiquidityMap, keyLevels, MAP_REFRESH_MS, MAP_VIEWS, mapView, priceMove } from '../lib/liquidityMap.js';
 import { getToken } from '../lib/tokens.js';
@@ -47,29 +47,58 @@ function Tile({ label, value, hint, loading }) {
   );
 }
 
-/** The merged book: one bar per 1% step, split into CLMM, AMM and limit orders. */
+/**
+ * The merged book as a landscape depth chart: one column per 1% step, buyers (support) left of the
+ * price line, sellers (resistance) right of it, each column split into CLMM, AMM and limit orders.
+ */
 function Book({ view, price, max }) {
-  const rows = [...view.rows].reverse();
-  const split = rows.findIndex((r) => r.side === 'support');
-  const w = (v) => (max > 0 ? `${(v / max) * 100}%` : '0%');
-  const bar = (r) => (
-    <div className={`pdepth__row pdepth__row--${r.side}`} key={r.k} title={`${signed(r.pct)} · ${formatUsd(r.total)}${r.orders > 0 ? ` (limit orders ${formatUsd(r.orders)})` : ''}`}>
-      <span className="pdepth__pct">{`${r.pct > 0 ? '+' : ''}${r.pct.toFixed(Math.abs(r.pct) < 100 ? 1 : 0)}%`}</span>
-      <span className="pdepth__track">
-        <span className="pdepth__bar" style={{ width: w(r.clmm) }} />
-        {r.amm > 0 && <span className="pdepth__bar pa-bar--amm" style={{ width: w(r.amm) }} />}
-        {r.orders > 0 && <span className="pdepth__bar pdepth__bar--orders" style={{ width: w(r.orders) }} />}
-      </span>
-      <span className="pdepth__val">{r.total > 0 ? formatUsd(r.total, K) : ''}</span>
-    </div>
+  const [hover, setHover] = useState(null);
+  const phone = useMediaQuery('(max-width: 760px)');
+  const rows = view.rows; // k ascending: lowest price on the left
+  const split = rows.findIndex((r) => r.side === 'resistance');
+  const h = (v) => (max > 0 ? `${(v / max) * 100}%` : '0%');
+  // About 10 price labels under the chart (5 on phones), whatever the view.
+  const every = Math.max(1, Math.round(rows.length / (phone ? 5 : 10)));
+  const label = (r) => `${r.pct > 0 ? '+' : ''}${Math.round(r.pct)}%`;
+  const shown = hover !== null ? rows[hover] : null;
+  const col = (r, i) => (
+    <span key={r.k} className={`pa-col pa-col--${r.side}${hover === i ? ' is-hover' : ''}`} onMouseEnter={() => setHover(i)} onClick={() => setHover(i)}>
+      {/* Stacked from the bottom: CLMM, then AMM, then limit orders. */}
+      <i className="pa-col__clmm" style={{ height: h(r.clmm) }} />
+      {r.amm > 0 && <i className="pa-col__amm" style={{ height: h(r.amm) }} />}
+      {r.orders > 0 && <i className="pa-col__orders" style={{ height: h(r.orders) }} />}
+    </span>
   );
   return (
-    <div className="pdepth__chart" role="img" aria-label="Liquidity by price step">
-      {rows.slice(0, split).map(bar)}
-      <div className="pdepth__price">
-        <span>${formatChartPrice(price)}</span>
+    <div className="pa-land" onMouseLeave={() => setHover(null)}>
+      <div className="pa-land__readout" aria-live="polite">
+        {shown ? (
+          <>
+            <b>${formatChartPrice(price * (1 + shown.mid / 100))}</b>
+            <em className={shown.side === 'support' ? 'is-support' : 'is-resistance'}>{signed(shown.mid)}</em>
+            <span>{formatUsd(shown.total, K)} {shown.side === 'support' ? 'to buy' : 'for sale'}</span>
+            {shown.orders > 0 && <small>incl. {formatUsd(shown.orders, K)} limit orders</small>}
+          </>
+        ) : (
+          <span className="muted">{phone ? 'Tap' : 'Hover'} a column · tallest {formatUsd(max, K)} per 1%</span>
+        )}
       </div>
-      {rows.slice(split).map(bar)}
+      <div className="pa-land__plot" role="img" aria-label="Liquidity by price step">
+        {rows.slice(0, split).map((r, i) => col(r, i))}
+        <span className="pa-land__now">
+          <b>${formatChartPrice(price)}</b>
+        </span>
+        {rows.slice(split).map((r, i) => col(r, i + split))}
+      </div>
+      <div className="pa-land__axis" aria-hidden="true">
+        {rows.slice(0, split).map((r, i) => (
+          <span key={r.k}>{(split - i) % every === 0 ? label(r) : ''}</span>
+        ))}
+        <span className="pa-land__axis-now">0</span>
+        {rows.slice(split).map((r, i) => (
+          <span key={r.k}>{(i + 1) % every === 0 ? label(r) : ''}</span>
+        ))}
+      </div>
     </div>
   );
 }
@@ -151,9 +180,9 @@ export default function PoolAnalysis() {
             <h2>Liquidity map</h2>
             <Tabs size="sm" tabs={MAP_VIEWS.map((v) => ({ key: v.key, label: v.label }))} value={viewKey} onChange={setViewKey} />
           </div>
-          <p className="muted small">Every mapped pool merged into 1% price steps, in USD at today's price. Below the line: buyers (support). Above: sellers (resistance).</p>
+          <p className="muted small">Every mapped pool merged into 1% price steps, in USD at today's price. Left of the price: buyers (support). Right: sellers (resistance).</p>
           {!view ? (
-            <Skeleton height={360} radius={12} />
+            <Skeleton height={240} radius={12} />
           ) : view.max === 0 ? (
             <p className="muted">No mapped liquidity for {symbol} on Rhea.</p>
           ) : (
@@ -164,8 +193,7 @@ export default function PoolAnalysis() {
           </p>
         </section>
 
-        <div className="pa-side">
-          <section className="ts-section">
+          <section className="ts-section pa-levels-card">
             <div className="pl-head">
               <h2>Key levels</h2>
             </div>
@@ -185,7 +213,7 @@ export default function PoolAnalysis() {
             )}
           </section>
 
-          <section className="ts-section">
+          <section className="ts-section pa-impact">
             <div className="pl-head">
               <h2>Price impact</h2>
             </div>
@@ -227,10 +255,8 @@ export default function PoolAnalysis() {
               </div>
             )}
           </section>
-        </div>
-      </div>
 
-      <section className="ts-section">
+      <section className="ts-section pa-pools-card">
         <div className="pl-head">
           <h2>Pools</h2>
         </div>
@@ -271,6 +297,7 @@ export default function PoolAnalysis() {
           </div>
         )}
       </section>
+      </div>
 
       <p className="pa-note muted small">
         How it works: CLMM pools are read from Rhea's contract (dclv2.ref-labs.near, every liquidity range and limit order); classic pools from their reserves (x·y=k).

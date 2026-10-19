@@ -182,7 +182,7 @@ export function mapView(map, view) {
 
 /**
  * Key levels from the merged rows, no scoring. Walking away from the price on each side:
- *   step  — depth per 1% at least doubles and stays up (a wall begins: "sell wall from $100")
+ *   step  — depth per 1% grows 1.7× or more and stays up (a wall begins: "sell wall from $100")
  *   thin  — depth drops under a third and stays down (liquidity runs out: moves get fast)
  *   peak  — a single step at least 2.5× the side's median, bigger than its neighbours
  * Returns [{ kind, side, pct, usd, before, after }], nearest to the price first, at most
@@ -203,7 +203,7 @@ export function keyLevels(view, { perSide = 3 } = {}) {
       const before = avg(rows, Math.max(0, i - 3), i);
       const after = avg(rows, i, Math.min(rows.length, i + 3));
       if (before <= 0 || near(i)) continue;
-      if (after >= before * 2) found.push({ i, kind: 'step', before, after });
+      if (after >= before * 1.7) found.push({ i, kind: 'step', before, after });
       else if (after <= before / 3) found.push({ i, kind: 'thin', before, after });
     }
     rows.forEach((r, i) => {

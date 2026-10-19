@@ -67,13 +67,7 @@
 
 .pa-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(300px, 1fr);
   align-items: start;
-  gap: 14px;
-}
-
-.pa-side {
-  display: grid;
   gap: 14px;
 }
 
@@ -286,5 +280,234 @@
 
   .page--analysis .ts-tile small {
     font-size: 11px;
+  }
+}
+
+/* ---- Full width, like Pools and Pulse ---- */
+.page--treasury.page--analysis {
+  max-width: none;
+  gap: 20px;
+}
+
+/* Tiles and the picker sit above the hero's flow lines, on solid glass. */
+.page--analysis > .ts-tiles {
+  position: relative;
+  z-index: 1;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.page--analysis > .ts-tiles .ts-tile {
+  background: rgba(10, 13, 19, 0.94);
+}
+
+.page--analysis .pa-pick {
+  padding: 10px 12px;
+  border: 1px solid rgba(242, 243, 238, 0.1);
+  border-radius: 16px;
+  background: rgba(10, 13, 19, 0.94);
+}
+
+/* The landscape map runs the full width; under it, levels and price impact beside the pools on wide
+   screens, levels beside impact with the pools below on medium ones, one column on phones. */
+.page--analysis .pa-grid {
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 0.95fr) minmax(0, 1.6fr);
+  grid-template-areas:
+    'map map map'
+    'levels impact pools';
+  align-items: stretch;
+}
+
+.page--analysis .pa-book {
+  grid-area: map;
+}
+
+.page--analysis .pa-levels-card {
+  grid-area: levels;
+  align-content: start;
+}
+
+.page--analysis .pa-impact {
+  grid-area: impact;
+  align-content: start;
+}
+
+.page--analysis .pa-pools-card {
+  grid-area: pools;
+  align-content: start;
+}
+
+/* ---- Landscape depth chart ---- */
+.pa-land {
+  display: grid;
+  gap: 6px;
+}
+
+.pa-land__readout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  min-height: 20px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pa-land__readout b {
+  font-family: var(--mono);
+}
+
+.pa-land__readout em {
+  font-style: normal;
+}
+
+.pa-land__readout .is-support {
+  color: #8fb0c4;
+}
+
+.pa-land__readout .is-resistance {
+  color: #b3a4c4;
+}
+
+.pa-land__readout small {
+  color: var(--muted);
+}
+
+.pa-land__plot,
+.pa-land__axis {
+  display: flex;
+  gap: 2px;
+}
+
+.pa-land__plot {
+  align-items: flex-end;
+  height: 220px;
+  padding-top: 18px;
+  border-bottom: 1px solid rgba(242, 243, 238, 0.12);
+}
+
+.pa-col {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column-reverse;
+  justify-content: flex-start;
+  min-width: 0;
+  height: 100%;
+  border-radius: 2px 2px 0 0;
+  cursor: crosshair;
+}
+
+.pa-col i {
+  display: block;
+  flex: none;
+  width: 100%;
+}
+
+.pa-col--support {
+  --depth-c: #56788c;
+  --depth-amm: #8fb0c4;
+}
+
+.pa-col--resistance {
+  --depth-c: #85779a;
+  --depth-amm: #b3a4c4;
+}
+
+.pa-col__clmm {
+  background: var(--depth-c);
+}
+
+.pa-col__amm {
+  background: var(--depth-amm);
+}
+
+.pa-col__orders {
+  background: repeating-linear-gradient(135deg, var(--depth-c) 0 3px, rgba(255, 255, 255, 0.2) 3px 6px);
+}
+
+.pa-col > i:last-child {
+  border-radius: 2px 2px 0 0;
+}
+
+.pa-col.is-hover {
+  background: rgba(242, 243, 238, 0.06);
+}
+
+.pa-col.is-hover i {
+  filter: brightness(1.35);
+}
+
+/* The price: a dashed line between buyers and sellers, its value on top. */
+.pa-land__now {
+  position: relative;
+  flex: none;
+  align-self: stretch;
+  width: 0;
+  margin: 0 3px;
+  border-left: 1px dashed rgba(242, 243, 238, 0.55);
+}
+
+.pa-land__now b {
+  position: absolute;
+  top: -18px;
+  left: 50%;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  font-family: var(--mono);
+  font-size: 11px;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+.pa-land__axis span {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: visible;
+  color: var(--muted);
+  font-size: 10.5px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.pa-land__axis .pa-land__axis-now {
+  flex: none;
+  width: 0;
+  margin: 0 3px;
+  color: var(--text);
+}
+
+@media (max-width: 1500px) {
+  .page--analysis .pa-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas:
+      'map map'
+      'levels impact'
+      'pools pools';
+  }
+}
+
+@media (max-width: 1000px) {
+  .page--analysis .pa-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'map' 'levels' 'impact' 'pools';
+  }
+
+  .page--analysis > .ts-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .pa-land__plot {
+    height: 170px;
+  }
+
+  .pa-land__plot,
+  .pa-land__axis {
+    gap: 1px;
+  }
+
+  .pa-land__axis span {
+    font-size: 9.5px;
   }
 }
