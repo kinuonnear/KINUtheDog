@@ -1,0 +1,202 @@
+/* Phone navigation (components/MobileNav.jsx): a compact top bar (brand, wallet, search, ☰) and a
+   tab bar pinned to the bottom, like a mobile app. Desktop and tablets keep the top navigation. */
+
+/* Wallet + phone buttons share one slot at the end of the bar. */
+.shell .topbar__end {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* The search slot is invisible to layout on wide screens (the search sits in the bar). */
+.gsearch-slot {
+  display: contents;
+}
+
+.mnav-btn,
+.mtab,
+.msheet {
+  display: none;
+}
+
+@media (max-width: 1080px) {
+  .shell .gsearch-slot > .gsearch {
+    padding: 4px 18px 12px;
+  }
+}
+
+@media (max-width: 760px) {
+  /* Top: brand + wallet + search + menu, one slim row. */
+  .shell .topbar__bar {
+    padding: 10px 14px;
+  }
+
+  .shell .topbar > .nav {
+    display: none;
+  }
+
+  .gsearch-slot {
+    display: none;
+  }
+
+  .gsearch-slot.is-open {
+    display: block;
+  }
+
+  .shell .gsearch-slot.is-open > .gsearch {
+    padding: 10px 14px 12px;
+  }
+
+  .mnav-btn {
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+    width: 40px;
+    height: 40px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    color: #f2f3ee;
+    cursor: pointer;
+  }
+
+  .mnav-btn.is-on,
+  .mnav-btn[aria-expanded='true'] {
+    background: rgba(255, 255, 255, 0.09);
+  }
+
+  /* Bottom tab bar. */
+  .mtab {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 45;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+    background: rgba(5, 8, 13, 0.94);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  .mtab__item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 6px 0 4px;
+    border-radius: 12px;
+    color: #7d8798;
+    font-size: 11px;
+    font-weight: 500;
+    text-decoration: none;
+  }
+
+  .mtab__item.is-on {
+    color: #f2f3ee;
+  }
+
+  .mtab__item.is-on svg {
+    color: #22e283;
+  }
+
+  /* Toasts and the install banner sit above the tab bar. */
+  .toasts {
+    bottom: calc(80px + env(safe-area-inset-bottom));
+  }
+
+  .install-prompt {
+    bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Room for the tab bar under the page. */
+  .shell {
+    padding-bottom: calc(68px + env(safe-area-inset-bottom));
+  }
+
+  /* ☰ sheet: the other screens as tiles, then guides and documents. */
+  .msheet {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    align-items: flex-end;
+    background: rgba(0, 0, 0, 0.55);
+  }
+
+  .msheet__panel {
+    width: 100%;
+    max-height: 82vh;
+    overflow-y: auto;
+    padding: 18px 16px calc(84px + env(safe-area-inset-bottom));
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px 20px 0 0;
+    background: #0a0e14;
+  }
+
+  .msheet__grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  .msheet__tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 14px 6px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.02);
+    color: #d6dbe2;
+    font-size: 12.5px;
+    text-align: center;
+    text-decoration: none;
+  }
+
+  .msheet__tile.is-on {
+    border-color: rgba(34, 226, 131, 0.5);
+    color: #fff;
+  }
+
+  .msheet__list {
+    display: grid;
+    margin-top: 14px;
+  }
+
+  .msheet__list a {
+    padding: 12px 4px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    color: #aeb6c2;
+    font-size: 14px;
+    text-decoration: none;
+  }
+
+  /* The ☰ sheet sits under the tab bar so the tabs stay usable. */
+  .msheet + .mtab,
+  .mtab {
+    z-index: 61;
+  }
+
+  /* Page headers: smaller titles, no long subtitles. */
+  .pt-hero .pt-title {
+    font-size: 34px;
+  }
+
+  .pt-hero > p {
+    display: none;
+  }
+
+  /* Swap card: the title and its tools only. */
+  .swap-card__head .muted.small {
+    display: none;
+  }
+
+  .swap-card__head .pill-button {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+}

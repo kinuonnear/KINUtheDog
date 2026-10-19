@@ -28,7 +28,7 @@ function Icon({ name }) {
 }
 
 
-const GUIDES = [
+export const GUIDES = [
   { to: '/docs/introduction', label: 'Documentation', icon: 'docs' },
   { to: '/docs/getting-started', label: 'Get Started', icon: 'start' },
   { to: '/docs/create-pool', label: 'Launch Guide', icon: 'launch' },
@@ -36,7 +36,7 @@ const GUIDES = [
   { to: '/docs/faq', label: 'FAQ', icon: 'faq' }
 ];
 
-const LEGAL = [
+export const LEGAL = [
   { to: '/docs/terms', label: 'Terms of Service', icon: 'terms' },
   { to: '/security', label: 'Security & Transparency', icon: 'shield' },
   { to: '/treasury', label: 'Treasury', icon: 'treasury' }

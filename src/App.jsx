@@ -11,6 +11,8 @@ import Welcome from './pages/Welcome.jsx';
 import Home from './pages/Home.jsx';
 import Pools from './pages/Pools.jsx';
 import MoreMenu from './components/MoreMenu.jsx';
+import { MobileMenuButton, MobileSearchButton, MobileTabBar } from './components/MobileNav.jsx';
+import './mobile-nav.css';
 import RangeAlerts from './components/RangeAlerts.jsx';
 import './theme.css';
 import './topbar.css';
@@ -129,6 +131,9 @@ function AccountMenu() {
 export default function App() {
   const { pathname } = useLocation();
   const route = matchRoute(pathname);
+  // Phones: the search sits behind an icon in the top bar (MobileNav.jsx); a new page closes it.
+  const [searchOpen, setSearchOpen] = useState(false);
+  useEffect(() => setSearchOpen(false), [pathname]);
 
   const appView = route.name === 'pool' && route.params[0]?.includes('|');
 
@@ -240,7 +245,11 @@ export default function App() {
             <img src="/brand/kinu-mark.svg" alt="" width="30" height="30" />
             <span>KINU</span>
           </Link>
-          <AccountMenu />
+          <div className="topbar__end">
+            <AccountMenu />
+            <MobileSearchButton open={searchOpen} onToggle={() => setSearchOpen((v) => !v)} />
+            <MobileMenuButton route={route} pathname={pathname} />
+          </div>
         </div>
         <nav className="nav">
           {NAV.map((item) => (
@@ -258,7 +267,9 @@ export default function App() {
           ))}
           <MoreMenu active={MORE_ROUTES.has(route.name)} />
         </nav>
-        <GlobalSearch />
+        <div className={searchOpen ? 'gsearch-slot is-open' : 'gsearch-slot'}>
+          <GlobalSearch />
+        </div>
       </header>
 
       <main className={FULL_WIDTH_ROUTES.has(route.name) ? 'main main--full' : 'main'}>
@@ -286,6 +297,7 @@ export default function App() {
       </footer>
       )}
 
+      {!appView && <MobileTabBar route={route} />}
       <Toasts />
       <RangeAlerts />
       <InstallPrompt />
