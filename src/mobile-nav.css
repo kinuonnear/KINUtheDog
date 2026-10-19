@@ -200,3 +200,138 @@
     font-size: 12px;
   }
 }
+
+/* ---------- Phones: each page simpler than on desktop ---------- */
+@media (max-width: 760px) {
+  /* The tab bar and the ☰ sheet carry the footer's links. */
+  .shell .footer {
+    display: none;
+  }
+
+  /* Page titles and intros. */
+  .page-head h1,
+  .ag-hero h1,
+  .portfolio-gate h1 {
+    font-size: 30px;
+    line-height: 1.1;
+  }
+
+  .disc-banner__head > p,
+  .ag-hero p:not(.ag-hero__note),
+  .portfolio-gate > p {
+    display: none;
+  }
+
+  /* Home: two buttons side by side (Connect wallet is in the top bar); no three-step guide. */
+  .hm-hero .hero__actions {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+
+  .hm-hero .hero__actions .button--ghost {
+    display: none;
+  }
+
+  .hm-hero .hero__actions .button {
+    flex: 1;
+    min-height: 46px;
+    padding: 0 12px;
+    font-size: 14px;
+  }
+
+  .lp-steps {
+    display: none;
+  }
+
+  /* Discover: pool cards keep what decides a pool (yield, fees, APR, TVL). */
+  .disc-row--pools [data-label='Pair age'],
+  .disc-row--pools [data-label='MC'],
+  .disc-row--pools [data-label^='Price'],
+  .disc-row--pools [data-label^='Trades'],
+  .disc-row--pools [data-label='Volume 24H'] {
+    display: none;
+  }
+
+  /* Swap: no footnote; trades show time, side, amount and value. */
+  .shell--swap .fine-print {
+    display: none;
+  }
+
+  .activity__table--trades th:nth-child(3),
+  .activity__table--trades td:nth-child(3),
+  .activity__table--trades th:nth-child(6),
+  .activity__table--trades td:nth-child(6),
+  .activity__table--trades th:nth-child(7),
+  .activity__table--trades td:nth-child(7) {
+    display: none;
+  }
+
+  .activity__table {
+    font-size: 13px;
+  }
+
+  /* Bridge: straight to the form (no chain art, stats or intro). */
+  .dep-hero__visual,
+  .dep-hero__stats,
+  .dep-hero__copy > p {
+    display: none;
+  }
+
+  /* Comfortable tap targets. */
+  .button,
+  .segmented button {
+    min-height: 40px;
+  }
+}
+
+/* Phones: rules that must outweigh page stylesheets (Home, Discover, activity tables). */
+@media (max-width: 760px) {
+  .shell--home .home .hero__content > p:not(.hm-welcome),
+  .shell--home .home .hm-panel__note,
+  .shell--home .home .lp-steps,
+  .shell .lp-steps {
+    display: none;
+  }
+
+  /* Trades fit the screen once Price, Trader and Tx are hidden. */
+  .activity__table.activity__table--trades {
+    min-width: 0;
+  }
+
+  .activity__table--trades th,
+  .activity__table--trades td {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  /* Discover's banner: as tall as its title. */
+  .shell .disc-banner {
+    min-height: 0;
+    margin-bottom: 14px;
+  }
+
+  .shell .disc-banner__head {
+    padding: 18px 18px 16px;
+  }
+}
+
+/* Phones: the Pools table keeps Pool, TVL and APR (the whole row opens the pool). */
+@media (max-width: 760px) {
+  .page--pools .discover-table .dt-row {
+    grid-template-columns: minmax(0, 1fr) 82px 74px;
+    min-width: 0;
+    column-gap: 8px;
+    padding: 12px 14px;
+  }
+
+  .page--pools .discover-table .dt-row > :nth-child(1),
+  .page--pools .discover-table .dt-row > :nth-child(3),
+  .page--pools .discover-table .dt-row > :nth-child(4),
+  .page--pools .discover-table .dt-row > :nth-child(5),
+  .page--pools .discover-table .dt-row > :nth-child(7),
+  .page--pools .discover-table .dt-row > :nth-child(8),
+  .page--pools .discover-table .dt-row > :nth-child(10) {
+    display: none;
+  }
+}

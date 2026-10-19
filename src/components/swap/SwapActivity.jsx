@@ -72,7 +72,7 @@ function Rows({ loading, error, empty, children, cols }) {
 
 function TradesTable({ token, trades, accountId }) {
   return (
-    <table className="activity__table">
+    <table className="activity__table activity__table--trades">
       <thead>
         <tr>
           <th>Time</th>
