@@ -79,7 +79,7 @@
     padding: 6px;
     border: 1px solid rgba(34, 226, 131, 0.16);
     border-radius: 22px;
-    background: linear-gradient(180deg, rgba(22, 30, 34, 0.94), rgba(10, 15, 18, 0.96));
+    background: linear-gradient(180deg, #161e22, #0a0f12);
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.05);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
