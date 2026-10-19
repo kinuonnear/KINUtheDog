@@ -142,11 +142,11 @@ const axisPrice = (value) => (value < 0 ? '' : value < 1e-12 ? '0' : formatChart
  * the current price in the colour of the base token's side, below it in the quote token's, the same
  * colours as the Price range chart in the position form. Bars are scaled to the largest one on screen.
  */
-// Soft tones (same family as the Depth tab): above the price = resistance, below = support.
-// Limit orders stack on the pool liquidity in a lighter tint.
+// The chart's original tones: above the price (resistance) violet, below it (support) cyan.
+// Limit orders stack on the pool liquidity in a stronger tint of the same colour.
 const DEPTH_FILL = {
-  above: { liquidity: 'rgba(133, 119, 154, 0.5)', orders: 'rgba(196, 186, 214, 0.55)' },
-  below: { liquidity: 'rgba(86, 120, 140, 0.5)', orders: 'rgba(170, 198, 214, 0.55)' }
+  above: { liquidity: 'rgba(139, 124, 246, 0.34)', orders: 'rgba(139, 124, 246, 0.75)' },
+  below: { liquidity: 'rgba(56, 198, 224, 0.34)', orders: 'rgba(56, 198, 224, 0.75)' }
 };
 
 /** Side overlay: 1% buckets of { lo, hi, liquidity, orders, above } as bars growing from the right edge. */
@@ -170,14 +170,16 @@ function paintDepth(ctx, bars, priceToY, width, height) {
     const fill = b.above ? DEPTH_FILL.above : DEPTH_FILL.below;
     const wl = (b.liquidity / max) * reach;
     const wo = (b.orders / max) * reach;
-    const h = Math.max(1, b.y1 - b.y0);
+    // Snap to whole pixels: fractional edges leave hairline seams between neighbouring buckets.
+    const top = Math.floor(b.y0);
+    const h = Math.max(1, Math.ceil(b.y1) - top);
     if (wl > 0) {
       ctx.fillStyle = fill.liquidity;
-      ctx.fillRect(width - wl, b.y0, Math.max(1.5, wl), h);
+      ctx.fillRect(width - wl, top, Math.max(1.5, wl), h);
     }
     if (wo > 0) {
       ctx.fillStyle = fill.orders;
-      ctx.fillRect(width - wl - wo, b.y0, Math.max(1.5, wo), h);
+      ctx.fillRect(width - wl - wo, top, Math.max(1.5, wo), h);
     }
   }
   ctx.restore();
