@@ -335,3 +335,37 @@
     display: none;
   }
 }
+
+/* Phones: a pool page is the price, the chart and the position form; the rest stays on desktop. */
+@media (max-width: 760px) {
+  /* The token strip repeats the pool card above it. */
+  .pro-chart__info {
+    display: none;
+  }
+
+  /* Chart toolbar: timeframe, candles / line, pool / market and price / USD only. */
+  .pro-chart__toolbar .ctool-sep,
+  .pro-chart__toolbar .zoom-tools,
+  .pro-chart__toolbar .pro-chart__spacer,
+  .pro-chart__toolbar [title='Save screenshot'],
+  .pro-chart__toolbar [title='Fullscreen'],
+  .pro-chart__toolbar [title^='Show bin'],
+  .pro-chart__toolbar .ctool:has(.fx) {
+    display: none;
+  }
+
+  .pro-chart__toolbar {
+    gap: 6px;
+  }
+
+  /* Under the chart: the time ranges, without the scale switches. */
+  .chart-footer__group + .chart-footer__group {
+    display: none;
+  }
+
+  /* Position form: no hints or legends. */
+  .liq-hint,
+  .depth__legend {
+    display: none;
+  }
+}

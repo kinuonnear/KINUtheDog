@@ -12,7 +12,6 @@ import Home from './pages/Home.jsx';
 import Pools from './pages/Pools.jsx';
 import MoreMenu from './components/MoreMenu.jsx';
 import { MobileMenuButton, MobileSearchButton, MobileTabBar } from './components/MobileNav.jsx';
-import './mobile-nav.css';
 import RangeAlerts from './components/RangeAlerts.jsx';
 import './theme.css';
 import './topbar.css';

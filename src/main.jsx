@@ -7,6 +7,8 @@ import App from './App.jsx';
 import { startAutoRpc } from './lib/rpc.js';
 import { startTelegram } from './lib/telegram.js';
 import './styles.css';
+// Phone rules last, so they win over the general styles they adjust.
+import './mobile-nav.css';
 
 // Vercel Web Analytics: cookieless page views. Query strings are dropped so account names
 // (?account=…) and wallet results never reach analytics.
