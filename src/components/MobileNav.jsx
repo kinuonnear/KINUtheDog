@@ -30,18 +30,19 @@ function Icon({ name, size = 22 }) {
   );
 }
 
+// Swap sits in the middle as the main action (mtab__item--main).
 const TABS = [
-  { to: '/swap', label: 'Swap', icon: 'swap', match: ['swap'] },
+  { to: '/discover', label: 'Discover', icon: 'discover', match: ['discover', 'new', 'token', 'lp'] },
   { to: '/pools', label: 'Pools', icon: 'pools', match: ['pools', 'pool', 'starter', 'intear'] },
+  { to: '/swap', label: 'Swap', icon: 'swap', match: ['swap'], main: true },
   { to: '/bridge', label: 'Bridge', icon: 'bridge', match: ['deposit'] },
-  { to: '/earn', label: 'Earn', icon: 'earn', match: ['earn', 'stake'] },
   { to: '/portfolio', label: 'Portfolio', icon: 'portfolio', match: ['portfolio'] }
 ];
 
 // Everything that isn't a tab, in the ☰ sheet.
 const SCREENS = [
   { to: '/app', label: 'Home', icon: 'home', match: ['app'] },
-  { to: '/discover', label: 'Discover', icon: 'discover', match: ['discover', 'new', 'token', 'lp'] },
+  { to: '/earn', label: 'Earn', icon: 'earn', match: ['earn', 'stake'] },
   { to: '/create-pool', label: 'Create pool', icon: 'create', match: ['create'] },
   { to: '/agent', label: 'Agent', icon: 'agent', match: ['agent'] },
   { to: '/pulse', label: 'NEAR DeFi Pulse', icon: 'pulse', match: ['pulse'] }
@@ -54,8 +55,14 @@ export function MobileTabBar({ route }) {
       {TABS.map((t) => {
         const on = t.match.includes(route.name);
         return (
-          <Link key={t.to} to={t.to} className={on ? 'mtab__item is-on' : 'mtab__item'} aria-current={on ? 'page' : undefined}>
-            <Icon name={t.icon} />
+          <Link key={t.to} to={t.to} className={'mtab__item' + (t.main ? ' mtab__item--main' : '') + (on ? ' is-on' : '')} aria-current={on ? 'page' : undefined}>
+            {t.main ? (
+              <i className="mtab__main-icon">
+                <Icon name={t.icon} />
+              </i>
+            ) : (
+              <Icon name={t.icon} />
+            )}
             <span>{t.label}</span>
           </Link>
         );
