@@ -143,7 +143,7 @@ export default function PoolAnalysis() {
           <PageIcon name="analysis" />
           Pool Analysis
         </h1>
-        <p>Where buyers and sellers of a token are waiting, across every Rhea pool that holds it. Read from the pool contracts, refreshed every 5 minutes.</p>
+        <p>Where buyers and sellers of a token are waiting, across every Rhea pool that holds it.</p>
       </header>
 
       <div className="pa-pick">
@@ -168,7 +168,7 @@ export default function PoolAnalysis() {
       {map.error && !d && <ErrorNotice error={map.error} onRetry={map.reload} />}
 
       <div className="ts-tiles">
-        <Tile label={`${symbol} price`} loading={loading} value={price ? `$${formatChartPrice(price)}` : '—'} hint={`${mapped.length} of ${d?.pools.length || 0} pools mapped`} />
+        <Tile label={`${symbol} price`} loading={loading} value={price ? `$${formatChartPrice(price)}` : '—'} hint={`across ${mapped.length} pools`} />
         <Tile label={`Support (${MAP_VIEWS.find((v) => v.key === viewKey)?.label})`} loading={loading} value={view && formatUsd(view.support, K)} hint="USD waiting to buy below the price" />
         <Tile label={`Resistance (${MAP_VIEWS.find((v) => v.key === viewKey)?.label})`} loading={loading} value={view && formatUsd(view.resistance, K)} hint={`${symbol} waiting to be sold above the price`} />
         <Tile label="Buyer share" loading={loading} value={view?.balance === null || !view ? '—' : `${view.balance.toFixed(0)}%`} hint="of the depth in view; 50% = balanced" />
@@ -180,7 +180,7 @@ export default function PoolAnalysis() {
             <h2>Liquidity map</h2>
             <Tabs size="sm" tabs={MAP_VIEWS.map((v) => ({ key: v.key, label: v.label }))} value={viewKey} onChange={setViewKey} />
           </div>
-          <p className="muted small">Every mapped pool merged into 1% price steps, in USD at today's price. Left of the price: buyers (support). Right: sellers (resistance).</p>
+          <p className="muted small">Liquidity per 1% price step, in USD. Left of the price: buyers (support). Right: sellers (resistance).</p>
           {!view ? (
             <Skeleton height={240} radius={12} />
           ) : view.max === 0 ? (
@@ -300,9 +300,7 @@ export default function PoolAnalysis() {
       </div>
 
       <p className="pa-note muted small">
-        How it works: CLMM pools are read from Rhea's contract (dclv2.ref-labs.near, every liquidity range and limit order); classic pools from their reserves (x·y=k).
-        Each pool is measured from its own price, then all are added up per 1% step and valued in USD. Stable and ALMM pools are listed but not mapped. Up to 12 pools,
-        deepest first. LPs can move liquidity at any time: a snapshot, not a forecast or financial advice.
+        LPs can add, move or remove liquidity at any time: this is a snapshot, not a forecast or financial advice.
       </p>
 
       {picking && <TokenPicker title="Analyse a token" selectedId={tokenId} onSelect={(t) => pick(t.id === 'near' ? 'wrap.near' : t.id)} onClose={() => setPicking(false)} />}
