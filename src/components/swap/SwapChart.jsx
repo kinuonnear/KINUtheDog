@@ -4,7 +4,9 @@
 // back to the first candle loads the history before it; the chart never scrolls past it.
 // The view (zoom, scroll, price scale) survives refreshes. With a wallet connected, its own buys
 // and sells of the token are marked on the candles they fell in (B / S, as on Jupiter), and so are
-// those of the wallets in the Wallet Tracker, in each wallet's colour.
+// those of the wallets in the Wallet Tracker, in each wallet's colour. Levels: the buy and sell
+// walls and thin zones of the token's liquidity across every Rhea pool (lib/liquidityMap.js, the
+// Pool Analysis page), drawn as dashed lines at their distance from the last price.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createChart, CandlestickSeries, HistogramSeries } from 'lightweight-charts';
@@ -20,6 +22,7 @@ import ChartFooter, { applyScale, showRange, useAutoScale } from '../chart/Chart
 import { Spinner } from '../ui.jsx';
 import { useTrackedWallets } from '../../lib/walletTracker.js';
 import { Link } from '../../router.jsx';
+import { getLiquidityMap, keyLevels, MAP_REFRESH_MS, MAP_VIEWS, mapView } from '../../lib/liquidityMap.js';
 
 const UP = '#22e283';
 const DOWN = '#ff5d6c';
@@ -28,6 +31,11 @@ const REFRESH_MS = 60_000;
 const MARKET_BARS = 3000;
 const MARKET = 'market';
 const WNEAR = 'wrap.near';
+// Liquidity levels on the chart: label and colour by kind and side (above / below the price).
+const LEVEL_TITLE = { step: { resistance: 'Sell wall', support: 'Buy wall' }, peak: { resistance: 'Sell wall', support: 'Buy wall' }, thin: { resistance: 'Thin', support: 'Thin' } };
+// The levels read the deepest pools only: the small ones barely move the walls.
+const LEVEL_POOLS = { maxPools: 5, minTvl: 1000 };
+const LEVEL_COLOR = { resistance: '#b3a4c4', support: '#8fb0c4', thin: '#ff8f99' };
 
 /** NEAR and wNEAR are one token here. */
 const sameSymbol = (a, b) => {
@@ -143,7 +151,7 @@ export default function SwapChart({ token, counter, pools, height, onFlip }) {
   const info = useAsync(() => fetchTokenInfo(tokenId), [tokenId], { enabled: Boolean(tokenId), refreshMs: 60_000 });
 
   // The connected wallet's own trades of this token, for the B / S markers.
-  const { accountId } = useApp();
+  const { accountId, prices } = useApp();
   const [showMine, setShowMine] = useLocalStorage('kinu.swap.myTrades', true);
   const myTrades = useAsync(() => fetchTrades({ tokenId, trader: accountId, limit: 200 }), [tokenId, accountId], {
     enabled: Boolean(tokenId && accountId),
@@ -161,6 +169,18 @@ export default function SwapChart({ token, counter, pools, height, onFlip }) {
     { enabled: Boolean(tokenId && trackedOn.length), refreshMs: 30_000 }
   );
   const supply = info.data?.circulatingSupply;
+
+  // Buy / sell walls and thin zones within ±50%, two per side at most.
+  const [showLevels, setShowLevels] = useLocalStorage('kinu.swap.levels', true);
+  const pricesReady = Boolean(prices?.size);
+  const liquidity = useAsync(() => getLiquidityMap(tokenId, prices, LEVEL_POOLS), [tokenId, pricesReady], {
+    enabled: Boolean(showLevels && tokenId && pricesReady),
+    refreshMs: MAP_REFRESH_MS
+  });
+  const levels = useMemo(
+    () => (showLevels && liquidity.data?.tokenId === tokenId ? keyLevels(mapView(liquidity.data, MAP_VIEWS[1]), { perSide: 2 }) : []),
+    [showLevels, liquidity.data, tokenId]
+  );
 
   const lastGoodRef = useRef(null);
   const viewOf = `${tokenId}|${pool?.address || MARKET}|${resolution}|${unit}`;
@@ -341,6 +361,26 @@ export default function SwapChart({ token, counter, pools, height, onFlip }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scaled, viewKey, hasData]);
 
+  // Liquidity levels at their distance from the last price, so they read the same in USD, NEAR,
+  // a pool's own quote or market cap.
+  useEffect(() => {
+    const api = apiRef.current;
+    if (!api || !scaled.length) return;
+    (api.levelLines || []).forEach((line) => api.series.removePriceLine(line));
+    const last = scaled[scaled.length - 1].close;
+    api.levelLines = levels.map((l) =>
+      api.series.createPriceLine({
+        price: last * (1 + l.pct / 100),
+        color: LEVEL_COLOR[l.kind === 'thin' ? 'thin' : l.side],
+        lineWidth: 1,
+        lineStyle: 2,
+        axisLabelVisible: true,
+        title: LEVEL_TITLE[l.kind][l.side]
+      })
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [levels, scaled, viewKey, hasData]);
+
   // The wallet's buys and sells on their candles.
   const myGroups = useMemo(() => {
     if (!scaled.length) return new Map();
@@ -484,6 +524,20 @@ export default function SwapChart({ token, counter, pools, height, onFlip }) {
           ) : null}
           <Link className="swap-chart__track" to="/discover?tab=tracker" title={tracked.length ? 'Manage tracked wallets' : 'Track wallets: their trades show on this chart'}>
             {tracked.length ? '⚙' : '+ Track wallets'}
+          </Link>
+        </div>
+        <div className="segmented" role="group" aria-label="Liquidity levels">
+          <button
+            type="button"
+            className={showLevels ? 'active' : ''}
+            aria-pressed={showLevels}
+            title="Buy and sell walls from the liquidity of every Rhea pool"
+            onClick={() => setShowLevels(!showLevels)}
+          >
+            Levels
+          </button>
+          <Link className="swap-chart__track swap-chart__analysis" to={`/analysis?token=${encodeURIComponent(tokenId || '')}`} title={`Pool Analysis: ${token?.symbol} liquidity, walls and price impact`}>
+            Analysis ↗
           </Link>
         </div>
         <span className="chart-toolbar__spacer" />

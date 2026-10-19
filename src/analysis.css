@@ -1,0 +1,290 @@
+/* Pool Analysis (/analysis): token picker, merged liquidity book, key levels, price impact, pools. */
+
+.pa-pick {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.pa-token {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.pa-token strong {
+  font-size: 16px;
+}
+
+.pa-token:hover {
+  border-color: var(--accent);
+}
+
+.pa-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pa-quick button {
+  padding: 5px 11px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pa-quick button:hover,
+.pa-quick button.active {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.pa-swap {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.pa-swap:hover {
+  color: var(--accent);
+}
+
+.pa-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(300px, 1fr);
+  align-items: start;
+  gap: 14px;
+}
+
+.pa-side {
+  display: grid;
+  gap: 14px;
+}
+
+/* CLMM keeps the depth tab's colour; AMM a lighter shade of it. */
+.pa-book .pdepth__row--support .pa-bar--amm {
+  background: #8fb0c4;
+}
+
+.pa-book .pdepth__row--resistance .pa-bar--amm {
+  background: #b3a4c4;
+}
+
+.pa-book .pdepth__key--liquidity {
+  background: #56788c;
+}
+
+.pa-key--amm {
+  background: #8fb0c4 !important;
+}
+
+.pa-levels {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pa-level {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr) 64px;
+  align-items: baseline;
+  gap: 2px 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pa-level span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.pa-level b {
+  overflow: hidden;
+  font-family: var(--mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pa-level em {
+  font-style: normal;
+  text-align: right;
+}
+
+.pa-level small {
+  grid-column: 2 / -1;
+  color: var(--muted);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.pa-level--resistance em {
+  color: #b3a4c4;
+}
+
+.pa-level--support em {
+  color: #8fb0c4;
+}
+
+.pa-level--now {
+  border: 1px dashed rgba(242, 243, 238, 0.25);
+  background: transparent;
+}
+
+.pa-level--thin {
+  background: rgba(255, 93, 108, 0.08);
+}
+
+.pa-level--thin em {
+  color: #ff8f99;
+}
+
+.pa-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pa-table th {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: right;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pa-table td {
+  padding: 7px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.pa-table th:first-child,
+.pa-table td:first-child {
+  text-align: left;
+}
+
+.pa-table td a {
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.pa-table td a:hover {
+  color: var(--accent);
+}
+
+.pa-table .up {
+  color: var(--up, #22e283);
+}
+
+.pa-table .down {
+  color: var(--down, #ff5d6c);
+}
+
+.pa-table tr.muted td {
+  color: var(--muted);
+}
+
+.pa-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.pa-steps span {
+  display: grid;
+  gap: 2px;
+  padding: 6px 9px;
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.pa-steps small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.pa-steps b {
+  font-family: var(--mono);
+  font-size: 13px;
+}
+
+.pa-pools {
+  overflow-x: auto;
+}
+
+.pa-note {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  line-height: 1.6;
+}
+
+@media (max-width: 1000px) {
+  .pa-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .pa-swap {
+    width: 100%;
+  }
+
+  .pa-level {
+    grid-template-columns: 96px minmax(0, 1fr) 58px;
+    font-size: 12.5px;
+  }
+
+  /* Phones: pool, support, resistance, share. */
+  .pa-pools .pa-table th:nth-child(2),
+  .pa-pools .pa-table td:nth-child(2),
+  .pa-pools .pa-table th:nth-child(3),
+  .pa-pools .pa-table td:nth-child(3),
+  .pa-pools .pa-table th:nth-child(7),
+  .pa-pools .pa-table td:nth-child(7) {
+    display: none;
+  }
+
+  .pa-pools .pa-table td small {
+    display: none;
+  }
+
+  .page--analysis .ts-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .page--analysis .ts-tile strong {
+    font-size: 19px;
+  }
+
+  .page--analysis .ts-tile small {
+    font-size: 11px;
+  }
+}

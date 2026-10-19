@@ -728,6 +728,12 @@ export default function Pools() {
         </h1>
         <p>Every pool on NEAR, sorted by what it pays LPs.</p>
         <PoolSourceTabs active="rhea" rhea={overview.data ? { pools: totals.pools, tvl: totals.tvl } : undefined} />
+        <Link to="/analysis" className="pt-start pt-start--analysis">
+          Pool Analysis: key levels &amp; price impact
+          <span className="pt-start__arrow" aria-hidden>
+            →
+          </span>
+        </Link>
         <Link to="/start-lp" className="pt-start">
           New to LP? Start here
           <span className="pt-start__arrow" aria-hidden>

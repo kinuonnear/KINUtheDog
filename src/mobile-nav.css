@@ -1200,3 +1200,10 @@ i.lbl-short {
     font-size: 13px;
   }
 }
+
+@media (max-width: 760px) {
+  /* Swap chart: the Levels toggle stays, Pool Analysis is a tap away in Pools. */
+  .shell .swap-chart__analysis {
+    display: none;
+  }
+}

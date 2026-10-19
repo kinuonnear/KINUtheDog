@@ -19,6 +19,7 @@ const ICON = {
   create: 'M12 5v14M5 12h14',
   agent: 'M6 9h12v10H6zM12 4v5M9 13v.01M15 13v.01M9 16h6',
   pulse: 'M3 12h4l2-5 3.5 10 2.5-7 1.5 2H21',
+  analysis: 'M4 20v-7M9 20V8M14 20v-5M19 20V10M2.5 11h2M7 11h2M11.5 11h2M16 11h2M20 11h1.5',
   link: 'M14 4h6v6M20 4l-9 9M18 14v6H4V6h6'
 };
 
@@ -33,7 +34,7 @@ function Icon({ name, size = 22 }) {
 // Swap sits in the middle as the main action (mtab__item--main).
 const TABS = [
   { to: '/discover', label: 'Discover', icon: 'discover', match: ['discover', 'new', 'token', 'lp'] },
-  { to: '/pools', label: 'Pools', icon: 'pools', match: ['pools', 'pool', 'starter', 'intear'] },
+  { to: '/pools', label: 'Pools', icon: 'pools', match: ['pools', 'pool', 'starter', 'intear', 'analysis'] },
   { to: '/swap', label: 'Swap', icon: 'swap', match: ['swap'], main: true },
   { to: '/bridge', label: 'Bridge', icon: 'bridge', match: ['deposit'] },
   { to: '/portfolio', label: 'Portfolio', icon: 'portfolio', match: ['portfolio'] }
@@ -45,6 +46,7 @@ const SCREENS = [
   { to: '/earn', label: 'Earn', icon: 'earn', match: ['earn', 'stake'] },
   { to: '/create-pool', label: 'Create pool', icon: 'create', match: ['create'] },
   { to: '/agent', label: 'Agent', icon: 'agent', match: ['agent'] },
+  { to: '/analysis', label: 'Pool Analysis', icon: 'analysis', match: ['analysis'] },
   { to: '/pulse', label: 'NEAR DeFi Pulse', icon: 'pulse', match: ['pulse'] }
 ];
 

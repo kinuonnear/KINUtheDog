@@ -19,6 +19,13 @@ const PATHS = {
       <path d="M9 17v-2.5M15 17v-2.5M12 17v-3.5" />
     </>
   ),
+  // Pool Analysis: depth bars with a level line
+  analysis: (
+    <>
+      <path d="M4 20V13M9 20V8M14 20v-5M19 20V10" />
+      <path d="M2.5 11h19" strokeDasharray="2 2.5" />
+    </>
+  ),
   // Pools: a drop with a ripple
   pools: (
     <>

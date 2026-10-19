@@ -36,11 +36,12 @@ const Treasury = lazy(() => import('./pages/Treasury.jsx'));
 const Deposit = lazy(() => import('./pages/Deposit.jsx'));
 const Earn = lazy(() => import('./pages/Earn.jsx'));
 const Pulse = lazy(() => import('./pages/Pulse.jsx'));
+const PoolAnalysis = lazy(() => import('./pages/PoolAnalysis.jsx'));
 
 // Liquidity first: Pools (and Create) right after Home. Docs and the rest live under More.
 const NAV = [
   { to: '/app', label: 'Home', match: ['app'] },
-  { to: '/pools', label: 'Pools', match: ['pools', 'pool', 'starter', 'intear'] },
+  { to: '/pools', label: 'Pools', match: ['pools', 'pool', 'starter', 'intear', 'analysis'] },
   { to: '/discover', label: 'Discover', match: ['discover', 'new', 'token', 'lp'] },
   { to: '/swap', label: 'Swap', match: ['swap'] },
   { to: '/bridge', label: 'Bridge', match: ['deposit'] },
@@ -53,7 +54,7 @@ const MORE_ROUTES = new Set(['docs', 'security', 'treasury']);
 
 // Trading screens use the full window width (like Meteora / Intear). CLMM pool
 // pages are an app-style workspace that fills the viewport, so they have no footer.
-const FULL_WIDTH_ROUTES = new Set(['app', 'pool', 'pools', 'swap', 'portfolio', 'new', 'discover', 'token', 'agent', 'lp', 'intear', 'deposit', 'stake', 'earn', 'pulse']);
+const FULL_WIDTH_ROUTES = new Set(['app', 'pool', 'pools', 'swap', 'portfolio', 'new', 'discover', 'token', 'agent', 'lp', 'intear', 'deposit', 'stake', 'earn', 'pulse', 'analysis']);
 
 const TITLES = {
   home: 'KINU — The DeFi Hub on NEAR',
@@ -76,6 +77,7 @@ const TITLES = {
   stake: 'Stake NEAR · LiNEAR & stNEAR · KINU',
   earn: 'Earn · USDC & SOL vaults · KINU',
   pulse: 'NEAR DeFi Pulse · TVL, volume & yields · KINU',
+  analysis: 'Pool Analysis · liquidity map, key levels & price impact · KINU',
   notfound: 'Not found · KINU'
 };
 
@@ -196,6 +198,9 @@ export default function App() {
       break;
     case 'pulse':
       page = <Pulse />;
+      break;
+    case 'analysis':
+      page = <PoolAnalysis />;
       break;
     case 'deposit':
       page = <Deposit />;

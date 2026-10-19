@@ -34,6 +34,8 @@ const ROUTES = [
   { name: 'swap', pattern: /^\/swap$/ },
   { name: 'pools', pattern: /^\/pools$/ },
   { name: 'pool', pattern: /^\/pools\/([^/]+)$/ },
+  // Pool Analysis: one token's liquidity across every Rhea pool (?token=).
+  { name: 'analysis', pattern: /^\/analysis$/ },
   { name: 'create', pattern: /^\/create-pool$/ },
   { name: 'starter', pattern: /^\/start-lp$/ },
   // LP links: the token's deepest CLMM pool, its form filled in (Telegram bot, lib/lpLink.js).
