@@ -132,7 +132,11 @@ function paintMine(ctx, mine, toY, width, height, cur, f, ySymbol) {
  * hideRange: hide the new-position range (lines, band, bin lines) while a position is shown
  * (null to hide). The price scale widens to fit them.
  */
-export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPrice, fullRange, onDrag, bins, mine = null, hideRange = false }) {
+// The price axis: no labels below zero (scale margin under a price near 0) and "0" for dust, not
+// "0.0000000000".
+const axisPrice = (value) => (value < 0 ? '' : value < 1e-12 ? '0' : formatChartPrice(value));
+
+export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPrice, fullRange, onDrag, bins, mine = null, hideRange = false, corner = null }) {
   const [resolution, setResolution] = useLocalStorage('kinu.range.resolution', '60');
   const [unit, setUnit] = useLocalStorage('kinu.range.unit', 'pair'); // 'pair' | 'usd'
   const [chartType, setChartType] = useLocalStorage('kinu.range.type', 'candles');
@@ -371,7 +375,7 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
       // Free zoom and scroll, as on TradingView: scrolling past the first candle loads older history.
       timeScale: { borderColor: 'rgba(255,255,255,0.06)', timeVisible: true, secondsVisible: false, rightOffset: 8 },
       crosshair: { mode: 0 },
-      localization: { priceFormatter: formatChartPrice }
+      localization: { priceFormatter: axisPrice }
     });
 
     const autoscaleInfoProvider = (original) => {
@@ -389,9 +393,9 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
         if (ownLo > cur / 50) minValue = Math.min(minValue, ownLo * f);
         if (ownHi < cur * 50) maxValue = Math.max(maxValue, ownHi * f);
       }
-      return { ...res, priceRange: { minValue, maxValue } };
+      return { ...res, priceRange: { minValue: Math.max(0, minValue), maxValue } };
     };
-    const priceFormat = { type: 'custom', formatter: formatChartPrice, minMove: 1e-12 };
+    const priceFormat = { type: 'custom', formatter: axisPrice, minMove: 1e-12 };
     const main =
       chartType === 'line'
         ? chart.addSeries(LineSeries, { color: UP, lineWidth: 2, priceLineVisible: true, priceLineStyle: 2, lastValueVisible: true, priceFormat, autoscaleInfoProvider })
@@ -924,6 +928,7 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
         />
 
         <div className="range-chart__canvas">
+          {corner && <div className="pro-chart__corner">{corner}</div>}
           <div ref={containerRef} className="chart-card__container" />
           <canvas ref={canvasRef} className={`draw-canvas ${tool !== 'cursor' ? 'draw-canvas--active' : ''}`} />
           <div ref={overlayRef} className="range-chart__overlay">

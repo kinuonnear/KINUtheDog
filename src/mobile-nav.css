@@ -369,3 +369,38 @@
     display: none;
   }
 }
+
+/* Phones: pool chart and position form. */
+@media (max-width: 760px) {
+  /* The OHLC readout would sit under the Max / Min labels; the title line stays. */
+  .pro-chart__legend > span:nth-child(n + 2):not(.pro-chart__gap) {
+    display: none;
+  }
+
+  .pro-chart__corner {
+    top: 30px;
+    right: 64px;
+  }
+
+  .pool-comp {
+    min-width: 0;
+    padding: 6px 8px 7px;
+    font-size: 10.5px;
+  }
+
+  /* Min and max price one under the other, so long prices fit. */
+  .price-edges {
+    grid-template-columns: 1fr;
+  }
+
+  .price-edge__row input {
+    font-size: 16px;
+  }
+}
+
+/* Phones: a classic pool's reserves are on its chart (CompositionBadge), so the card goes. */
+@media (max-width: 760px) {
+  .pool-reserves {
+    display: none;
+  }
+}

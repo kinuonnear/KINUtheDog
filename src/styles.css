@@ -13472,3 +13472,62 @@ a.amm-table__row:hover {
     display: none;
   }
 }
+
+/* Pool composition in the chart's top-right corner (PoolDetail CompositionBadge), clear of the axis. */
+.pro-chart__corner {
+  position: absolute;
+  top: 8px;
+  right: 76px;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.pool-comp {
+  display: grid;
+  gap: 3px;
+  min-width: 132px;
+  padding: 7px 9px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: rgba(8, 11, 17, 0.82);
+  backdrop-filter: blur(6px);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pool-comp__row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.pool-comp__row b {
+  font-weight: 600;
+}
+
+.pool-comp__row span {
+  color: var(--muted);
+}
+
+.pool-comp__row em {
+  margin-left: auto;
+  padding-left: 8px;
+  color: var(--text);
+  font-style: normal;
+  font-weight: 600;
+}
+
+.pool-comp__bar {
+  display: block;
+  height: 3px;
+  margin-top: 3px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: #8b7cf6;
+}
+
+.pool-comp__bar span {
+  display: block;
+  height: 100%;
+  background: #38c6e0;
+}

@@ -36,7 +36,10 @@ function otherSymbol(pool, symbol) {
   return parts.find((s) => !sameSymbol(s, symbol)) || parts[1] || '';
 }
 
-export default function SwapChart({ token, counter, pools, height }) {
+// The price axis: no labels below zero and "0" for dust, not "0.0000000000".
+const axisPrice = (value) => (value < 0 ? '' : value < 1e-12 ? '0' : formatChartPrice(value));
+
+export default function SwapChart({ token, counter, pools, height, corner = null }) {
   const tokenId = intearTokenId(token);
   const counterId = counter ? intearTokenId(counter) : null;
   const [resolution, setResolution] = useLocalStorage('kinu.chart.resolution', '60');
@@ -170,7 +173,7 @@ export default function SwapChart({ token, counter, pools, height }) {
       rightPriceScale: { borderColor: 'rgba(255,255,255,0.06)', scaleMargins: { top: 0.08, bottom: 0.22 } },
       timeScale: { borderColor: 'rgba(255,255,255,0.06)', timeVisible: true, secondsVisible: false, rightOffset: 6 },
       crosshair: { mode: 0 },
-      localization: { priceFormatter: formatChartPrice }
+      localization: { priceFormatter: axisPrice }
     });
     const series = chart.addSeries(CandlestickSeries, {
       upColor: UP,
@@ -207,7 +210,7 @@ export default function SwapChart({ token, counter, pools, height }) {
     const { chart, series, volume, container } = api;
     const max = Math.max(...scaled.map((c) => c.high));
     const minMove = max > 0 ? 10 ** (Math.floor(Math.log10(max)) - 5) : 1e-8;
-    series.applyOptions({ priceFormat: { type: 'custom', formatter: formatChartPrice, minMove } });
+    series.applyOptions({ priceFormat: { type: 'custom', formatter: axisPrice, minMove } });
     series.setData(scaled.map(({ time, open, high, low, close }) => ({ time, open, high, low, close })));
     volume.setData(scaled.map((c) => ({ time: c.time, value: c.volume, color: c.close >= c.open ? 'rgba(34,226,131,0.28)' : 'rgba(255,93,108,0.28)' })));
     liveBarRef.current = { series, volume, bar: scaled[scaled.length - 1], line: false };
@@ -371,6 +374,7 @@ export default function SwapChart({ token, counter, pools, height }) {
           }}
         />
         <div className="chart-card__canvas">
+          {corner && <div className="pro-chart__corner">{corner}</div>}
           <div ref={containerRef} className="chart-card__container" />
           <canvas ref={canvasRef} className={`draw-canvas ${tool !== 'cursor' ? 'draw-canvas--active' : ''}`} />
           {(loading || message) && <div className="chart-card__overlay">{loading ? <Spinner size={22} /> : <span>{message}</span>}</div>}
