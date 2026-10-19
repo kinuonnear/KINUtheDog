@@ -987,3 +987,185 @@ i.lbl-short {
     margin-left: 0;
   }
 }
+
+/* Phones: the token page's top as an app header, not a shrunk desktop bar.
+   Card 1: icon, name, contract (copy / explorer), flags + scan on one line, ☆ in the corner,
+   then Buy · Sell · Add LP. Card 2 (chart): price and 24h only (the name is just above), and the
+   four numbers in a tight 2×2. */
+@media (max-width: 760px) {
+  .shell .token-page {
+    gap: 12px;
+  }
+
+  .shell .token-page .token-head {
+    position: relative;
+    display: grid;
+    gap: 12px;
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .shell .token-page .token-head__id {
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  /* Room for the ☆ in the corner beside the name only; the flags below use the full width. */
+  .shell .token-page .token-head h1,
+  .shell .token-page .token-head__ca {
+    padding-right: 46px;
+  }
+
+  .shell .token-page .token-head__id > img,
+  .shell .token-page .token-head__id > .token-icon {
+    width: 42px;
+    height: 42px;
+    flex: none;
+  }
+
+  .shell .token-page .token-head__id > div {
+    min-width: 0;
+  }
+
+  .shell .token-page .token-head h1 {
+    overflow: hidden;
+    font-size: 20px;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .shell .token-page .token-head h1 .muted {
+    font-size: 14px;
+  }
+
+  .shell .token-page .token-head__ca {
+    flex-wrap: nowrap;
+    gap: 10px;
+    margin-top: 3px;
+    font-size: 12px;
+  }
+
+  .shell .token-page .token-head__ca code {
+    overflow: hidden;
+    min-width: 0;
+    font-size: 11.5px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    word-break: normal;
+  }
+
+  .shell .token-page .token-head__ca .link-button,
+  .shell .token-page .token-head__ca a,
+  .shell .token-page .token-head__ca button {
+    flex: none;
+    font-size: 12px;
+  }
+
+  .shell .token-page .token-head .flags {
+    display: inline-flex;
+    margin: 6px 6px 0 0;
+    vertical-align: middle;
+  }
+
+  .shell .token-page .token-head .scan-badge {
+    margin-top: 6px;
+    padding: 2px 8px 2px 3px;
+    font-size: 11px;
+    vertical-align: middle;
+  }
+
+  .shell .token-page .token-head .scan-badge i {
+    width: 15px;
+    height: 15px;
+    font-size: 9px;
+  }
+
+  .shell .token-page .token-head__actions {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1fr;
+    gap: 8px;
+  }
+
+  .shell .token-page .token-head__actions > a {
+    justify-content: center;
+    min-height: 42px;
+    padding: 8px 10px;
+    font-size: 14px;
+  }
+
+  /* ☆ Watch as an icon in the card's corner; "Copy link" goes (Copy is next to the contract). */
+  .shell .token-page .token-head__actions .watch-star {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+  }
+
+  .shell .token-page .token-head__actions .watch-star span {
+    display: none;
+  }
+
+  .shell .token-page .token-head__actions > button:last-child:not(.watch-star) {
+    display: none;
+  }
+
+  /* The chart card: one card, not a card in a card. */
+  .shell .token-page .token-chart {
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    box-shadow: none;
+  }
+
+  .shell .token-page .token-chart > .chart-card {
+    padding: 12px;
+    border-radius: 18px;
+  }
+
+  .shell .token-page .chart-top {
+    gap: 10px;
+  }
+
+  .shell .token-page .chart-top__token > :first-child,
+  .shell .token-page .chart-top__symbol {
+    display: none;
+  }
+
+  .shell .token-page .chart-top__price strong {
+    font-size: 24px;
+  }
+
+  .shell .token-page .chart-top__stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .shell .token-page .chart-top__stats > div {
+    min-width: 0;
+    padding: 8px 10px;
+    border-radius: 12px;
+  }
+
+  .shell .token-page .chart-top__stats span {
+    font-size: 10px;
+  }
+
+  .shell .token-page .chart-legend em,
+  .shell .token-page .chart-legend__ohlc em {
+    white-space: nowrap;
+  }
+
+  .shell .token-page .chart-top__stats strong {
+    overflow: hidden;
+    font-size: 15px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

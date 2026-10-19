@@ -41,7 +41,8 @@ function TokenContract({ token }) {
 }
 
 /** USD price chart in the style of the Intear DEX terminal. `side` picks which token of the pair is charted. */
-export default function PriceChart({ tokenIn, tokenOut, side, onSideChange }) {
+// `showContract`: the contract row under the price (the token page shows it in its own header).
+export default function PriceChart({ tokenIn, tokenOut, side, onSideChange, showContract = true }) {
   const [resolution, setResolution] = useLocalStorage('kinu.chart.resolution', '60');
   const [mode, setMode] = useState('price');
   const [legend, setLegend] = useState(null);
@@ -225,7 +226,7 @@ export default function PriceChart({ tokenIn, tokenOut, side, onSideChange }) {
           </div>
         </div>
 
-        <TokenContract token={token} />
+        {showContract && <TokenContract token={token} />}
 
         <div className="chart-top__stats">
           <div>
