@@ -610,6 +610,8 @@ function DclWorkspace({ bar, links, poolId, pool, x, y, reserves, positions, onA
             onDrag={onDrag}
             mine={mine}
             hideRange={Boolean(mine)}
+            // USDC/QTC prices QTC per USDC: chart the asset (QTC in USDC) instead, as the swap chart does.
+            flip={quoteRank(x.id) > quoteRank(y.id)}
           />
         </Suspense>
         </div>

@@ -185,7 +185,21 @@ function paintDepth(ctx, bars, priceToY, width, height) {
   ctx.restore();
 }
 
-export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPrice, fullRange, onDrag, bins, mine = null, hideRange = false }) {
+export default function RangeChart({ poolId, x: xPool, y: yPool, currentPrice: currentPool, minPrice: minPool, maxPrice: maxPool, fullRange, onDrag: onDragPool, bins, mine: minePool = null, hideRange = false, flip = false }) {
+  // flip: chart the pool's other token. A pool's price is token Y per token X; when X is the quote
+  // (USDC / NEAR: USDC/QTC reads in QTC per USDC) that runs against the asset's own price. Flipped,
+  // X and Y swap roles (candles, units and labels follow) and every price crossing this component's
+  // edge is mirrored: price -> 1/price, the range's min and max trade places.
+  const inv = (v) => (v > 0 && Number.isFinite(v) ? 1 / v : v);
+  const x = flip ? yPool : xPool;
+  const y = flip ? xPool : yPool;
+  const currentPrice = flip ? inv(currentPool) : currentPool;
+  const minPrice = flip ? inv(maxPool) : minPool;
+  const maxPrice = flip ? inv(minPool) : maxPool;
+  const onDrag = flip ? (side, price, final) => onDragPool(side === 'min' ? 'max' : 'min', inv(price), final) : onDragPool;
+  const mine = useMemo(() => (flip && minePool ? minePool.map((m) => ({ ...m, min: inv(m.max), max: inv(m.min) })) : minePool), [flip, minePool]);
+  // A point on the pool's tick grid as a price on this chart's axis.
+  const pointAxisPrice = (point) => (flip ? inv(pointToPrice(point, xPool.decimals, yPool.decimals)) : pointToPrice(point, xPool.decimals, yPool.decimals));
   const [resolution, setResolution] = useLocalStorage('kinu.range.resolution', '60');
   const [unit, setUnit] = useLocalStorage('kinu.range.unit', 'pair'); // 'pair' | 'usd'
   const [chartType, setChartType] = useLocalStorage('kinu.range.type', 'candles');
@@ -197,7 +211,7 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
   const [hidden, setHidden] = useState(false);
   const [selected, setSelected] = useState(null);
   const [legend, setLegend] = useState(null);
-  const [drawings, setDrawings] = useLocalStorage(`kinu.draw.${poolId}.${unit}`, []);
+  const [drawings, setDrawings] = useLocalStorage(`kinu.draw.${poolId}${flip ? '.inv' : ''}.${unit}`, []);
 
   const cardRef = useRef(null);
   const containerRef = useRef(null);
@@ -305,9 +319,10 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
     const count = Math.round((bins.right - bins.left) / bins.pointDelta);
     const every = Math.max(1, Math.ceil(count / MAX_BIN_LINES));
     const out = [];
-    for (let p = bins.left; p <= bins.right; p += bins.pointDelta * every) out.push(pointToPrice(p, x.decimals, y.decimals));
+    for (let p = bins.left; p <= bins.right; p += bins.pointDelta * every) out.push(pointAxisPrice(p));
     return out;
-  }, [showBins, bins, fullRange, x.decimals, y.decimals]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showBins, bins, fullRange, xPool.decimals, yPool.decimals, flip]);
 
   const depth = useAsync(() => getMarketDepth(poolId), [poolId], { refreshMs: 60_000 });
   // 1% price buckets (lib/poolDepth.js): pool liquidity plus open limit orders, valued in token Y so
@@ -316,22 +331,25 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
     if (!depth.data || !Number.isFinite(depth.data.current)) return [];
     const { rows } = buildDepth({
       depth: depth.data,
-      decimalsX: x.decimals,
-      decimalsY: y.decimals,
-      valueX: pointToPrice(depth.data.current, x.decimals, y.decimals),
+      decimalsX: xPool.decimals,
+      decimalsY: yPool.decimals,
+      valueX: pointToPrice(depth.data.current, xPool.decimals, yPool.decimals),
       valueY: 1,
       view: DEPTH_OVERLAY
     });
+    // Flipped, the axis runs the other way: a bucket's low and high trade places, and what sat above
+    // the pool's price is now below the chart's.
     return rows
       .filter((r) => r.total > 0)
       .map((r) => ({
-        lo: pointToPrice(r.loPoint, x.decimals, y.decimals),
-        hi: pointToPrice(r.hiPoint, x.decimals, y.decimals),
+        lo: flip ? pointAxisPrice(r.hiPoint) : pointAxisPrice(r.loPoint),
+        hi: flip ? pointAxisPrice(r.loPoint) : pointAxisPrice(r.hiPoint),
         liquidity: r.liquidity,
         orders: r.orders,
-        above: r.side === 'resistance'
+        above: flip ? r.side === 'support' : r.side === 'resistance'
       }));
-  }, [depth.data, x.decimals, y.decimals]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [depth.data, xPool.decimals, yPool.decimals, flip]);
   useEffect(() => {
     requestAnimationFrame(() => paintRef.current?.());
   }, [depthBars]);

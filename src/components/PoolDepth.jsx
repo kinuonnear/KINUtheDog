@@ -5,7 +5,8 @@ import { useMemo, useState } from 'react';
 import { useApp } from '../state.jsx';
 import { useAsync } from '../hooks.js';
 import { getMarketDepth } from '../lib/dclLiquidity.js';
-import { buildDepth, DEPTH_VIEWS } from '../lib/poolDepth.js';
+import { buildDepth, DEPTH_VIEWS, invertDepth } from '../lib/poolDepth.js';
+import { quoteRank } from '../lib/intear.js';
 import { dclPointToPrice } from '../lib/rhea.js';
 import { priceOf } from '../lib/tokens.js';
 import { formatAmount, formatChartPrice, formatPercent, formatUsd } from '../lib/format.js';
@@ -31,17 +32,19 @@ export default function PoolDepth({ poolId, x, y }) {
     const priceXY = dclPointToPrice(depth.data.current, x.decimals, y.decimals);
     const val = valuation(prices, x, y, priceXY);
     const view = DEPTH_VIEWS.find((v) => v.key === viewKey) || DEPTH_VIEWS[0];
-    return {
-      priceXY,
-      usd: val.usd,
-      data: buildDepth({ depth: depth.data, decimalsX: x.decimals, decimalsY: y.decimals, valueX: val.valueX, valueY: val.valueY, view })
-    };
+    const built = buildDepth({ depth: depth.data, decimalsX: x.decimals, decimalsY: y.decimals, valueX: val.valueX, valueY: val.valueY, view });
+    // The asset is the less quote-like token (same rule as the chart). When that is Y (e.g. USDC/QTC:
+    // axis = QTC per USDC) the chart reads against the asset's price, so show it from Y's side.
+    const invert = quoteRank(x.id) > quoteRank(y.id);
+    return { priceXY, usd: val.usd, invert, data: invert ? invertDepth(built, view) : built };
   }, [depth.data, prices, x, y, viewKey]);
 
   if (depth.error && !depth.data) return <ErrorNotice error={depth.error} onRetry={depth.reload} />;
   if (!model) return <Skeleton height={220} radius={12} />;
 
-  const { data, usd, priceXY } = model;
+  const { data, usd, priceXY, invert } = model;
+  const [asset, quote] = invert ? [y, x] : [x, y];
+  const priceShown = invert ? 1 / priceXY : priceXY;
   const money = (v) => (usd ? formatUsd(v, { compactAbove: 1e3 }) : `${formatAmount(v)} ${y.symbol}`);
   const empty = data.max === 0 && data.ordersTotal === 0;
   const ordersBeyond = data.ordersBeyond.support + data.ordersBeyond.resistance;
@@ -98,7 +101,7 @@ export default function PoolDepth({ poolId, x, y }) {
           {rows.slice(0, split).map(bar)}
           <div className="pdepth__price">
             <span>
-              {formatChartPrice(priceXY)} {y.symbol}/{x.symbol}
+              {formatChartPrice(priceShown)} {quote.symbol}/{asset.symbol}
             </span>
           </div>
           {rows.slice(split).map(bar)}

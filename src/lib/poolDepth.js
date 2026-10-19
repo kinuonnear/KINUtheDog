@@ -18,6 +18,40 @@ export const DEPTH_VIEWS = [
   { key: '300', label: '×4', window: 3, step: 0.08 }
 ];
 
+/**
+ * Re-reads buildDepth() output from the other token's side. A pool's price axis is token Y per token
+ * X; when X is the quote (USDC / NEAR) and Y the asset, that axis runs against the asset's price:
+ * liquidity above the axis price is the quote on offer (support for the asset), liquidity below it
+ * is the asset for sale (resistance). Buckets mirror (k -> -k-1), the percentages become the asset's
+ * price change, and support / resistance swap sides.
+ */
+export function invertDepth(depth, view) {
+  const rows = depth.rows
+    .slice()
+    .reverse()
+    .map((r) => {
+      const k = -r.k - 1;
+      return {
+        ...r,
+        k,
+        side: r.side === 'resistance' ? 'support' : 'resistance',
+        pct: ((1 + view.step) ** (k >= 0 ? k + 1 : k) - 1) * 100
+      };
+    });
+  const sum = (side, key) => rows.filter((r) => r.side === side).reduce((acc, r) => acc + r[key], 0);
+  const support = sum('support', 'total');
+  const resistance = sum('resistance', 'total');
+  return {
+    ...depth,
+    rows,
+    support,
+    resistance,
+    balance: support + resistance > 0 ? (support / (support + resistance)) * 100 : null,
+    orders: { support: sum('support', 'orders'), resistance: sum('resistance', 'orders') },
+    ordersBeyond: { support: depth.ordersBeyond.resistance, resistance: depth.ordersBeyond.support }
+  };
+}
+
 /** Fine 1% buckets over x4 up / 1/4 down: what the price chart's side overlay draws. */
 export const DEPTH_OVERLAY = { key: 'overlay', label: 'overlay', window: 3, step: 0.01 };
 
