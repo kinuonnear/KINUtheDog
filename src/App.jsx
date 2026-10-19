@@ -296,7 +296,7 @@ export default function App() {
       </footer>
       )}
 
-      {!appView && <MobileTabBar route={route} />}
+      <MobileTabBar route={route} />
       <Toasts />
       <RangeAlerts />
       <InstallPrompt />

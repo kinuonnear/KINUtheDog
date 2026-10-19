@@ -377,17 +377,6 @@
     display: none;
   }
 
-  .pro-chart__corner {
-    top: 30px;
-    right: 64px;
-  }
-
-  .pool-comp {
-    min-width: 0;
-    padding: 6px 8px 7px;
-    font-size: 10.5px;
-  }
-
   /* Min and max price one under the other, so long prices fit. */
   .price-edges {
     grid-template-columns: 1fr;
@@ -398,9 +387,26 @@
   }
 }
 
-/* Phones: a classic pool's reserves are on its chart (CompositionBadge), so the card goes. */
+/* Phones: a pool's header like Rhea's: pair and fee chip, then TVL, APR, volume and fees in a 2×2
+   grid (the price is on the chart; fees / TVL and the trading fee are in the chip). The floating
+   "+ Add liquidity" sits above the tab bar. */
 @media (max-width: 760px) {
-  .pool-reserves {
+  .pool-bar .pool-bar__stats > .pool-bar__price,
+  .pool-bar .pool-bar__stats > .pool-bar__extra {
     display: none;
+  }
+
+  .pool-bar .pool-bar__stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 16px;
+  }
+
+  .pool-bar .pool-bar__stats strong {
+    font-size: 16px;
+  }
+
+  .mobile-add-cta {
+    bottom: calc(84px + env(safe-area-inset-bottom, 0px));
   }
 }

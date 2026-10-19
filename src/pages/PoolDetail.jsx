@@ -163,8 +163,8 @@ function ClassicPool({ poolId, initialTab }) {
           tvl < 1 ? { label: 'Total value locked', value: 'Empty pool', hint: 'be the first LP' } : { label: 'Total value locked', value: formatUsd(tvl) },
           { label: '24h volume', value: stats.data ? formatUsd(stats.data.volume24h) : '-' },
           { label: '24h fees', value: stats.data ? formatUsd(stats.data.feeVolume24h) : '-' },
-          { label: '24h fees / TVL', value: stats.data && tvl >= 1 ? formatPercent((stats.data.feeVolume24h / tvl) * 100) : '-' },
-          { label: 'Trading fee', value: formatPercent(pool.feePercent, pool.feePercent < 0.1 ? 3 : 2) },
+          { label: '24h fees / TVL', value: stats.data && tvl >= 1 ? formatPercent((stats.data.feeVolume24h / tvl) * 100) : '-', extra: true },
+          { label: 'Trading fee', value: formatPercent(pool.feePercent, pool.feePercent < 0.1 ? 3 : 2), extra: true },
           {
             label: 'Fee APR',
             value: stats.data ? <AprValue apr={stats.data.apy} tokenIds={pool.tokenIds} estimated={stats.data.apyEstimated} /> : '-',
@@ -177,19 +177,12 @@ function ClassicPool({ poolId, initialTab }) {
         <div className="pool-grid__main">
           {chartPools && (
             <Suspense fallback={<div className="card chart-card chart-card--loading"><Spinner size={22} /></div>}>
-              <SwapChart
-                token={chartBase}
-                counter={chartQuote}
-                pools={chartPools}
-                height={380}
-                corner={<CompositionBadge reserves={tokens.map((token, i) => [token, reserves[i], reserveUsd[i]])} />}
-              />
+              <SwapChart token={chartBase} counter={chartQuote} pools={chartPools} height={380} />
             </Suspense>
           )}
           {/* Reserves with the pool contract under it, one column beside Your position. */}
           <div className="classic-card--half classic-stack">
-            {/* With a chart, phones read the reserves on it (CompositionBadge) and skip this card. */}
-            <section className={chartPools ? 'card pool-reserves' : 'card'}>
+            <section className="card">
               <h3 className="card-title">Reserves</h3>
               <div className="reserves">
                 {tokens.map((token, i) => {
@@ -402,7 +395,7 @@ function DclPool({ poolId, initialTab }) {
           { label: 'Fee APR', value: stats.data ? <AprValue apr={stats.data.apy} tokenIds={[tokenX, tokenY]} estimated={stats.data.apyEstimated} /> : '-', accent: true },
           { label: '24h volume', value: stats.data ? formatUsd(stats.data.volume24h) : '-' },
           { label: '24h fees', value: stats.data ? formatUsd(stats.data.feeVolume24h) : '-' },
-          { label: '24h fees / TVL', value: stats.data && tvl > 0 && !empty ? formatPercent((stats.data.feeVolume24h / tvl) * 100) : '-' }
+          { label: '24h fees / TVL', value: stats.data && tvl > 0 && !empty ? formatPercent((stats.data.feeVolume24h / tvl) * 100) : '-', extra: true }
         ]}
       />
         }
@@ -471,30 +464,6 @@ function useDockedColumns(gridRef) {
  * CLMM page body: draggable range chart + Meteora-style create form. `bar`: the pool bar, shown
  * above the chart (the side panel reaches the top); `links`: Swap / Rhea in the panel head.
  */
-/** The pool's two tokens and their share of its value, in the chart's top-right corner. */
-function CompositionBadge({ reserves }) {
-  const total = reserves.reduce((sum, [, , usd]) => sum + (Number(usd) || 0), 0);
-  if (!(total > 0)) return null;
-  const pct = reserves.map(([, , usd]) => ((Number(usd) || 0) / total) * 100);
-  return (
-    <div className="pool-comp" title="Pool composition">
-      {reserves.map(([token, amount], i) => (
-        <div className="pool-comp__row" key={token.id}>
-          <TokenIcon token={token} size={14} />
-          <b>{formatAmount(amount, { compactAbove: 1e5 })}</b>
-          <span>{token.symbol}</span>
-          <em>{pct[i].toFixed(0)}%</em>
-        </div>
-      ))}
-      {reserves.length === 2 && (
-        <i className="pool-comp__bar">
-          <span style={{ width: `${pct[0]}%` }} />
-        </i>
-      )}
-    </div>
-  );
-}
-
 function DclWorkspace({ bar, links, poolId, pool, x, y, reserves, positions, onAdd, onDone }) {
   const { accountId } = useApp();
   // ?left=&right= (points): open the form on that range — Smart LP's "Use this range".
@@ -554,9 +523,7 @@ function DclWorkspace({ bar, links, poolId, pool, x, y, reserves, positions, onA
   // Resizable split between the chart and the bottom panel (desktop).
   const mainRef = useRef(null);
   const desktop = useMediaQuery('(min-width: 1081px)');
-  // Phones: the composition sits on the chart, so its tab goes away.
-  const phone = useMediaQuery('(max-width: 760px)');
-  const shownPanel = phone && panel === 'composition' ? 'liquidity' : panel;
+
   const barRef = useRef(null);
   const barHeight = useElementHeight(barRef) || 0;
   // The chart / panel split shares what the pool bar leaves of the column.
@@ -639,7 +606,6 @@ function DclWorkspace({ bar, links, poolId, pool, x, y, reserves, positions, onA
             onDrag={onDrag}
             mine={mine}
             hideRange={Boolean(mine)}
-            corner={<CompositionBadge reserves={reserves} />}
           />
         </Suspense>
         </div>
@@ -668,8 +634,8 @@ function DclWorkspace({ bar, links, poolId, pool, x, y, reserves, positions, onA
               { key: 'composition', label: 'Pool composition' },
               { key: 'tiers', label: 'Fee tiers' },
               { key: 'trades', label: 'Transactions' }
-            ].filter((t) => !(phone && t.key === 'composition'))}
-            value={shownPanel}
+            ]}
+            value={panel}
             onChange={setPanel}
           />
             <button type="button" className="button button--outline button--sm" onClick={newPosition} title="Open another position with its own range">
@@ -677,7 +643,7 @@ function DclWorkspace({ bar, links, poolId, pool, x, y, reserves, positions, onA
             </button>
           </div>
           <div className="bottom-panel__body">
-            {shownPanel === 'liquidity' &&
+            {panel === 'liquidity' &&
               (!accountId ? (
                 <p className="muted">Connect your wallet to see your positions in this pool.</p>
               ) : positions.loading && !positions.data ? (
@@ -700,7 +666,7 @@ function DclWorkspace({ bar, links, poolId, pool, x, y, reserves, positions, onA
                   onRefresh={positions.reload}
                 />
               ))}
-            {shownPanel === 'composition' && (
+            {panel === 'composition' && (
               <div className="reserves">
                 {reserves.map(([token, amount, usd]) => (
                   <div className="reserve" key={token.id}>
@@ -717,8 +683,8 @@ function DclWorkspace({ bar, links, poolId, pool, x, y, reserves, positions, onA
                 ))}
               </div>
             )}
-            {shownPanel === 'tiers' && <FeeTiers tokenIds={[x.id, y.id]} currentId={poolId} />}
-            {shownPanel === 'trades' && <PoolTrades poolId={poolId} x={x} y={y} />}
+            {panel === 'tiers' && <FeeTiers tokenIds={[x.id, y.id]} currentId={poolId} />}
+            {panel === 'trades' && <PoolTrades poolId={poolId} x={x} y={y} />}
           </div>
         </section>
       </div>
@@ -844,7 +810,7 @@ function PoolBar({ tokens, label, feePercent, rheaUrl, swapLink, stats, price, i
           </div>
         )}
         {stats.map((st) => (
-          <div key={st.label}>
+          <div key={st.label} className={st.extra ? 'pool-bar__extra' : undefined}>
             <span>{st.label}</span>
             <strong className={st.accent ? 'up' : ''}>
               {st.value}

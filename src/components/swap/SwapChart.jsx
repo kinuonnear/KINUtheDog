@@ -39,7 +39,7 @@ function otherSymbol(pool, symbol) {
 // The price axis: no labels below zero and "0" for dust, not "0.0000000000".
 const axisPrice = (value) => (value < 0 ? '' : value < 1e-12 ? '0' : formatChartPrice(value));
 
-export default function SwapChart({ token, counter, pools, height, corner = null }) {
+export default function SwapChart({ token, counter, pools, height }) {
   const tokenId = intearTokenId(token);
   const counterId = counter ? intearTokenId(counter) : null;
   const [resolution, setResolution] = useLocalStorage('kinu.chart.resolution', '60');
@@ -374,7 +374,6 @@ export default function SwapChart({ token, counter, pools, height, corner = null
           }}
         />
         <div className="chart-card__canvas">
-          {corner && <div className="pro-chart__corner">{corner}</div>}
           <div ref={containerRef} className="chart-card__container" />
           <canvas ref={canvasRef} className={`draw-canvas ${tool !== 'cursor' ? 'draw-canvas--active' : ''}`} />
           {(loading || message) && <div className="chart-card__overlay">{loading ? <Spinner size={22} /> : <span>{message}</span>}</div>}
