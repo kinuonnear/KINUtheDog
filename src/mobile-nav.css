@@ -1169,3 +1169,34 @@ i.lbl-short {
     white-space: nowrap;
   }
 }
+
+@media (max-width: 760px) {
+  /* Swap token card on phones: symbol (links to the token page) + scan badge; the social links
+     live on the token page, so the row never runs under the price. */
+  .shell--swap .token-head--swap .token-head__links {
+    display: none;
+  }
+
+  .shell--swap .token-head--swap .token-head__title {
+    overflow: hidden;
+  }
+
+  .shell--swap .token-head--swap .scan-badge {
+    flex: 0 1 auto;
+    overflow: hidden;
+    min-width: 0;
+    padding: 2px 7px;
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .shell--swap .token-head--swap .token-head__price strong {
+    max-width: 140px;
+    font-size: 17px;
+  }
+
+  .shell--swap .token-head--swap .token-head__stats dd {
+    font-size: 13px;
+  }
+}

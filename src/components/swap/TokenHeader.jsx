@@ -2,6 +2,7 @@
 // the first line, the contract under it, then price and the key market numbers. Links come from
 // GeckoTerminal and DexScreener (lib/tokenMarket.js getTokenProfile).
 
+import { useEffect, useRef, useState } from 'react';
 import { useAsync } from '../../hooks.js';
 import { fetchTokenInfo, intearTokenId } from '../../lib/intear.js';
 import { getTokenProfile } from '../../lib/tokenMarket.js';
@@ -28,6 +29,17 @@ export default function TokenHeader({ token }) {
   const d = info.data;
   const mcap = d?.circulatingSupply && d?.price ? d.circulatingSupply * d.price : null;
   const fdv = d?.totalSupply && d?.price ? d.totalSupply * d.price : null;
+  // One fixed layout for every token, chosen by the card's own width (not by the token's name or
+  // price): wide = name | price | numbers in one row; narrow = numbers on a second row.
+  const cardRef = useRef(null);
+  const [wide, setWide] = useState(true);
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(([e]) => setWide(e.contentRect.width >= 870));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   // The price in NEAR (NEAR itself: none).
   const nearInfo = useAsync(() => fetchTokenInfo(CONTRACTS.wrapNear), [], { enabled: !native, refreshMs: 30_000 });
   const priceNear = !native && d?.price && nearInfo.data?.price ? d.price / nearInfo.data.price : null;
@@ -35,24 +47,27 @@ export default function TokenHeader({ token }) {
   const dexUrl = p?.dexscreener || `https://dexscreener.com/near/${encodeURIComponent(tokenId || '')}`;
 
   return (
-    <section className="card token-head" aria-label={`${token?.symbol} overview`}>
+    <section ref={cardRef} className={`card token-head token-head--swap ${wide ? 'token-head--wide' : 'token-head--narrow'}`} aria-label={`${token?.symbol} overview`}>
       <div className="token-head__id">
-        <TokenIcon token={p?.image && !token?.icon ? { ...token, icon: p.image } : token} size={44} />
+        <TokenIcon token={p?.image && !token?.icon ? { ...token, icon: p.image } : token} size={38} />
         <div className="token-head__names">
           <div className="token-head__title">
-            <strong>{token?.symbol}</strong>
+            {native ? (
+              <strong>{token?.symbol}</strong>
+            ) : (
+              <Link to={`/token/${encodeURIComponent(token?.id || '')}`} className="token-head__sym" title={`${token?.symbol}: open the token page`}>
+                <strong>{token?.symbol}</strong>
+              </Link>
+            )}
             {p?.verified && (
               <svg width="16" height="16" viewBox="0 0 24 24" role="img" aria-label="Verified on GeckoTerminal">
                 <circle cx="12" cy="12" r="10" fill="#4fb3ff" />
                 <path d="M7.5 12.5l3 3 6-6.5" fill="none" stroke="#0b0f14" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             )}
-            {!native && tokenId && <ScanBadge tokenId={tokenId} />}
+            {!native && tokenId && <ScanBadge tokenId={tokenId} compact />}
             {!native && (
               <span className="token-head__links">
-                <Link to={`/token/${encodeURIComponent(token?.id || '')}`} className="token-head__info">
-                  Info
-                </Link>
                 {p?.website && (
                   <Social href={p.website} label="Website">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
@@ -121,15 +136,15 @@ export default function TokenHeader({ token }) {
       <dl className="token-head__stats">
         <div>
           <dt title="Market cap: price × circulating supply">MCap</dt>
-          <dd>{mcap ? formatUsd(mcap) : '—'}</dd>
+          <dd title={mcap ? formatUsd(mcap) : undefined}>{mcap ? formatUsd(mcap, { compactAbove: 1e3 }) : '—'}</dd>
         </div>
         <div>
           <dt>FDV</dt>
-          <dd title="Fully diluted value: price × total supply">{fdv ? formatUsd(fdv) : '—'}</dd>
+          <dd title={fdv ? `Fully diluted value: price × total supply · ${formatUsd(fdv)}` : 'Fully diluted value: price × total supply'}>{fdv ? formatUsd(fdv, { compactAbove: 1e3 }) : '—'}</dd>
         </div>
         <div>
           <dt>Liquidity</dt>
-          <dd>{d ? formatUsd(d.liquidityUsd) : '—'}</dd>
+          <dd title={d ? formatUsd(d.liquidityUsd) : undefined}>{d ? formatUsd(d.liquidityUsd, { compactAbove: 1e3 }) : '—'}</dd>
         </div>
         <div>
           <dt>Holders</dt>

@@ -12,15 +12,16 @@ export function useTokenScan(tokenId) {
   return useAsync(() => scanToken(tokenId), [tokenId], { enabled: Boolean(tokenId), refreshMs: 5 * 60_000 });
 }
 
-/** A small "KINU Scan: Caution" badge. */
-export function ScanBadge({ tokenId }) {
+/** A small "KINU Scan: Caution" badge; `compact` drops the "Scan:" prefix (tight headers). */
+export function ScanBadge({ tokenId, compact = false }) {
   const scan = useTokenScan(tokenId);
   if (!scan.data) return null;
   const { verdict, score } = scan.data;
   return (
     <Link className={`scan-badge scan-badge--${verdict}`} to={`/token/${encodeURIComponent(tokenId)}#scan`} title={`KINU Scan score ${score}/100: open the checks`}>
       <i aria-hidden="true">{verdict === 'ok' ? '✓' : '!'}</i>
-      Scan: {VERDICT_LABEL[verdict]}
+      {compact ? '' : 'Scan: '}
+      {VERDICT_LABEL[verdict]}
     </Link>
   );
 }
