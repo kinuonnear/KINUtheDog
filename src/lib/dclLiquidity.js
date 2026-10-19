@@ -336,14 +336,22 @@ export async function buildDclWithdrawTransactions({ tokenIds, accountId }) {
 /* Market depth & multi-bin strategies (Spot / Curve / Bid-Ask)        */
 /* ------------------------------------------------------------------ */
 
-/** Pool liquidity by point segment: { current, segments: [{ left, right, liquidity }] }. */
+/**
+ * Pool liquidity by point segment plus the open limit orders:
+ * { current, segments: [{ left, right, liquidity }], orders: [{ point, x, y }] }.
+ * Orders: `x` is raw token X on sale at that point (above the price), `y` raw token Y bid (below it).
+ */
 export async function getMarketDepth(poolId) {
   const depth = await view(DCL, 'get_marketdepth', { pool_id: poolId, depth: 100 });
   const segments = Object.values(depth?.liquidities || {})
     .map((s) => ({ left: s.left_point, right: s.right_point, liquidity: Number(s.amount_l) }))
     .filter((s) => s.right > s.left && s.liquidity > 0)
     .sort((a, b) => a.left - b.left);
-  return { current: depth?.current_point, segments };
+  const orders = Object.values(depth?.orders || {})
+    .map((o) => ({ point: Number(o.point), x: Number(o.amount_x) || 0, y: Number(o.amount_y) || 0 }))
+    .filter((o) => Number.isFinite(o.point) && (o.x > 0 || o.y > 0))
+    .sort((a, b) => a.point - b.point);
+  return { current: depth?.current_point, segments, orders };
 }
 
 export const STRATEGIES = [

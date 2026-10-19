@@ -10,6 +10,7 @@ import { useLiveDclPool } from '../lib/liveEvents.js';
 import { positionsAtPoint } from '../lib/dclLiquidity.js';
 import AprValue from '../components/AprValue.jsx';
 import FeeTiers from '../components/FeeTiers.jsx';
+import PoolDepth from '../components/PoolDepth.jsx';
 import AmmPnl from '../components/AmmPnl.jsx';
 import { amountsForShares, isStableKind } from '../lib/liquidity.js';
 import { AmmLiquidity, DclLiquidity, FeeCompoundNote, StableLiquidity } from '../components/Liquidity.jsx';
@@ -421,14 +422,16 @@ function DclPool({ poolId, initialTab }) {
 const DOCK_TOP = 76;
 // Share of the left column given to the chart (the rest is the data panel).
 const DEFAULT_SPLIT = 0.68;
-const MIN_SPLIT = 0.3;
-const MIN_CHART_PX = 340;
-const MIN_PANEL_PX = 150;
+// The chart / panel splitter is nearly free: the chart can shrink to a strip or grow taller than the
+// column (which then scrolls). The floors only keep the splitter itself reachable.
+const MIN_SPLIT = 0.08;
+const MAX_SPLIT = 4;
+const MIN_CHART_PX = 60;
 // Create position panel width when dragged: the chart column keeps at least MIN_MAIN_PX.
 const MIN_SIDE_PX = 380;
 const MAX_SIDE_PX = 760;
 const MIN_MAIN_PX = 560;
-const MAX_SPLIT = 0.9; // px below the viewport top where the workspace docks (top bar + gap)
+// px below the viewport top where the workspace docks (top bar + gap) is DOCK_TOP above.
 
 /**
  * Independent wheel scrolling for the two workspace columns (desktop):
@@ -530,18 +533,18 @@ function DclWorkspace({ bar, links, poolId, pool, x, y, reserves, positions, onA
   // The chart / panel split shares what the pool bar leaves of the column.
   const columnHeight = Math.max(0, (useElementHeight(mainRef) || 0) - (barHeight ? barHeight + 10 : 0)) || undefined;
   const [ratio, setRatio] = useLocalStorage('kinu.split.chart', DEFAULT_SPLIT);
-  // The chart keeps a usable height on short screens (e.g. 100% zoom on a laptop): at least
-  // MIN_CHART_PX, while the panel below keeps MIN_PANEL_PX where the column allows both.
-  const chartHeight =
-    desktop && columnHeight
-      ? Math.round(Math.max(Math.min(MIN_CHART_PX, columnHeight - MIN_PANEL_PX), Math.min(columnHeight * ratio, columnHeight - MIN_PANEL_PX)))
-      : undefined;
+  // Chart height = its share of the column; a share above 1 makes the chart taller than the column
+  // (the column scrolls to the panel below).
+  const chartHeight = desktop && columnHeight ? Math.round(Math.max(MIN_CHART_PX, columnHeight * ratio)) : undefined;
   const startResize = (event) => {
     event.preventDefault();
     const handle = event.currentTarget;
     handle.setPointerCapture(event.pointerId);
-    const rect = mainRef.current.getBoundingClientRect();
-    const move = (e) => setRatio(Math.min(MAX_SPLIT, Math.max(MIN_SPLIT, (e.clientY - rect.top) / rect.height)));
+    // Relative drag: the chart grows by exactly how far the handle moves, wherever it started.
+    const startY = event.clientY;
+    const startHeight = handle.previousElementSibling?.getBoundingClientRect().height || chartHeight || 0;
+    const column = Math.max(1, columnHeight || mainRef.current.getBoundingClientRect().height);
+    const move = (e) => setRatio(Math.min(MAX_SPLIT, Math.max(MIN_SPLIT, (startHeight + e.clientY - startY) / column)));
     const up = (e) => {
       handle.releasePointerCapture(e.pointerId);
       handle.removeEventListener('pointermove', move);
@@ -633,6 +636,7 @@ function DclWorkspace({ bar, links, poolId, pool, x, y, reserves, positions, onA
               // One position per deposit; its CLMM bins are details inside it.
               { key: 'liquidity', label: 'Your liquidity', count: accountId ? deposits.groups.length : undefined },
               { key: 'composition', label: 'Pool composition' },
+              { key: 'depth', label: 'Depth' },
               { key: 'tiers', label: 'Fee tiers' },
               { key: 'trades', label: 'Transactions' }
             ]}
@@ -684,6 +688,7 @@ function DclWorkspace({ bar, links, poolId, pool, x, y, reserves, positions, onA
                 ))}
               </div>
             )}
+            {panel === 'depth' && <PoolDepth poolId={poolId} x={x} y={y} />}
             {panel === 'tiers' && <FeeTiers tokenIds={[x.id, y.id]} currentId={poolId} />}
             {panel === 'trades' && <PoolTrades poolId={poolId} x={x} y={y} />}
           </div>

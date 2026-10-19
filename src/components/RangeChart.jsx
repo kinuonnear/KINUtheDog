@@ -17,6 +17,7 @@ import { useApp } from '../state.jsx';
 import { priceOf } from '../lib/tokens.js';
 import { bollinger, ema, INDICATORS, sma } from '../lib/indicators.js';
 import { getMarketDepth, pointToPrice } from '../lib/dclLiquidity.js';
+import { buildDepth, DEPTH_OVERLAY } from '../lib/poolDepth.js';
 import { formatChartPrice, formatPercent, formatUsd } from '../lib/format.js';
 import { drawAll, hitTest, TOOLS } from './chart/drawings.js';
 import { DrawingToolbar, ToolIcon, useDrawingKeys } from './chart/DrawingTools.jsx';
@@ -141,7 +142,15 @@ const axisPrice = (value) => (value < 0 ? '' : value < 1e-12 ? '0' : formatChart
  * the current price in the colour of the base token's side, below it in the quote token's, the same
  * colours as the Price range chart in the position form. Bars are scaled to the largest one on screen.
  */
-function paintDepth(ctx, bars, priceToY, width, height, current) {
+// Soft tones (same family as the Depth tab): above the price = resistance, below = support.
+// Limit orders stack on the pool liquidity in a lighter tint.
+const DEPTH_FILL = {
+  above: { liquidity: 'rgba(133, 119, 154, 0.5)', orders: 'rgba(196, 186, 214, 0.55)' },
+  below: { liquidity: 'rgba(86, 120, 140, 0.5)', orders: 'rgba(170, 198, 214, 0.55)' }
+};
+
+/** Side overlay: 1% buckets of { lo, hi, liquidity, orders, above } as bars growing from the right edge. */
+function paintDepth(ctx, bars, priceToY, width, height) {
   if (!bars?.length || !(width > 0) || !(height > 0)) return;
   const shown = [];
   for (const b of bars) {
@@ -154,18 +163,21 @@ function paintDepth(ctx, bars, priceToY, width, height, current) {
     shown.push({ ...b, y0, y1 });
   }
   if (!shown.length) return;
-  const max = Math.max(...shown.map((b) => b.liquidity)) || 1;
+  const max = Math.max(...shown.map((b) => b.liquidity + b.orders)) || 1;
   const reach = width * 0.3;
-  const curY = priceToY(current);
   ctx.save();
   for (const b of shown) {
-    const w = Math.max(2, (b.liquidity / max) * reach);
-    const left = width - w;
-    // A bar across the current price is split at it.
-    const parts = curY !== null && curY > b.y0 && curY < b.y1 ? [[b.y0, curY, true], [curY, b.y1, false]] : [[b.y0, b.y1, b.lo >= current]];
-    for (const [a, z, above] of parts) {
-      ctx.fillStyle = above ? 'rgba(139, 124, 246, 0.34)' : 'rgba(56, 198, 224, 0.34)';
-      ctx.fillRect(left, a, w, Math.max(1, z - a - 0.5));
+    const fill = b.above ? DEPTH_FILL.above : DEPTH_FILL.below;
+    const wl = (b.liquidity / max) * reach;
+    const wo = (b.orders / max) * reach;
+    const h = Math.max(1, b.y1 - b.y0);
+    if (wl > 0) {
+      ctx.fillStyle = fill.liquidity;
+      ctx.fillRect(width - wl, b.y0, Math.max(1.5, wl), h);
+    }
+    if (wo > 0) {
+      ctx.fillStyle = fill.orders;
+      ctx.fillRect(width - wl - wo, b.y0, Math.max(1.5, wo), h);
     }
   }
   ctx.restore();
@@ -296,15 +308,28 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
   }, [showBins, bins, fullRange, x.decimals, y.decimals]);
 
   const depth = useAsync(() => getMarketDepth(poolId), [poolId], { refreshMs: 60_000 });
-  const depthBars = useMemo(
-    () =>
-      (depth.data?.segments || []).map((s) => ({
-        lo: pointToPrice(s.left, x.decimals, y.decimals),
-        hi: pointToPrice(s.right, x.decimals, y.decimals),
-        liquidity: s.liquidity
-      })),
-    [depth.data, x.decimals, y.decimals]
-  );
+  // 1% price buckets (lib/poolDepth.js): pool liquidity plus open limit orders, valued in token Y so
+  // the bar lengths compare with each other. Same source as the pool page's Depth tab.
+  const depthBars = useMemo(() => {
+    if (!depth.data || !Number.isFinite(depth.data.current)) return [];
+    const { rows } = buildDepth({
+      depth: depth.data,
+      decimalsX: x.decimals,
+      decimalsY: y.decimals,
+      valueX: pointToPrice(depth.data.current, x.decimals, y.decimals),
+      valueY: 1,
+      view: DEPTH_OVERLAY
+    });
+    return rows
+      .filter((r) => r.total > 0)
+      .map((r) => ({
+        lo: pointToPrice(r.loPoint, x.decimals, y.decimals),
+        hi: pointToPrice(r.hiPoint, x.decimals, y.decimals),
+        liquidity: r.liquidity,
+        orders: r.orders,
+        above: r.side === 'resistance'
+      }));
+  }, [depth.data, x.decimals, y.decimals]);
   useEffect(() => {
     requestAnimationFrame(() => paintRef.current?.());
   }, [depthBars]);
@@ -656,7 +681,7 @@ export default function RangeChart({ poolId, x, y, currentPrice, minPrice, maxPr
       const pending = pendingRef.current ? [pendingRef.current] : [];
       drawAll(ctx, live.current.hidden ? pending : [...live.current.drawings, ...pending], geo, live.current.selected);
       // After drawAll (which clears the canvas): liquidity bars, then the bin lines over them.
-      paintDepth(ctx, live.current.depthBars, (p) => main.priceToCoordinate(p * f), width, height, cur);
+      paintDepth(ctx, live.current.depthBars, (p) => main.priceToCoordinate(p * f), width, height);
       if (live.current.binPrices.length && !off) {
         ctx.save();
         ctx.strokeStyle = 'rgba(255,138,61,0.22)';

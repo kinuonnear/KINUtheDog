@@ -1739,6 +1739,147 @@ a.pool-row:hover + .pool-row {
   gap: 10px;
 }
 
+/* Pool depth: liquidity + limit orders by price bucket (components/PoolDepth.jsx) */
+.pdepth {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pdepth__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+
+.pdepth__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+}
+
+.pdepth__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pdepth__stat small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.pdepth__stat strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.pdepth__stat--support strong {
+  color: #8fb0c4;
+}
+
+.pdepth__stat--resistance strong {
+  color: #b3a4c4;
+}
+
+.pdepth__chart {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pdepth__row {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) 78px;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pdepth__pct {
+  color: var(--muted);
+  text-align: right;
+}
+
+.pdepth__track {
+  display: flex;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.pdepth__bar {
+  flex: none;
+  height: 100%;
+}
+
+/* Soft slate-blue / dusty-lilac tones: the neon theme colours are hard on the eyes in long bar lists. */
+.pdepth__row--support {
+  --depth-c: #56788c;
+}
+
+.pdepth__row--resistance {
+  --depth-c: #85779a;
+}
+
+.pdepth__bar {
+  background: var(--depth-c);
+}
+
+/* Limit orders: the same colour, striped, so they read apart from pool liquidity. */
+.pdepth__bar--orders {
+  background: repeating-linear-gradient(135deg, var(--depth-c) 0 3px, rgba(255, 255, 255, 0.16) 3px 6px);
+}
+
+.pdepth__key--orders {
+  background: repeating-linear-gradient(135deg, var(--muted) 0 2px, rgba(255, 255, 255, 0.16) 2px 4px);
+}
+
+.pdepth__val {
+  color: var(--muted);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.pdepth__price {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pdepth__price::before,
+.pdepth__price::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border-strong);
+}
+
+.pdepth__note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin: 0;
+  font-size: 11px;
+}
+
+.pdepth__key {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background-color: var(--muted);
+}
+
 .reserve {
   display: flex;
   align-items: center;
