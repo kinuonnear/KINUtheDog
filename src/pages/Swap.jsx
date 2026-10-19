@@ -282,8 +282,12 @@ export default function Swap() {
   routeSourceRef.current = routeSource;
   const [showRoutes, setShowRoutes] = useState(false);
   const [invert, setInvert] = useState(false);
-  // The chart follows the non-quote token of the pair (e.g. NEARLY in NEAR → NEARLY).
-  const side = defaultChartSide(tokenIn, tokenOut);
+  // A new pair starts unflipped.
+  useEffect(() => setInvert(false), [tokenIn?.id, tokenOut?.id]);
+  // The chart follows the non-quote token of the pair (e.g. NEARLY in NEAR → NEARLY). The rate's ⇄
+  // button flips it: the chart (and the token strip above it) then follows the pair's other token.
+  const defaultSide = defaultChartSide(tokenIn, tokenOut);
+  const side = invert ? (defaultSide === 'in' ? 'out' : 'in') : defaultSide;
   const chartToken = side === 'in' ? tokenIn : tokenOut;
   const counterToken = side === 'in' ? tokenOut : tokenIn;
   // The charted token's pools (GeckoTerminal): chart source, 24h flow, top traders and Pairs.
@@ -763,6 +767,15 @@ export default function Swap() {
               {buttonLabel}
             </button>
 
+            {/* The rate row (with its ⇄) only exists once there is a quote: a flipped chart keeps a way back. */}
+            {!(quote && rate) && invert && (
+              <div className="quote-details">
+                <button type="button" className="quote-details__rate" onClick={() => setInvert(false)}>
+                  Chart flipped to {chartToken.symbol}
+                  <span aria-hidden> ⇄</span>
+                </button>
+              </div>
+            )}
             {quote && rate && (
               <div className="quote-details">
                 <button type="button" className="quote-details__rate" onClick={() => setInvert((v) => !v)}>
