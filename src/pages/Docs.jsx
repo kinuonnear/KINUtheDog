@@ -293,7 +293,7 @@ const DOCS = [
           items={[
             ['AMM', 'Classic pools: liquidity across the full price range.'],
             ['CLMM', 'Concentrated pools: liquidity inside a range you choose (see Smart LP).'],
-            ['ALMM', 'Rhea’s liquidity-book pools with liquidity in price bins.'],
+            ['ALMM', 'Rhea’s oracle-guided pools for major pairs (e.g. NEAR/USDC): a curve that keeps liquidity close to the market price without a range to manage. Deposit one or both tokens in any ratio; each pool has a TVL cap.'],
             ['Stable', 'Pools of assets meant to trade near the same price (e.g. stablecoins, staked NEAR).'],
             ['Farm', 'Pools with extra rewards for staked liquidity.']
           ]}
