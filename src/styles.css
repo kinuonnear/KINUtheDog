@@ -15324,3 +15324,51 @@ a.amm-table__row:hover {
     white-space: nowrap;
   }
 }
+
+/* Swap on desktop: the 5M / 1H / 6H / 24H picker floats as a small panel right under the volume
+   strip while the pointer is over the strip (or keyboard focus is inside). Nothing below moves
+   and nothing can be cut off half-open. */
+@media (min-width: 1081px) and (hover: hover) {
+  .shell--swap .swap-pro__side .token-flow {
+    position: relative;
+    z-index: 5;
+  }
+
+  .shell--swap .swap-pro__side .token-flow .token-flow__tabs,
+  .shell--swap .swap-pro__side .token-flow:hover .token-flow__tabs,
+  .shell--swap .swap-pro__side .token-flow:has(:focus-visible) .token-flow__tabs {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    left: 0;
+    max-height: none;
+    overflow: visible;
+    padding: 8px 14px 10px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    box-shadow: 0 14px 28px -12px rgba(0, 0, 0, 0.75);
+    transition: opacity 0.12s ease-out, transform 0.12s ease-out, visibility 0.12s;
+  }
+
+  .shell--swap .swap-pro__side .token-flow .token-flow__tabs {
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(-4px);
+    pointer-events: none;
+  }
+
+  .shell--swap .swap-pro__side .token-flow:hover .token-flow__tabs,
+  .shell--swap .swap-pro__side .token-flow:has(:focus-visible) .token-flow__tabs {
+    visibility: visible;
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+
+  /* The strip itself never changes. */
+  .shell--swap .swap-pro__side .token-flow:hover dl,
+  .shell--swap .swap-pro__side .token-flow:has(:focus-visible) dl {
+    padding-top: 0;
+    border-top: 0;
+  }
+}
