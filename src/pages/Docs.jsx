@@ -76,7 +76,7 @@ const DOCS = [
             ['Smart LP', 'Set up concentrated liquidity by dragging a range on the chart, picking a strategy, or zapping in with one token.'],
             ['Pools', 'Every Rhea pool — AMM, CLMM, ALMM, Stable and Farm — with TVL, volume, fees, APR and token age.'],
             ['Discover', 'Top yields, hot pairs, trending tokens, new launches and a live trade feed.'],
-            ['Create', 'Open a new CLMM or Classic pool on Rhea.'],
+            ['Create pool', 'Open a new CLMM or Classic pool on Rhea (on the Pools page).'],
             ['Portfolio', 'Your tokens, liquidity, PnL and history in one place.']
           ]}
         />
@@ -334,7 +334,7 @@ const DOCS = [
         <Steps
           items={[
             <>
-              Open <Link to="/create-pool">Create</Link> in the top bar and choose <strong>CLMM</strong> (range liquidity) or{' '}
+              Open <Link to="/create-pool">Create pool</Link> on the Pools page and choose <strong>CLMM</strong> (range liquidity) or{' '}
               <strong>Classic</strong> (full range).
             </>,
             <>

@@ -507,3 +507,66 @@
 .shell--pools .pt-starts .pt-start {
   margin-top: 0;
 }
+
+/* Pool Analysis: the first and brightest button on Pools (icon, short hint, "New"), so people
+   notice it. Create pool sits beside it, quieter. */
+.shell--pools .pt-start--analysis {
+  padding: 7px 16px 7px 7px;
+  border-color: rgba(184, 255, 61, 0.55);
+  background: linear-gradient(100deg, rgba(184, 255, 61, 0.2), rgba(61, 220, 151, 0.1) 60%, rgba(94, 200, 255, 0.08));
+  box-shadow: 0 0 26px rgba(184, 255, 61, 0.16);
+  font-weight: 700;
+}
+
+.shell--pools .pt-start--analysis:hover {
+  border-color: var(--accent);
+  background: linear-gradient(100deg, rgba(184, 255, 61, 0.28), rgba(61, 220, 151, 0.14) 60%, rgba(94, 200, 255, 0.1));
+  box-shadow: 0 0 34px rgba(184, 255, 61, 0.28);
+}
+
+.pt-start__icon {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink, #0b0e14);
+}
+
+.pt-start--analysis small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.pt-start__new {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink, #0b0e14);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.shell--pools .pt-start--create {
+  padding: 8px 16px;
+  font-weight: 600;
+}
+
+@media (max-width: 520px) {
+  .pt-start--analysis small {
+    display: none;
+  }
+}
+
+/* Phones: the four stat labels fit their tiles ("Daily yield" was cut to "Daily yie…"). */
+@media (max-width: 720px) {
+  .shell--pools .pt-monitor .pt-tile > span {
+    font-size: 9.5px;
+    letter-spacing: 0.03em;
+  }
+}

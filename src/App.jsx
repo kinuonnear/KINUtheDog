@@ -41,7 +41,7 @@ const PoolAnalysis = lazy(() => import('./pages/PoolAnalysis.jsx'));
 // Liquidity first: Pools (and Create) right after Home. Docs and the rest live under More.
 const NAV = [
   { to: '/app', label: 'Home', match: ['app'] },
-  { to: '/pools', label: 'Pools', match: ['pools', 'pool', 'starter', 'intear', 'analysis'] },
+  { to: '/pools', label: 'Pools', match: ['pools', 'pool', 'starter', 'intear', 'analysis', 'create'] },
   { to: '/discover', label: 'Discover', match: ['discover', 'new', 'token', 'lp'] },
   { to: '/swap', label: 'Swap', match: ['swap'] },
   { to: '/bridge', label: 'Bridge', match: ['deposit'] },
@@ -263,12 +263,6 @@ export default function App() {
               <Link to={item.to} className={item.match.includes(route.name) ? 'nav__link nav__link--active' : 'nav__link'}>
                 {item.label}
               </Link>
-              {/* Create sits right next to Pools. */}
-              {item.to === '/pools' && (
-                <Link to="/create-pool" className={`nav__link nav__create ${route.name === 'create' ? 'nav__link--active' : ''}`}>
-                  Create
-                </Link>
-              )}
             </Fragment>
           ))}
           <MoreMenu active={MORE_ROUTES.has(route.name)} />

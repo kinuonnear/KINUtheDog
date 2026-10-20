@@ -366,7 +366,7 @@ function PoolsMonitor({ ready, totals }) {
     { key: 'tvl', label: 'Total value locked', short: 'TVL', value: formatUsd(totals.tvl) },
     { key: 'vol', label: 'Volume 24h', short: 'Vol 24h', value: formatUsd(totals.volume), hint: totals.tvl > 0 && `${((totals.volume / totals.tvl) * 100).toFixed(0)}% of TVL traded` },
     { key: 'fees', label: 'Fees to LPs 24h', short: 'Fees 24h', value: formatUsd(totals.fees, USD_K), accent: true },
-    { key: 'yield', label: 'Avg. daily yield', short: 'Daily yield', value: totals.tvl > 0 ? formatPercent((totals.fees / totals.tvl) * 100, 3) : '—', hint: `${totals.pools.toLocaleString()} active pools` }
+    { key: 'yield', label: 'Avg. daily yield', short: 'Yield/day', value: totals.tvl > 0 ? formatPercent((totals.fees / totals.tvl) * 100, 3) : '—', hint: `${totals.pools.toLocaleString()} active pools` }
   ];
   return (
     <section className="pt-monitor" aria-label="NEAR liquidity at a glance, last 24 hours">
@@ -728,13 +728,24 @@ export default function Pools() {
         </h1>
         <p>Every pool on NEAR, sorted by what it pays LPs.</p>
         <PoolSourceTabs active="rhea" rhea={overview.data ? { pools: totals.pools, tvl: totals.tvl } : undefined} />
-        {/* Side by side; they wrap onto two lines only when the row is too narrow. */}
+        {/* Side by side; they wrap onto two lines only when the row is too narrow. Pool Analysis
+            leads and stands out; Create pool lives here (not in the top bar). */}
         <div className="pt-starts">
           <Link to="/analysis" className="pt-start pt-start--analysis">
-            Pool Analysis: key levels &amp; price impact
+            <span className="pt-start__icon" aria-hidden>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
+              </svg>
+            </span>
+            Pool Analysis
+            <small>key levels &amp; price impact</small>
+            <em className="pt-start__new">New</em>
             <span className="pt-start__arrow" aria-hidden>
               →
             </span>
+          </Link>
+          <Link to="/create-pool" className="pt-start pt-start--create">
+            + Create pool
           </Link>
           <Link to="/start-lp" className="pt-start">
             New to LP? Start here
