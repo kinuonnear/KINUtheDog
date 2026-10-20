@@ -67,37 +67,6 @@ export default function TokenHeader({ token }) {
               </svg>
             )}
             {!native && tokenId && <ScanBadge tokenId={tokenId} compact />}
-            {!native && (
-              <span className="token-head__links">
-                {p?.website && (
-                  <Social href={p.website} label="Website">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                      <circle cx="12" cy="12" r="9" />
-                      <path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" />
-                    </svg>
-                  </Social>
-                )}
-                {p?.twitter && (
-                  <Social href={`https://x.com/${p.twitter}`} label={`X @${p.twitter}`}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true">
-                      <path d="M4 4l16 16M20 4L4 20" />
-                    </svg>
-                  </Social>
-                )}
-                {p?.telegram && (
-                  <Social href={`https://t.me/${p.telegram}`} label={`Telegram ${p.telegram}`}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                      <path d="M21 4L3 11l6 2 2 6 3-4 5 4z" />
-                    </svg>
-                  </Social>
-                )}
-                <Social href={dexUrl} label="DexScreener">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                    <path d="M4 19V9M10 19V5M16 19v-7M22 19H2" />
-                  </svg>
-                </Social>
-              </span>
-            )}
           </div>
           <div className="token-head__meta">
             {native ? (
@@ -109,6 +78,35 @@ export default function TokenHeader({ token }) {
                 <a href={`${ENDPOINTS.explorer}/address/${token?.id}`} target="_blank" rel="noopener noreferrer" className="small">
                   NearBlocks ↗
                 </a>
+                <span className="token-head__links">
+                  {p?.website && (
+                    <Social href={p.website} label="Website">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                        <circle cx="12" cy="12" r="9" />
+                        <path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" />
+                      </svg>
+                    </Social>
+                  )}
+                  {p?.twitter && (
+                    <Social href={`https://x.com/${p.twitter}`} label={`X @${p.twitter}`}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true">
+                        <path d="M4 4l16 16M20 4L4 20" />
+                      </svg>
+                    </Social>
+                  )}
+                  {p?.telegram && (
+                    <Social href={`https://t.me/${p.telegram}`} label={`Telegram ${p.telegram}`}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                        <path d="M21 4L3 11l6 2 2 6 3-4 5 4z" />
+                      </svg>
+                    </Social>
+                  )}
+                  <Social href={dexUrl} label="DexScreener">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                      <path d="M4 19V9M10 19V5M16 19v-7M22 19H2" />
+                    </svg>
+                  </Social>
+                </span>
               </>
             )}
           </div>

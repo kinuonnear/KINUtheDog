@@ -14579,3 +14579,192 @@ a.amm-table__row:hover {
     font-size: 12px;
   }
 }
+
+/* ---- Swap on desktop: compact token header, volume strip and swap card ----
+   Header, two lines like Jupiter's: symbol · verified · scan badge, then contract · copy ·
+   NearBlocks · socials; price beside it, then the four numbers. Same height as the volume
+   strip on the right. */
+@media (min-width: 1081px) {
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .token-head--swap {
+    --head-wide-min: 830;
+    gap: 6px 22px;
+    min-height: 74px;
+    padding: 8px 14px;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .token-head--wide {
+    grid-template-columns: minmax(0, 340px) minmax(0, 190px) minmax(260px, 360px);
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .token-head--narrow {
+    grid-template-columns: minmax(0, 340px) minmax(0, 190px);
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .token-head--swap .token-head__id {
+    gap: 10px;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .token-head--swap .token-head__id > :first-child {
+    width: 32px;
+    height: 32px;
+    flex: none;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .token-head--swap .token-head__title {
+    gap: 6px;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .token-head--swap .token-head__title strong {
+    font-size: 16px;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .token-head--swap .scan-badge {
+    padding: 1px 7px;
+    font-size: 11px;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .token-head--swap .token-head__meta {
+    gap: 6px;
+    margin-top: 2px;
+    font-size: 11.5px;
+  }
+
+  /* The contract keeps a readable part; NearBlocks and the socials never shrink. */
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .token-head--swap .token-head__meta code {
+    flex: 0 1 auto;
+    min-width: 96px;
+    font-size: 11.5px;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .token-head--swap .token-head__meta .small,
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .token-head--swap .token-head__meta button {
+    font-size: 11.5px;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .token-head--swap .token-head__link {
+    width: 20px;
+    height: 20px;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .token-head--swap .token-head__price {
+    row-gap: 0;
+    min-height: 0;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .token-head--swap .token-head__price strong {
+    font-size: 18px;
+    line-height: 1.25;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .token-head--swap .token-head__price em,
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .token-head--swap .token-head__price .small {
+    font-size: 12px;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .token-head--swap .token-head__quote {
+    grid-column: 1 / -1;
+    overflow: hidden;
+    font-size: 11px;
+    text-overflow: ellipsis;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .token-head--swap .token-head__quote b {
+    font-size: 11px;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .token-head--swap .token-head__stats {
+    gap: 12px;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .token-head--swap .token-head__stats dt {
+    font-size: 10px;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .token-head--swap .token-head__stats dd {
+    font-size: 13px;
+  }
+
+  /* Volume strip: as tall as the header beside it. */
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .swap-pro__side .token-flow {
+    align-content: center;
+    gap: 0;
+    min-height: 74px;
+    padding: 8px 14px;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .swap-pro__side .token-flow dt {
+    font-size: 10px;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .swap-pro__side .token-flow dd {
+    margin-top: 2px;
+    font-size: 13.5px;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .swap-pro__side .token-flow__bar {
+    height: 4px;
+    margin-top: 6px;
+  }
+
+  /* Swap card: title and a one-line subtitle, the buttons on one row, tighter fields. */
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .swap-card {
+    padding: 12px 14px 14px;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .swap-card__head {
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .swap-card__head h2 {
+    font-size: 16px;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .swap-card__head h2 + .small {
+    display: block;
+    overflow: hidden;
+    font-size: 11.5px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .swap-card__tools .pill-button,
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .swap-card__tools .live-pill {
+    height: 26px;
+    padding: 0 10px;
+    font-size: 11.5px;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .swap-field {
+    padding: 8px 12px;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .swap-field + .swap-field {
+    margin-top: 6px;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .swap-field__row input {
+    font-size: 22px;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .token-select {
+    height: 36px;
+    font-size: 14px;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .swap-flip {
+    top: -16px;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .quick-amounts {
+    margin: 0 0 8px;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .swap-card .button--primary {
+    height: 44px;
+    margin-top: 10px;
+  }
+}
