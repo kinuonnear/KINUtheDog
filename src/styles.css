@@ -14311,8 +14311,14 @@ a.amm-table__row:hover {
     min-height: 56px;
   }
 
+  /* Numbers as plain label / value pairs, no boxes. */
+  .shell--swap .token-head--swap .token-head__stats {
+    gap: 14px;
+  }
+
   .shell--swap .token-head--swap .token-head__stats > div {
-    padding: 5px 8px;
+    padding: 0;
+    background: none;
   }
 
   .shell--swap .token-head--swap .token-head__stats dt {
@@ -14381,9 +14387,10 @@ a.amm-table__row:hover {
     padding-bottom: 8px;
   }
 
+  /* Tighter buttons and a narrower pool picker: the whole toolbar on one row at 1366. */
   .shell--swap .swap-chart__toolbar .segmented button {
     height: 26px;
-    padding: 0 8px;
+    padding: 0 6px;
   }
 
   .shell--swap .swap-chart__toolbar .segmented button {
@@ -14397,6 +14404,6 @@ a.amm-table__row:hover {
 
   .shell--swap .swap-chart__toolbar .swap-chart__pool select {
     height: 28px;
-    max-width: 200px;
+    max-width: 170px;
   }
 }
