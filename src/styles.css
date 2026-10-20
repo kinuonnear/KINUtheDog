@@ -15231,3 +15231,96 @@ a.amm-table__row:hover {
     font-size: 13px;
   }
 }
+
+/* ---- Pool page, 1081–1250px wide ----
+   The chart toolbar and the token strip both wrapped to two rows there, leaving the chart ~140px
+   and its Max / Min labels on top of each other. One row each: the + / − / Fit zoom buttons go
+   (wheel and drag still zoom), tighter tool buttons, and the token strip scrolls sideways. */
+@media (min-width: 1081px) and (max-width: 1250px) {
+  .pro-chart__toolbar .zoom-tools,
+  .pro-chart__toolbar .zoom-tools + .ctool-sep,
+  .pro-chart__toolbar .pro-chart__spacer {
+    display: none;
+  }
+
+  .pro-chart__toolbar {
+    gap: 2px;
+  }
+
+  .pro-chart__toolbar .ctool {
+    padding: 0 7px;
+  }
+
+  .pro-chart__toolbar .ctool-sep {
+    margin: 0 2px;
+  }
+
+  .pro-chart__info {
+    flex-wrap: nowrap;
+    gap: 12px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    white-space: nowrap;
+  }
+
+  .pro-chart__info::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Agent on tablets / phones: the radar sits in the same 420px panel as the activity log, which
+   left the log 0px tall (invisible) and pushed the note out of the card. The panel grows with its
+   content; the log gets its own scrolling box. */
+@media (max-width: 1000px) {
+  .ag-feed {
+    max-height: none;
+  }
+
+  .ag-feed ol {
+    flex: none;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+}
+
+/* Home pool lists: "Stable · 0.020% fee" stays on one line (it wrapped into the TVL column at
+   1100px); a fee that doesn't fit ends in "…". */
+.pool-row__pair small {
+  flex-wrap: nowrap;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.pool-row__pair small > span:not(.kind) {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+}
+
+/* Pools sidebar time window: five equal buttons that fit the box (they overlapped by ~6px). */
+.pt-window {
+  display: flex;
+}
+
+.pt-window button {
+  flex: 1 1 0;
+  min-width: 0;
+  padding-right: 2px;
+  padding-left: 2px;
+}
+
+/* Pools table on wide screens too: "Token age ↕" fits its column (it ran into "Pool"). */
+@media (min-width: 1601px) {
+  .page--pools .dt-row {
+    grid-template-columns: 40px minmax(180px, 2fr) 88px repeat(6, minmax(76px, 1fr)) 92px;
+  }
+}
+
+/* Pools on phones: a big APR with its ⚠ ("6249.92% ⚠") fits its column instead of running
+   into TVL. */
+@media (max-width: 760px) {
+  .page--pools .dt-apr .apr-spike {
+    font-size: 12px;
+    white-space: nowrap;
+  }
+}

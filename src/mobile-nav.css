@@ -356,7 +356,7 @@
 /* Phones: the Pools table keeps Pool, TVL and APR (the whole row opens the pool). */
 @media (max-width: 760px) {
   .page--pools .discover-table .dt-row {
-    grid-template-columns: minmax(0, 1fr) 76px 64px;
+    grid-template-columns: minmax(0, 1fr) 72px 78px;
     min-width: 0;
     column-gap: 8px;
     padding: 12px 14px;

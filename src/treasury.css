@@ -329,3 +329,15 @@
   gap: 2px;
   min-width: 0;
 }
+
+/* Allocations: Operations holds the longest text but had one of the narrowest columns (a word per
+   line, rows ~210px on phones). It gets a wide column; phones scroll a wider table instead. */
+.ts-row {
+  grid-template-columns: 0.8fr 1.3fr 1.6fr 0.6fr 1.5fr 0.8fr;
+}
+
+@media (max-width: 720px) {
+  .ts-row {
+    min-width: 920px;
+  }
+}
