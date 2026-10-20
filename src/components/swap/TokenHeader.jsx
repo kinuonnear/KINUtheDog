@@ -30,13 +30,14 @@ export default function TokenHeader({ token }) {
   const mcap = d?.circulatingSupply && d?.price ? d.circulatingSupply * d.price : null;
   const fdv = d?.totalSupply && d?.price ? d.totalSupply * d.price : null;
   // One fixed layout for every token, chosen by the card's own width (not by the token's name or
-  // price): wide = name | price | numbers in one row; narrow = numbers on a second row.
+  // price): wide = name | price | numbers in one row; narrow = numbers on a second row. The width
+  // the one-row layout needs comes from the CSS (--head-wide-min; smaller in the laptop layout).
   const cardRef = useRef(null);
   const [wide, setWide] = useState(true);
   useEffect(() => {
     const el = cardRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return undefined;
-    const ro = new ResizeObserver(([e]) => setWide(e.contentRect.width >= 870));
+    const ro = new ResizeObserver(([e]) => setWide(e.contentRect.width >= (parseFloat(getComputedStyle(el).getPropertyValue('--head-wide-min')) || 870)));
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
