@@ -14795,3 +14795,15 @@ a.amm-table__row:hover {
     line-height: 16px;
   }
 }
+
+/* Swap on desktop: a clear gap between the pay and receive boxes, the switch button centred in
+   it (the switch sits between the two boxes, so "field + field" never applied). */
+@media (min-width: 1081px) {
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .swap-flip-wrap + .swap-field {
+    margin-top: 8px;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .swap-flip {
+    top: -12px;
+  }
+}
