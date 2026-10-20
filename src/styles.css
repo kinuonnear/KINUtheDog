@@ -14489,7 +14489,8 @@ a.amm-table__row:hover {
 }
 
 /* Swap on desktop: the 5M / 1H / 6H / 24H picker stays folded away and opens while the pointer
-   is over the volume strip (or a key moves focus into it); "Vol 24H" names the chosen window. */
+   is over the volume strip (or the keyboard moves focus into it; a mouse click leaves no
+   :focus-visible, so it folds as soon as the pointer leaves); "Vol 24H" names the chosen window. */
 @media (min-width: 1081px) and (hover: hover) {
   .shell--swap .swap-pro__side .token-flow__tabs {
     max-height: 0;
@@ -14499,7 +14500,7 @@ a.amm-table__row:hover {
   }
 
   .shell--swap .swap-pro__side .token-flow:hover .token-flow__tabs,
-  .shell--swap .swap-pro__side .token-flow:focus-within .token-flow__tabs {
+  .shell--swap .swap-pro__side .token-flow:has(:focus-visible) .token-flow__tabs {
     max-height: 80px;
     padding-bottom: 8px;
     opacity: 1;
@@ -14511,7 +14512,7 @@ a.amm-table__row:hover {
   }
 
   .shell--swap .swap-pro__side .token-flow:hover dl,
-  .shell--swap .swap-pro__side .token-flow:focus-within dl {
+  .shell--swap .swap-pro__side .token-flow:has(:focus-visible) dl {
     padding-top: 8px;
     border-top: 1px solid var(--border);
   }
