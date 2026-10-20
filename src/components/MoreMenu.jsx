@@ -3,7 +3,8 @@
 import { useRef, useState } from 'react';
 import { useClickOutside } from '../hooks.js';
 import { Link } from '../router.jsx';
-import { ENDPOINTS } from '../config.js';
+import { ENDPOINTS, KINU_TOKEN, NATIVE_NEAR } from '../config.js';
+import { CopyButton } from './ui.jsx';
 
 const X_URL = 'https://x.com/KINUonNEAR';
 
@@ -42,6 +43,28 @@ export const LEGAL = [
   { to: '/treasury', label: 'Treasury', icon: 'treasury' }
 ];
 
+/** $KINU in the menus: the contract to copy, a swap link with $KINU picked, and its token page. */
+export const KINU_BUY_PATH = `/swap?from=${NATIVE_NEAR.id}&to=${encodeURIComponent(KINU_TOKEN)}`;
+export function KinuTokenBox({ onNavigate }) {
+  return (
+    <div className="kinu-box">
+      <div className="kinu-box__head">
+        <strong>$KINU</strong>
+        <Link to={`/token/${KINU_TOKEN}`} onClick={onNavigate}>
+          Token page
+        </Link>
+      </div>
+      <div className="kinu-box__ca">
+        <code title={KINU_TOKEN}>{KINU_TOKEN}</code>
+        <CopyButton text={KINU_TOKEN} />
+      </div>
+      <Link className="button button--primary button--sm kinu-box__buy" to={KINU_BUY_PATH} onClick={onNavigate}>
+        Buy $KINU
+      </Link>
+    </div>
+  );
+}
+
 /** @param active  whether the current page lives under More (docs, security, treasury) */
 export default function MoreMenu({ active }) {
   const [open, setOpen] = useState(false);
@@ -72,6 +95,8 @@ export default function MoreMenu({ active }) {
       </button>
       {open && (
         <div className="popover more-menu__panel" role="menu">
+          <KinuTokenBox onNavigate={close} />
+          <hr />
           {GUIDES.map(item)}
           <a className="more-menu__item" href={ENDPOINTS.rheaApp} target="_blank" rel="noopener noreferrer" onClick={close}>
             <Icon name="rhea" />

@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from '../router.jsx';
 import { ENDPOINTS } from '../config.js';
-import { GUIDES, LEGAL } from './MoreMenu.jsx';
+import { GUIDES, KinuTokenBox, LEGAL } from './MoreMenu.jsx';
 
 const ICON = {
   swap: 'M7 4v14M7 4 3.5 7.5M7 4l3.5 3.5M17 20V6M17 20l-3.5-3.5M17 20l3.5-3.5',
@@ -108,6 +108,7 @@ export function MobileMenuButton({ route, pathname }) {
                 </Link>
               ))}
             </div>
+            <KinuTokenBox onNavigate={close} />
             <div className="msheet__list">
               {[...GUIDES, ...LEGAL].map((it) => (
                 <Link key={it.to} to={it.to} onClick={close}>
