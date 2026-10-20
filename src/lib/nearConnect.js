@@ -23,6 +23,16 @@ function setSession(wallet, accounts) {
   listeners.forEach((fn) => fn(session.accountId));
 }
 
+/**
+ * The page's CSP nonce (set per page view by middleware.js). Each wallet runs in a srcdoc iframe
+ * that inherits the page's Content-Security-Policy; its inline scripts run only with this nonce.
+ * Undefined where no middleware ran (the dev server, which sends no CSP).
+ */
+function pageNonce() {
+  const value = document.querySelector('meta[name="csp-nonce"]')?.getAttribute('content') || '';
+  return /^[A-Za-z0-9+/=]{16,}$/.test(value) ? value : undefined;
+}
+
 function getConnector() {
   if (!ready) {
     connector = new NearConnector({
@@ -30,7 +40,8 @@ function getConnector() {
       manifest: WALLET_MANIFEST,
       // The wallets' reads fail over across the same endpoints KINU's wallet calls use.
       providers: { [NETWORK_ID]: ENDPOINTS.walletRpc },
-      autoConnect: true
+      autoConnect: true,
+      cspNonce: pageNonce()
     });
     connector.on('wallet:signIn', ({ wallet, accounts }) => setSession(wallet, accounts));
     connector.on('wallet:signOut', () => setSession(null, []));
