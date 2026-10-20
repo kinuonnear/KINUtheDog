@@ -9,7 +9,7 @@ import { clearViewCache } from './lib/rpc.js';
 import { explainRecentFailure, GENERIC_RECEIPT_FAILURE, landedSince, WALLET_NETWORK_ERROR } from './lib/txErrors.js';
 import { mergeTransactions } from './lib/tx.js';
 import { useLocalStorage } from './hooks.js';
-import { DEFAULT_SLIPPAGE, ENDPOINTS } from './config.js';
+import { DEFAULT_SLIPPAGE, ENDPOINTS, HOLDER } from './config.js';
 import { holderStatus, readQualified, setHolderNow, writeQualified } from './lib/holder.js';
 
 const AppContext = createContext(null);
@@ -157,7 +157,7 @@ export function AppProvider({ children }) {
   }, [accountId, refreshBalances]);
 
   /* ---------------- KINU holder ---------------- */
-  const holder = useMemo(() => (accountId ? holderStatus(balances, prices, readQualified(accountId)) : null), [accountId, balances, prices]);
+  const holder = useMemo(() => (HOLDER.enabled && accountId ? holderStatus(balances, prices, readQualified(accountId)) : null), [accountId, balances, prices]);
   // Meeting the full bar remembers the KINU held then (the grace keeps it through a price drop).
   // Below the grace, or after selling, the memory is cleared.
   useEffect(() => {

@@ -139,8 +139,9 @@ export const INTEAR_FEE = { live: true, bps: 12.5, stableBps: 12.5 };
 // feeShare of KINU's swap fees (0.1% -> 0.05%, Intear routes 0.125% -> 0.0625%) and see the full
 // Pool Analysis. The Wallet Tracker stays free and public for everyone. Once a
 // wallet qualifies, a price drop of up to `grace` keeps it a holder as long as it hasn't sold.
-// `perks` switch the holder benefits on; while they are off, being a holder only shows the badge.
-export const HOLDER = { minUsd: 20, grace: 0.35, feeShare: 0.5, perks: { feeDiscount: false, poolAnalysis: false } };
+// `enabled` turns the whole KINU Holder feature on (badge, Portfolio card); off until the user
+// settles the design. `perks` switch the benefits on; with them off, a holder only gets the badge.
+export const HOLDER = { enabled: false, minUsd: 20, grace: 0.35, feeShare: 0.5, perks: { feeDiscount: false, poolAnalysis: false } };
 
 /** "0.2%" for basis points. */
 export const bpsText = (bps) => `${Number((bps / 100).toFixed(3))}%`;

@@ -13,8 +13,9 @@ import { TokenIcon } from './ui.jsx';
 
 export default function HolderCard({ account, own, kinuRaw, kinuToken, prices }) {
   // The KINU logo also for wallets without KINU (its metadata is usually cached already).
-  const kinuMeta = useAsync(() => getToken(KINU_TOKEN), [], { enabled: !kinuToken && !getCachedToken(KINU_TOKEN) });
+  const kinuMeta = useAsync(() => getToken(KINU_TOKEN), [], { enabled: HOLDER.enabled && !kinuToken && !getCachedToken(KINU_TOKEN) });
   const icon = kinuToken || getCachedToken(KINU_TOKEN) || kinuMeta.data;
+  if (!HOLDER.enabled) return null;
   const status = holderStatus(kinuRaw ? { [KINU_TOKEN]: kinuRaw } : {}, prices, own ? readQualified(account) : 0);
   if (!(status.price > 0)) return null;
   const floor = HOLDER.minUsd * (1 - HOLDER.grace);
