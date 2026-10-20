@@ -15006,9 +15006,10 @@ a.amm-table__row:hover {
 /* Pools list on phones: smaller pair icons leave the pair name more room, and a fee that
    doesn't fit ends in "…" instead of being cut mid-character. */
 @media (max-width: 760px) {
+  /* !important: TokenIcon sets its size inline. */
   .shell .page--pools .dt-pool .pair-icons > * {
-    width: 24px;
-    height: 24px;
+    width: 24px !important;
+    height: 24px !important;
   }
 
   .shell .page--pools .dt-pool .pair-icons > * + * {
@@ -15374,11 +15375,38 @@ a.amm-table__row:hover {
 }
 
 /* Pools table: a pair's line (type · fee · Your LP / Farm / No fee) wraps to a second line
-   instead of cutting the last badge ("YOUR LF"). */
-@media (min-width: 761px) {
+   instead of cutting the last badge ("YOUR LF", "YOU" on phones). */
+.page--pools .dt-pool small {
+  flex-wrap: wrap;
+  row-gap: 3px;
+  overflow: visible;
+}
+
+/* Pools list on phones: type · Your LP · fee on ONE line (the name column is ~95px). Smaller
+   chips, the badge before the fee, and the fee is the part that ends in "…". */
+@media (max-width: 760px) {
   .page--pools .dt-pool small {
-    flex-wrap: wrap;
-    row-gap: 3px;
-    overflow: visible;
+    flex-wrap: nowrap;
+    gap: 4px;
+    overflow: hidden;
+  }
+
+  .page--pools .dt-pool small .kind {
+    flex: none;
+    padding: 1px 5px;
+    font-size: 9px;
+  }
+
+  .page--pools .dt-pool small .dt-fee {
+    order: 3;
+    flex: 0 1 auto;
+  }
+}
+
+/* Phones: with a second badge (Your LP, Farm, No fee) there is no room left for the fee, so it
+   goes rather than showing as a 2px sliver. The fee stays visible on the pool page. */
+@media (max-width: 760px) {
+  .page--pools .dt-pool small:has(.kind ~ .kind) .dt-fee {
+    display: none;
   }
 }
