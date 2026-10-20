@@ -522,9 +522,11 @@ function DclWorkspace({ bar, links, poolId, pool, x, y, reserves, positions, fli
     // (tapping the row itself only selects it and shows its range; the page stays put).
     if (!desktop && scroll) setTimeout(() => document.getElementById('new-position')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
   };
-  const toggleChart = (group) => {
-    if (chartKey === group.key) setChartKey(null);
-    else selectPosition(group, 'add', false);
+  // Tapping the row only selects; the "Show on chart" button also brings the chart into view on narrow screens.
+  const toggleChart = (group, via) => {
+    if (chartKey === group.key) return setChartKey(null);
+    selectPosition(group, 'add', false);
+    if (!desktop && via === 'chart') setTimeout(() => document.getElementById('pool-chart')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
   };
   // "+ New position": back to the Create position form first (a selected position shows its own panel).
   const newPosition = () => {
@@ -604,7 +606,7 @@ function DclWorkspace({ bar, links, poolId, pool, x, y, reserves, positions, fli
             {bar}
           </div>
         )}
-        <div className="split-top" style={chartHeight ? { height: chartHeight } : undefined}>
+        <div className="split-top" id="pool-chart" style={chartHeight ? { height: chartHeight } : undefined}>
         <Suspense fallback={<div className="card chart-card--loading"><Skeleton height={420} radius={16} /></div>}>
           <RangeChart
             poolId={poolId}

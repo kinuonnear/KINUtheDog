@@ -10361,12 +10361,14 @@ a.pair-tiers__row:hover {
 /* Jumping to a liquidity form (Add liquidity button, ?tab=add links) stops below the sticky
    top bar instead of under it. */
 #new-position,
+#pool-chart,
 #pool-liquidity {
   scroll-margin-top: 84px;
 }
 
 @media (max-width: 720px) {
   #new-position,
+  #pool-chart,
   #pool-liquidity {
     scroll-margin-top: 168px;
   }

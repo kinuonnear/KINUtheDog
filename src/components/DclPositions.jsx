@@ -649,7 +649,7 @@ function PositionRow({ poolId, group, x, y, pool, loading, pnl, onDone, onChart,
             <button
               type="button"
               className={`chart-toggle ${onChart ? 'chart-toggle--on' : ''}`}
-              onClick={toggleChart}
+              onClick={() => onToggleChart(group, 'chart')}
               aria-pressed={onChart}
             >
               {onChart ? '◉ Shown on chart' : '◎ Show on chart'}
