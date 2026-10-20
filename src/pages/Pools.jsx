@@ -281,7 +281,7 @@ function DiscoverRow({ rank, pool, tokens, prices, info, stat, estimated, favori
           <strong>{tokens.map((t) => t.symbol).join(' / ')}</strong>
           <small>
             <span className={`kind kind--${pool.label.toLowerCase()}`}>{pool.label}</span>
-            {pool.feePercent > 0 && `Fee ${formatPercent(pool.feePercent, pool.feePercent < 0.1 ? 3 : 2)}`}
+            {pool.feePercent > 0 && <span className="dt-fee">Fee {formatPercent(pool.feePercent, pool.feePercent < 0.1 ? 3 : 2)}</span>}
             {noFee && (
               <span className="kind kind--nofee" title="This pool charges a 0% trading fee: its LPs earn nothing from swaps.">
                 No fee

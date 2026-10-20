@@ -95,11 +95,15 @@ export function EmptyState({ icon = '◇', title, children, action }) {
   );
 }
 
+// The browser's own network errors (Chrome, Safari, Firefox) say nothing to a user.
+const NETWORK_ERROR = /^(Failed to fetch|Load failed|NetworkError when attempting to fetch resource\.?)$/i;
+
 export function ErrorNotice({ error, onRetry }) {
   if (!error) return null;
+  const message = error.message || String(error);
   return (
     <div className="notice notice--error">
-      <span>{error.message || String(error)}</span>
+      <span>{NETWORK_ERROR.test(message) ? 'The service is not answering right now. Check your connection or try again in a minute.' : message}</span>
       {onRetry && (
         <button type="button" className="link-button" onClick={onRetry}>
           Retry

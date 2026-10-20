@@ -14930,3 +14930,136 @@ a.amm-table__row:hover {
     font-size: 14px;
   }
 }
+
+/* ---- Pools table on laptop screens (up to 1600px) ----
+   The 24h move (percentage + Moving/Calm chip, ~125px side by side) spilled left over the price
+   column, the pair's "Stable · Fee 0.050%" line was cut, and "Token age" ran into "Pool". The
+   percentage now sits above its chip, the pair column is wider and token age a little wider. */
+@media (min-width: 1081px) and (max-width: 1600px) {
+  .page--pools .dt-row {
+    grid-template-columns: 40px minmax(210px, 2.6fr) 74px repeat(6, minmax(72px, 1fr)) 92px;
+  }
+
+  .shell--pools .page--pools .disc-swing {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+  }
+
+  .shell--pools .page--pools .disc-swing > :first-child {
+    min-width: 0;
+  }
+
+  /* Column labels fit their columns ("Volume 24H ↕" ran into "TVL"). */
+  .shell--pools .page--pools .dt-row--head,
+  .shell--pools .page--pools .dt-row--head > * {
+    font-size: 10.5px;
+    letter-spacing: 0.03em;
+  }
+}
+
+/* Swap chart toolbar on phones: smaller buttons, and the ⇄ quote switch shares a row with the
+   pool picker instead of sitting alone on its own row. */
+@media (max-width: 760px) {
+  .swap-chart__toolbar {
+    gap: 6px;
+  }
+
+  .swap-chart__toolbar .segmented button {
+    height: 28px;
+    padding: 0 8px;
+  }
+
+  .swap-chart__toolbar .chart-toolbar__spacer {
+    display: none;
+  }
+
+  .swap-chart__toolbar .swap-chart__flip {
+    height: 32px;
+  }
+
+  .swap-chart__toolbar .swap-chart__pool {
+    flex: 1 1 160px;
+    min-width: 0;
+  }
+
+  .swap-chart__toolbar .swap-chart__pool select {
+    width: 100%;
+    max-width: none;
+    height: 32px;
+  }
+}
+
+/* Phones: the floating "+ Add liquidity" button stays out of the way while the "Install KINU"
+   banner is up (both sat at the same spot above the tab bar). */
+@media (max-width: 720px) {
+  body:has(.install-prompt) .mobile-add-cta {
+    display: none;
+  }
+}
+
+/* Security page: contract names never break at their hyphen ("kinu-" / "2.nearlytrade.near"). */
+.sec-warning code {
+  white-space: nowrap;
+}
+
+/* Pools list on phones: smaller pair icons leave the pair name more room, and a fee that
+   doesn't fit ends in "…" instead of being cut mid-character. */
+@media (max-width: 760px) {
+  .shell .page--pools .dt-pool .pair-icons > * {
+    width: 24px;
+    height: 24px;
+  }
+
+  .shell .page--pools .dt-pool .pair-icons > * + * {
+    margin-left: -8px;
+  }
+
+  .page--pools .dt-pool small {
+    min-width: 0;
+  }
+
+  .page--pools .dt-pool .dt-fee {
+    overflow: hidden;
+    min-width: 0;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* ---- Page headers on laptop screens (1081–1500px) ----
+   The 64px titles and the tall Discover banner took half of a 1366 x 657 window before any
+   content. Smaller titles and a shorter banner there; big screens and phones keep theirs. */
+@media (min-width: 1081px) and (max-width: 1500px) {
+  .pt-title,
+  .shell--pools .pt-title {
+    font-size: 48px;
+  }
+
+  .pt-hero {
+    gap: 8px;
+    padding-bottom: 16px;
+  }
+
+  .pt-hero p {
+    font-size: 14px;
+  }
+
+  .disc-banner {
+    min-height: 0;
+    margin-bottom: 14px;
+  }
+
+  .disc-banner__head {
+    padding: 20px 30px;
+  }
+
+  .disc-banner__head h1 {
+    margin: 6px 0 8px;
+    font-size: 42px;
+  }
+
+  .disc-banner__head p {
+    font-size: 14px;
+  }
+}
