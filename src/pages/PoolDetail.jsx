@@ -522,11 +522,14 @@ function DclWorkspace({ bar, links, poolId, pool, x, y, reserves, positions, fli
     // (tapping the row itself only selects it and shows its range; the page stays put).
     if (!desktop && scroll) setTimeout(() => document.getElementById('new-position')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
   };
-  // Tapping the row only selects; the "Show on chart" button also brings the chart into view on narrow screens.
+  // Tapping the row only selects; the "Show on chart" button also brings the chart into view
+  // (on desktop the chart column scrolls on its own, so it goes back to its top).
   const toggleChart = (group, via) => {
     if (chartKey === group.key) return setChartKey(null);
     selectPosition(group, 'add', false);
-    if (!desktop && via === 'chart') setTimeout(() => document.getElementById('pool-chart')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+    if (via !== 'chart') return undefined;
+    if (desktop) mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    else setTimeout(() => document.getElementById('pool-chart')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
   };
   // "+ New position": back to the Create position form first (a selected position shows its own panel).
   const newPosition = () => {
