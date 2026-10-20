@@ -14768,3 +14768,30 @@ a.amm-table__row:hover {
     margin-top: 10px;
   }
 }
+
+/* Swap on desktop: the volume strip and the swap card meet on one line (no gap, no double
+   border), and the pay / receive boxes lose their spare height. */
+@media (min-width: 1081px) {
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .swap-pro__side {
+    gap: 0;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .swap-field {
+    padding: 8px 12px 6px;
+    border-radius: 12px;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .swap-field__row {
+    margin: 4px 0 2px;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .swap-field__top,
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .swap-field__bottom {
+    font-size: 11.5px;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .swap-field__bottom {
+    min-height: 16px;
+    line-height: 16px;
+  }
+}
