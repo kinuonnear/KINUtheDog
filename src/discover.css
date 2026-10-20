@@ -707,3 +707,23 @@
     line-height: 1.45;
   }
 }
+
+/* Pool toolbar: the view (Highest yield / Yield vs. price swings) and the pool type (All pools,
+   CLMM, AMM, Stable / ALMM) share one row; on phones they stack, each the full width. */
+.disc-toolbar__left {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 760px) {
+  .shell .disc-toolbar__left {
+    display: grid;
+    gap: 8px;
+  }
+
+  .shell .disc-toolbar__left > * {
+    width: 100%;
+  }
+}

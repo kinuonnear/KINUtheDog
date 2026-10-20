@@ -327,7 +327,16 @@ const windowLabel = (key) => RADAR_WINDOWS.find((w) => w.key === key)?.label || 
 function PoolToolbar({ sort, sorts, onSort, filters, onFilters }) {
   return (
     <div className="disc-toolbar">
-      <Segmented value={sort} onChange={onSort} options={sorts} />
+      {/* The view (highest yield…) and the pool type side by side on one row. */}
+      <div className="disc-toolbar__left">
+        <Segmented value={sort} onChange={onSort} options={sorts} />
+        <Segmented
+          className="disc-seg--types"
+          value={filters.type}
+          onChange={(type) => onFilters({ ...filters, type })}
+          options={RADAR_TYPES.map((t) => ({ key: t.key, label: t.label }))}
+        />
+      </div>
       <div className="disc-toolbar__right">
         <Segmented
           className="disc-seg--window"
@@ -493,7 +502,6 @@ function Watchlist() {
   return <TokenTable rows={data.data} loading={data.loading} error={data.error} onRetry={data.reload} />;
 }
 
-const POOL_TABS = new Set(['hot', 'lp']);
 const DEFAULT_WINDOW = { hot: 'h1', lp: 'h24' };
 
 export default function Discover({ defaultTab = 'lp' }) {
@@ -552,9 +560,6 @@ export default function Discover({ defaultTab = 'lp' }) {
           value={tab}
           onChange={(key) => navigate(`/discover?tab=${key}`, { replace: true })}
         />
-        {POOL_TABS.has(tab) && (
-          <Segmented className="disc-seg--types" value={type} onChange={setType} options={RADAR_TYPES.map((t) => ({ key: t.key, label: t.label }))} />
-        )}
       </div>
 
       <div className="disc-body">
