@@ -727,3 +727,28 @@
     width: 100%;
   }
 }
+
+/* Desktop: every Discover tab visible. Eleven tabs needed ~1550px, so on a 1366 screen Stocks
+   and Watchlist sat hidden past the right edge (a sideways scroll with no scrollbar). Tighter
+   tabs fit them on one row; narrower windows wrap to a second row instead of hiding any. */
+@media (min-width: 1081px) {
+  .shell .disc-nav .tabs {
+    flex-wrap: wrap;
+    gap: 0;
+    overflow: visible;
+  }
+
+  .shell .disc-nav .tab {
+    padding: 0 7px;
+    font-size: 12.5px;
+  }
+
+  .shell .disc-nav .disc-tab {
+    gap: 4px;
+  }
+
+  .shell .disc-nav .disc-tab__badge {
+    padding: 0 5px;
+    font-size: 9px;
+  }
+}
