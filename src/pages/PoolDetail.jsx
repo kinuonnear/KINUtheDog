@@ -20,7 +20,10 @@ import { useDepositGroups } from '../lib/lpPositions.js';
 import { useDclRange } from '../components/DclCreatePosition.jsx';
 import { fetchTrades, quoteRank } from '../lib/intear.js';
 
-const RangeChart = lazy(() => import('../components/RangeChart.jsx'));
+const loadRangeChart = () => import('../components/RangeChart.jsx');
+const RangeChart = lazy(loadRangeChart);
+// The chart's code downloads alongside the pool's data instead of after it.
+loadRangeChart().catch(() => {});
 const SwapChart = lazy(() => import('../components/swap/SwapChart.jsx'));
 import { formatAmount, formatChartPrice, formatPercent, formatRawAmount, formatUsd, shortAccount, toBigInt, toNumber } from '../lib/format.js';
 import { CONTRACTS, ENDPOINTS, NATIVE_NEAR } from '../config.js';

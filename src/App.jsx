@@ -20,7 +20,15 @@ import './topbar.css';
 // The landing pages (Welcome, Home, Pools) ship in the main bundle; every other page loads its own
 // code when first opened, so a visitor only downloads the pages they use.
 const Swap = lazy(() => import('./pages/Swap.jsx'));
-const PoolDetail = lazy(() => import('./pages/PoolDetail.jsx'));
+const loadPoolDetail = () => import('./pages/PoolDetail.jsx');
+const PoolDetail = lazy(loadPoolDetail);
+// Pools open from most screens: their code is fetched once the browser is idle after the first
+// page, so opening a pool waits for its data only.
+if (typeof window !== 'undefined') {
+  const warm = () => (window.requestIdleCallback || ((fn) => setTimeout(fn, 2000)))(() => loadPoolDetail().catch(() => {}), { timeout: 6000 });
+  if (document.readyState === 'complete') warm();
+  else window.addEventListener('load', warm, { once: true });
+}
 const Portfolio = lazy(() => import('./pages/Portfolio.jsx'));
 const CreatePool = lazy(() => import('./pages/CreatePool.jsx'));
 const StartLp = lazy(() => import('./pages/StartLp.jsx'));
