@@ -762,13 +762,26 @@ export default function Pools() {
 
       <div className="pt-layout">
         <aside className={`pt-side ${filtersOpen ? 'pt-side--open' : ''}`}>
-          <button type="button" className="pt-side__toggle" onClick={() => setFiltersOpen((o) => !o)} aria-expanded={filtersOpen}>
-            <span>⚙ Filters</span>
-            <small>
-              {sideViews.find((v) => v.key === view)?.label} · {windowLabel}
-            </small>
-            <em aria-hidden>{filtersOpen ? '▴' : '▾'}</em>
-          </button>
+          {/* Phones: Filters folds the sidebar; My positions sits beside it, one tap away. */}
+          <div className="pt-side__bar">
+            <button type="button" className="pt-side__toggle" onClick={() => setFiltersOpen((o) => !o)} aria-expanded={filtersOpen}>
+              <span>⚙ Filters</span>
+              <small>
+                {sideViews.find((v) => v.key === view)?.label} · {windowLabel}
+              </small>
+              <em aria-hidden>{filtersOpen ? '▴' : '▾'}</em>
+            </button>
+            <button
+              type="button"
+              className={`pt-mine ${view === 'mine' ? 'pt-mine--on' : ''}`}
+              aria-pressed={view === 'mine'}
+              onClick={() => (view === 'mine' ? setView('all') : pickView('mine'))}
+              title={accountId ? 'Pools where you provide liquidity' : 'Connect your wallet to see your positions'}
+            >
+              ◎ My positions
+              {accountId && mine.data ? <b>{mineIds.length}</b> : null}
+            </button>
+          </div>
           <div className="pt-side__body">
             <SideSection title="VIEW">
               <div className="pt-list" role="radiogroup" aria-label="Pool views">

@@ -570,3 +570,59 @@
     letter-spacing: 0.03em;
   }
 }
+
+/* Phones: "My positions" beside the Filters toggle (desktop has it in the sidebar list). */
+.pt-mine {
+  display: none;
+}
+
+@media (max-width: 1000px) {
+  .shell--pools .pt-side__bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-right: 10px;
+  }
+
+  .shell--pools .pt-side__bar .pt-side__toggle {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .shell--pools .pt-mine {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 6px;
+    height: 34px;
+    padding: 0 12px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .shell--pools .pt-mine b {
+    min-width: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    font-size: 11px;
+    text-align: center;
+  }
+
+  .shell--pools .pt-mine--on {
+    border-color: rgba(95, 227, 161, 0.55);
+    background: rgba(95, 227, 161, 0.12);
+    color: #5fe3a1;
+  }
+
+  .shell--pools .pt-mine--on b {
+    background: #5fe3a1;
+    color: #0b0e14;
+  }
+}
