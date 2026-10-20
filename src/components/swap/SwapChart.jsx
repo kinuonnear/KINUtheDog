@@ -28,8 +28,32 @@ const UP = '#22e283';
 const DOWN = '#ff5d6c';
 const REFRESH_MS = 60_000;
 // Market candles load deeper than pool ones (Intear gives up to 5,000 per request).
-const MARKET_BARS = 3000;
+// Phones load a lighter first page (older candles still page in as the chart is scrolled back).
+const PHONE = typeof window !== 'undefined' && window.matchMedia?.('(max-width: 760px)').matches;
+const MARKET_BARS = PHONE ? 720 : 3000;
 const MARKET = 'market';
+// The last market candles of a few views, shown at once on the next visit while fresh ones load.
+const CACHE_KEY = 'kinu.swapChart.cache';
+const CACHE_VIEWS = 4;
+const CACHE_BARS = 400;
+const CACHE_MAX_AGE_MS = 6 * 3600_000;
+function readCache(view) {
+  try {
+    const hit = JSON.parse(localStorage.getItem(CACHE_KEY) || '[]').find((e) => e.view === view);
+    return hit && Date.now() - hit.at < CACHE_MAX_AGE_MS && hit.candles?.length ? hit : null;
+  } catch {
+    return null;
+  }
+}
+function writeCache(value) {
+  try {
+    const list = JSON.parse(localStorage.getItem(CACHE_KEY) || '[]').filter((e) => e.view !== value.view);
+    list.unshift({ ...value, candles: value.candles.slice(-CACHE_BARS), at: Date.now() });
+    localStorage.setItem(CACHE_KEY, JSON.stringify(list.slice(0, CACHE_VIEWS)));
+  } catch {
+    /* storage full or blocked: no cache */
+  }
+}
 const WNEAR = 'wrap.near';
 // Liquidity levels on the chart: label and colour by kind and side (above / below the price).
 const LEVEL_TITLE = { step: { resistance: 'Sell wall', support: 'Buy wall' }, peak: { resistance: 'Sell wall', support: 'Buy wall' }, thin: { resistance: 'Thin', support: 'Thin' } };
@@ -205,7 +229,9 @@ export default function SwapChart({ token, counter, pools, height, onFlip }) {
         const prev = memo.previous();
         if (!res && prev?.source === 'pool') return prev;
       }
-      return keep(await market());
+      const fresh = keep(await market());
+      if (!pool && fresh.candles?.length) writeCache({ view: viewOf, source: fresh.source, usd: fresh.usd, volumeUsd: fresh.volumeUsd, candles: fresh.candles });
+      return fresh;
     },
     [viewOf],
     { enabled: Boolean(tokenId), refreshMs: REFRESH_MS }
@@ -213,7 +239,9 @@ export default function SwapChart({ token, counter, pools, height, onFlip }) {
   // Never show the previous token's candles while the new ones load. Moving from market to pool
   // candles of the same token keeps the market chart up until the pool's arrive.
   const sameToken = loaded.data?.view?.split('|')[0] === tokenId && loaded.data?.view?.split('|').slice(2).join('|') === `${resolution}|${unit}`;
-  const base = sameToken ? loaded.data : undefined;
+  // Until the first answer for this view, the market candles cached on the last visit (market views only).
+  const cached = useMemo(() => (pool ? null : readCache(viewOf)), [viewOf, pool]);
+  const base = sameToken ? loaded.data : cached || undefined;
 
   // History before the first candle, loaded as the view reaches it.
   const history = useOlderCandles(`${viewOf}|${base?.source}`, async (firstTime) => {
