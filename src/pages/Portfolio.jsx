@@ -459,6 +459,7 @@ export default function Portfolio() {
             readOnly={readOnly}
             history={history}
             onDone={data.reload}
+            rangeBar
           />
         </>
       ) : tab === 'history' ? (

@@ -136,3 +136,50 @@
     font-size: 16px;
   }
 }
+
+/* Liquidity tab on desktop: a compact Total LP PnL + Profit history card (it was ~405px).
+   The eight numbers in four columns, a smaller headline and a 150px chart. */
+@media (min-width: 1081px) {
+  .shell .page--portfolio .pnl-dash {
+    gap: 16px;
+    margin-bottom: 14px;
+    padding: 14px 16px;
+  }
+
+  .shell .page--portfolio .pnl-dash__headline {
+    gap: 2px;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+  }
+
+  .shell .page--portfolio .pnl-dash__headline strong {
+    font-size: 26px;
+  }
+
+  .shell .page--portfolio .pnl-dash__grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px 14px;
+  }
+
+  .shell .page--portfolio .pnl-metric {
+    gap: 2px;
+  }
+
+  .shell .page--portfolio .pnl-metric > span {
+    font-size: 9.5px;
+    letter-spacing: 0.04em;
+  }
+
+  .shell .page--portfolio .pnl-metric strong {
+    font-size: 14px;
+  }
+
+  .shell .page--portfolio .pnl-dash__chart {
+    gap: 6px;
+    padding: 10px 12px;
+  }
+
+  .shell .page--portfolio .profit-chart {
+    height: 150px;
+  }
+}
