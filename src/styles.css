@@ -1521,6 +1521,12 @@ a.pool-row:hover + .pool-row {
   font-size: 13px;
   font-weight: 700;
   transition: transform 0.2s;
+  /* The arrows sit dead centre (padding pushed them right and up in the smaller button). */
+  display: grid;
+  place-items: center;
+  padding: 0;
+  line-height: 1;
+  letter-spacing: -1px;
 }
 
 .swap-flip:hover {
