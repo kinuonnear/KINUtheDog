@@ -98,7 +98,27 @@ const TOP_WINDOWS = new Set(['h6', 'h12', 'h24']); // Top Performers rank by fee
  * The pools where the account provides liquidity (CLMM positions, AMM / stable shares incl. farmed),
  * and for CLMM pools whether its positions earn: { ids, range: { [poolId]: 'in' | 'out' | 'partial' } }.
  */
+// The last answer per account, shown at once on the next visit while a fresh one loads.
+const MINE_CACHE = 'kinu.myPools.';
+function readMyPools(accountId) {
+  try {
+    return accountId ? JSON.parse(localStorage.getItem(MINE_CACHE + accountId) || 'null') : null;
+  } catch {
+    return null;
+  }
+}
+
 async function getMyPools(accountId) {
+  const result = await loadMyPools(accountId);
+  try {
+    localStorage.setItem(MINE_CACHE + accountId, JSON.stringify(result));
+  } catch {
+    /* storage blocked: no cache */
+  }
+  return result;
+}
+
+async function loadMyPools(accountId) {
   const [dcl, classic] = await Promise.all([getDclPositions(accountId), getClassicPositions(accountId).catch(() => [])]);
   const range = {};
   const byPool = new Map();
@@ -494,8 +514,10 @@ export default function Pools() {
   }, [view]);
   // "My positions": pools where the connected wallet has liquidity.
   const mine = useAsync(() => getMyPools(accountId), [accountId], { enabled: Boolean(accountId), refreshMs: 120_000 });
-  const mineIds = mine.data?.ids || [];
-  const mineRange = mine.data?.range || {};
+  const mineCached = useMemo(() => readMyPools(accountId), [accountId]);
+  const mineData = mine.data || mineCached;
+  const mineIds = mineData?.ids || [];
+  const mineRange = mineData?.range || {};
   const mineKey = mineIds.join(',');
   const [category, setCategory] = useState('all');
   const tab = POOL_TYPES.find((t) => t.key === category) || POOL_TYPES[0];
@@ -708,7 +730,7 @@ export default function Pools() {
   };
   const sideViews = [
     ...VIEWS.map((v) => ({ ...v, icon: v.key === 'favorites' ? '☆' : v.key === 'top' ? '↗' : v.key === 'trending' ? '⚡︎' : '◇', count: v.key === 'favorites' ? favorites.length : null })),
-    { key: 'mine', label: 'My positions', icon: '◎', count: accountId && mine.data ? mineIds.length : null }
+    { key: 'mine', label: 'My positions', icon: '◎', count: accountId && mineData ? mineIds.length : null }
   ];
   const pickView = (key) => {
     if (key === 'mine') {
@@ -779,7 +801,7 @@ export default function Pools() {
               title={accountId ? 'Pools where you provide liquidity' : 'Connect your wallet to see your positions'}
             >
               ◎ My positions
-              {accountId && mine.data ? <b>{mineIds.length}</b> : null}
+              {accountId && mineData ? <b>{mineIds.length}</b> : null}
             </button>
           </div>
           <div className="pt-side__body">
@@ -962,7 +984,7 @@ export default function Pools() {
             <div className="pool-table__empty">
               {view === 'favorites' && !favorites.length ? (
                 'No favorites yet — star a pool with ☆ to pin it here.'
-              ) : view === 'mine' && (mine.loading || !mine.data) && accountId ? (
+              ) : view === 'mine' && !mineData && accountId ? (
                 'Loading your positions…'
               ) : view === 'mine' && !q ? (
                 'No liquidity positions yet — pick a pool and add liquidity to see it here.'
