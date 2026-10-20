@@ -74,3 +74,65 @@
     mask-image: radial-gradient(ellipse 50% 40% at 85% 60%, #000 30%, transparent 80%);
   }
 }
+
+/* Net worth card on desktop: compact (it was ~180px with the token / liquidity / deposits
+   numbers floating at the top of empty boxes). Smaller total, numbers centred beside it. */
+@media (min-width: 1081px) {
+  .shell .page--portfolio .net-worth {
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 14px;
+    padding: 14px 20px;
+  }
+
+  .shell .page--portfolio .net-worth__total {
+    gap: 2px;
+  }
+
+  .shell .page--portfolio .net-worth__total strong {
+    font-size: 34px;
+    line-height: 1.15;
+  }
+
+  .shell .page--portfolio .net-worth__stats {
+    align-items: center;
+  }
+
+  .shell .page--portfolio .net-worth__stats .stat {
+    gap: 2px;
+    padding: 4px 18px;
+  }
+
+  .shell .page--portfolio .net-worth__stats .stat__value {
+    font-size: 22px;
+    line-height: 1.25;
+  }
+
+  .shell .page--portfolio .net-worth__stats .stat__hint {
+    font-size: 11px;
+  }
+}
+
+/* Phones: token, liquidity and deposits side by side (deposits sat alone on a third row). */
+@media (max-width: 720px) {
+  .shell .page--portfolio .net-worth__stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .shell .page--portfolio .net-worth__stats .stat {
+    gap: 2px;
+    padding: 8px 6px 0;
+  }
+
+  .shell .page--portfolio .net-worth__stats .stat__label {
+    font-size: 9.5px;
+    letter-spacing: 0.02em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .shell .page--portfolio .net-worth__stats .stat__value {
+    font-size: 16px;
+  }
+}
