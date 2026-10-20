@@ -320,3 +320,41 @@ a.pl-name:hover {
     grid-template-columns: 1fr;
   }
 }
+
+/* Desktop: the DeFi TVL / Stablecoins / DEX volume block was ~706px tall (the TVL chart grew to
+   match two tall cards). Shorter small charts, a smaller readout and tighter gaps bring the
+   whole block to about 470px. */
+@media (min-width: 1081px) {
+  .pl-top,
+  .pl-top__side {
+    gap: 16px;
+  }
+
+  .pl-top .ts-section {
+    gap: 8px;
+    padding-top: 14px;
+    padding-bottom: 14px;
+  }
+
+  .pl-top .pl-chart__readout {
+    margin-bottom: 4px;
+  }
+
+  .pl-top .pl-chart__readout b {
+    font-size: 18px;
+  }
+
+  .pl-top .pl-chart__axis {
+    margin-top: 4px;
+    font-size: 11px;
+  }
+
+  .pl-small .pl-chart svg,
+  .pl-small .pl-chart--empty {
+    height: 100px;
+  }
+
+  .pl-top__main .pl-chart svg {
+    min-height: 200px;
+  }
+}
