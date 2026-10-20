@@ -14269,7 +14269,7 @@ a.amm-table__row:hover {
     padding-top: 12px;
   }
 
-  .shell--swap .swap-pro__grid {
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) {
     grid-template-columns: minmax(0, 1fr) 400px;
     gap: 14px;
   }
@@ -14805,5 +14805,14 @@ a.amm-table__row:hover {
 
   .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .swap-flip {
     top: -12px;
+  }
+}
+
+/* Swap on desktop with chart and history hidden: the swap card alone, centred with room around
+   it (the panel layout above takes the page's padding away; this puts it back). */
+@media (min-width: 1081px) {
+  .shell--swap .swap-pro__grid--solo {
+    margin-left: 0;
+    padding: 20px 16px 32px;
   }
 }
