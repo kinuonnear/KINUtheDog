@@ -135,6 +135,13 @@ export const INTEAR_REFERRER = 'kinu-treasury.near';
 // brings Intear routes back to Swap and turns on its disclosure across the app.
 export const INTEAR_FEE = { live: true, bps: 12.5, stableBps: 12.5 };
 
+// KINU Holder (lib/holder.js): wallets holding at least minUsd of $KINU at the live price pay
+// feeShare of KINU's swap fees (0.1% -> 0.05%, Intear routes 0.125% -> 0.0625%) and see the full
+// Pool Analysis. The Wallet Tracker stays free and public for everyone. Once a
+// wallet qualifies, a price drop of up to `grace` keeps it a holder as long as it hasn't sold.
+// `perks` switch the holder benefits on; while they are off, being a holder only shows the badge.
+export const HOLDER = { minUsd: 20, grace: 0.35, feeShare: 0.5, perks: { feeDiscount: false, poolAnalysis: false } };
+
 /** "0.2%" for basis points. */
 export const bpsText = (bps) => `${Number((bps / 100).toFixed(3))}%`;
 
@@ -144,9 +151,11 @@ export const SWAP_FEE_LIVE = PLATFORM_FEE.enabled || INTEAR_FEE.live;
 const PLATFORM_FEE_LINE = `Swaps include a ${bpsText(PLATFORM_FEE.bps)} KINU platform fee (on Zap In and Rebalance, only on the part that is swapped; none on $KINU swaps or on adding or removing liquidity), shown before you sign and paid to ${PLATFORM_FEE.treasury}.`;
 const INTEAR_FEE_LINE = `Swaps routed through the Intear aggregator include a ${bpsText(INTEAR_FEE.bps)} fee instead${INTEAR_FEE.stableBps !== INTEAR_FEE.bps ? ` (${bpsText(INTEAR_FEE.stableBps)} on stable pairs)` : ''}: 80% to ${INTEAR_REFERRER}, 20% to Intear; shown before you sign.`;
 
+const HOLDER_FEE_LINE = !HOLDER.perks.feeDiscount ? '' : `Wallets holding at least $${HOLDER.minUsd} of $KINU pay ${HOLDER.feeShare * 100}% less: ${bpsText(PLATFORM_FEE.bps * HOLDER.feeShare)}${INTEAR_FEE.live ? ` (${bpsText(INTEAR_FEE.bps * HOLDER.feeShare)} on Intear routes)` : ''}.`;
+
 /** One line describing KINU's fees, for the landing, Security and Docs. */
 export const FEE_SUMMARY = SWAP_FEE_LIVE
-  ? [PLATFORM_FEE.enabled ? PLATFORM_FEE_LINE : 'No fee on Rhea routes.', INTEAR_FEE.live ? INTEAR_FEE_LINE : ''].filter(Boolean).join(' ')
+  ? [PLATFORM_FEE.enabled ? PLATFORM_FEE_LINE : 'No fee on Rhea routes.', INTEAR_FEE.live ? INTEAR_FEE_LINE : '', HOLDER_FEE_LINE].filter(Boolean).join(' ')
   : 'No platform fee today. Any future fee will be shown before you sign.';
 
 // Tokens KINU has checked by hand (official project tokens) and treats as verified, next to

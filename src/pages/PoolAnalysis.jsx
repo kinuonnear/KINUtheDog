@@ -13,6 +13,8 @@ import { ErrorNotice, Skeleton, Tabs, TokenIcon } from '../components/ui.jsx';
 import TokenPicker from '../components/TokenPicker.jsx';
 import { FlowLines } from '../components/FlowLines.jsx';
 import PageIcon from '../components/PageIcon.jsx';
+import HolderLock from '../components/HolderLock.jsx';
+import { HOLDER } from '../config.js';
 import '../pools.css';
 import '../treasury.css';
 import '../pulse.css';
@@ -104,7 +106,9 @@ function Book({ view, price, max }) {
 }
 
 export default function PoolAnalysis() {
-  const { prices } = useApp();
+  const { prices, holder } = useApp();
+  // Key levels and price impact are for KINU Holders; the map, tiles and pools are open to all.
+  const unlocked = !HOLDER.perks.poolAnalysis || Boolean(holder?.isHolder);
   const { search } = useLocation();
   const tokenId = search.get('token') || DEFAULT_TOKEN;
   const [picking, setPicking] = useState(false);
@@ -198,7 +202,9 @@ export default function PoolAnalysis() {
               <h2>Key levels</h2>
             </div>
             <p className="muted small">Where the depth per 1% jumps (walls) or runs out (thin), in the {MAP_VIEWS.find((v) => v.key === viewKey)?.label} view. Numbers: USD per 1% before → after.</p>
-            {!levels ? (
+            {!unlocked ? (
+              <HolderLock what="Key levels" />
+            ) : !levels ? (
               <Skeleton height={120} radius={10} />
             ) : (
               <ul className="pa-levels">
@@ -218,7 +224,9 @@ export default function PoolAnalysis() {
               <h2>Price impact</h2>
             </div>
             <p className="muted small">How far one trade moves the pool price, if no one else trades. Rule of thumb: move ≈ size ÷ USD per 1%.</p>
-            {!wide ? (
+            {!unlocked ? (
+              <HolderLock what="Price impact" />
+            ) : !wide ? (
               <Skeleton height={120} radius={10} />
             ) : (
               <table className="pa-table">
@@ -244,7 +252,7 @@ export default function PoolAnalysis() {
                 </tbody>
               </table>
             )}
-            {wide && (
+            {unlocked && wide && (
               <div className="pa-steps">
                 {STEPS.map((p) => (
                   <span key={p}>

@@ -10,6 +10,7 @@ import { explainRecentFailure, GENERIC_RECEIPT_FAILURE, landedSince, WALLET_NETW
 import { mergeTransactions } from './lib/tx.js';
 import { useLocalStorage } from './hooks.js';
 import { DEFAULT_SLIPPAGE, ENDPOINTS } from './config.js';
+import { holderStatus, readQualified, setHolderNow, writeQualified } from './lib/holder.js';
 
 const AppContext = createContext(null);
 
@@ -155,6 +156,19 @@ export function AppProvider({ children }) {
     return () => clearInterval(timer);
   }, [accountId, refreshBalances]);
 
+  /* ---------------- KINU holder ---------------- */
+  const holder = useMemo(() => (accountId ? holderStatus(balances, prices, readQualified(accountId)) : null), [accountId, balances, prices]);
+  // Meeting the full bar remembers the KINU held then (the grace keeps it through a price drop).
+  // Below the grace, or after selling, the memory is cleared.
+  useEffect(() => {
+    // Only on a loaded balance (nearBalance is set by a successful read): a failed read is not "sold".
+    if (!accountId || !holder?.price || balancesLoading || !nearBalance) return;
+    if (holder.full) writeQualified(accountId, holder.amount);
+    else if (!holder.grace && readQualified(accountId)) writeQualified(accountId, 0);
+  }, [accountId, holder, balancesLoading, nearBalance]);
+  // Set during render, so quotes made right after see the same status as the page.
+  setHolderNow(holder?.isHolder);
+
   /* ---------------- transactions ---------------- */
   /**
    * After a wallet reported "closed", "cancelled" or a network error: see on-chain whether it still
@@ -283,6 +297,7 @@ export function AppProvider({ children }) {
       disconnect,
       prices,
       balances,
+      holder,
       nearBalance,
       balancesLoading,
       refreshBalances,
@@ -303,6 +318,7 @@ export function AppProvider({ children }) {
       disconnect,
       prices,
       balances,
+      holder,
       nearBalance,
       balancesLoading,
       refreshBalances,

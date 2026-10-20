@@ -29,7 +29,7 @@ import {
   toNumber,
   tryParseUnits
 } from '../lib/format.js';
-import { bpsText, CONTRACTS, DEPOSIT, INTEAR_FEE, INTEAR_REFERRER, KINU_VERIFIED_TOKENS, NATIVE_NEAR, NEAR_GAS_RESERVE, PINNED_TOKENS } from '../config.js';
+import { bpsText, CONTRACTS, DEPOSIT, HOLDER, INTEAR_FEE, KINU_TOKEN, INTEAR_REFERRER, KINU_VERIFIED_TOKENS, NATIVE_NEAR, NEAR_GAS_RESERVE, PINNED_TOKENS } from '../config.js';
 import { SlippagePicker } from '../components/Slippage.jsx';
 import { autoSlippageFor } from '../lib/autoSlippage.js';
 import { watchQuote } from '../lib/liveQuotes.js';
@@ -257,7 +257,7 @@ function TokenField({ label, token, amount, onAmount, onPickToken, balance, usd,
 }
 
 export default function Swap() {
-  const { accountId, connect, balances, prices, slippage: savedSlippage, setSlippage, autoSlippage, setAutoSlippage, execute, refreshTokenBalances } = useApp();
+  const { accountId, connect, balances, prices, holder, slippage: savedSlippage, setSlippage, autoSlippage, setAutoSlippage, execute, refreshTokenBalances } = useApp();
   const { search } = useLocation();
 
   const [tokenIn, setTokenIn] = useState(NATIVE_NEAR);
@@ -444,7 +444,9 @@ export default function Swap() {
         if (id === quoteRun.current) setQuoting(false);
       }
     },
-    [amountRaw, tokenIn, tokenOut, slippage, accountId, wrapMode]
+    // The holder discount changes KINU's fee: re-quote when the status flips.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [amountRaw, tokenIn, tokenOut, slippage, accountId, wrapMode, holder?.isHolder]
   );
 
   useEffect(() => {
@@ -912,7 +914,20 @@ export default function Swap() {
                       <dt>KINU fee</dt>
                       <dd title={`On Intear routes: 80% to ${INTEAR_REFERRER}, 20% to Intear${INTEAR_FEE.stableBps !== INTEAR_FEE.bps ? `; ${bpsText(INTEAR_FEE.stableBps)} when both tokens are stable` : ''}. Already included in You receive.`}>
                         {bpsText(quote.intear.feeBps)}{' '}
-                        <small className="muted">· included</small>
+                        <small className="muted">· included{holder?.isHolder && HOLDER.perks.feeDiscount ? ' · holder rate' : ''}</small>
+                      </dd>
+                    </div>
+                  )}
+                  {HOLDER.perks.feeDiscount && accountId && !holder?.isHolder && (quote.platformFee || quote.intear?.feeBps > 0) && (
+                    <div>
+                      <dt>Holder discount</dt>
+                      <dd>
+                        <small className="muted">
+                          Hold ${HOLDER.minUsd}+ of $KINU to pay half ·{' '}
+                          <button type="button" className="link-button" onClick={() => getToken(KINU_TOKEN).then((t) => t && selectToken('out', t))}>
+                            Get KINU
+                          </button>
+                        </small>
                       </dd>
                     </div>
                   )}
@@ -931,7 +946,12 @@ export default function Swap() {
                           {quote.source === quote.bestSource ? <em className="badge badge--best">Best</em> : <em className="badge badge--gap">Not best</em>}
                           {quote.compared.length > 1 && <span aria-hidden>▾</span>}
                         </button>
-                        {quote.platformFee && <small className="route-fee">{feeLabel(quote.platformFee)}</small>}
+                        {quote.platformFee && (
+                          <small className="route-fee">
+                            {feeLabel(quote.platformFee)}
+                            {holder?.isHolder && HOLDER.perks.feeDiscount ? ' · holder rate' : ''}
+                          </small>
+                        )}
                       </dd>
                     </div>
                   )}

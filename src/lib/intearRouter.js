@@ -8,6 +8,7 @@
 // that the output goes back to the trader), and lib/txGuard.js checks them again before the wallet.
 
 import { CONTRACTS, ENDPOINTS, INTEAR_FEE, INTEAR_REFERRER } from '../config.js';
+import { feeAfterDiscount } from './holder.js';
 import { toBigInt } from './format.js';
 import { functionCall, transaction } from './tx.js';
 import { afterTax, swapTax } from './tokenTax.js';
@@ -49,7 +50,7 @@ const FEE_STABLE_IDS = new Set([
 /** KINU's fee on an Intear route for this pair, in basis points (0 while switched off). */
 export function intearFeeBps(tokenIn, tokenOut) {
   if (!INTEAR_FEE.live) return 0;
-  return FEE_STABLE_IDS.has(tokenIn?.id) && FEE_STABLE_IDS.has(tokenOut?.id) ? INTEAR_FEE.stableBps : INTEAR_FEE.bps;
+  return feeAfterDiscount(FEE_STABLE_IDS.has(tokenIn?.id) && FEE_STABLE_IDS.has(tokenOut?.id) ? INTEAR_FEE.stableBps : INTEAR_FEE.bps);
 }
 
 const contractOf = (token) => token.contract || token.id;

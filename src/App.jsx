@@ -2,7 +2,7 @@ import { Fragment, lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useApp } from './state.jsx';
 import { useClickOutside } from './hooks.js';
 import { Link, matchRoute, useLocation } from './router.jsx';
-import { formatAmount, shortAccount, toNumber } from './lib/format.js';
+import { formatAmount, formatUsd, shortAccount, toNumber } from './lib/format.js';
 import { ENDPOINTS } from './config.js';
 import { EmptyState, Spinner, Toasts } from './components/ui.jsx';
 import GlobalSearch from './components/GlobalSearch.jsx';
@@ -91,7 +91,7 @@ const TITLES = {
 };
 
 function AccountMenu() {
-  const { accountId, walletReady, connect, disconnect, nearBalance } = useApp();
+  const { accountId, walletReady, connect, disconnect, nearBalance, holder } = useApp();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   useClickOutside(ref, () => setOpen(false), open);
@@ -112,6 +112,11 @@ function AccountMenu() {
           {nearBalance ? `${formatAmount(toNumber(nearBalance.available, 24))} NEAR` : '…'}
         </span>
         <span className="account-button__id">{shortAccount(accountId)}</span>
+        {holder?.isHolder && (
+          <span className="holder-badge" title={`KINU Holder: ${formatUsd(holder.usd)} of $KINU`}>
+            ★
+          </span>
+        )}
       </button>
       {open && (
         <div className="popover popover--right">

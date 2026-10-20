@@ -6,6 +6,7 @@
 
 import { CONTRACTS, KINU_TOKEN, PLATFORM_FEE } from '../config.js';
 import { toBigInt } from './format.js';
+import { feeAfterDiscount } from './holder.js';
 import { functionCall, isStorageRegistered, transaction } from './tx.js';
 
 const FT_TRANSFER_GAS = '10000000000000'; // 10 TGas
@@ -26,8 +27,8 @@ function treasuryRegistered(token) {
   return registered.get(token);
 }
 
-/** Fee amount (raw) taken from `gross`. */
-export const feeOf = (gross) => (toBigInt(gross) * BigInt(PLATFORM_FEE.bps)) / 10_000n;
+/** Fee amount (raw) taken from `gross` at `bps` (fractional bps allowed: KINU holders pay half). */
+export const feeOf = (gross, bps = PLATFORM_FEE.bps) => (toBigInt(gross) * BigInt(Math.round(bps * 100))) / 1_000_000n;
 
 /**
  * The platform fee for swapping `amountIn` (raw, gross) of tokenIn -> tokenOut, or null when
@@ -38,9 +39,10 @@ export async function platformFeeFor({ tokenIn, tokenOut, amountIn }) {
   if (!PLATFORM_FEE.enabled || !PLATFORM_FEE.treasury || !(PLATFORM_FEE.bps > 0)) return null;
   if ([tokenIn, tokenOut].some((t) => contractOf(t) === KINU_TOKEN)) return null;
   const token = contractOf(tokenIn);
-  const amount = feeOf(amountIn);
+  const bps = feeAfterDiscount(PLATFORM_FEE.bps);
+  const amount = feeOf(amountIn, bps);
   if (amount <= 0n || !(await treasuryRegistered(token))) return null;
-  return { token, amount: amount.toString(), net: (toBigInt(amountIn) - amount).toString(), bps: PLATFORM_FEE.bps };
+  return { token, amount: amount.toString(), net: (toBigInt(amountIn) - amount).toString(), bps };
 }
 
 /**

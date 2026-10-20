@@ -7,7 +7,8 @@ import { getAggregatorBalances, getClassicPositions, getDclPositions, getDeposit
 import { buildAggregatorWithdrawTransactions, buildClaimLostFoundTransactions, buildWithdrawDepositsTransactions } from '../lib/liquidity.js';
 import { buildDclWithdrawTransactions, getDclAssets } from '../lib/dclLiquidity.js';
 import { formatAmount, formatPrice, formatUsd, shortAccount, toNumber } from '../lib/format.js';
-import { CONTRACTS, ENDPOINTS, NATIVE_NEAR } from '../config.js';
+import { CONTRACTS, ENDPOINTS, KINU_TOKEN, NATIVE_NEAR } from '../config.js';
+import HolderCard from '../components/HolderCard.jsx';
 import LiquidityTable from '../components/LiquidityTable.jsx';
 import { ClosedPositions, PnlDashboard, PnlValue, useLpHistory } from '../components/LpPnl.jsx';
 import { AvgCell, rowPnl, SoldTokens, SwapHistory, TokenPnlSummary, useTokenPnl } from '../components/TokenPnl.jsx';
@@ -327,6 +328,16 @@ export default function Portfolio() {
           <Stat label="Rhea deposits" value={model ? formatUsd(model.depositUsd) : null} loading={!model} />
         </div>
       </section>
+
+      {model && (
+        <HolderCard
+          account={viewed}
+          own={ownPortfolio}
+          kinuRaw={model.walletRows.find((r) => r.id === KINU_TOKEN)?.raw}
+          kinuToken={model.walletRows.find((r) => r.id === KINU_TOKEN)?.token}
+          prices={prices}
+        />
+      )}
 
       <StakingSummary account={viewed} readOnly={readOnly} />
       <EarnSummary account={viewed} readOnly={readOnly} />
