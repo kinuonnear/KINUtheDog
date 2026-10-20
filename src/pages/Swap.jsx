@@ -298,14 +298,46 @@ export default function Swap() {
     refreshMs: 120_000
   });
   const pools = poolsQuery.data ?? (poolsQuery.error ? [] : undefined);
-  const [chartHeight, setChartHeight] = useLocalStorage('kinu.swap.chartH', CHART_H.default);
+  // null = not resized by hand: on desktop the chart then fills the screen under the token
+  // header (the trades start below the fold); phones keep the fixed default.
+  const [chartHeight, setChartHeight] = useLocalStorage('kinu.swap.chartH2', null);
   const clampChart = (h) => Math.round(Math.min(CHART_H.max, Math.max(CHART_H.min, h)));
+  const mainRef = useRef(null);
+  const [fitHeight, setFitHeight] = useState(CHART_H.default);
+  useEffect(() => {
+    const main = mainRef.current;
+    if (!main || typeof ResizeObserver === 'undefined') return undefined;
+    // The left column scrolls on its own (styles.css): the chart and its range bar end at its bottom.
+    const fit = () => {
+      const body = main.querySelector('.swap-chart .pro-chart__body');
+      if (!body || !window.matchMedia('(min-width: 1081px)').matches) return setFitHeight(CHART_H.default);
+      const top = body.getBoundingClientRect().top + main.scrollTop;
+      const below = body.nextElementSibling?.offsetHeight || 0;
+      setFitHeight(clampChart(main.getBoundingClientRect().bottom - top - below - 6));
+    };
+    // Re-fit when the window, the token header or the toolbar change size, and when the
+    // lazy-loaded chart replaces its placeholder.
+    const ro = new ResizeObserver(fit);
+    const watch = () => {
+      ro.disconnect();
+      ro.observe(main);
+      for (const child of main.children) if (!child.classList.contains('activity')) ro.observe(child);
+    };
+    const mo = new MutationObserver(watch);
+    mo.observe(main, { childList: true });
+    watch();
+    return () => {
+      ro.disconnect();
+      mo.disconnect();
+    };
+  }, []);
+  const chartH = chartHeight ?? fitHeight;
   const startChartResize = (event) => {
     event.preventDefault();
     const handle = event.currentTarget;
     handle.setPointerCapture(event.pointerId);
     const startY = event.clientY;
-    const startH = chartHeight;
+    const startH = chartH;
     const move = (e) => setChartHeight(clampChart(startH + e.clientY - startY));
     const up = (e) => {
       handle.releasePointerCapture(e.pointerId);
@@ -316,8 +348,8 @@ export default function Swap() {
     handle.addEventListener('pointerup', up);
   };
   const nudgeChart = (e) => {
-    if (e.key === 'ArrowUp') setChartHeight((h) => clampChart(h - 30));
-    if (e.key === 'ArrowDown') setChartHeight((h) => clampChart(h + 30));
+    if (e.key === 'ArrowUp') setChartHeight((h) => clampChart((h ?? fitHeight) - 30));
+    if (e.key === 'ArrowDown') setChartHeight((h) => clampChart((h ?? fitHeight) + 30));
   };
 
   // Initial tokens from the URL (?from=…&to=…), e.g. links from pool pages; ?amount= from the
@@ -658,12 +690,12 @@ export default function Swap() {
       {/* Chart hidden: the token header goes with it. Nothing left on the left (no history
           either): the swap card moves to the centre. */}
       <div className={`swap-pro__grid ${!showChart && !showHistory ? 'swap-pro__grid--solo' : ''}`}>
-        <div className="swap-pro__main">
+        <div className="swap-pro__main" ref={mainRef}>
           {showChart && <TokenHeader token={chartToken} />}
           {showChart && (
             <>
               <Suspense fallback={<div className="card chart-card chart-card--loading"><Spinner size={22} /></div>}>
-                <SwapChart token={chartToken} counter={counterToken} pools={pools} height={chartHeight} onFlip={() => setInvert((v) => !v)} />
+                <SwapChart token={chartToken} counter={counterToken} pools={pools} height={chartH} onFlip={() => setInvert((v) => !v)} />
               </Suspense>
               <div
                 className="splitter swap-pro__splitter"
@@ -673,7 +705,7 @@ export default function Swap() {
                 tabIndex={0}
                 title="Drag to resize · double-click to reset"
                 onPointerDown={startChartResize}
-                onDoubleClick={() => setChartHeight(CHART_H.default)}
+                onDoubleClick={() => setChartHeight(null)}
                 onKeyDown={nudgeChart}
               >
                 <span />

@@ -14407,3 +14407,83 @@ a.amm-table__row:hover {
     max-width: 170px;
   }
 }
+
+/* ---- Swap page on desktop, Jupiter-style panels ----
+   Edge to edge, no gaps or rounded cards: token header, chart and trades on the left, the
+   5M-24H strip and the swap form in a fixed column on the right, everything split by thin lines.
+   The chart fills the screen under the header (Swap.jsx). Chart and swap card both hidden
+   (--solo) keeps the centred card; phones are unchanged. */
+@media (min-width: 1081px) {
+  .shell--swap .main--full {
+    padding: 0;
+  }
+
+  .shell--swap .main--full .page--swap {
+    padding: 0;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) {
+    grid-template-columns: minmax(0, 1fr) 420px;
+    gap: 0;
+    align-items: stretch;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .swap-pro__main {
+    border-right: 1px solid var(--border);
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .card {
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .swap-pro__main > .token-head {
+    margin-bottom: 0;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .swap-chart {
+    padding: 6px 14px 4px;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .swap-chart__toolbar {
+    margin: 0 -14px 6px;
+    padding: 0 14px 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .swap-pro__splitter {
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    background: none;
+  }
+
+  /* Both columns fill the window under the top bar and scroll on their own (see above). */
+  .shell--swap .swap-pro {
+    padding-bottom: 0;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) {
+    height: calc(100vh - 68px);
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .swap-pro__side .token-flow {
+    padding: 10px 14px;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .swap-pro__side .swap-card {
+    padding: 14px 16px 16px;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .swap-pro__side .fine-print {
+    margin: 12px 16px 16px;
+  }
+}
+
+@media (min-width: 1081px) and (max-width: 1500px) {
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) {
+    grid-template-columns: minmax(0, 1fr) 380px;
+  }
+}
