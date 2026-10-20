@@ -14816,3 +14816,29 @@ a.amm-table__row:hover {
     padding: 20px 16px 32px;
   }
 }
+
+/* Swap on desktop, chart and history hidden: title and subtitle on their own lines (the
+   subtitle was squeezed into a narrow column beside the buttons), buttons under them, and the
+   same gap between the pay and receive boxes as the normal layout. */
+@media (min-width: 1081px) {
+  .shell--swap .swap-pro__grid--solo .swap-card__head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .shell--swap .swap-pro__grid--solo .swap-card__head h2 + .small {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .shell--swap .swap-pro__grid--solo .swap-flip-wrap + .swap-field {
+    margin-top: 8px;
+  }
+
+  .shell--swap .swap-pro__grid--solo .swap-flip {
+    top: -15px;
+  }
+}
