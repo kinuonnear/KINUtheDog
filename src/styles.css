@@ -15135,3 +15135,70 @@ a.amm-table__row:hover {
   flex-direction: row;
   gap: 0;
 }
+
+/* ---- CLMM pool page header on desktop: compact ----
+   Pair name on one line, then type / fee and Pool ID / DexScreener on a second (they were three
+   lines, 90px). Smaller stats so more of them fit before the fade; a slimmer token strip above
+   the chart. */
+@media (min-width: 1081px) {
+  .pool-grid__bar .pool-bar {
+    gap: 14px;
+    padding: 7px 12px;
+  }
+
+  .pool-grid__bar .pool-bar__back {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    font-size: 17px;
+  }
+
+  .pool-grid__bar .pool-bar__pair {
+    gap: 8px;
+    padding-right: 14px;
+  }
+
+  .pool-grid__bar .pool-bar__pair .pair-icons > * {
+    width: 26px;
+    height: 26px;
+  }
+
+  .pool-grid__bar .pool-bar__pair > div {
+    gap: 1px;
+    line-height: 1.25;
+  }
+
+  .pool-grid__bar .pool-bar__pair strong {
+    font-size: 15px;
+  }
+
+  .pool-grid__bar .pool-bar__pair small,
+  .pool-grid__bar .pool-bar__refs {
+    margin-top: 0;
+    font-size: 11.5px;
+  }
+
+  .pool-grid__bar .pool-bar__stats {
+    gap: 14px;
+  }
+
+  .pool-grid__bar .pool-bar__stats span,
+  .pool-grid__bar .pool-bar__price span {
+    font-size: 10.5px;
+  }
+
+  .pool-grid__bar .pool-bar__stats strong,
+  .pool-grid__bar .pool-bar__price strong {
+    font-size: 14px;
+  }
+
+  .pool-grid__bar {
+    margin-bottom: 8px;
+  }
+
+  .pro-chart__info {
+    padding-top: 6px;
+    padding-bottom: 6px;
+    font-size: 12px;
+  }
+}
