@@ -15105,3 +15105,26 @@ a.amm-table__row:hover {
     padding-top: 6px;
   }
 }
+
+/* Smart LP filters: one slim bar (checks, Active / win rate / PnL / fees, wallet look-up). */
+.slp-filters {
+  padding: 10px 14px;
+}
+
+.slp-filters__foot {
+  gap: 10px 14px;
+}
+
+.slp-filters__foot .slp-inline {
+  margin-left: 0;
+}
+
+.slp-filters__foot .slp-lookup input {
+  width: 210px;
+  height: 30px;
+}
+
+.slp-filters__foot .slp-lookup .button,
+.slp-filters__foot > .button {
+  height: 30px;
+}

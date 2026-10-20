@@ -8,7 +8,7 @@ import { useLpWatchlist } from '../lib/watchlist.js';
 import { ACTIVE_WINDOWS, BOARD_URL, DEFAULT_FILTERS, FEE_CHECK_MIN, filterBoard, isNearAccount, lpBadges, SORTS, sortBoard } from '../lib/smartLp.js';
 import { formatAge as since, formatUsd, shortAccount } from '../lib/format.js';
 import { formatAge as duration } from '../lib/lpHistory.js';
-import { AmountInput, EmptyState, ErrorNotice, Skeleton } from './ui.jsx';
+import { EmptyState, ErrorNotice, Skeleton } from './ui.jsx';
 
 export const loadBoard = async () => {
   const response = await fetch(BOARD_URL, { cache: 'no-cache' });
@@ -223,18 +223,6 @@ function WalletTable({ wallets }) {
 // wheel never changes them while the page scrolls.
 const decimalOnly = (v) => v.replace(',', '.').replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1');
 
-function NumberFilter({ label, value, onChange, hint, placeholder = '' }) {
-  return (
-    <label className="slp-filter">
-      <span title={hint}>
-        {label}
-        {hint && <i aria-hidden> ⓘ</i>}
-      </span>
-      <AmountInput value={value} placeholder={placeholder} onChange={(v) => onChange(decimalOnly(v))} />
-    </label>
-  );
-}
-
 function LookUp() {
   const [value, setValue] = useState('');
   const [bad, setBad] = useState(false);
@@ -278,7 +266,6 @@ export default function SmartLpBoard() {
   const [filters, setFilters] = useLocalStorage('kinu.smartlp.filters', DEFAULT_FILTERS);
   const [sort, setSort] = useLocalStorage('kinu.smartlp.sort', { key: 'totalPnl', desc: true });
   const [view, setView] = useLocalStorage('kinu.smartlp.view', 'card');
-  const [more, setMore] = useState(false);
   const f = { ...DEFAULT_FILTERS, ...filters };
   const set = (patch) => setFilters({ ...f, ...patch });
 
@@ -292,23 +279,39 @@ export default function SmartLpBoard() {
 
   return (
     <div className="slp">
+      {/* One compact bar: checks, every number filter inline, wallet look-up; sorting below. */}
       <section className="card slp-filters" aria-label="Smart LP filters">
-        {more && (
-          <div className="slp-filters__row">
-            <NumberFilter label="Min total PnL ($)" value={f.minPnl} onChange={(v) => set({ minPnl: v })} placeholder="any" />
-            <NumberFilter label="Min fees earned ($)" value={f.minFees} onChange={(v) => set({ minFees: v })} placeholder="any" />
-          </div>
-        )}
         <div className="slp-filters__foot">
-          <button type="button" className="link-button" onClick={() => setMore((m) => !m)} aria-expanded={more}>
-            {more ? '▴ Fewer filters' : '▾ More filters'}
-          </button>
           <label className="slp-check" title={`Hides wallets whose profit is under ${FEE_CHECK_MIN}% LP fees — it came from the token's price, often a token they launched`}>
             <input type="checkbox" checked={f.feeChecked} onChange={(e) => set({ feeChecked: e.target.checked })} /> Fee-checked
           </label>
           <label className="slp-check">
             <input type="checkbox" checked={f.watchOnly} onChange={(e) => set({ watchOnly: e.target.checked })} /> ★ My watchlist ({watched.length})
           </label>
+          <span className="slp-inline">
+            <label>
+              <span>Active</span>
+              <select value={f.active} onChange={(e) => set({ active: e.target.value })}>
+                {ACTIVE_WINDOWS.map((w) => (
+                  <option key={w.key} value={w.key}>
+                    {w.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label title="Share of closed positions that made money">
+              <span>Min win rate %</span>
+              <input type="text" inputMode="decimal" value={f.minWinRate} onChange={(e) => set({ minWinRate: decimalOnly(e.target.value) })} />
+            </label>
+            <label>
+              <span>Min PnL $</span>
+              <input type="text" inputMode="decimal" placeholder="any" value={f.minPnl} onChange={(e) => set({ minPnl: decimalOnly(e.target.value) })} />
+            </label>
+            <label>
+              <span>Min fees $</span>
+              <input type="text" inputMode="decimal" placeholder="any" value={f.minFees} onChange={(e) => set({ minFees: decimalOnly(e.target.value) })} />
+            </label>
+          </span>
           <LookUp />
           <button type="button" className="button button--ghost button--sm" onClick={() => setFilters(DEFAULT_FILTERS)}>
             Clear
@@ -335,22 +338,6 @@ export default function SmartLpBoard() {
             );
           })}
         </div>
-        <span className="slp-inline">
-            <label>
-              <span>Active</span>
-              <select value={f.active} onChange={(e) => set({ active: e.target.value })}>
-                {ACTIVE_WINDOWS.map((w) => (
-                  <option key={w.key} value={w.key}>
-                    {w.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label title="Share of closed positions that made money">
-              <span>Min win rate %</span>
-              <input type="text" inputMode="decimal" value={f.minWinRate} onChange={(e) => set({ minWinRate: decimalOnly(e.target.value) })} />
-            </label>
-          </span>
         <div className="segmented disc-seg">
           {[
             ['card', '▦ Card'],
