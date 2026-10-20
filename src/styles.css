@@ -15410,3 +15410,48 @@ a.amm-table__row:hover {
     display: none;
   }
 }
+
+/* Pool page, your positions on phones: no empty half beside the range.
+   Row 1: range | Your liquidity · Row 2: Claimable fees | PnL · Row 3: actions on one line. */
+@media (max-width: 760px) {
+  .lp-board__row:not(.lp-board__row--head) {
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    align-items: start;
+    gap: 12px 12px;
+  }
+
+  .lp-board__row .lp-board__range {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .lp-board__row .lp-board__range strong {
+    font-size: 13px;
+    overflow-wrap: anywhere;
+  }
+
+  .lp-board__row .lp-board__cell[data-label='Your liquidity'] {
+    grid-column: 2;
+    grid-row: 1;
+    padding-top: 22px;
+  }
+
+  .lp-board__row .lp-board__cell[data-label='Claimable fees'] {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .lp-board__row .lp-board__cell[data-label='PnL'] {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .lp-board__row .lp-board__actions--stack {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+  }
+}
