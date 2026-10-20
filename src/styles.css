@@ -14937,7 +14937,7 @@ a.amm-table__row:hover {
    percentage now sits above its chip, the pair column is wider and token age a little wider. */
 @media (min-width: 1081px) and (max-width: 1600px) {
   .page--pools .dt-row {
-    grid-template-columns: 40px minmax(210px, 2.6fr) 74px repeat(6, minmax(72px, 1fr)) 92px;
+    grid-template-columns: 40px minmax(210px, 2.4fr) 74px minmax(104px, 1.2fr) repeat(5, minmax(72px, 1fr)) 92px;
   }
 
   .shell--pools .page--pools .disc-swing {
@@ -15312,7 +15312,7 @@ a.amm-table__row:hover {
 /* Pools table on wide screens too: "Token age ↕" fits its column (it ran into "Pool"). */
 @media (min-width: 1601px) {
   .page--pools .dt-row {
-    grid-template-columns: 40px minmax(180px, 2fr) 88px repeat(6, minmax(76px, 1fr)) 92px;
+    grid-template-columns: 40px minmax(180px, 2fr) 88px minmax(110px, 1.2fr) repeat(5, minmax(76px, 1fr)) 92px;
   }
 }
 
@@ -15370,5 +15370,15 @@ a.amm-table__row:hover {
   .shell--swap .swap-pro__side .token-flow:has(:focus-visible) dl {
     padding-top: 0;
     border-top: 0;
+  }
+}
+
+/* Pools table: a pair's line (type · fee · Your LP / Farm / No fee) wraps to a second line
+   instead of cutting the last badge ("YOUR LF"). */
+@media (min-width: 761px) {
+  .page--pools .dt-pool small {
+    flex-wrap: wrap;
+    row-gap: 3px;
+    overflow: visible;
   }
 }
