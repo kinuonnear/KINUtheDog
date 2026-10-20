@@ -673,3 +673,37 @@
   border-color: #22e283;
   background: rgba(34, 226, 131, 0.12);
 }
+
+/* Desktop: the header as a slim strip (it was ~220px for a title and two lines). No eyebrow,
+   a smaller title, one line of description; the page starts closer to the top bar. */
+@media (min-width: 1081px) {
+  .shell .disc-page {
+    padding-top: 16px;
+  }
+
+  .shell .disc-banner {
+    min-height: 0;
+    margin-bottom: 12px;
+    border-radius: 16px;
+  }
+
+  .shell .disc-banner__head {
+    max-width: none;
+    padding: 14px 24px;
+  }
+
+  .shell .disc-banner__head .eyebrow {
+    display: none;
+  }
+
+  .shell .disc-banner__head h1 {
+    margin: 0 0 4px;
+    font-size: 30px;
+  }
+
+  .shell .disc-banner__head p {
+    max-width: none;
+    font-size: 13.5px;
+    line-height: 1.45;
+  }
+}
