@@ -41,8 +41,9 @@ const QUOTE_REFRESH_MS = 20_000;
 const QUOTE_MAX_AGE_MS = 15_000;
 // Live quotes re-quote at most this often, however fast the pools move.
 const LIVE_MIN_GAP_MS = 5_000;
-// Chart height on the swap page, set with the divider under it (px).
-const CHART_H = { min: 260, max: 820, default: 460 };
+// Chart height on the swap page, set with the divider under it (px): from a thin strip (the
+// trades take the column) to taller than the screen.
+const CHART_H = { min: 60, max: 2400, default: 460 };
 
 /**
  * Tokens the swap router (aggregatedex.near) is holding for the account: a swap whose final
