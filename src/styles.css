@@ -15128,3 +15128,10 @@ a.amm-table__row:hover {
 .slp-filters__foot > .button {
   height: 30px;
 }
+
+/* Liquidity tables: the pair icons side by side. ".lp-row__pool > span" (the name / fee column)
+   also caught the icons' span and stacked them one under the other. */
+.lp-row__pool > .pair-icons {
+  flex-direction: row;
+  gap: 0;
+}

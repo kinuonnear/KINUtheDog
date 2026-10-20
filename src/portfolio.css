@@ -189,18 +189,18 @@
 @media (min-width: 1081px) {
   .shell .page--portfolio .lp-table .lp-row {
     grid-template-columns:
-      minmax(190px, 1.4fr) 72px minmax(200px, 1.7fr) minmax(72px, 0.7fr) minmax(104px, 1fr)
-      minmax(96px, 0.9fr) minmax(76px, 0.75fr) 64px minmax(252px, 1.7fr);
+      minmax(200px, 1.5fr) 72px minmax(160px, 1.2fr) minmax(72px, 0.7fr) minmax(104px, 1fr)
+      minmax(96px, 0.9fr) minmax(76px, 0.75fr) 64px minmax(276px, 1.8fr);
     gap: 12px;
   }
 
   .shell .page--portfolio .lp-range {
-    max-width: 220px;
+    max-width: 150px;
   }
 
   .shell .page--portfolio .lp-row__actions .lp-actions {
     display: grid;
-    grid-template-columns: repeat(3, minmax(78px, 1fr));
+    grid-template-columns: repeat(3, minmax(86px, 1fr));
     justify-content: end;
     gap: 6px;
   }
