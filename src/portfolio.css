@@ -183,3 +183,56 @@
     height: 150px;
   }
 }
+
+/* Positions table on desktop: a wider, airier price-range column, room for "17 hours", and the
+   five actions (Compound, Claim, Add, Remove, Share PnL) as small buttons on at most two rows. */
+@media (min-width: 1081px) {
+  .shell .page--portfolio .lp-table .lp-row {
+    grid-template-columns:
+      minmax(190px, 1.4fr) 72px minmax(200px, 1.7fr) minmax(72px, 0.7fr) minmax(104px, 1fr)
+      minmax(96px, 0.9fr) minmax(76px, 0.75fr) 64px minmax(252px, 1.7fr);
+    gap: 12px;
+  }
+
+  .shell .page--portfolio .lp-range {
+    max-width: 220px;
+  }
+
+  .shell .page--portfolio .lp-row__actions .lp-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(78px, 1fr));
+    justify-content: end;
+    gap: 6px;
+  }
+
+  .shell .page--portfolio .lp-row__actions .button {
+    height: 28px;
+    min-height: 0;
+    padding: 0 10px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+}
+
+@media (min-width: 1081px) {
+  /* "1.00% · 1 position" on one line under the pair. */
+  .shell .page--portfolio .lp-table .lp-row__pool small {
+    white-space: nowrap;
+  }
+
+  .shell .page--portfolio .lp-row__actions .lp-actions .button {
+    justify-content: center;
+  }
+}
+
+/* "N pools have fees to claim · Claim all": a slim bar above the table. */
+.shell .page--portfolio .lp-table__bar {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.shell .page--portfolio .lp-table__bar .button {
+  height: 28px;
+  min-height: 0;
+  font-size: 12px;
+}
