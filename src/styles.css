@@ -15202,3 +15202,32 @@ a.amm-table__row:hover {
     font-size: 12px;
   }
 }
+
+/* Create position, desktop: a compact summary (positions, range width, fee tier, slippage) and
+   network fee right under it; min / max price boxes with smaller − / + so long prices such as
+   0.000007242 show in full instead of "0.00000". */
+@media (min-width: 1081px) {
+  .create-pos__summary.kv,
+  .create-pos__costs.kv {
+    gap: 4px;
+    padding: 8px 12px;
+    font-size: 12.5px;
+  }
+
+  .create-pos__summary + .create-pos__costs {
+    margin-top: -4px;
+  }
+
+  .price-edge__row {
+    gap: 4px;
+  }
+
+  .price-edge__step {
+    width: 24px;
+    height: 26px;
+  }
+
+  .price-edge__row input {
+    font-size: 13px;
+  }
+}
