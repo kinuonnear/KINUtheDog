@@ -392,3 +392,29 @@ a.pl-name:hover {
     font-size: 11.5px;
   }
 }
+
+/* Desktop: denser protocol and yield tables (rows 42px to about 31px) and bar list. */
+@media (min-width: 1081px) {
+  .page--pulse .pl-row {
+    padding: 6px 4px;
+    font-size: 13px;
+  }
+
+  .page--pulse .pl-row--head {
+    padding-top: 2px;
+    font-size: 10.5px;
+  }
+
+  .page--pulse .pl-cta {
+    font-size: 12px;
+  }
+
+  .page--pulse .pl-bars {
+    gap: 10px;
+  }
+
+  .page--pulse .ts-section {
+    gap: 10px;
+    padding: 16px 18px;
+  }
+}
