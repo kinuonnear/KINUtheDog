@@ -14842,3 +14842,85 @@ a.amm-table__row:hover {
     top: -15px;
   }
 }
+
+/* Swap on desktop, chart and history hidden: a narrower card with the same compact sizes as
+   the swap column beside the chart (it looked oversized on its own). */
+@media (min-width: 1081px) {
+  .shell--swap .swap-pro__grid--solo {
+    grid-template-columns: minmax(0, 420px);
+  }
+
+  .shell--swap .swap-pro__grid--solo .token-flow {
+    padding: 10px 14px;
+  }
+
+  .shell--swap .swap-pro__grid--solo .token-flow dd {
+    margin-top: 2px;
+    font-size: 14px;
+  }
+
+  .shell--swap .swap-pro__grid--solo .swap-card {
+    padding: 14px 16px 16px;
+  }
+
+  .shell--swap .swap-pro__grid--solo .swap-card__head {
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .shell--swap .swap-pro__grid--solo .swap-card__head h2 {
+    font-size: 16px;
+  }
+
+  .shell--swap .swap-pro__grid--solo .swap-card__head h2 + .small {
+    font-size: 11.5px;
+  }
+
+  .shell--swap .swap-pro__grid--solo .swap-card__tools .pill-button,
+  .shell--swap .swap-pro__grid--solo .swap-card__tools .live-pill {
+    height: 26px;
+    padding: 0 10px;
+    font-size: 11.5px;
+  }
+
+  .shell--swap .swap-pro__grid--solo .quick-amounts {
+    margin: 0 0 8px;
+  }
+
+  .shell--swap .swap-pro__grid--solo .swap-field {
+    padding: 8px 12px 6px;
+    border-radius: 12px;
+  }
+
+  .shell--swap .swap-pro__grid--solo .swap-field__row {
+    margin: 4px 0 2px;
+  }
+
+  .shell--swap .swap-pro__grid--solo .swap-field__top,
+  .shell--swap .swap-pro__grid--solo .swap-field__bottom {
+    font-size: 11.5px;
+  }
+
+  .shell--swap .swap-pro__grid--solo .swap-field__row input {
+    font-size: 22px;
+  }
+
+  .shell--swap .swap-pro__grid--solo .token-select {
+    height: 36px;
+    font-size: 14px;
+  }
+
+  .shell--swap .swap-pro__grid--solo .swap-flip {
+    top: -12px;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+  }
+
+  .shell--swap .swap-pro__grid--solo .swap-card .button--primary {
+    min-height: 0;
+    height: 44px;
+    margin-top: 10px;
+    font-size: 14px;
+  }
+}
