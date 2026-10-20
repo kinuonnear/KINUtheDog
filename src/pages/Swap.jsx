@@ -300,7 +300,8 @@ export default function Swap() {
   });
   const pools = poolsQuery.data ?? (poolsQuery.error ? [] : undefined);
   // null = not resized by hand: on desktop the chart then fills the screen under the token
-  // header (the trades start below the fold); phones keep the fixed default.
+  // header, leaving the trades' tabs and filters in view so people see the list is there;
+  // phones keep the fixed default.
   const [chartHeight, setChartHeight] = useLocalStorage('kinu.swap.chartH2', null);
   const clampChart = (h) => Math.round(Math.min(CHART_H.max, Math.max(CHART_H.min, h)));
   const mainRef = useRef(null);
@@ -314,7 +315,11 @@ export default function Swap() {
       if (!body || !window.matchMedia('(min-width: 1081px)').matches) return setFitHeight(CHART_H.default);
       const top = body.getBoundingClientRect().top + main.scrollTop;
       const below = body.nextElementSibling?.offsetHeight || 0;
-      setFitHeight(clampChart(main.getBoundingClientRect().bottom - top - below - 6));
+      const splitter = main.querySelector('.swap-pro__splitter')?.offsetHeight || 0;
+      const activity = main.querySelector('.activity');
+      const filters = activity?.querySelector('.activity__filters') || activity?.querySelector('.activity__tabs');
+      const peek = activity && filters ? filters.getBoundingClientRect().bottom - activity.getBoundingClientRect().top + 6 : 0;
+      setFitHeight(clampChart(Math.max(240, main.getBoundingClientRect().bottom - top - below - splitter - peek)));
     };
     // Re-fit when the window, the token header or the toolbar change size, and when the
     // lazy-loaded chart (and its body, once its data is in) is added: one check per frame.

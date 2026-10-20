@@ -14586,18 +14586,18 @@ a.amm-table__row:hover {
    strip on the right. */
 @media (min-width: 1081px) {
   .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .token-head--swap {
-    --head-wide-min: 830;
+    --head-wide-min: 850;
     gap: 6px 22px;
     min-height: 74px;
     padding: 8px 14px;
   }
 
   .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .token-head--wide {
-    grid-template-columns: minmax(0, 340px) minmax(0, 190px) minmax(260px, 360px);
+    grid-template-columns: minmax(0, 360px) minmax(0, 190px) minmax(260px, 360px);
   }
 
   .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .token-head--narrow {
-    grid-template-columns: minmax(0, 340px) minmax(0, 190px);
+    grid-template-columns: minmax(0, 360px) minmax(0, 190px);
   }
 
   .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .token-head--swap .token-head__id {
@@ -14632,7 +14632,7 @@ a.amm-table__row:hover {
   /* The contract keeps a readable part; NearBlocks and the socials never shrink. */
   .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .token-head--swap .token-head__meta code {
     flex: 0 1 auto;
-    min-width: 96px;
+    min-width: 60px;
     font-size: 11.5px;
   }
 
