@@ -316,19 +316,30 @@ export default function Swap() {
       setFitHeight(clampChart(main.getBoundingClientRect().bottom - top - below - 6));
     };
     // Re-fit when the window, the token header or the toolbar change size, and when the
-    // lazy-loaded chart replaces its placeholder.
-    const ro = new ResizeObserver(fit);
+    // lazy-loaded chart (and its body, once its data is in) is added: one check per frame.
+    let frame = 0;
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(() => { frame = 0; fit(); });
+    };
+    const ro = new ResizeObserver(schedule);
     const watch = () => {
       ro.disconnect();
       ro.observe(main);
       for (const child of main.children) if (!child.classList.contains('activity')) ro.observe(child);
+      schedule();
     };
-    const mo = new MutationObserver(watch);
-    mo.observe(main, { childList: true });
+    // New trade rows in the activity list don't move the chart: skip those.
+    const mo = new MutationObserver((list) => {
+      if (list.some((m) => !m.target.closest?.('.activity'))) watch();
+    });
+    mo.observe(main, { childList: true, subtree: true });
+    window.addEventListener('resize', schedule);
     watch();
     return () => {
+      cancelAnimationFrame(frame);
       ro.disconnect();
       mo.disconnect();
+      window.removeEventListener('resize', schedule);
     };
   }, []);
   const chartH = chartHeight ?? fitHeight;

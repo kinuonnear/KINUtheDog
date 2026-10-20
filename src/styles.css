@@ -14517,3 +14517,28 @@ a.amm-table__row:hover {
     border-top: 1px solid var(--border);
   }
 }
+
+/* Swap on desktop: a slimmer range bar (1D … All · % log auto) and resize handle under the
+   chart, so the candles get the room. */
+@media (min-width: 1081px) {
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .swap-chart {
+    padding-bottom: 0;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .swap-chart .chart-footer {
+    padding: 1px 4px;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .swap-chart .chart-footer button {
+    padding: 2px 7px;
+    line-height: 16px;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .swap-pro__splitter {
+    height: 7px;
+  }
+
+  .shell--swap .swap-pro__grid:not(.swap-pro__grid--solo) .swap-pro__splitter span {
+    height: 3px;
+  }
+}
