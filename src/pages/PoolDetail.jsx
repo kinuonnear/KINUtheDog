@@ -515,15 +515,16 @@ function DclWorkspace({ bar, links, poolId, pool, x, y, reserves, positions, fli
   // The selected position is also the one managed in the side panel (Add liquidity / Rebalance).
   // The view the panel opens on ('add' | 'remove'); the nonce re-applies it when the same position is picked again.
   const [panelView, setPanelView] = useState({ view: 'add', nonce: 0 });
-  const selectPosition = (group, view = 'add') => {
+  const selectPosition = (group, view = 'add', scroll = true) => {
     setPanelView((v) => ({ view, nonce: v.nonce + 1 }));
     setChartKey(group.key);
-    // On narrow screens the panel sits below the table: bring it into view.
-    if (!desktop) setTimeout(() => document.getElementById('new-position')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+    // On narrow screens the panel sits below the table: bring it into view when Add/Remove is pressed
+    // (tapping the row itself only selects it and shows its range; the page stays put).
+    if (!desktop && scroll) setTimeout(() => document.getElementById('new-position')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
   };
   const toggleChart = (group) => {
     if (chartKey === group.key) setChartKey(null);
-    else selectPosition(group);
+    else selectPosition(group, 'add', false);
   };
   // "+ New position": back to the Create position form first (a selected position shows its own panel).
   const newPosition = () => {
