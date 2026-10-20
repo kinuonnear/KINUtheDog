@@ -11,13 +11,11 @@
 // wallet looks closed to the page that opened it on iOS, and the wallet never receives the
 // transaction ("Receiving details from Dapp"). Nothing about the transaction changes.
 
-// Wallet id (wallet-selector module or NEAR Connect manifest) -> the wallet site its popup uses.
+// Wallet-selector module id -> the wallet site its popup uses.
 const POPUP_WALLETS = {
   'meteor-wallet': 'https://wallet.meteorwallet.app',
   'intear-wallet': 'https://wallet.intear.tech',
-  'my-near-wallet': 'https://app.mynearwallet.com',
-  // NEAR Connect's id for MyNearWallet (lib/walletManifest.js).
-  mynearwallet: 'https://app.mynearwallet.com'
+  'my-near-wallet': 'https://app.mynearwallet.com'
 };
 const ARM_MS = 90_000;
 // Intear opens its popup on the wallet site the user connected with (saved by its module), which

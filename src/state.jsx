@@ -1,7 +1,15 @@
 // Global app state: wallet session, token prices, wallet balances, toasts, settings.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { consumeRedirectResult, currentWalletId, initWallet, openWalletModal, sendTransactions, signOut } from './lib/wallet.js';
+import {
+  activeAccountId,
+  consumeRedirectResult,
+  currentWalletId,
+  getSelector,
+  openWalletModal,
+  sendTransactions,
+  signOut
+} from './lib/wallet.js';
 import { armWalletPopup, disarmWalletPopup } from './lib/walletPopup.js';
 import { backgroundRefreshAllowed, beginWalletRequest, CHAIN_UPDATED_EVENT } from './lib/walletActivity.js';
 import { getAllBalances, getFtBalance, getPrices } from './lib/tokens.js';
@@ -41,18 +49,20 @@ export function AppProvider({ children }) {
   const [accountId, setAccountId] = useState(null);
 
   useEffect(() => {
-    let session;
+    let subscription;
     let cancelled = false;
-    initWallet((id) => !cancelled && setAccountId(id))
-      .then((started) => {
-        session = started;
-        if (cancelled) return started.unsubscribe();
-        setAccountId(started.accountId);
+    getSelector()
+      .then((selector) => {
+        if (cancelled) return;
+        setAccountId(activeAccountId(selector));
         setWalletReady(true);
+        subscription = selector.store.observable.subscribe(() => {
+          setAccountId(activeAccountId(selector));
+        });
       })
       .catch((error) => {
-        console.error('[KINU] wallet failed to load', error);
-        toast('error', 'Wallet unavailable', error?.message || 'Wallet connection failed to load.');
+        console.error('[KINU] wallet selector failed', error);
+        toast('error', 'Wallet unavailable', error?.message || 'Wallet selector failed to load.');
         setWalletReady(true);
       });
 
@@ -67,7 +77,7 @@ export function AppProvider({ children }) {
 
     return () => {
       cancelled = true;
-      session?.unsubscribe();
+      subscription?.unsubscribe();
     };
   }, [toast]);
 
