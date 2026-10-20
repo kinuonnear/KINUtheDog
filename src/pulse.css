@@ -358,3 +358,37 @@ a.pl-name:hover {
     min-height: 200px;
   }
 }
+
+/* Desktop: the header and the four number tiles above the charts, compact (tiles 114px to about
+   80px, smaller title, less space between the blocks). */
+@media (min-width: 1081px) {
+  .page--treasury.page--pulse {
+    gap: 14px;
+  }
+
+  .page--pulse > .pt-hero {
+    gap: 4px;
+    padding-bottom: 0;
+  }
+
+  .page--pulse > .pt-hero .pt-title {
+    font-size: 38px;
+  }
+
+  .page--pulse > .ts-tiles .ts-tile {
+    gap: 2px;
+    padding: 10px 14px;
+  }
+
+  .page--pulse > .ts-tiles .ts-tile span {
+    font-size: 12px;
+  }
+
+  .page--pulse > .ts-tiles .ts-tile strong {
+    font-size: 19px;
+  }
+
+  .page--pulse > .ts-tiles .ts-tile small {
+    font-size: 11.5px;
+  }
+}
