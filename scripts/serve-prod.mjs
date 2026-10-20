@@ -23,10 +23,12 @@ const TYPES = {
   '.ico': 'image/x-icon',
   '.woff2': 'font/woff2',
   '.wasm': 'application/wasm',
-  '.txt': 'text/plain; charset=utf-8'
+  '.txt': 'text/plain; charset=utf-8',
+  '.xml': 'application/xml; charset=utf-8',
+  '.pdf': 'application/pdf'
 };
 // The same paths middleware.js answers.
-const APP_ROUTE = /^\/((?!api\/|assets\/|_vercel\/|.*\.[a-zA-Z0-9]+$).*)$/;
+const APP_ROUTE = /^\/((?!api\/|assets\/|_vercel\/)(?!.*\.(?:js|mjs|css|map|png|jpe?g|webp|avif|gif|svg|ico|webmanifest|json|txt|xml|pdf|html|woff2?|ttf|wasm|mp4|webm)$).*)$/;
 
 createServer(async (req, res) => {
   const path = decodeURIComponent(new URL(req.url, 'http://x').pathname);

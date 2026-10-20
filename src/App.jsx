@@ -65,6 +65,7 @@ const TITLES = {
   portfolio: 'Portfolio · KINU',
   create: 'Create pool · KINU',
   starter: 'How to start LP · KINU',
+  quicklp: 'Quick LP · KINU',
   agent: 'KINU Agent · LP co-pilot',
   security: 'Security & transparency · KINU',
   new: 'New on NEAR · KINU',

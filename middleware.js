@@ -6,8 +6,10 @@
 import { buildCsp, injectNonce, newNonce, NONCE_PLACEHOLDER, SECURITY_HEADERS } from './server/csp.js';
 
 export const config = {
-  // App routes only: no file extension, not /api, /assets or /_vercel.
-  matcher: ['/((?!api/|assets/|_vercel/|.*\\.[a-zA-Z0-9]+$).*)']
+  // App routes only: not /api, /assets, /_vercel or a static file. Only real file extensions count:
+  // token and account ids end in .near / .tg / .testnet, and those pages need the policy too.
+  // Keep in step with the rewrite in vercel.json and APP_ROUTE in scripts/serve-prod.mjs.
+  matcher: ['/((?!api/|assets/|_vercel/)(?!.*\\.(?:js|mjs|css|map|png|jpe?g|webp|avif|gif|svg|ico|webmanifest|json|txt|xml|pdf|html|woff2?|ttf|wasm|mp4|webm)$).*)']
 };
 
 export default async function middleware(request) {

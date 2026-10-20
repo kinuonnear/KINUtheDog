@@ -1,0 +1,6 @@
+# kinudefi.com
+User-agent: *
+Allow: /
+Disallow: /api/
+
+Sitemap: https://kinudefi.com/sitemap.xml
