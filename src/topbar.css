@@ -142,3 +142,52 @@
 }
 
 
+
+/* Desktop widths below ~1500px (a 1366 laptop, a narrow window): brand, eleven menu items,
+   search and wallet did not fit in one row and the wallet button was cut off at the right.
+   Tighter gaps and menu padding, a search box that takes what is left, a wallet that never
+   shrinks. */
+@media (min-width: 1081px) and (max-width: 1500px) {
+  .shell .topbar {
+    gap: 14px;
+  }
+
+  .shell .topbar .nav {
+    gap: 2px;
+  }
+
+  .shell .topbar .nav__link {
+    padding: 8px 10px;
+  }
+
+  .shell .topbar .gsearch {
+    flex: 0 1 300px;
+    width: auto;
+    min-width: 160px;
+  }
+
+  .shell .topbar__bar > :last-child,
+  .shell .topbar .brand {
+    flex: none;
+  }
+}
+
+/* Narrow desktops (1081–1250px): tighter menu items still and a smaller search floor. */
+@media (min-width: 1081px) and (max-width: 1250px) {
+  .shell .topbar {
+    gap: 12px;
+  }
+
+  .shell .topbar .nav__link {
+    padding: 8px 7px;
+    font-size: 14px;
+  }
+
+  .shell .topbar .gsearch {
+    min-width: 120px;
+  }
+
+  .shell .topbar .gsearch__field kbd {
+    display: none;
+  }
+}

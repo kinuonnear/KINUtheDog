@@ -494,3 +494,16 @@
     flex: none;
   }
 }
+
+/* Pool Analysis and "New to LP?" in one row under the DEX cards. */
+.shell--pools .pt-starts {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.shell--pools .pt-starts .pt-start {
+  margin-top: 0;
+}
