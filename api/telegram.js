@@ -532,12 +532,12 @@ async function amountPrompt(poolId, params, chatId, error = null) {
       error ? `⚠️ ${error}` : null,
       balance !== null ? `👛 Balance ${amount(balance)} ${sym}` : null,
       balance !== null
-        ? `How much ${sym}? Send an amount like <code>2.5</code>, dollars like <code>$40</code>, or a share like <code>30%</code>.`
-        : `How much ${sym}? Send an amount like <code>2.5</code> or dollars like <code>$40</code>.`
+        ? `How much <b>${sym}</b>? Send it in ${sym}, e.g. <code>2.5</code>, or a share of your balance, e.g. <code>30%</code>.`
+        : `How much <b>${sym}</b>? Send it in ${sym}, e.g. <code>2.5</code>.`
     ]
       .filter((l) => l !== null)
       .join('\n'),
-    reply_markup: { force_reply: true, input_field_placeholder: balance !== null ? 'e.g. 2.5 · $40 · 30%' : 'e.g. 2.5 or $40' }
+    reply_markup: { force_reply: true, input_field_placeholder: balance !== null ? `${deposit.symbol}, e.g. 2.5 or 30%` : `${deposit.symbol}, e.g. 2.5` }
   };
 }
 
@@ -548,14 +548,17 @@ async function amountAnswer(text, prompt, chatId) {
   const params = new URLSearchParams([...state.params.entries()].filter(([k]) => ['range', 'below', 'above', 'strategy', 'both'].includes(k)));
   const t = String(text).trim().replace(/,/g, '.').replace(/\s+/g, '');
   const num = (v) => (/^\d*\.?\d+$/.test(v) && Number(v) > 0 && Number(v) < 1e12 ? v : null);
+  // A plain number is the token, as in KINU's Amount field; 30% is a share of the linked balance.
   let choice = null;
-  if (t.startsWith('$') && num(t.slice(1))) choice = Number(t.slice(1));
-  else if (t.endsWith('%') && num(t.slice(0, -1)) && Number(t.slice(0, -1)) <= 100) choice = { pct: Number(t.slice(0, -1)) };
+  if (t.endsWith('%') && num(t.slice(0, -1)) && Number(t.slice(0, -1)) <= 100) choice = { pct: Number(t.slice(0, -1)) };
   else if (num(t)) choice = { units: t.startsWith('.') ? '0' + t : t };
-  if (!choice) return amountPrompt(state.poolId, params, chatId, 'Send a number like 2.5, $40 or 30%.');
+  if (!choice) {
+    const error = t.startsWith('$') ? 'Amounts are in the token, not dollars: send e.g. 2.5.' : 'Send a number, e.g. 2.5.';
+    return amountPrompt(state.poolId, params, chatId, error);
+  }
   // A share needs a balance to take it from.
   if (choice.pct && !(await linkedAccount(chatId))) {
-    return amountPrompt(state.poolId, params, chatId, 'A % needs a linked wallet: /wallet yourname.near. Or send an amount or $ instead.');
+    return amountPrompt(state.poolId, params, chatId, 'A % needs a linked wallet: /wallet yourname.near. Or send the amount instead.');
   }
   return finalStep(state.poolId, params, choice, chatId);
 }
@@ -573,7 +576,7 @@ function depositOf(pool, params) {
     : { token: null, symbol: null, label: `Both tokens · ${shape} · ${width}` };
 }
 
-/** Amount step: with a linked wallet, its balance and 10–Max% of it; else $50 / $100 / $150. Custom either way. */
+/** Amount step, in the token: with a linked wallet its balance and 10–Max% of it; ✏️ Custom either way. */
 async function amountStep(poolId, params, chatId) {
   const [pool, linked] = await Promise.all([poolById(poolId).catch(() => null), linkedAccount(chatId)]);
   if (!pool) return { text: 'That pool could not be loaded. Try again in a minute.', reply_markup: { inline_keyboard: [MENU_ROW] } };
@@ -610,13 +613,14 @@ async function amountStep(poolId, params, chatId) {
     const rows = balance > 0 ? [SHARE_BUTTONS.slice(0, 3).map(([t, p]) => cb(t, `a:p${p}`)), SHARE_BUTTONS.slice(3).map(([t, p]) => cb(t, `a:p${p}`))] : [];
     return { text: lines.join('\n'), reply_markup: { inline_keyboard: [...rows, [cb('✏️ Custom', 'a:c')], backRow('bk:w')] } };
   }
+  // Amounts are always in the token, as KINU's Amount field: no dollar amounts to mix up.
   return {
     text: [
       head,
-      `How much ${esc(deposit.symbol)} do you want to put in? (in dollars, at the latest price)`,
-      '🔗 Link your wallet with /wallet <code>yourname.near</code> to see your balance and pick a share of it.'
+      `How much ${esc(deposit.symbol)} do you want to put in? Tap ✏️ Custom and send it in ${esc(deposit.symbol)}, e.g. <code>2.5</code>.`,
+      '🔗 Link your wallet with /wallet <code>yourname.near</code> to see your balance and pick 10–100% of it.'
     ].join('\n'),
-    reply_markup: { inline_keyboard: [USD_AMOUNTS.map((d) => cb(`$${d}`, `a:${d}`)), [cb('✏️ Custom', 'a:c')], backRow('bk:w')] }
+    reply_markup: { inline_keyboard: [[cb('✏️ Custom', 'a:c')], backRow('bk:w')] }
   };
 }
 
@@ -636,10 +640,21 @@ async function finalStep(poolId, params, choice, chatId) {
     const usdPrice = pool.prices?.[pool.tokens.indexOf(deposit.token)];
     const balance = linked ? await spendableOf(linked.account, deposit.token, zap) : null;
     const shown = (v) => `${Number(v).toLocaleString('en-US', { maximumFractionDigits: 6 })} ${esc(deposit.symbol)}`;
+    // More than the linked wallet holds: stop here, as KINU's panel would ("Not enough …").
+    const tooMuch = (asked) => ({
+      text: [
+        `💰 <a href="${stateUrl(pool.id, Object.fromEntries(params))}">${esc(`${pool.symbols[0]} / ${pool.symbols[1]}`)}</a> · ${esc(deposit.label)}`,
+        `⚠️ ${asked} is more than your balance: <b>${shown(unitsDown(balance) || 0)}</b>${deposit.token === WNEAR ? ' (0.25 NEAR kept for gas)' : ''}.`,
+        balance > 0 ? 'Use Max, or send a smaller amount.' : `Top up ${esc(deposit.symbol)}, or link another wallet with /wallet.`
+      ].join('\n'),
+      reply_markup: {
+        inline_keyboard: [balance > 0 ? [cb('Max', 'a:p100'), cb('✏️ Custom', 'a:c')] : [cb('✏️ Custom', 'a:c')], backRow('bk:a')]
+      }
+    });
     if (typed) {
+      if (balance !== null && Number(typed) > balance) return tooMuch(shown(typed));
       query.amount = typed;
       amountText = `${shown(typed)}${usdPrice ? ` ≈ ${usd(Number(typed) * usdPrice)}` : ''}`;
-      if (balance !== null && Number(typed) > balance) amountText += `\n⚠️ More than your balance (${shown(units(balance) || 0)}): KINU will stop it.`;
     } else if (pct) {
       const value = balance > 0 ? unitsDown((balance * pct) / 100) : null;
       if (value) {
@@ -649,9 +664,9 @@ async function finalStep(poolId, params, choice, chatId) {
     } else {
       const value = dollars && usdPrice ? units(dollars / usdPrice) : null;
       if (value) {
+        if (balance !== null && Number(value) > balance) return tooMuch(`$${dollars} ≈ ${shown(value)}`);
         query.amount = value;
         amountText = `$${dollars} ≈ ${shown(value)}`;
-        if (balance !== null && Number(value) > balance) amountText += `\n⚠️ More than your balance (${shown(units(balance) || 0)}): KINU will stop it.`;
       } else if (dollars) amountText = `No price for ${esc(deposit.symbol)} right now: enter the amount in KINU.`;
     }
   }
