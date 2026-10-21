@@ -164,7 +164,9 @@ function paintDepth(ctx, bars, priceToY, width, height) {
   }
   if (!shown.length) return;
   const max = Math.max(...shown.map((b) => b.liquidity + b.orders)) || 1;
-  const reach = width * 0.3;
+  // A narrow strip at the edge: the longest bar takes 14% of the plot (120 px at most), so the bars
+  // never cover the newest candles.
+  const reach = Math.min(width * 0.14, 120);
   ctx.save();
   for (const b of shown) {
     const fill = b.above ? DEPTH_FILL.above : DEPTH_FILL.below;
