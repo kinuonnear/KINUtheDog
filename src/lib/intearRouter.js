@@ -35,8 +35,10 @@ const METHODS = {
 // request as `fees` (renamed from `referral_fees` before launch); on Rhea / Rhea CLMM routes it is paid by an ft_transfer of the input
 // token in a fee transaction after the swap, 80% to KINU's account and 20% to Intear's protocol
 // account; on Intear DEX pools it is taken on chain. Off until INTEAR_FEE.live.
-const INTEAR_PROTOCOL_FEE_ACCOUNT = 'plach.intear.near';
-export const INTEAR_FEE_RECIPIENTS = new Set([INTEAR_REFERRER, INTEAR_PROTOCOL_FEE_ACCOUNT]);
+// Intear's 20% share: dex-aggregator.intear.near since 21 Oct 2026 (seen in live routes and in the
+// Plach swap events), plach.intear.near before.
+const INTEAR_PROTOCOL_FEE_ACCOUNTS = ['dex-aggregator.intear.near', 'plach.intear.near'];
+export const INTEAR_FEE_RECIPIENTS = new Set([INTEAR_REFERRER, ...INTEAR_PROTOCOL_FEE_ACCOUNTS]);
 // Intear treats these as "stable" for its lower fee tier (NEAR, wNEAR and the main stablecoins).
 const FEE_STABLE_IDS = new Set([
   'near',
