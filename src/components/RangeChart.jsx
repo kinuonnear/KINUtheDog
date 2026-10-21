@@ -642,6 +642,35 @@ export default function RangeChart({ poolId, x: xPool, y: yPool, currentPrice: c
       return { time: Math.round(time), price };
     };
 
+    // The Min / Max lines sit on a layer above the chart so they can be dragged; a wheel over them
+    // would scroll the page instead of reaching the chart. Hand it to the chart under the pointer
+    // (the same zoom / pan it gives anywhere else on the plot).
+    const forwardWheel = (event) => {
+      const under = document.elementsFromPoint(event.clientX, event.clientY).find((el) => container.contains(el));
+      if (!under) return;
+      event.preventDefault();
+      event.stopPropagation();
+      under.dispatchEvent(
+        new WheelEvent('wheel', {
+          bubbles: true,
+          cancelable: true,
+          clientX: event.clientX,
+          clientY: event.clientY,
+          screenX: event.screenX,
+          screenY: event.screenY,
+          deltaX: event.deltaX,
+          deltaY: event.deltaY,
+          deltaZ: event.deltaZ,
+          deltaMode: event.deltaMode,
+          ctrlKey: event.ctrlKey,
+          shiftKey: event.shiftKey,
+          altKey: event.altKey,
+          metaKey: event.metaKey
+        })
+      );
+    };
+    overlay.addEventListener('wheel', forwardWheel, { passive: false });
+
     // --- painting -------------------------------------------------------------
     const band = overlay.querySelector('.range-chart__band');
     const lines = { min: overlay.querySelector('[data-side="min"]'), max: overlay.querySelector('[data-side="max"]') };
@@ -836,6 +865,7 @@ export default function RangeChart({ poolId, x: xPool, y: yPool, currentPrice: c
       saveView();
       liveBarRef.current = null;
       disposed = true;
+      overlay.removeEventListener('wheel', forwardWheel);
       if (frame !== null) cancelAnimationFrame(frame);
       paintRef.current = null;
       chartApi.current = null;
