@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@hot-labs/near-connect": "0.11.4",
+    "@hot-wallet/sdk": "1.0.8",
     "@near-wallet-selector/core": "10.1.4",
     "@near-wallet-selector/here-wallet": "10.1.4",
     "@near-wallet-selector/hot-wallet": "10.1.4",

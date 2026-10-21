@@ -132,6 +132,24 @@ export async function signOut() {
 }
 
 /**
+ * HOT Wallet (the Telegram module): several transactions in one request. The module's own
+ * signAndSendTransactions (@near-wallet-selector/hot-wallet 10.1.4) sends the bare list, and HOT's
+ * app fails on it ("Cannot read properties of undefined (reading 'reduce')"); HOT reads
+ * { transactions: [...] }, the shape the module's single-transaction call already sends.
+ */
+async function hotSignAndSend(transactions, signerId) {
+  const [{ HOT }, { najActionToInternal }] = await Promise.all([import('@hot-wallet/sdk'), import('@near-wallet-selector/core')]);
+  const result = await HOT.request('near:signAndSendTransactions', {
+    transactions: transactions.map((tx) => ({
+      signerId,
+      receiverId: tx.receiverId,
+      actions: tx.actions.map((action) => najActionToInternal(action))
+    }))
+  });
+  return result?.transactions || [];
+}
+
+/**
  * Sign and send transaction descriptors built by lib/tx.js.
  * Returns the execution outcomes (empty for redirect-based wallets).
  */
@@ -145,13 +163,14 @@ export async function sendTransactions(transactions) {
   // Redirect-based wallets come back with the result in the URL; only a redirect we
   // started may show one (see consumeRedirectResult).
   markRedirectPending();
-  const outcomes = await wallet.signAndSendTransactions({
-    transactions: merged.map((tx) => ({
-      receiverId: tx.receiverId,
-      actions: tx.actions.map((action) => toNajAction(action))
-    })),
-    callbackUrl: window.location.href
-  });
+  const najTransactions = merged.map((tx) => ({
+    receiverId: tx.receiverId,
+    actions: tx.actions.map((action) => toNajAction(action))
+  }));
+  const outcomes =
+    wallet.id === 'hot-wallet'
+      ? await hotSignAndSend(najTransactions, activeAccountId(selector))
+      : await wallet.signAndSendTransactions({ transactions: najTransactions, callbackUrl: window.location.href });
 
   const list = Array.isArray(outcomes) ? outcomes : outcomes ? [outcomes] : [];
   // A receipt can fail inside a transaction that reports success (e.g. a refunded deposit).
