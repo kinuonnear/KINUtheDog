@@ -97,5 +97,10 @@
         }
       ]
     }
-  ]
+  ],
+  "functions": {
+    "api/market-webhook.js": {
+      "maxDuration": 60
+    }
+  }
 }
