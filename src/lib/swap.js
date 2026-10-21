@@ -341,7 +341,7 @@ async function buildNetSwapTransactions({ tokenIn, tokenOut, quote, accountId })
   if (quote?.user !== accountId) throw new Error('Quote was created for another account. Refresh the quote.');
   if (quote.hybrid) throw new Error('Combined routes are executed one leg at a time.');
   if (quote.dcl) return buildDclSwapTransactions({ tokenIn, tokenOut, quote, accountId });
-  if (quote.intear) return buildIntearSwapTransactions({ tokenIn, quote, accountId });
+  if (quote.intear) return buildIntearSwapTransactions({ tokenIn, tokenOut, quote, accountId });
   if (!quote.msg || !quote.signature) throw new Error('Quote is not executable. Refresh the quote.');
 
   const aggregator = CONTRACTS.aggregator;

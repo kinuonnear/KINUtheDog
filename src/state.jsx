@@ -8,6 +8,8 @@ import { getAllBalances, getFtBalance, getPrices } from './lib/tokens.js';
 import { clearViewCache } from './lib/rpc.js';
 import { explainRecentFailure, GENERIC_RECEIPT_FAILURE, landedSince, WALLET_NETWORK_ERROR } from './lib/txErrors.js';
 import { mergeTransactions } from './lib/tx.js';
+import { buildIntearNextSteps, intearOutcome } from './lib/intearRouter.js';
+import { formatRawAmount } from './lib/format.js';
 import { useLocalStorage } from './hooks.js';
 import { DEFAULT_SLIPPAGE, ENDPOINTS, HOLDER } from './config.js';
 import { holderStatus, readQualified, setHolderNow, writeQualified } from './lib/holder.js';
@@ -216,21 +218,67 @@ export function AppProvider({ children }) {
       const pendingId = toast('info', pending, 'Review and approve the request in your wallet.', { timeout: 0 });
       const startedAt = Date.now();
       let expected = 0; // transactions handed to the wallet (0 = it never got that far)
+      // Intear's follow-up after a route (e.g. unwrap the wNEAR a failed swap from NEAR left behind):
+      // its own wallet request; declining it leaves the wNEAR in the wallet, nothing is lost.
+      const sendNextSteps = async (routeOutcome) => {
+        let steps;
+        try {
+          steps = buildIntearNextSteps(routeOutcome);
+        } catch (stepError) {
+          console.warn('[KINU] Intear next steps refused', stepError);
+          return;
+        }
+        if (!steps.length) return;
+        const stepId = toast('info', 'One more approval: unwrap your wNEAR', 'The swap left wNEAR in your wallet. This turns it back into NEAR.', { timeout: 0 });
+        try {
+          armWalletPopup(currentWalletId());
+          await sendTransactions(steps);
+        } catch (stepError) {
+          console.warn('[KINU] Intear next steps not sent', stepError);
+          toast('warning', 'wNEAR left in your wallet', 'You can unwrap it any time on the Swap page (wNEAR → NEAR).');
+        } finally {
+          dismissToast(stepId);
+        }
+      };
       try {
         const built = await buildTransactions();
         // Route fees (Intear routes, lib/intearRouter.js) go out only once the swap has landed, as a
         // request of their own: a swap that fails never pays them (docs.intear.tech, executing routes).
         const txs = built.filter((tx) => !tx?.isFee);
         const fees = built.filter((tx) => tx?.isFee);
+        const intearRoute = built.find((tx) => tx?.intear)?.intear;
         expected = mergeTransactions(txs).length;
         const outcomes = await sendTransactions(txs);
+        const hashes = outcomes.map((o) => o?.transaction?.hash || o?.transaction_outcome?.id).filter(Boolean);
+        const hash = hashes[hashes.length - 1];
+        const link = hash ? `${ENDPOINTS.explorer}/txns/${hash}` : undefined;
+        // Intear routes: a failed swap still lets its transaction succeed, so ask the aggregator what
+        // happened. The fee goes out only on a confirmed swap; if Intear can't say, it isn't charged.
+        let routeOutcome = null;
+        if (intearRoute && hashes.length) {
+          routeOutcome = await intearOutcome({ route: intearRoute, trader: accountId, hashes }).catch((outcomeError) => {
+            console.warn('[KINU] Intear outcome unavailable', outcomeError);
+            return null;
+          });
+        }
         dismissToast(pendingId);
-        const last = outcomes[outcomes.length - 1];
-        const hash = last?.transaction?.hash || last?.transaction_outcome?.id;
-        toast('success', success, outcomes.length ? `${outcomes.length} transaction(s) executed.` : 'Submitted.', {
-          link: hash ? `${ENDPOINTS.explorer}/txns/${hash}` : undefined
-        });
-        if (fees.length) {
+        if (routeOutcome && !routeOutcome.charge_fee) {
+          toast('error', 'Swap did not go through', `${routeOutcome.error || 'The swap failed on-chain.'} Your tokens were returned; no fee was charged.`, {
+            timeout: 15000,
+            link
+          });
+          await sendNextSteps(routeOutcome);
+          clearViewCache();
+          refreshBalances();
+          return null;
+        }
+        const received =
+          routeOutcome && intearRoute.outDecimals != null
+            ? `Received ${formatRawAmount(routeOutcome.amount_out, intearRoute.outDecimals)} ${intearRoute.outSymbol}.`
+            : null;
+        toast('success', success, received || (outcomes.length ? `${outcomes.length} transaction(s) executed.` : 'Submitted.'), { link });
+        if (fees.length && !routeOutcome) console.warn('[KINU] route fee skipped: swap outcome unknown');
+        if (fees.length && routeOutcome) {
           const feeId = toast('info', 'One more approval: the route fee', 'Your swap is done. This sends the fee already shown in the quote.', { timeout: 0 });
           try {
             armWalletPopup(currentWalletId());
@@ -242,6 +290,7 @@ export function AppProvider({ children }) {
             dismissToast(feeId);
           }
         }
+        if (routeOutcome) await sendNextSteps(routeOutcome);
         clearViewCache();
         refreshBalances();
         return outcomes;

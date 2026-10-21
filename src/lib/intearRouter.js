@@ -275,7 +275,11 @@ export async function getIntearQuotes({ tokenIn, tokenOut, amountIn, slippage, u
           // KINU's fee on this route (bps), already taken out of amountOut by the aggregator.
           feeBps,
           // Extra output from Intear's fee discount for TEAR holders (Intear DEX pools), raw, '0' if none.
-          discountOut: String(route.discount?.amount_out ?? '0')
+          discountOut: String(route.discount?.amount_out ?? '0'),
+          // For /route/outcome after the swap (intearOutcome).
+          tokenInId: params.get('token_in'),
+          tokenOutId: params.get('token_out'),
+          feeAmount: String(route.fee_amount ?? '0')
         },
         user: user || null,
         fetchedAt: Date.now()
@@ -293,10 +297,62 @@ export async function getIntearQuote(params) {
   return (await getIntearQuotes(params))[0];
 }
 
-/** The transactions of an Intear quote, checked again for this exact account. */
-export function buildIntearSwapTransactions({ tokenIn, quote, accountId }) {
+/**
+ * The transactions of an Intear quote, checked again for this exact account. Each carries `intear`:
+ * what lib/state.jsx execute needs to ask /route/outcome whether the swap went through before it
+ * sends the fee transactions (a failed Rhea swap still lets its transaction succeed).
+ */
+export function buildIntearSwapTransactions({ tokenIn, tokenOut, quote, accountId }) {
   const txs = widenForTax(toTransactions(quote.intear.instructions), quote.intear.taxIn || 0);
   assertIntearRoute(txs, { tokenIn, amountIn: quote.amountIn, user: accountId, feeBps: quote.intear.feeBps || 0 });
+  const route = {
+    tokenIn: quote.intear.tokenInId || assetOf(tokenIn),
+    tokenOut: quote.intear.tokenOutId || (tokenOut ? assetOf(tokenOut) : null),
+    feeAmount: quote.intear.feeAmount || '0',
+    outSymbol: tokenOut?.symbol || '',
+    outDecimals: tokenOut?.decimals
+  };
+  return route.tokenOut ? txs.map((tx) => ({ ...tx, intear: route })) : txs;
+}
+
+const OUTCOME_TIMEOUT_MS = 20_000;
+
+/**
+ * What a route's swap transactions did (docs.intear.tech/dex-aggregator/reference/outcome):
+ * `charge_fee` (the trader got output), `amount_out`, `error` (written for traders) and
+ * `next_steps` (e.g. unwrap wNEAR left by a failed swap from NEAR). Waits for execution.
+ */
+export async function intearOutcome({ route, trader, hashes }) {
+  const params = new URLSearchParams({
+    token_in: route.tokenIn,
+    token_out: route.tokenOut,
+    trader_account_id: trader,
+    tx_hashes: hashes.join(','),
+    fee_amount: route.feeAmount || '0',
+    wait_until: 'executed'
+  });
+  const response = await fetch(`${ENDPOINTS.intearRouter}/route/outcome?${params}`, { signal: AbortSignal.timeout(OUTCOME_TIMEOUT_MS) });
+  if (!response.ok) throw new Error((await response.text()).slice(0, 200) || `Intear outcome HTTP ${response.status}`);
+  const outcome = await response.json();
+  if (typeof outcome?.charge_fee !== 'boolean') throw new Error('unreadable Intear outcome');
+  return outcome;
+}
+
+/**
+ * An outcome's next steps as KINU transactions. Only unwrapping the trader's own wNEAR is accepted
+ * (the one case KINU's routes leave behind); anything else is refused and left to the user.
+ */
+export function buildIntearNextSteps(outcome) {
+  const steps = outcome?.next_steps;
+  if (!Array.isArray(steps) || !steps.length) return [];
+  const txs = toTransactions(steps);
+  txs.forEach((tx) => {
+    if (tx.receiverId !== CONTRACTS.wrapNear) throw new Error(`unexpected next step on ${tx.receiverId}`);
+    tx.actions.forEach(({ params: { methodName, deposit } }) => {
+      if (methodName !== 'near_withdraw') throw new Error(`unexpected next step "${methodName}"`);
+      if (BigInt(deposit || '0') !== 1n) throw new Error('unexpected deposit on a next step');
+    });
+  });
   return txs;
 }
 
