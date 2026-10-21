@@ -56,8 +56,28 @@ export function startTelegram() {
  * transactions on chain before it says anything. Outside Telegram this does nothing.
  */
 export function notifyBot(payload) {
+  if (!payload?.hashes?.length) return;
+  postToBot(payload);
+}
+
+/**
+ * Opened from the KINU LP bot with a wallet connected: the bot pins this account in the chat and
+ * shows its balances in the LP steps (public data, read-only). Once per account per session.
+ */
+export function linkBotWallet(account) {
+  if (!account || !window.Telegram?.WebApp?.initData) return;
+  try {
+    if (sessionStorage.getItem('kinu.tg.wallet') === account) return;
+    sessionStorage.setItem('kinu.tg.wallet', account);
+  } catch {
+    // private mode: the bot ignores an account it already has
+  }
+  postToBot({ kind: 'wallet', account });
+}
+
+function postToBot(payload) {
   const initData = window.Telegram?.WebApp?.initData;
-  if (!initData || !payload?.hashes?.length) return;
+  if (!initData) return;
   fetch('/api/telegram?notify=1', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },

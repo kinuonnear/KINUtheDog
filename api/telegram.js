@@ -18,7 +18,12 @@
 // transaction hashes back (POST ?notify=1 with Telegram's signed initData); the bot checks them on
 // chain and posts the result in that chat.
 //
-// Messages: /start (menu), /help, /pools, /swap <contract> [$amount], /lp <contract>, /balance and
+// A wallet can be linked to the chat, read-only: /wallet name.near, or automatically when the user
+// connects a wallet in KINU opened from the bot. The bot pins "👛 KINU wallet: name.near" and reads
+// it back from the chat's pinned message (it keeps no database); the amount step then shows the
+// account's balance with 10–Max% buttons. Balances are public data: the bot can't move anything.
+//
+// Messages: /start (menu), /help, /wallet [account], /pools, /swap <contract> [$amount], /lp <contract>, /balance and
 // /positions <account> (read-only), /terminal, or a pasted
 // token contract.
 
@@ -33,8 +38,13 @@ const KINU_POOL = `${KINU}|${WNEAR}|10000`;
 // Tokens KINU has verified (src/config.js KINU_VERIFIED_TOKENS).
 const VERIFIED = new Set([KINU, 'token.intear.near']);
 const USD_AMOUNTS = [50, 100, 150];
-const RANGES = ['5', '10', '25', '50'];
-const SIDE_WIDTHS = ['10', '20', '30', '50', '70', '90'];
+// Width presets, then ✏️ Custom (as KINU's Quick LP panel): one side up to WIDTH_MAX below / above;
+// around the price, % below and % above apart ("50:300" is −50% / +300%).
+const RANGES = ['5', '10', '25', '50', '75'];
+const SIDE_WIDTHS = ['10', '20', '30', '50', '70'];
+const WIDTH_MAX = { below: 99, above: 1000, b: 99, a: 500 };
+const CUSTOM_PROMPT = '✏️ Custom range';
+const AMOUNT_PROMPT = '✏️ Custom amount';
 const LIST_SIZE = 10;
 const TOP_YIELD_MIN_TVL = 1000;
 
@@ -230,6 +240,13 @@ const units = (v) => {
   if (!(v > 0) || !Number.isFinite(v)) return null;
   return v.toFixed(Math.max(0, Math.min(18, 5 - Math.floor(Math.log10(v))))).replace(/\.?0+$/, '');
 };
+/** As units, rounded down: a share of a balance never comes out above it. */
+const unitsDown = (v) => {
+  if (!(v > 0) || !Number.isFinite(v)) return null;
+  const digits = Math.max(0, Math.min(18, 5 - Math.floor(Math.log10(v))));
+  const down = Math.floor(v * 10 ** digits) / 10 ** digits;
+  return down > 0 ? down.toFixed(digits).replace(/\.?0+$/, '') : null;
+};
 
 /* ---------------------------------------------------------------- buttons & state */
 
@@ -283,6 +300,7 @@ const HELP = [
   '💰 <b>Top yield</b>: fee APR over the last 24h (pools with at least $1K TVL).',
   '⇄ <b>/swap</b> <code>contract</code>: buy or sell for NEAR in dollars.',
   '👛 <b>/balance</b> · 📊 <b>/positions</b> <code>account.near</code>: tokens and LP positions of any account (read-only).',
+  '🔗 <b>/wallet</b> <code>yourname.near</code>: link your account (read-only) to see your balance and pick 10–100% of it when you LP. Connecting a wallet in KINU from here links it too.',
   '💻 <b>/terminal</b>: the full KINU app.',
   '',
   'KINU never holds your keys or funds: you check everything in KINU and confirm in your wallet (HOT Wallet works inside Telegram). Liquidity can lose value against holding (impermanent loss); this is not financial advice.'
@@ -297,7 +315,7 @@ function menu() {
         [cb('🔥 Trending 1h', 'm:t1'), cb('🔥 Trending 6h', 'm:t6')],
         [cb('💰 Top yield', 'm:y'), cb('⇄ Swap', 'm:swap')],
         [cb('👛 Balance', 'm:bal'), cb('📊 LP positions', 'm:pos')],
-        [cb('💻 Terminal', 'm:term')]
+        [cb('🔗 My wallet', 'm:wal'), cb('💻 Terminal', 'm:term')]
       ]
     }
   };
@@ -420,7 +438,7 @@ function widthStep(poolId, side, strategy, symbols) {
       reply_markup: {
         inline_keyboard: [
           RANGES.slice(0, 3).map((r) => cb(`${both} ±${r}%`, `r:${r}`)),
-          [cb(`${both} ±${RANGES[3]}%`, `r:${RANGES[3]}`), cb(`${both} Full range`, 'r:full')],
+          [...RANGES.slice(3).map((r) => cb(`${both} ±${r}%`, `r:${r}`)), cb('✏️ Custom', 'c')],
           backRow(`d:${side}`)
         ]
       }
@@ -437,11 +455,109 @@ function widthStep(poolId, side, strategy, symbols) {
     reply_markup: {
       inline_keyboard: [
         SIDE_WIDTHS.slice(0, 3).map((w) => cb(`${below ? '−' : '+'}${w}%`, `w:${side}:${w}`)),
-        SIDE_WIDTHS.slice(3).map((w) => cb(`${below ? '−' : '+'}${w}%`, `w:${side}:${w}`)),
+        [...SIDE_WIDTHS.slice(3).map((w) => cb(`${below ? '−' : '+'}${w}%`, `w:${side}:${w}`)), cb('✏️ Custom', 'c')],
         backRow(`d:${side}`)
       ]
     }
   };
+}
+
+/** ±10% or −50% / +300% (a range of "10" or "50:300"). */
+function aroundLabel(range) {
+  const [lo, hi = lo] = String(range).split(':');
+  return lo === hi ? `±${lo}%` : `−${lo}% / +${hi}%`;
+}
+
+/** A % typed for a Custom range, one decimal, or null when it is outside 1 – max. */
+function customPct(text, max) {
+  const v = Number(String(text).replace(',', '.'));
+  return Number.isFinite(v) && v >= 1 && v <= max ? String(Math.round(v * 10) / 10) : null;
+}
+
+/** ✏️ Custom: asks for the range as a reply; the pool and choices so far ride in the prompt's link. */
+async function customPrompt(poolId, side, strategy, error = null) {
+  const hasNear = poolId.split('|').includes(WNEAR);
+  const pool = await poolById(poolId).catch(() => null);
+  const symbols = pool?.symbols || poolId.split('|').slice(0, 2).map((t) => (t === WNEAR ? 'NEAR' : t.split('.')[0].toUpperCase()));
+  const around = side === 'z' || side === 'k';
+  const ask = around
+    ? `How far below and above the price, in %? Send one number for both ways (<code>20</code> = ±20%) or two (<code>50 300</code> = −50% / +300%). Below 1–${WIDTH_MAX.below}, above 1–${WIDTH_MAX.above}.`
+    : side === 'b'
+      ? `How far below the price, in %? Send a number from 1 to ${WIDTH_MAX.b}, e.g. <code>35</code>.`
+      : `How far above the price, in %? Send a number from 1 to ${WIDTH_MAX.a}, e.g. <code>150</code>.`;
+  return {
+    text: [
+      `${CUSTOM_PROMPT} · <a href="${stateUrl(poolId, { side, strategy })}">${esc(`${symbols[0]} / ${symbols[1]}`)}</a> · ${esc(sideLabel(side, symbols, hasNear))} · ${STRATEGY_NAMES[strategy] || 'Spot'}`,
+      error ? `⚠️ ${error}` : null,
+      ask
+    ]
+      .filter((l) => l !== null)
+      .join('\n'),
+    reply_markup: { force_reply: true, input_field_placeholder: around ? 'e.g. 20 or 50 300' : side === 'b' ? 'e.g. 35' : 'e.g. 150' }
+  };
+}
+
+/** The answer to a Custom prompt: on to the amount step, or the prompt again with what was wrong. */
+async function customAnswer(text, prompt, chatId) {
+  const state = linksIn(prompt)[0];
+  if (!state?.poolId) return menu();
+  const side = state.params.get('side') || 'z';
+  const strategy = STRATEGY_NAMES[state.params.get('strategy')] ? state.params.get('strategy') : 'spot';
+  const nums = String(text).match(/\d+(?:[.,]\d+)?/g) || [];
+  if (side === 'b' || side === 'a') {
+    const v = nums.length === 1 ? customPct(nums[0], WIDTH_MAX[side]) : null;
+    if (!v) return customPrompt(state.poolId, side, strategy, `Send one number from 1 to ${WIDTH_MAX[side]}.`);
+    return amountStep(state.poolId, new URLSearchParams({ [side === 'b' ? 'below' : 'above']: v, strategy }), chatId);
+  }
+  const lo = customPct(nums[0], WIDTH_MAX.below);
+  const hi = customPct(nums[1] ?? nums[0], WIDTH_MAX.above);
+  if (!nums.length || nums.length > 2 || !lo || !hi) {
+    return customPrompt(state.poolId, side, strategy, `Below must be 1–${WIDTH_MAX.below} and above 1–${WIDTH_MAX.above}.`);
+  }
+  const range = lo === hi ? lo : `${lo}:${hi}`;
+  return amountStep(state.poolId, new URLSearchParams({ range, strategy, ...(side === 'k' ? { both: '1' } : {}) }), chatId);
+}
+
+/** ✏️ Custom amount: asks for it as a reply; the pool and range ride in the prompt's link. */
+async function amountPrompt(poolId, params, chatId, error = null) {
+  const [pool, linked] = await Promise.all([poolById(poolId).catch(() => null), linkedAccount(chatId)]);
+  if (!pool) return { text: 'That pool could not be loaded. Try again in a minute.', reply_markup: { inline_keyboard: [MENU_ROW] } };
+  const deposit = depositOf(pool, params);
+  const zap = !params.get('below') && !params.get('above');
+  const balance = linked && deposit.token ? await spendableOf(linked.account, deposit.token, zap) : null;
+  const sym = esc(deposit.symbol);
+  return {
+    text: [
+      `${AMOUNT_PROMPT} · <a href="${stateUrl(pool.id, Object.fromEntries(params))}">${esc(`${pool.symbols[0]} / ${pool.symbols[1]}`)}</a> · ${esc(deposit.label)}`,
+      error ? `⚠️ ${error}` : null,
+      balance !== null ? `👛 Balance ${amount(balance)} ${sym}` : null,
+      balance !== null
+        ? `How much ${sym}? Send an amount like <code>2.5</code>, dollars like <code>$40</code>, or a share like <code>30%</code>.`
+        : `How much ${sym}? Send an amount like <code>2.5</code> or dollars like <code>$40</code>.`
+    ]
+      .filter((l) => l !== null)
+      .join('\n'),
+    reply_markup: { force_reply: true, input_field_placeholder: balance !== null ? 'e.g. 2.5 · $40 · 30%' : 'e.g. 2.5 or $40' }
+  };
+}
+
+/** The answer to a Custom amount prompt: on to the last step, or the prompt again. */
+async function amountAnswer(text, prompt, chatId) {
+  const state = linksIn(prompt)[0];
+  if (!state?.poolId) return menu();
+  const params = new URLSearchParams([...state.params.entries()].filter(([k]) => ['range', 'below', 'above', 'strategy', 'both'].includes(k)));
+  const t = String(text).trim().replace(/,/g, '.').replace(/\s+/g, '');
+  const num = (v) => (/^\d*\.?\d+$/.test(v) && Number(v) > 0 && Number(v) < 1e12 ? v : null);
+  let choice = null;
+  if (t.startsWith('$') && num(t.slice(1))) choice = Number(t.slice(1));
+  else if (t.endsWith('%') && num(t.slice(0, -1)) && Number(t.slice(0, -1)) <= 100) choice = { pct: Number(t.slice(0, -1)) };
+  else if (num(t)) choice = { units: t.startsWith('.') ? '0' + t : t };
+  if (!choice) return amountPrompt(state.poolId, params, chatId, 'Send a number like 2.5, $40 or 30%.');
+  // A share needs a balance to take it from.
+  if (choice.pct && !(await linkedAccount(chatId))) {
+    return amountPrompt(state.poolId, params, chatId, 'A % needs a linked wallet: /wallet yourname.near. Or send an amount or $ instead.');
+  }
+  return finalStep(state.poolId, params, choice, chatId);
 }
 
 /** What a range puts in: { token, symbol, label } (token null: both tokens, entered in KINU). */
@@ -451,52 +567,93 @@ function depositOf(pool, params) {
   const shape = STRATEGY_NAMES[params.get('strategy')] || 'Spot';
   if (params.get('below')) return { token: y, symbol: sy, label: `${sy} only · ${shape} · down to −${params.get('below')}%` };
   if (params.get('above')) return { token: x, symbol: sx, label: `${sx} only · ${shape} · up to +${params.get('above')}%` };
-  const width = params.get('range') === 'full' ? 'full range' : `±${params.get('range')}%`;
+  const width = params.get('range') === 'full' ? 'full range' : aroundLabel(params.get('range'));
   return pool.tokens.includes(WNEAR) && !params.get('both')
     ? { token: WNEAR, symbol: 'NEAR', label: `Zap NEAR · ${shape} · ${width}` }
     : { token: null, symbol: null, label: `Both tokens · ${shape} · ${width}` };
 }
 
-/** Amount step: $50 / $100 / $150 / custom of the token the range takes. */
-async function amountStep(poolId, params) {
-  const pool = await poolById(poolId).catch(() => null);
+/** Amount step: with a linked wallet, its balance and 10–Max% of it; else $50 / $100 / $150. Custom either way. */
+async function amountStep(poolId, params, chatId) {
+  const [pool, linked] = await Promise.all([poolById(poolId).catch(() => null), linkedAccount(chatId)]);
   if (!pool) return { text: 'That pool could not be loaded. Try again in a minute.', reply_markup: { inline_keyboard: [MENU_ROW] } };
   const deposit = depositOf(pool, params);
   const name = `${pool.symbols[0]} / ${pool.symbols[1]}`;
   const link = stateUrl(pool.id, Object.fromEntries(params));
+  const zap = !params.get('below') && !params.get('above');
   if (!deposit.token) {
+    const balances = linked
+      ? await Promise.all(pool.tokens.map((t, i) => spendableOf(linked.account, t, false).then((v) => (v === null ? null : `${amount(v)} ${esc(pool.symbols[i])}`))))
+      : [];
     return {
       text: [
         `✅ <a href="${link}">${esc(name)}</a> · ${esc(deposit.label)}`,
         'Both tokens: type one amount in KINU and the other follows the range.',
+        linked && balances.every(Boolean) ? `👛 ${esc(linked.account)}: ${balances.join(' · ')}` : null,
         '',
         '⚡ <b>Sign & create</b>: KINU opens on the amount step with all of this set, then you confirm in your wallet and the result comes back here.',
         '📝 <b>Full form</b>: the pool page with the form filled in, to fine-tune first.'
-      ].join('\n'),
+      ]
+        .filter((l) => l !== null)
+        .join('\n'),
       reply_markup: { inline_keyboard: [[open('⚡ Sign & create', quickUrl(pool.id, params))], [open('📝 Full form', link)], backRow('bk:w')] }
     };
   }
+  const balance = linked ? await spendableOf(linked.account, deposit.token, zap) : null;
+  const head = `💰 <a href="${link}">${esc(name)}</a> · ${esc(deposit.label)}`;
+  if (balance !== null) {
+    const lines = [
+      head,
+      `👛 ${esc(linked.account)} · balance <b>${amount(balance)} ${esc(deposit.symbol)}</b>${deposit.token === WNEAR ? ' (0.25 NEAR kept for gas)' : ''}`,
+      balance > 0 ? `How much of it do you want to put in?` : `Not enough ${esc(deposit.symbol)} for this deposit. Top up, or link another wallet with /wallet.`
+    ];
+    const rows = balance > 0 ? [SHARE_BUTTONS.slice(0, 3).map(([t, p]) => cb(t, `a:p${p}`)), SHARE_BUTTONS.slice(3).map(([t, p]) => cb(t, `a:p${p}`))] : [];
+    return { text: lines.join('\n'), reply_markup: { inline_keyboard: [...rows, [cb('✏️ Custom', 'a:c')], backRow('bk:w')] } };
+  }
   return {
-    text: `💰 <a href="${link}">${esc(name)}</a> · ${esc(deposit.label)}\nHow much ${esc(deposit.symbol)} do you want to put in? (in dollars, at the latest price)`,
+    text: [
+      head,
+      `How much ${esc(deposit.symbol)} do you want to put in? (in dollars, at the latest price)`,
+      '🔗 Link your wallet with /wallet <code>yourname.near</code> to see your balance and pick a share of it.'
+    ].join('\n'),
     reply_markup: { inline_keyboard: [USD_AMOUNTS.map((d) => cb(`$${d}`, `a:${d}`)), [cb('✏️ Custom', 'a:c')], backRow('bk:w')] }
   };
 }
 
-/** Last step: the filled-in link, opened in KINU. */
-async function finalStep(poolId, params, dollars) {
-  const pool = await poolById(poolId).catch(() => null);
+/** Last step: the filled-in link, opened in KINU. `choice`: dollars, { pct } of the linked balance, or null (custom). */
+async function finalStep(poolId, params, choice, chatId) {
+  const pct = choice && typeof choice === 'object' ? choice.pct : null;
+  const typed = choice && typeof choice === 'object' ? choice.units : null;
+  const dollars = typeof choice === 'number' ? choice : null;
+  const [pool, linked] = await Promise.all([poolById(poolId).catch(() => null), linkedAccount(chatId)]);
   if (!pool) return { text: 'That pool could not be loaded. Try again in a minute.', reply_markup: { inline_keyboard: [MENU_ROW] } };
   const deposit = depositOf(pool, params);
+  const zap = !params.get('below') && !params.get('above');
   const query = Object.fromEntries(params);
   let amountText = 'You enter the amount in KINU.';
   if (deposit.token) {
     query.in = deposit.token === WNEAR ? 'NEAR' : deposit.token;
     const usdPrice = pool.prices?.[pool.tokens.indexOf(deposit.token)];
-    const amount = dollars && usdPrice ? units(dollars / usdPrice) : null;
-    if (amount) {
-      query.amount = amount;
-      amountText = `$${dollars} ≈ ${Number(amount).toLocaleString('en-US', { maximumFractionDigits: 6 })} ${esc(deposit.symbol)}`;
-    } else if (dollars) amountText = `No price for ${esc(deposit.symbol)} right now: enter the amount in KINU.`;
+    const balance = linked ? await spendableOf(linked.account, deposit.token, zap) : null;
+    const shown = (v) => `${Number(v).toLocaleString('en-US', { maximumFractionDigits: 6 })} ${esc(deposit.symbol)}`;
+    if (typed) {
+      query.amount = typed;
+      amountText = `${shown(typed)}${usdPrice ? ` ≈ ${usd(Number(typed) * usdPrice)}` : ''}`;
+      if (balance !== null && Number(typed) > balance) amountText += `\n⚠️ More than your balance (${shown(units(balance) || 0)}): KINU will stop it.`;
+    } else if (pct) {
+      const value = balance > 0 ? unitsDown((balance * pct) / 100) : null;
+      if (value) {
+        query.amount = value;
+        amountText = `${pct === 100 ? 'Max' : `${pct}%`} of your balance ≈ ${shown(value)}${usdPrice ? ` (${usd(Number(value) * usdPrice)})` : ''}`;
+      } else amountText = `No ${esc(deposit.symbol)} balance to use: enter the amount in KINU.`;
+    } else {
+      const value = dollars && usdPrice ? units(dollars / usdPrice) : null;
+      if (value) {
+        query.amount = value;
+        amountText = `$${dollars} ≈ ${shown(value)}`;
+        if (balance !== null && Number(value) > balance) amountText += `\n⚠️ More than your balance (${shown(units(balance) || 0)}): KINU will stop it.`;
+      } else if (dollars) amountText = `No price for ${esc(deposit.symbol)} right now: enter the amount in KINU.`;
+    }
   }
   const link = stateUrl(pool.id, query);
   return {
@@ -620,6 +777,100 @@ const ASK_POSITIONS = {
   text: '📊 <b>LP positions</b>\nSend a NEAR account, e.g. <code>yourname.near</code> or <code>yourname.tg</code>.\nRead-only: the bot never connects to your wallet.',
   reply_markup: { force_reply: true, input_field_placeholder: 'NEAR account' }
 };
+
+/* ---------------------------------------------------------------- linked wallet (read-only) */
+
+const WALLET_TAG = '👛 KINU wallet:';
+const WALLET_PROMPT = '🔗 My wallet';
+const NEAR_GAS_KEEP = 0.25; // NEAR left for gas, as KINU's forms keep
+const SHARE_BUTTONS = [['10%', 10], ['25%', 25], ['50%', 50], ['75%', 75], ['Max', 100]];
+
+/** A Bot API call's result (null when it fails). */
+async function telegramResult(method, body) {
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${process.env.TELEGRAM_BOT_TOKEN}/${method}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const json = await response.json();
+    return json.ok ? json.result : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The account linked to a chat: the bot's pinned "👛 KINU wallet: …" message, or null. */
+async function linkedAccount(chatId) {
+  if (!chatId || !process.env.TELEGRAM_BOT_TOKEN) return null;
+  const pin = (await telegramResult('getChat', { chat_id: chatId }))?.pinned_message;
+  const match = pin?.from?.is_bot && typeof pin.text === 'string' ? pin.text.match(/^👛 KINU wallet: (\S+)/u) : null;
+  return match && CONTRACT.test(match[1]) ? { account: match[1], messageId: pin.message_id } : null;
+}
+
+/** Links (pins) an account in a chat, replacing the bot's earlier pin. False when it was already linked. */
+async function linkWallet(chatId, account) {
+  const current = await linkedAccount(chatId);
+  if (current?.account === account) return false;
+  const sent = await telegramResult('sendMessage', {
+    chat_id: chatId,
+    parse_mode: 'HTML',
+    disable_web_page_preview: true,
+    text: [
+      `${WALLET_TAG} <b>${esc(account)}</b>`,
+      'Read-only: the LP steps show this account\'s balance so you can pick 10–100% of it. The bot never holds keys or moves funds: you still sign in your wallet.',
+      'Change it with /wallet <code>name.near</code>.'
+    ].join('\n')
+  });
+  if (!sent?.message_id) return false;
+  if (current) await telegramResult('unpinChatMessage', { chat_id: chatId, message_id: current.messageId });
+  await telegramResult('pinChatMessage', { chat_id: chatId, message_id: sent.message_id, disable_notification: true });
+  return true;
+}
+
+const ftDecimals = new Map();
+/**
+ * What an account can put in, in token units (null when it can't be read). wNEAR: the wallet's
+ * NEAR (storage and 0.25 NEAR for gas kept) — plus its wNEAR unless `nativeOnly` (Zap pays in NEAR).
+ */
+async function spendableOf(account, token, nativeOnly) {
+  try {
+    const ft = async (id) => {
+      if (!ftDecimals.has(id)) ftDecimals.set(id, Number((await viewCall(id, 'ft_metadata', {}))?.decimals ?? 18));
+      return Number(await viewCall(id, 'ft_balance_of', { account_id: account })) / 10 ** ftDecimals.get(id);
+    };
+    if (token !== WNEAR) return await ft(token);
+    const view = await rpc({ request_type: 'view_account', finality: 'final', account_id: account });
+    if (view.missing) return null;
+    const liquid = Math.max(0, (Number(view.amount) - Number(view.storage_usage) * 1e19) / 1e24 - NEAR_GAS_KEEP);
+    return nativeOnly ? liquid : liquid + (await ft(WNEAR).catch(() => 0));
+  } catch {
+    return null;
+  }
+}
+
+/** /wallet: link an account (or say which one is linked and ask for one). */
+async function walletReply(chatId, account) {
+  if (!account) {
+    const linked = await linkedAccount(chatId);
+    return {
+      text: [
+        '🔗 <b>My wallet</b> · read-only',
+        linked ? `Linked: <b>${esc(linked.account)}</b> (pinned at the top). Send another account to change it.` : 'Send your NEAR account, e.g. <code>yourname.near</code> or <code>yourname.tg</code>.',
+        'The bot reads its public balances for the LP steps. It never holds keys or moves funds.'
+      ].join('\n'),
+      reply_markup: { force_reply: true, input_field_placeholder: 'NEAR account' }
+    };
+  }
+  const view = await rpc({ request_type: 'view_account', finality: 'final', account_id: account });
+  if (view.missing) return { text: `No NEAR account named <code>${esc(account)}</code>.`, reply_markup: { inline_keyboard: [MENU_ROW] } };
+  const changed = await linkWallet(chatId, account);
+  return {
+    // The account's link lets 👛 Balance below read it (accountIn).
+    text: changed ? `✅ ${accountLink(account)} is linked and pinned at the top. The amount step now shows its balance.` : `${accountLink(account)} is already linked.`,
+    reply_markup: { inline_keyboard: [[cb('💧 New LP', 'm:new'), cb('👛 Balance', 'v:bal')], MENU_ROW] }
+  };
+}
 
 /** /balance: NEAR and the account's tokens with their dollar value. */
 async function balanceReply(account) {
@@ -761,7 +1012,7 @@ function accountFrom(text) {
  * The reply for a text message. `replyTo`: the text of the bot message it answers, if any (a
  * contract sent in reply to the swap prompt is a swap, not an LP).
  */
-export async function replyFor(text, replyTo = '') {
+export async function replyFor(text, replyTo = '', chatId = null, replyMessage = null) {
   const trimmed = String(text || '').trim();
   const match = trimmed.match(/^\/([a-z]+)(@\w+)?\s*/i);
   const name = match ? match[1].toLowerCase() : null;
@@ -771,6 +1022,9 @@ export async function replyFor(text, replyTo = '') {
   if (name === 'trending') return poolList('t1');
   if (name === 'yield') return poolList('y');
   if (name === 'terminal') return terminal();
+  if (name === 'wallet' || (!name && String(replyTo).startsWith(WALLET_PROMPT))) return walletReply(chatId, accountFrom(rest));
+  if (!name && String(replyTo).startsWith(CUSTOM_PROMPT)) return customAnswer(rest, replyMessage, chatId);
+  if (!name && String(replyTo).startsWith(AMOUNT_PROMPT)) return amountAnswer(rest, replyMessage, chatId);
   // Balance / positions: an account in the command, or sent in reply to their prompt.
   const replied = !name ? String(replyTo) : '';
   if (['balance', 'mybalance', 'bal'].includes(name) || replied.startsWith(BAL_PROMPT)) {
@@ -794,6 +1048,7 @@ export async function replyFor(text, replyTo = '') {
 /** The reply for a button press (`data`) on one of the bot's messages. */
 export async function replyForButton(data, message) {
   const [kind, a, b] = String(data || '').split(':');
+  const chat = message?.chat?.id;
   const links = linksIn(message);
   const state = links[0];
   if (kind === 'm') {
@@ -803,6 +1058,7 @@ export async function replyForButton(data, message) {
     if (a === 'bal') return ASK_BALANCE;
     if (a === 'pos') return ASK_POSITIONS;
     if (a === 'term') return terminal();
+    if (a === 'wal') return walletReply(message?.chat?.id, null);
     if (a === 'kinu') return poolCard(KINU_POOL);
     return poolList(a);
   }
@@ -821,8 +1077,9 @@ export async function replyForButton(data, message) {
   const symbolsOf = async () => (await poolById(state.poolId).catch(() => null))?.symbols || [x, y].map((t) => (t === WNEAR ? 'NEAR' : t.split('.')[0].toUpperCase()));
   // d: side → strategy step ('o' is the side button of older messages).
   if (kind === 'd' || kind === 'o') return strategyStep(state.poolId, a, await symbolsOf());
+  if (kind === 'c') return customPrompt(state.poolId, state.params.get('side') || 'z', strategy);
   if (kind === 'g') return widthStep(state.poolId, state.params.get('side') || 'z', STRATEGY_NAMES[a] ? a : 'spot', await symbolsOf());
-  if (kind === 'r') return amountStep(state.poolId, new URLSearchParams({ range: a, strategy, ...(state.params.get('side') === 'k' ? { both: '1' } : {}) }));
+  if (kind === 'r') return amountStep(state.poolId, new URLSearchParams({ range: a, strategy, ...(state.params.get('side') === 'k' ? { both: '1' } : {}) }), chat);
   if (kind === 'bk') {
     const p = state.params;
     if (a === 'card') return poolCard(state.poolId);
@@ -832,12 +1089,13 @@ export async function replyForButton(data, message) {
     }
     if (a === 'a') {
       const kept = new URLSearchParams([...p.entries()].filter(([k]) => ['range', 'below', 'above', 'strategy', 'both'].includes(k)));
-      return amountStep(state.poolId, kept);
+      return amountStep(state.poolId, kept, chat);
     }
     return poolCard(state.poolId);
   }
-  if (kind === 'w') return amountStep(state.poolId, new URLSearchParams({ [a === 'b' ? 'below' : 'above']: b, strategy }));
-  if (kind === 'a') return finalStep(state.poolId, state.params, a === 'c' ? null : Number(a));
+  if (kind === 'w') return amountStep(state.poolId, new URLSearchParams({ [a === 'b' ? 'below' : 'above']: b, strategy }), chat);
+  if (kind === 'a' && a === 'c') return amountPrompt(state.poolId, state.params, chat);
+  if (kind === 'a') return finalStep(state.poolId, state.params, a.startsWith('p') ? { pct: Number(a.slice(1)) } : Number(a), chat);
   return menu();
 }
 
@@ -895,8 +1153,14 @@ async function txResult(hash, account) {
 async function notify(req, res) {
   const user = telegramUserFrom(req.body?.initData, process.env.TELEGRAM_BOT_TOKEN);
   if (!user) return res.status(401).end();
-  const { account, hashes, pool, label } = req.body || {};
+  const { account, hashes, pool, label, kind } = req.body || {};
   if (typeof account !== 'string' || !CONTRACT.test(account) || account.length > 64) return res.status(400).end();
+  if (kind === 'wallet') {
+    const view = await rpc({ request_type: 'view_account', finality: 'final', account_id: account });
+    if (view.missing) return res.status(422).end();
+    await linkWallet(user.id, account);
+    return res.status(200).json({ ok: true });
+  }
   if (!Array.isArray(hashes) || !hashes.length || hashes.length > 10 || !hashes.every((h) => typeof h === 'string' && HASH.test(h))) return res.status(400).end();
   if (typeof pool !== 'string' || !/^[^|]{2,80}\|[^|]{2,80}\|\d{1,6}$/.test(pool)) return res.status(400).end();
   // Every transaction signed by that account and settled, at least one of them on Rhea's CLMM.
@@ -918,6 +1182,7 @@ async function notify(req, res) {
     text: text.join('\n'),
     reply_markup: { inline_keyboard: [[open('🐕 View pool', stateUrl(pool)), cb('📊 LP positions', 'v:pos')], MENU_ROW] }
   });
+  if (ok) await linkWallet(user.id, account).catch(() => {});
   return res.status(200).json({ ok: true });
 }
 
@@ -957,7 +1222,7 @@ export default async function handler(req, res) {
       await telegram('answerCallbackQuery', { callback_query_id: callback.id }).catch(() => {});
       await send(message.chat.id, await replyForButton(callback.data, message));
     } else if (typeof message.text === 'string') {
-      await send(message.chat.id, await replyFor(message.text, message.reply_to_message?.text));
+      await send(message.chat.id, await replyFor(message.text, message.reply_to_message?.text, message.chat.id, message.reply_to_message));
     }
   } catch (error) {
     await send(message.chat.id, { text: "Couldn't load pool data right now. Try again in a minute.", reply_markup: { inline_keyboard: [MENU_ROW] } }).catch(() => {});

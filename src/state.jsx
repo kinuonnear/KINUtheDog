@@ -13,6 +13,7 @@ import { formatRawAmount } from './lib/format.js';
 import { useLocalStorage } from './hooks.js';
 import { DEFAULT_SLIPPAGE, ENDPOINTS, HOLDER } from './config.js';
 import { holderStatus, readQualified, setHolderNow, writeQualified } from './lib/holder.js';
+import { linkBotWallet } from './lib/telegram.js';
 
 const AppContext = createContext(null);
 
@@ -73,6 +74,11 @@ export function AppProvider({ children }) {
       session?.unsubscribe();
     };
   }, [toast]);
+
+  // Opened from the KINU LP bot: the bot shows this account's balances in the chat (read-only).
+  useEffect(() => {
+    if (accountId) linkBotWallet(accountId);
+  }, [accountId]);
 
   const connect = useCallback(() => {
     openWalletModal().catch((error) => toast('error', 'Wallet', error?.message));
