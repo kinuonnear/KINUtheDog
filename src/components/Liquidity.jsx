@@ -730,7 +730,7 @@ const IMBALANCE_WARN_PCT = 1;
 
 const DEPOSIT_MODES = [
   { key: 'balanced', label: 'Balanced' },
-  { key: 'custom', label: 'Custom amounts' }
+  { key: 'custom', label: 'Single token' }
 ];
 
 function StableAdd({ pool, tokens, onDone }) {
@@ -842,7 +842,7 @@ function StableAdd({ pool, tokens, onDone }) {
       <p className="liq-hint">
         {mode === 'balanced'
           ? 'All tokens at the current pool ratio — the other amounts fill in automatically. Lowest fee.'
-          : 'Any mix, including a single token. The pool charges a small imbalance fee for uneven deposits.'}
+          : 'Deposit just one token, or any mix. The pool charges a small imbalance fee for uneven deposits.'}
       </p>
       {pool.tokenIds.map((id, i) => (
         <AmountField
