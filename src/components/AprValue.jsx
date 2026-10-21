@@ -19,11 +19,20 @@ export default function AprValue({ apr, move, tokenIds, estimated = false }) {
   const info = useAsync(() => getTokenInfoCached(baseId), [baseId], { enabled: lookup });
   const warning = aprWarning(apr, move !== undefined ? move : info.data?.change24h);
   const note = estimated ? 'Estimated: the last 24h of LP fees ÷ TVL, annualised (Rhea gives no APR for this pool).' : null;
+  const exact = apr >= 1000 ? `APR ${formatPercent(apr)}` : null;
   return (
-    <span className={warning ? 'apr-spike' : ''} title={[note, warning].filter(Boolean).join('\n') || undefined}>
-      {estimated && '≈'}
-      {formatPercent(apr)}
+    <span className={warning ? 'apr-spike' : ''} title={[exact, note, warning].filter(Boolean).join('\n') || undefined}>
+      {/* The ⚠ comes first so every APR number ends on the same right edge. */}
       {warning && <i aria-label="One-day spike">⚠</i>}
+      {estimated && '≈'}
+      {formatApr(apr)}
     </span>
   );
+}
+
+/** APR text, short for big numbers: 6249.92% → 6.25K%, 12,400% → 12.4K%. */
+export function formatApr(apr) {
+  const n = Number(apr);
+  if (Number.isFinite(n) && n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 1 : 2)}K%`;
+  return formatPercent(apr);
 }

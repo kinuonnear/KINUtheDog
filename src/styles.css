@@ -16192,7 +16192,7 @@ a.amm-table__row:hover {
 /* Pools: room for "⚡ Quick LP" next to "+ Add LP" on CLMM rows (desktop). */
 @media (min-width: 761px) {
   .page--pools .dt-row {
-    grid-template-columns: 34px minmax(200px, 2.4fr) 52px repeat(6, minmax(70px, 1fr)) 150px;
+    grid-template-columns: 46px minmax(198px, 2.4fr) 48px repeat(6, minmax(70px, 1fr)) 164px;
   }
 
   .page--pools .dt-action {
@@ -16202,7 +16202,7 @@ a.amm-table__row:hover {
 
 @media (min-width: 761px) and (max-width: 1500px) {
   .page--pools .dt-row {
-    grid-template-columns: 34px minmax(200px, 2.4fr) 52px minmax(84px, 1fr) repeat(5, minmax(70px, 1fr)) 150px;
+    grid-template-columns: 46px minmax(198px, 2.4fr) 48px minmax(84px, 1fr) repeat(5, minmax(70px, 1fr)) 164px;
   }
 }
 
@@ -16414,12 +16414,86 @@ a.amm-table__row:hover {
     font-size: 10.5px;
   }
 
-  .page--pools .dt-apr {
-    padding-right: 10px;
-  }
 
   .page--pools .dt-action {
     padding-left: 10px;
     border-left: 1px solid var(--lux-line, rgba(220, 230, 255, 0.08));
   }
+}
+
+/* Pools table: every column label ends exactly over its numbers (the sort arrow sits in the gap
+   after the label, not inside it), and APR values line up on one right edge. */
+@media (min-width: 761px) {
+  .page--pools .dt-row--head .dt-num .th-sort {
+    position: relative;
+  }
+
+  .page--pools .dt-row--head .dt-num .th-sort__arrow {
+    position: absolute;
+    top: 50%;
+    left: 100%;
+    margin-left: 2px;
+    transform: translateY(-50%);
+  }
+
+  .page--pools .dt-apr .apr-spike {
+    white-space: nowrap;
+  }
+
+  .page--pools .dt-apr .apr-meter {
+    margin-left: auto;
+  }
+}
+
+/* Pools table: Age sits next to the pool name (left-aligned), the other numbers stay right-aligned. */
+@media (min-width: 761px) {
+  .page--pools a.dt-row .dt-age,
+  .page--pools .dt-row--head > :nth-child(3) {
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .page--pools .dt-row--head > :nth-child(3) .th-sort {
+    justify-content: flex-start;
+  }
+}
+
+/* Pools table: the APR label (with its sort arrow) ends over the APR numbers. */
+@media (min-width: 761px) {
+  .page--pools .dt-row--head > :nth-child(9) {
+    padding-right: 8px;
+  }
+}
+
+/* Quick LP opens mid-page (style set in QuickLp.jsx) and is dragged by its header. */
+@media (min-width: 761px) {
+  .qlp .qt__head {
+    cursor: grab;
+  }
+
+  .qlp .qt__head:active {
+    cursor: grabbing;
+  }
+}
+
+/* Quick LP on a whitelist-only pool: the pool page's notice, compact. */
+.qlp__wl {
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.qlp__wl p {
+  font-size: 12px;
+}
+
+.qlp__wl small {
+  font-size: 10.5px;
+  overflow-wrap: anywhere;
+}
+
+.qlp__bal {
+  display: block;
+  margin: 2px 2px 4px;
+  font-size: 10.5px;
+  text-align: right;
 }
