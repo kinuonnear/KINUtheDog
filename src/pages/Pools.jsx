@@ -974,11 +974,11 @@ export default function Pools() {
           <div className="dt-row dt-row--head">
             <span>#</span>
             <span>Pool</span>
-            <span className="dt-num">{sortHeader('age', 'Token age', 'Sort by the age of the pool’s main token')}</span>
+            <span className="dt-num">{sortHeader('age', 'Age', 'Sort by the age of the pool’s main token')}</span>
             <span className="dt-num">Pool price</span>
             <span className="dt-num">{sortHeader('move', '24h move', '24h price move: the impermanent-loss risk for LPs')}</span>
             <span className="dt-num">{sortHeader('tvl', 'TVL')}</span>
-            <span className="dt-num">{sortHeader('volume', `Volume ${windowLabel}`)}</span>
+            <span className="dt-num">{sortHeader('volume', `Vol ${windowLabel}`, `Sort by volume over ${windowLabel}`)}</span>
             <span className="dt-num">{sortHeader('fees', `Fees ${windowLabel}`)}</span>
             <span className="dt-num">{sortHeader('apy', 'APR')}</span>
             <span aria-hidden />

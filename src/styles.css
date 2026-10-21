@@ -16378,3 +16378,48 @@ a.amm-table__row:hover {
     gap: 5px;
   }
 }
+
+/* Pools table, final pass: labels the width of their columns and right-aligned like the numbers,
+   room between APR and the buttons, shorter rows and slightly smaller text. */
+@media (min-width: 761px) {
+  .shell--pools .page--pools .dt-row--head,
+  .shell--pools .page--pools .dt-row--head > * {
+    font-size: 9.5px;
+    letter-spacing: 0.04em;
+  }
+
+  .page--pools .dt-row--head .dt-num {
+    align-items: flex-end;
+  }
+
+  .page--pools .dt-row--head .dt-num .th-sort {
+    justify-content: flex-end;
+  }
+
+  .page--pools .dt-row {
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  .page--pools a.dt-row {
+    font-size: 13px;
+  }
+
+  .page--pools .dt-pool strong {
+    font-size: 13.5px;
+  }
+
+  .page--pools .dt-num small,
+  .page--pools .dt-num i {
+    font-size: 10.5px;
+  }
+
+  .page--pools .dt-apr {
+    padding-right: 10px;
+  }
+
+  .page--pools .dt-action {
+    padding-left: 10px;
+    border-left: 1px solid var(--lux-line, rgba(220, 230, 255, 0.08));
+  }
+}
