@@ -23,6 +23,9 @@
 // it back from the chat's pinned message (it keeps no database); the amount step then shows the
 // account's balance with 10–Max% buttons. Balances are public data: the bot can't move anything.
 //
+// A wallet comes first: until the chat has one linked, every message and button answers with the
+// connect screen (connect HOT Wallet in KINU, or type the account). /wallet always works.
+//
 // Messages: /start (menu), /help, /wallet [account], /pools, /swap <contract> [$amount], /lp <contract>, /balance and
 // /positions <account> (read-only), /terminal, or a pasted
 // token contract.
@@ -305,6 +308,22 @@ const HELP = [
   '',
   'KINU never holds your keys or funds: you check everything in KINU and confirm in your wallet (HOT Wallet works inside Telegram). Liquidity can lose value against holding (impermanent loss); this is not financial advice.'
 ].join('\n');
+
+/** The first screen until a wallet is linked: connect HOT Wallet in KINU, or type the account. */
+function connectFirst() {
+  return {
+    text: [
+      '👋 <b>Welcome to the KINU LP bot</b> · liquidity and swaps on NEAR in a few taps',
+      '',
+      '<b>First, connect your NEAR wallet.</b> The bot then shows your balances and positions, and lets you put in 10–100% of what you hold.',
+      '',
+      '🔐 Read-only for the bot: it never holds keys or moves funds. Every transaction is signed in your own wallet (HOT Wallet works right inside Telegram).'
+    ].join('\n'),
+    reply_markup: {
+      inline_keyboard: [[open('🔐 Connect HOT Wallet', `${appUrl()}/pools?${new URLSearchParams({ type: 'clmm', connect: '1' })}`)], [cb('✍️ Enter my NEAR account', 'm:wal')]]
+    }
+  };
+}
 
 function menu() {
   return {
@@ -838,7 +857,8 @@ async function linkWallet(chatId, account) {
       `${WALLET_TAG} <b>${esc(account)}</b>`,
       'Read-only: the LP steps show this account\'s balance so you can pick 10–100% of it. The bot never holds keys or moves funds: you still sign in your wallet.',
       'Change it with /wallet <code>name.near</code>.'
-    ].join('\n')
+    ].join('\n'),
+    reply_markup: { inline_keyboard: [[cb('💧 New LP', 'm:new'), cb('📊 LP positions', 'm:pos')], MENU_ROW] }
   });
   if (!sent?.message_id) return false;
   if (current) await telegramResult('unpinChatMessage', { chat_id: chatId, message_id: current.messageId });
@@ -1048,12 +1068,13 @@ export async function replyFor(text, replyTo = '', chatId = null, replyMessage =
   const match = trimmed.match(/^\/([a-z]+)(@\w+)?\s*/i);
   const name = match ? match[1].toLowerCase() : null;
   const rest = match ? trimmed.slice(match[0].length) : trimmed;
+  if (name === 'wallet' || (!name && String(replyTo).startsWith(WALLET_PROMPT))) return walletReply(chatId, accountFrom(rest));
+  if (chatId && !(await linkedAccount(chatId))) return connectFirst();
   if (!trimmed || name === 'start' || name === 'help' || name === 'menu') return menu();
   if (name === 'pools') return { text: 'Every pool on NEAR (Rhea and Intear DEX), sorted by what it pays LPs.', reply_markup: { inline_keyboard: [[open('🐕 Open Pools', `${appUrl()}/pools`)], MENU_ROW] } };
   if (name === 'trending') return poolList('t1');
   if (name === 'yield') return poolList('y');
   if (name === 'terminal') return terminal();
-  if (name === 'wallet' || (!name && String(replyTo).startsWith(WALLET_PROMPT))) return walletReply(chatId, accountFrom(rest));
   if (!name && String(replyTo).startsWith(CUSTOM_PROMPT)) return customAnswer(rest, replyMessage, chatId);
   if (!name && String(replyTo).startsWith(AMOUNT_PROMPT)) return amountAnswer(rest, replyMessage, chatId);
   // Balance / positions: an account in the command, or sent in reply to their prompt.
@@ -1085,6 +1106,8 @@ export async function replyForButton(data, message) {
   const chat = message?.chat?.id;
   const links = linksIn(message);
   const state = links[0];
+  if (kind === 'm' && a === 'wal') return walletReply(chat, null);
+  if (chat && !(await linkedAccount(chat))) return connectFirst();
   if (kind === 'm') {
     if (!a) return menu();
     if (a === 'new') return ASK_CONTRACT;

@@ -1,3 +1,4 @@
+// /pools?connect=1 — the bot's 🔐 Connect HOT Wallet (ConnectFromBot, below).
 // /pools?close=<pool> — the KINU LP bot's "✖ Close" on 📊 LP positions: the Remove liquidity form
 // for the connected account's positions in that pool (DclRemoveModal, as on the pool page: 25–100%,
 // both tokens back or zapped out to one, signed in the wallet).
@@ -10,8 +11,38 @@ import { getToken } from '../lib/tokens.js';
 import { refreshDclGraphFor } from '../lib/dclRouter.js';
 import { DclRemoveModal } from './DclPositions.jsx';
 import { Modal, Spinner } from './ui.jsx';
+import { linkBotWallet } from '../lib/telegram.js';
 
 const POOL_ID = /^[^|]{2,80}\|[^|]{2,80}\|\d{1,6}$/;
+
+/**
+ * /pools?connect=1 — the bot's "🔐 Connect HOT Wallet": once the wallet has loaded, open its
+ * connect window unless an account is already connected. Either way the account then reaches the
+ * bot (state.jsx → linkBotWallet), which pins it in the chat.
+ */
+export function ConnectFromBot() {
+  const { accountId, walletReady, connect, toast } = useApp();
+  const [asked] = useState(() => new URLSearchParams(window.location.search).has('connect'));
+  useEffect(() => {
+    if (!asked || !walletReady) return;
+    const params = new URLSearchParams(window.location.search);
+    params.delete('connect');
+    navigate(`/pools${params.toString() ? `?${params}` : ''}`, { replace: true });
+    if (accountId) {
+      // Asked again from the bot: send the account even if this session already did.
+      try {
+        sessionStorage.removeItem('kinu.tg.wallet');
+      } catch {
+        // storage unavailable: linkBotWallet sends it anyway
+      }
+      linkBotWallet(accountId);
+      toast('success', 'Wallet connected', `${accountId} is linked to the KINU LP bot. Head back to Telegram.`);
+    } else connect();
+    // once, when the wallet has loaded
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [asked, walletReady]);
+  return null;
+}
 
 export function QuickCloseHost() {
   const { accountId, walletReady, connect } = useApp();
