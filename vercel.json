@@ -102,5 +102,11 @@
     "api/market-webhook.js": {
       "maxDuration": 60
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/market-webhook",
+      "schedule": "*/5 * * * *"
+    }
+  ]
 }

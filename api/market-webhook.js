@@ -8,6 +8,8 @@
 // Vercel environment variables (set in the Vercel dashboard, never in code):
 //   MARKET_AGENT_TOKEN     the agent's API token (aat_…), minted on the agent's page
 //   MARKET_WEBHOOK_SECRET  the agent's signing secret (whsec_…)
+//   CRON_SECRET            any long random string; Vercel Cron sends it as a Bearer token (vercel.json
+//                          checks the queue every 5 minutes, a backup for a webhook that never arrived)
 //
 // Webhook URL to register on the agent's page: https://kinudefi.com/api/market-webhook
 
@@ -84,7 +86,26 @@ async function workQueue() {
   }
 }
 
+/** Vercel Cron (vercel.json, every 5 minutes) sends `Authorization: Bearer <CRON_SECRET>`. */
+function fromCron(req) {
+  const secret = process.env.CRON_SECRET;
+  const header = String(req.headers.authorization || '');
+  if (!secret || header.length !== secret.length + 7) return false;
+  return timingSafeEqual(Buffer.from(header), Buffer.from(`Bearer ${secret}`));
+}
+
 export default async function handler(req, res) {
+  if (req.method === 'GET' && fromCron(req)) {
+    // Backup to the webhook: a hire whose event never arrived is picked up within 5 minutes.
+    if (!process.env.MARKET_AGENT_TOKEN) return res.status(500).end();
+    try {
+      await workQueue();
+      return res.status(200).send('queue checked');
+    } catch (error) {
+      console.error('market cron', error.message);
+      return res.status(503).end();
+    }
+  }
   if (req.method !== 'POST') return res.status(200).send('KINU LP Report agent');
   if (!process.env.MARKET_AGENT_TOKEN || !process.env.MARKET_WEBHOOK_SECRET) return res.status(500).end();
   const raw = await readRaw(req);
