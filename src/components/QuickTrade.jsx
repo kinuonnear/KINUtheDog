@@ -212,13 +212,13 @@ export default function QuickTrade({ token, open, setOpen }) {
             </form>
           ) : (
             <div className="qt__grid">
-              {buys.map((n) => {
+              {buys.map((n, i) => {
                 const raw = toBigInt(parseUnits(String(n), NATIVE_NEAR.decimals));
                 const short = accountId && raw > spendableNear;
                 const est = nearPrice && tokenPrice ? (n * nearPrice) / tokenPrice : null;
                 return (
                   <button
-                    key={n}
+                    key={i}
                     type="button"
                     className="qt__btn qt__btn--buy"
                     disabled={Boolean(busy) || short}
@@ -252,9 +252,9 @@ export default function QuickTrade({ token, open, setOpen }) {
                   key={share}
                   type="button"
                   className="qt__btn qt__btn--sell"
-                  disabled={Boolean(busy) || (accountId && tokenRaw === 0n)}
+                  disabled={Boolean(busy) || (accountId && amount === 0n)}
                   onClick={() => sell(share)}
-                  title={accountId && tokenRaw === 0n ? `No ${token.symbol} in this wallet` : `Sell ${share}% of your ${token.symbol}`}
+                  title={accountId && amount === 0n ? `No ${token.symbol} to sell` : `Sell ${share}% of your ${token.symbol}`}
                 >
                   <strong>{busy === `sell-${share}` ? '…' : `${share}%`}</strong>
                   {accountId && est ? <small>≈ {formatAmount(Number(est.toPrecision(3)))} NEAR</small> : null}

@@ -16497,3 +16497,16 @@ a.amm-table__row:hover {
   font-size: 10.5px;
   text-align: right;
 }
+
+/* Floating panels never taller than the screen: their content scrolls inside. */
+.qt {
+  max-height: calc(100vh - 16px);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+@media (max-width: 760px) {
+  .qt {
+    max-height: calc(100vh - 96px - env(safe-area-inset-bottom));
+  }
+}

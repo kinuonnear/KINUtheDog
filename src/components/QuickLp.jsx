@@ -318,7 +318,9 @@ function QuickLpPanel({ pool, onClose }) {
 
       {step > 1 && !done && <p className="qlp__picked">{[sideText, strategy && STRATEGY_NAMES[strategy], widthText].filter(Boolean).join(' · ')}</p>}
 
-      {!restricted && step === 1 && (
+      {info === null && <p className="qlp__ask">Checking pool…</p>}
+
+      {info !== null && !restricted && step === 1 && (
         <>
           <p className="qlp__ask">What do you put in?</p>
           <div className="qlp__opts">
