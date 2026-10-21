@@ -6,6 +6,11 @@
 // come from the same builders the form uses (buildBins → planBins → buildDclBinsTransactions:
 // storage, wrap NEAR, token tax and min amounts included), read on the live pool at signing.
 // After the position is created: "View pool".
+//
+// The Telegram bot's "⚡ Sign & create" opens /pools?quick=<pool>&side=&strategy=&width=&amount= :
+// the panel opens on its last step with the choices made in the chat, the user taps once and signs
+// in their wallet; then the bot gets the transaction hashes and posts the result in the chat
+// (api/telegram.js checks them on chain).
 
 import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../state.jsx';
@@ -19,6 +24,7 @@ import { alignPoint, buildBins, buildDclBinsTransactions, fullRange, planBins, p
 import { refreshDclGraphFor } from '../lib/dclRouter.js';
 import TaxNote from './TaxNote.jsx';
 import { buildZapTransactions, quoteZap, valueShareX } from '../lib/zap.js';
+import { notifyBot } from '../lib/telegram.js';
 
 const WNEAR = CONTRACTS.wrapNear;
 const SIDE_WIDTHS = ['10', '20', '30', '50', '70', '90'];
@@ -90,15 +96,38 @@ const trim = (text) => {
   return kept ? `${w}.${kept}` : w;
 };
 
+/** The bot's choices from a /pools?quick= link, kept only where they are valid; null otherwise. */
+export function parseQuickLink(search) {
+  const id = search.get('quick') || '';
+  const [x, y, fee] = id.split('|');
+  if (!x || !y || !/^\d+$/.test(fee || '') || id.length > 200) return null;
+  const side = ['x', 'y', 'z', 'zap'].includes(search.get('side')) ? search.get('side') : null;
+  const strategy = STRATEGY_NAMES[search.get('strategy')] ? search.get('strategy') : null;
+  const widths = side === 'x' || side === 'y' ? SIDE_WIDTHS : AROUND_WIDTHS;
+  const width = side && strategy && widths.includes(search.get('width')) ? search.get('width') : null;
+  const amount = (search.get('amount') || '').replace(/,/g, '');
+  return {
+    id,
+    tokenIds: [x, y],
+    preset: {
+      side,
+      strategy: side ? strategy : null,
+      width,
+      text: width && side !== 'z' && /^\d*\.?\d+$/.test(amount) && Number(amount) > 0 ? amount : ''
+    }
+  };
+}
+
 function QuickLpPanel({ pool, onClose }) {
   const { accountId, connect, balances, prices, slippage, execute, refreshTokenBalances } = useApp();
   const [x, y] = pool.tokenIds;
   const [sx, sy] = pool.symbols;
   // 'x' 1st token only (above the price) · 'y' 2nd token only (below) · 'z' both tokens (around it)
-  const [side, setSide] = useState(null);
-  const [strategy, setStrategy] = useState(null);
-  const [width, setWidth] = useState(null);
-  const [text, setText] = useState('');
+  const preset = pool.preset || {};
+  const [side, setSide] = useState(preset.side || null);
+  const [strategy, setStrategy] = useState(preset.strategy || null);
+  const [width, setWidth] = useState(preset.width || null);
+  const [text, setText] = useState(preset.text || '');
   const [texts, setTexts] = useState({ x: '', y: '', last: 'x' });
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
@@ -282,6 +311,9 @@ function QuickLpPanel({ pool, onClose }) {
     );
     setBusy(false);
     if (ok) {
+      // Opened from the Telegram bot: it posts the result in the chat once it sees the transactions.
+      const hashes = (Array.isArray(ok) ? ok : []).map((o) => o?.transaction?.hash || o?.transaction_outcome?.id).filter(Boolean);
+      notifyBot({ kind: 'quick-lp', account: accountId, hashes, pool: pool.id, label: [sideText, STRATEGY_NAMES[strategy], widthText].join(' · ') });
       refreshDclGraphFor(pool.id);
       refreshTokenBalances([x, y, NATIVE_NEAR.id]);
       setDone(true);
@@ -551,13 +583,32 @@ function QuickLpPanel({ pool, onClose }) {
   );
 }
 
-/** The panel's host on the Pools page: shows the pool a row's ⚡ Quick LP picked. */
+/** The panel's host on the Pools page: shows the pool a row's ⚡ Quick LP (or a bot link) picked. */
 export function QuickLpHost() {
   const [pool, setPool] = useState(null);
   useEffect(() => {
     const onOpen = (event) => setPool(event.detail);
     window.addEventListener(OPEN_EVENT, onOpen);
     return () => window.removeEventListener(OPEN_EVENT, onOpen);
+  }, []);
+
+  // A /pools?quick= link (the Telegram bot): open once, then drop its fields from the address.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const link = parseQuickLink(params);
+    if (!link) return undefined;
+    ['quick', 'side', 'strategy', 'width', 'amount'].forEach((k) => params.delete(k));
+    navigate(`/pools${params.toString() ? `?${params}` : ''}`, { replace: true });
+    let live = true;
+    Promise.all(link.tokenIds.map((id) => getToken(id).catch(() => null))).then((tokens) => {
+      if (!live) return;
+      // As the Pools rows name them: wNEAR shows as NEAR.
+      const symbols = tokens.map((t, i) => (link.tokenIds[i] === WNEAR ? 'NEAR' : t?.symbol || link.tokenIds[i].split('.')[0].toUpperCase()));
+      setPool({ id: link.id, tokenIds: link.tokenIds, symbols, preset: link.preset });
+    });
+    return () => {
+      live = false;
+    };
   }, []);
   if (!pool) return null;
   return <QuickLpPanel key={pool.id} pool={pool} onClose={() => setPool(null)} />;

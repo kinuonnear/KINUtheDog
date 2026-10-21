@@ -49,3 +49,18 @@ export function startTelegram() {
     setTimeout(() => resolve(Boolean(window.Telegram?.WebApp)), 4000);
   });
 }
+
+/**
+ * Opened from the KINU LP bot: tell the bot what was signed, so it posts the result in the chat.
+ * Telegram's signed launch data (initData) proves which chat it is; the bot checks the
+ * transactions on chain before it says anything. Outside Telegram this does nothing.
+ */
+export function notifyBot(payload) {
+  const initData = window.Telegram?.WebApp?.initData;
+  if (!initData || !payload?.hashes?.length) return;
+  fetch('/api/telegram?notify=1', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ ...payload, initData })
+  }).catch(() => {});
+}

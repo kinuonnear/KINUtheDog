@@ -13,9 +13,16 @@
 //   TELEGRAM_WEBHOOK_SECRET  any long random string; also given to setWebhook as secret_token
 //   KINU_APP_URL             optional, defaults to https://kinudefi.com
 //
+// The last step's "⚡ Sign & create" opens KINU's Quick LP panel on its last step with the chat's
+// choices (src/components/QuickLp.jsx): one tap, one wallet approval. KINU then sends the
+// transaction hashes back (POST ?notify=1 with Telegram's signed initData); the bot checks them on
+// chain and posts the result in that chat.
+//
 // Messages: /start (menu), /help, /pools, /swap <contract> [$amount], /lp <contract>, /balance and
 // /positions <account> (read-only), /terminal, or a pasted
 // token contract.
+
+import { createHmac, timingSafeEqual } from 'node:crypto';
 
 const RHEA_API = 'https://api.rhea.finance';
 const DEXSCREENER_API = 'https://api.dexscreener.com';
@@ -245,6 +252,16 @@ function linksIn(message) {
       const url = new URL(e.url);
       return { poolId: decodeURIComponent(url.pathname.split('/pools/')[1] || ''), params: url.searchParams };
     });
+}
+
+/** KINU's Quick LP panel on its last step, for the range in `params` (see QuickLp.jsx parseQuickLink). */
+function quickUrl(poolId, params, amount) {
+  const hasNear = poolId.split('|').includes(WNEAR);
+  const side = params.get('below') ? 'y' : params.get('above') ? 'x' : hasNear ? 'zap' : 'z';
+  const width = params.get('below') || params.get('above') || params.get('range');
+  const query = new URLSearchParams({ type: 'clmm', quick: poolId, side, strategy: params.get('strategy') || 'spot', width });
+  if (amount && side !== 'z') query.set('amount', amount);
+  return `${appUrl()}/pools?${query}`;
 }
 
 /** NEAR → token (or with `sell`, token → NEAR) on KINU's Swap; `amount` in the token swapped from. */
@@ -477,9 +494,10 @@ async function finalStep(poolId, params, dollars) {
       `✅ <a href="${stateUrl(pool.id, Object.fromEntries(params))}">${esc(`${pool.symbols[0]} / ${pool.symbols[1]}`)}</a> · ${esc(deposit.label)}`,
       amountText,
       '',
-      'Open it in KINU: everything is filled in. Check the form, then confirm in your wallet.'
+      '⚡ <b>Sign & create</b>: KINU opens with all of this set. Tap once, confirm in your wallet, and the result comes back here. The range is set on the live price when you sign.',
+      '📝 <b>Full form</b>: the pool page with the form filled in, to fine-tune first.'
     ].join('\n'),
-    reply_markup: { inline_keyboard: [[open('🐕 Open in KINU', link)], MENU_ROW] }
+    reply_markup: { inline_keyboard: [[open('⚡ Sign & create', quickUrl(pool.id, params, query.amount))], [open('📝 Full form', link)], MENU_ROW] }
   };
 }
 
@@ -800,6 +818,86 @@ export async function replyForButton(data, message) {
   return menu();
 }
 
+/* ---------------------------------------------------------------- results from KINU */
+
+const NOTIFY_MAX_AGE_S = 24 * 3600;
+const HASH = /^[1-9A-HJ-NP-Za-km-z]{43,44}$/;
+
+/**
+ * Telegram's Mini App launch data, checked with the bot token (core.telegram.org/bots/webapps):
+ * the Telegram user it was issued to, or null when it is forged, malformed or too old.
+ */
+export function telegramUserFrom(initData, botToken) {
+  if (typeof initData !== 'string' || initData.length > 4096 || !botToken) return null;
+  const params = new URLSearchParams(initData);
+  const hash = params.get('hash') || '';
+  if (!/^[0-9a-f]{64}$/.test(hash)) return null;
+  params.delete('hash');
+  const check = [...params.entries()].map(([k, v]) => `${k}=${v}`).sort().join('\n');
+  const secret = createHmac('sha256', 'WebAppData').update(botToken).digest();
+  const expected = createHmac('sha256', secret).update(check).digest();
+  if (!timingSafeEqual(expected, Buffer.from(hash, 'hex'))) return null;
+  const age = Date.now() / 1000 - Number(params.get('auth_date'));
+  if (!(age >= -60 && age < NOTIFY_MAX_AGE_S)) return null;
+  try {
+    const user = JSON.parse(params.get('user') || 'null');
+    return Number.isSafeInteger(user?.id) ? user : null;
+  } catch {
+    return null;
+  }
+}
+
+/** A transaction's final result from the chain: { ok, receiver } (null when it isn't found). */
+async function txResult(hash, account) {
+  for (const url of RPCS) {
+    try {
+      const json = await getJson(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tx', params: { tx_hash: hash, sender_account_id: account, wait_until: 'EXECUTED_OPTIMISTIC' } })
+      });
+      if (json.error) continue;
+      const r = json.result;
+      if (r?.transaction?.signer_id !== account) return null;
+      const failed = 'Failure' in (r.status || {}) || (r.receipts_outcome || []).some((o) => 'Failure' in (o.outcome?.status || {}));
+      return { ok: !failed, receiver: r.transaction.receiver_id };
+    } catch {
+      // next RPC
+    }
+  }
+  return null;
+}
+
+/** POST ?notify=1 from KINU: a Quick LP signed in the Mini App, posted in that user's chat. */
+async function notify(req, res) {
+  const user = telegramUserFrom(req.body?.initData, process.env.TELEGRAM_BOT_TOKEN);
+  if (!user) return res.status(401).end();
+  const { account, hashes, pool, label } = req.body || {};
+  if (typeof account !== 'string' || !CONTRACT.test(account) || account.length > 64) return res.status(400).end();
+  if (!Array.isArray(hashes) || !hashes.length || hashes.length > 10 || !hashes.every((h) => typeof h === 'string' && HASH.test(h))) return res.status(400).end();
+  if (typeof pool !== 'string' || !/^[^|]{2,80}\|[^|]{2,80}\|\d{1,6}$/.test(pool)) return res.status(400).end();
+  // Every transaction signed by that account and settled, at least one of them on Rhea's CLMM.
+  const results = await Promise.all(hashes.map((h) => txResult(h, account)));
+  if (results.some((r) => !r) || !results.some((r) => r.receiver === DCL)) return res.status(422).end();
+  const ok = results.every((r) => r.ok);
+  const [x, y, fee] = pool.split('|');
+  const prices = await tokenPrices().catch(() => ({}));
+  const name = `${symbolOf(prices, x)} / ${symbolOf(prices, y)}`;
+  const last = hashes[hashes.length - 1];
+  const text = [
+    ok ? `✅ <b>Position created</b> · ${esc(name)} · ${Number(fee) / 1e4}%` : `⚠️ <b>Not completed</b> · ${esc(name)} · ${Number(fee) / 1e4}%`,
+    typeof label === 'string' && label.length <= 120 ? esc(label) : null,
+    `Account ${accountLink(account)}`,
+    `<a href="https://nearblocks.io/txns/${last}">View transaction</a>`,
+    ok ? null : 'A step failed on chain. Check your balances and positions in KINU.'
+  ].filter((l) => l !== null);
+  await send(user.id, {
+    text: text.join('\n'),
+    reply_markup: { inline_keyboard: [[open('🐕 View pool', stateUrl(pool)), cb('📊 LP positions', 'v:pos')], MENU_ROW] }
+  });
+  return res.status(200).json({ ok: true });
+}
+
 /* ---------------------------------------------------------------- webhook */
 
 async function telegram(method, body) {
@@ -815,6 +913,13 @@ const send = (chatId, reply) => telegram('sendMessage', { chat_id: chatId, parse
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(200).send('KINU LP bot');
+  if (req.query?.notify) {
+    if (!process.env.TELEGRAM_BOT_TOKEN) return res.status(500).end();
+    return notify(req, res).catch((error) => {
+      console.error('telegram notify', error);
+      return res.status(500).end();
+    });
+  }
   // Only Telegram knows the secret (setWebhook secret_token): anything else is ignored.
   const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
   if (!secret || req.headers['x-telegram-bot-api-secret-token'] !== secret) return res.status(401).end();
