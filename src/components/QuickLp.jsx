@@ -27,10 +27,34 @@ import { buildZapTransactions, quoteZap, valueShareX } from '../lib/zap.js';
 import { notifyBot } from '../lib/telegram.js';
 
 const WNEAR = CONTRACTS.wrapNear;
-const SIDE_WIDTHS = ['10', '20', '30', '50', '70', '90'];
-const AROUND_WIDTHS = ['5', '10', '25', '50', '75', 'full'];
-const USD_AMOUNTS = [50, 100, 150];
-const SHARES = [25, 50, 100];
+// Width presets, then Custom: any % up to WIDTH_MAX (below the price a range stops short of zero).
+// Around the price, Custom takes how far below and how far above apart: "50:300" is −50% / +300%.
+const SIDE_WIDTHS = ['10', '20', '30', '50', '70'];
+const AROUND_WIDTHS = ['5', '10', '25', '50', '75'];
+const WIDTH_MAX = { y: 99, x: 500, below: 99, above: 1000 };
+/** A width typed in Custom ('y' / 'below' under the price, 'x' / 'above' over it), as a string; null when out of range. */
+const customWidth = (mode, value) => {
+  const v = Number(String(value).replace(',', '.'));
+  return String(value).trim() !== '' && Number.isFinite(v) && v >= 1 && v <= (WIDTH_MAX[mode] || 99) ? String(Math.round(v * 10) / 10) : null;
+};
+/** An around width as [% below, % above]: "10" is ±10%, "50:300" is −50% / +300%. */
+export const splitWidth = (w) => {
+  const [lo, hi = lo] = String(w).split(':').map(Number);
+  return [lo, hi];
+};
+/** Custom around the price: "lo:hi" ("lo" when both match), or null while either is out of range. */
+const customAround = (lo, hi) => {
+  const a = customWidth('below', lo);
+  const b = customWidth('above', hi);
+  return a && b ? (a === b ? a : `${a}:${b}`) : null;
+};
+/** How an around width reads: ±10% or −50% / +300%. */
+const aroundText = (w) => {
+  const [lo, hi] = splitWidth(w);
+  return lo === hi ? `±${lo}%` : `−${lo}% / +${hi}%`;
+};
+// Amount buttons: a share of the wallet's balance of the token going in.
+const SHARES = [10, 25, 50, 75, 100];
 const STRATEGY_NAMES = { spot: 'Spot', curve: 'Curve', bidask: 'Bid-Ask' };
 const OPEN_EVENT = 'kinu:quick-lp';
 
@@ -55,14 +79,14 @@ export function oneSidedRange({ current, delta, dx, dy, side, widthPct }) {
   return { left, right: Math.max(toPoint(price * (1 + w), 'ceil'), left + delta) };
 }
 
-/** ± a % around the price now, or the full range (the form's presetRange rule). */
+/** Around the price now (± a %, or "below:above" %), or the full range (the form's presetRange rule). */
 export function aroundRange({ current, delta, dx, dy, widthPct }) {
   if (widthPct === 'full') return fullRange(delta);
   const price = pointToPrice(current, dx, dy);
   const toPoint = (p, mode) => alignPoint(priceToPoint(p, dx, dy), delta, mode);
-  const w = Number(widthPct) / 100;
-  const left = toPoint(price * (1 - w), 'floor');
-  let right = toPoint(price * (1 + w), 'ceil');
+  const [lo, hi] = splitWidth(widthPct);
+  const left = toPoint(price * (1 - lo / 100), 'floor');
+  let right = toPoint(price * (1 + hi / 100), 'ceil');
   if (right <= left) right = left + delta;
   return { left, right };
 }
@@ -103,8 +127,9 @@ export function parseQuickLink(search) {
   if (!x || !y || !/^\d+$/.test(fee || '') || id.length > 200) return null;
   const side = ['x', 'y', 'z', 'zap'].includes(search.get('side')) ? search.get('side') : null;
   const strategy = STRATEGY_NAMES[search.get('strategy')] ? search.get('strategy') : null;
-  const widths = side === 'x' || side === 'y' ? SIDE_WIDTHS : AROUND_WIDTHS;
-  const width = side && strategy && widths.includes(search.get('width')) ? search.get('width') : null;
+  const raw = search.get('width') || '';
+  const [below, above = below] = raw.split(':');
+  const width = !side || !strategy ? null : side === 'x' || side === 'y' ? customWidth(side, raw) : raw === 'full' ? raw : customAround(below, above);
   const amount = (search.get('amount') || '').replace(/,/g, '');
   return {
     id,
@@ -141,6 +166,8 @@ function QuickLpPanel({ pool, onClose }) {
   const zap = side === 'zap'; // one token in, swapped into both sides (lib/zap.js, as the form's Zap in)
   const around = both || zap;
   const [zapId, setZapId] = useState(null);
+  const [custom, setCustom] = useState(null); // Custom width being typed (around: the % below), or null
+  const [customHi, setCustomHi] = useState(''); // around: the % above
 
   useEffect(() => {
     let live = true;
@@ -177,7 +204,7 @@ function QuickLpPanel({ pool, onClose }) {
 
   const back = () => {
     if (step === 4) setWidth(null);
-    else if (step === 3) setStrategy(null);
+    else if (step === 3) (setStrategy(null), setCustom(null));
     else if (step === 2) setSide(null);
   };
 
@@ -237,14 +264,10 @@ function QuickLpPanel({ pool, onClose }) {
   const px = priceOf(prices, x);
   const py = priceOf(prices, y);
   const price = px > 0 && py > 0 ? px / py : null;
-  const w = Number(width) / 100;
+  const [lo, hi] = width ? splitWidth(width).map((v) => v / 100) : [0, 0];
   const shownRange =
-    !price || !width || width === 'full' ? null : side === 'y' ? [price * (1 - w), price] : side === 'x' ? [price, price * (1 + w)] : [price * (1 - w), price * (1 + w)];
+    !price || !width || width === 'full' ? null : side === 'y' ? [price * (1 - lo), price] : side === 'x' ? [price, price * (1 + lo)] : [price * (1 - lo), price * (1 + hi)];
 
-  const setDollars = (d) => {
-    if (!token || !usdPrice) return;
-    setText(String(Number((d / usdPrice).toPrecision(6))));
-  };
   const setShare = (pct) => {
     if (!token) return;
     setText(formatUnits(((spendable * BigInt(pct)) / 100n).toString(), token.decimals));
@@ -347,7 +370,11 @@ function QuickLpPanel({ pool, onClose }) {
     drag.current = null;
   };
   const sideText = zap ? `Zap ${symbol}` : both ? 'Both tokens' : `${symbol} only`;
-  const widthText = !width ? '' : around ? (width === 'full' ? 'Full range' : `±${width}%`) : `${side === 'y' ? '−' : '+'}${width}%`;
+  // Step 3: presets and Custom read with this sign ('±' around the price, '−' below, '+' above).
+  const widthMode = around ? 'below' : side;
+  const sign = around ? '±' : side === 'y' ? '−' : '+';
+  const customPick = custom === null ? null : around ? customAround(custom, customHi) : customWidth(widthMode, custom);
+  const widthText = !width ? '' : around ? (width === 'full' ? 'Full range' : aroundText(width)) : `${side === 'y' ? '−' : '+'}${width}%`;
   const bothShort = shortX ? label(x, sx) : shortY ? label(y, sy) : null;
 
   return (
@@ -434,10 +461,60 @@ function QuickLpPanel({ pool, onClose }) {
           <div className="qt__grid qlp__grid">
             {(around ? AROUND_WIDTHS : SIDE_WIDTHS).map((v) => (
               <button key={v} type="button" className="qt__btn" onClick={() => setWidth(v)}>
-                <strong>{around ? (v === 'full' ? 'Full' : `±${v}%`) : `${side === 'y' ? '−' : '+'}${v}%`}</strong>
+                <strong>{`${sign}${v}%`}</strong>
               </button>
             ))}
+            <button
+              type="button"
+              className={`qt__btn${custom !== null ? ' is-active' : ''}`}
+              onClick={() => (setCustom(custom === null ? '' : null), setCustomHi(''))}
+            >
+              <strong>Custom</strong>
+            </button>
           </div>
+          {custom !== null && (
+            <form
+              className="qlp__custom"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (customPick) (setWidth(customPick), setCustom(null));
+              }}
+            >
+              {/* Around the price: how far below and how far above, apart (the bottom stops short of zero). */}
+              <div className={around ? 'qlp__custom-pair' : undefined}>
+                {(around
+                  ? [
+                      ['below', '−', custom, setCustom, 'How far below the price, in %'],
+                      ['above', '+', customHi, setCustomHi, 'How far above the price, in %']
+                    ]
+                  : [[widthMode, sign, custom, setCustom, side === 'y' ? 'How far below the price, in %' : 'How far above the price, in %']]
+                ).map(([mode, mark, value, set, name], i) => (
+                  <div key={mode} className="qlp__field">
+                    <b>{mark}</b>
+                    <input
+                      autoFocus={i === 0}
+                      inputMode="decimal"
+                      placeholder={`1 – ${WIDTH_MAX[mode]}`}
+                      value={value}
+                      aria-label={name}
+                      onChange={(e) => {
+                        const v = e.target.value.replace(',', '.');
+                        if (/^\d{0,4}\.?\d?$/.test(v)) set(v);
+                      }}
+                    />
+                    <b>%</b>
+                  </div>
+                ))}
+              </div>
+              <button type="submit" className="button button--primary qlp__go" disabled={!customPick}>
+                {customPick
+                  ? `Use ${around ? aroundText(customPick) : `${sign}${customPick}%`}`
+                  : around
+                    ? `Below 1 – ${WIDTH_MAX.below}% · above 1 – ${WIDTH_MAX.above}%`
+                    : `Enter 1 – ${WIDTH_MAX[widthMode]}%`}
+              </button>
+            </form>
+          )}
         </>
       )}
 
@@ -519,18 +596,11 @@ function QuickLpPanel({ pool, onClose }) {
                 <b>{symbol}</b>
               </div>
               <div className="qlp__chips">
-                {usdPrice > 0 &&
-                  USD_AMOUNTS.map((d) => (
-                    <button key={d} type="button" onClick={() => setDollars(d)}>
-                      ${d}
-                    </button>
-                  ))}
-                {accountId &&
-                  SHARES.map((p) => (
-                    <button key={p} type="button" onClick={() => setShare(p)}>
-                      {p === 100 ? 'Max' : `${p}%`}
-                    </button>
-                  ))}
+                {SHARES.map((p) => (
+                  <button key={p} type="button" onClick={() => setShare(p)} disabled={!accountId} title={accountId ? undefined : 'Connect a wallet to use your balance'}>
+                    {p === 100 ? 'Max' : `${p}%`}
+                  </button>
+                ))}
               </div>
               {usdPrice > 0 && Number(text) > 0 && <small className="muted">≈ ${formatAmount(Number(text) * usdPrice)}</small>}
               {zapShareX !== null && (

@@ -16276,6 +16276,34 @@ a.amm-table__row:hover {
   grid-template-columns: repeat(3, 1fr);
 }
 
+/* One-sided Custom width: a % field under the presets. */
+.qlp__custom {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+/* Around the price: % below and % above side by side, each shrinking to half the panel. */
+.qlp__custom-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.qlp__custom-pair .qlp__field {
+  min-width: 0;
+}
+
+.qlp__custom-pair .qlp__field input {
+  width: 100%;
+  min-width: 0;
+}
+
+.qlp .qt__btn.is-active {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
 .qlp__range {
   margin: 0 0 8px;
   padding: 6px 8px;
@@ -16349,6 +16377,14 @@ a.amm-table__row:hover {
 .qlp__chips button:hover {
   border-color: var(--accent);
   color: var(--text);
+}
+
+/* Shares of the balance need a connected wallet. */
+.qlp__chips button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  border-color: var(--border);
+  color: var(--muted);
 }
 
 .qlp__both {

@@ -236,6 +236,8 @@ const units = (v) => {
 const cb = (text, data) => ({ text, callback_data: data });
 const open = (text, url) => ({ text, web_app: { url } });
 const MENU_ROW = [cb('🏠 Menu', 'm')];
+/** ← Back to the step before (`data`: its callback) and the menu. */
+const backRow = (data) => [cb('← Back', data), ...MENU_ROW];
 
 /** The pool page URL carrying the flow's state (range so far) — linked on the pool's name. */
 function stateUrl(poolId, params = {}) {
@@ -257,7 +259,7 @@ function linksIn(message) {
 /** KINU's Quick LP panel on its last step, for the range in `params` (see QuickLp.jsx parseQuickLink). */
 function quickUrl(poolId, params, amount) {
   const hasNear = poolId.split('|').includes(WNEAR);
-  const side = params.get('below') ? 'y' : params.get('above') ? 'x' : hasNear ? 'zap' : 'z';
+  const side = params.get('below') ? 'y' : params.get('above') ? 'x' : hasNear && !params.get('both') ? 'zap' : 'z';
   const width = params.get('below') || params.get('above') || params.get('range');
   const query = new URLSearchParams({ type: 'clmm', quick: poolId, side, strategy: params.get('strategy') || 'spot', width });
   if (amount && side !== 'z') query.set('amount', amount);
@@ -364,16 +366,18 @@ async function poolCard(poolId, fallback = null) {
     '<b>What do you put in?</b>',
     `💵 ${esc(sy)} only: below the price, buys ${esc(sx)} as it falls.`,
     `🎯 ${esc(sx)} only: above the price, sells ${esc(sx)} as it rises.`,
-    hasNear ? '⚡ Zap NEAR: both sides around the price; put in NEAR only, KINU swaps the right share.' : '⚖ Both tokens: both sides around the price.'
+    hasNear ? '⚡ Zap NEAR: both sides around the price; put in NEAR only, KINU swaps the right share.' : null,
+    `⚖ Both tokens: both sides around the price; you put in ${esc(sx)} and ${esc(sy)}.`
   ].filter((l) => l !== null);
   return {
     text: lines.join('\n'),
     reply_markup: {
       inline_keyboard: [
         [cb(`💵 ${sy} only ↓`, 'd:b'), cb(`🎯 ${sx} only ↑`, 'd:a')],
-        [cb(hasNear ? '⚡ Zap NEAR · both sides' : '⚖ Both tokens', 'd:z')],
+        hasNear ? [cb('⚡ Zap NEAR · both sides', 'd:z')] : null,
+        [cb(`⚖ Both tokens · ${sx} + ${sy}`, hasNear ? 'd:k' : 'd:z')],
         [cb(`⇄ Buy / Sell ${pool.symbols[pool.tokens.indexOf(main)]}`, 's'), ...MENU_ROW]
-      ]
+      ].filter(Boolean)
     }
   };
 }
@@ -381,7 +385,7 @@ async function poolCard(poolId, fallback = null) {
 const STRATEGY_NAMES = { spot: 'Spot', curve: 'Curve', bidask: 'Bid-Ask' };
 // The same icon as the strategy's button, wherever the choice is shown.
 const STRATEGY_ICONS = { spot: '▤', curve: '⛰', bidask: '📐' };
-const sideLabel = (side, [sx, sy], hasNear) => (side === 'b' ? `${sy} only` : side === 'a' ? `${sx} only` : hasNear ? 'Zap NEAR' : 'Both tokens');
+const sideLabel = (side, [sx, sy], hasNear) => (side === 'b' ? `${sy} only` : side === 'a' ? `${sx} only` : side === 'k' || !hasNear ? 'Both tokens' : 'Zap NEAR');
 
 /** Step 2: the shape. KINU spreads Curve most near the price and Bid-Ask most far from it. */
 function strategyStep(poolId, side, symbols) {
@@ -401,7 +405,7 @@ function strategyStep(poolId, side, symbols) {
         : 'Spot works for any market; Curve earns the most while the price stays calm; Bid-Ask suits volatile prices.';
   return {
     text: [`🧭 <a href="${stateUrl(poolId, { side })}">${esc(`${symbols[0]} / ${symbols[1]}`)}</a> · ${esc(sideLabel(side, symbols, hasNear))}`, '<b>Pick a strategy</b>', hint].join('\n'),
-    reply_markup: { inline_keyboard: [...options.map(([label, key]) => [cb(label, `g:${key}`)]), MENU_ROW] }
+    reply_markup: { inline_keyboard: [...options.map(([label, key]) => [cb(label, `g:${key}`)]), backRow('bk:card')] }
   };
 }
 
@@ -409,15 +413,15 @@ function strategyStep(poolId, side, symbols) {
 function widthStep(poolId, side, strategy, symbols) {
   const hasNear = poolId.split('|').includes(WNEAR);
   const head = `${STRATEGY_ICONS[strategy] || '▤'} <a href="${stateUrl(poolId, { side, strategy })}">${esc(`${symbols[0]} / ${symbols[1]}`)}</a> · ${esc(sideLabel(side, symbols, hasNear))} · ${STRATEGY_NAMES[strategy] || 'Spot'}`;
-  if (side === 'z') {
-    const both = hasNear ? '⚡' : '⚖';
+  if (side === 'z' || side === 'k') {
+    const both = hasNear && side === 'z' ? '⚡' : '⚖';
     return {
       text: [head, '<b>How wide around the price?</b> Tighter earns more fees but leaves the range sooner.'].join('\n'),
       reply_markup: {
         inline_keyboard: [
           RANGES.slice(0, 3).map((r) => cb(`${both} ±${r}%`, `r:${r}`)),
           [cb(`${both} ±${RANGES[3]}%`, `r:${RANGES[3]}`), cb(`${both} Full range`, 'r:full')],
-          MENU_ROW
+          backRow(`d:${side}`)
         ]
       }
     };
@@ -434,7 +438,7 @@ function widthStep(poolId, side, strategy, symbols) {
       inline_keyboard: [
         SIDE_WIDTHS.slice(0, 3).map((w) => cb(`${below ? '−' : '+'}${w}%`, `w:${side}:${w}`)),
         SIDE_WIDTHS.slice(3).map((w) => cb(`${below ? '−' : '+'}${w}%`, `w:${side}:${w}`)),
-        MENU_ROW
+        backRow(`d:${side}`)
       ]
     }
   };
@@ -448,7 +452,7 @@ function depositOf(pool, params) {
   if (params.get('below')) return { token: y, symbol: sy, label: `${sy} only · ${shape} · down to −${params.get('below')}%` };
   if (params.get('above')) return { token: x, symbol: sx, label: `${sx} only · ${shape} · up to +${params.get('above')}%` };
   const width = params.get('range') === 'full' ? 'full range' : `±${params.get('range')}%`;
-  return pool.tokens.includes(WNEAR)
+  return pool.tokens.includes(WNEAR) && !params.get('both')
     ? { token: WNEAR, symbol: 'NEAR', label: `Zap NEAR · ${shape} · ${width}` }
     : { token: null, symbol: null, label: `Both tokens · ${shape} · ${width}` };
 }
@@ -462,13 +466,19 @@ async function amountStep(poolId, params) {
   const link = stateUrl(pool.id, Object.fromEntries(params));
   if (!deposit.token) {
     return {
-      text: `🎯 <a href="${link}">${esc(name)}</a> · ${esc(deposit.label)}\nThis pool has no NEAR side: enter both amounts in KINU.`,
-      reply_markup: { inline_keyboard: [[open('🐕 Open in KINU', link)], MENU_ROW] }
+      text: [
+        `✅ <a href="${link}">${esc(name)}</a> · ${esc(deposit.label)}`,
+        'Both tokens: type one amount in KINU and the other follows the range.',
+        '',
+        '⚡ <b>Sign & create</b>: KINU opens on the amount step with all of this set, then you confirm in your wallet and the result comes back here.',
+        '📝 <b>Full form</b>: the pool page with the form filled in, to fine-tune first.'
+      ].join('\n'),
+      reply_markup: { inline_keyboard: [[open('⚡ Sign & create', quickUrl(pool.id, params))], [open('📝 Full form', link)], backRow('bk:w')] }
     };
   }
   return {
     text: `💰 <a href="${link}">${esc(name)}</a> · ${esc(deposit.label)}\nHow much ${esc(deposit.symbol)} do you want to put in? (in dollars, at the latest price)`,
-    reply_markup: { inline_keyboard: [USD_AMOUNTS.map((d) => cb(`$${d}`, `a:${d}`)), [cb('✏️ Custom', 'a:c')], MENU_ROW] }
+    reply_markup: { inline_keyboard: [USD_AMOUNTS.map((d) => cb(`$${d}`, `a:${d}`)), [cb('✏️ Custom', 'a:c')], backRow('bk:w')] }
   };
 }
 
@@ -497,7 +507,7 @@ async function finalStep(poolId, params, dollars) {
       '⚡ <b>Sign & create</b>: KINU opens with all of this set. Tap once, confirm in your wallet, and the result comes back here. The range is set on the live price when you sign.',
       '📝 <b>Full form</b>: the pool page with the form filled in, to fine-tune first.'
     ].join('\n'),
-    reply_markup: { inline_keyboard: [[open('⚡ Sign & create', quickUrl(pool.id, params, query.amount))], [open('📝 Full form', link)], MENU_ROW] }
+    reply_markup: { inline_keyboard: [[open('⚡ Sign & create', quickUrl(pool.id, params, query.amount))], [open('📝 Full form', link)], backRow('bk:a')] }
   };
 }
 
@@ -812,7 +822,20 @@ export async function replyForButton(data, message) {
   // d: side → strategy step ('o' is the side button of older messages).
   if (kind === 'd' || kind === 'o') return strategyStep(state.poolId, a, await symbolsOf());
   if (kind === 'g') return widthStep(state.poolId, state.params.get('side') || 'z', STRATEGY_NAMES[a] ? a : 'spot', await symbolsOf());
-  if (kind === 'r') return amountStep(state.poolId, new URLSearchParams({ range: a, strategy }));
+  if (kind === 'r') return amountStep(state.poolId, new URLSearchParams({ range: a, strategy, ...(state.params.get('side') === 'k' ? { both: '1' } : {}) }));
+  if (kind === 'bk') {
+    const p = state.params;
+    if (a === 'card') return poolCard(state.poolId);
+    if (a === 'w') {
+      const side = p.get('below') ? 'b' : p.get('above') ? 'a' : p.get('both') ? 'k' : 'z';
+      return widthStep(state.poolId, side, strategy, await symbolsOf());
+    }
+    if (a === 'a') {
+      const kept = new URLSearchParams([...p.entries()].filter(([k]) => ['range', 'below', 'above', 'strategy', 'both'].includes(k)));
+      return amountStep(state.poolId, kept);
+    }
+    return poolCard(state.poolId);
+  }
   if (kind === 'w') return amountStep(state.poolId, new URLSearchParams({ [a === 'b' ? 'below' : 'above']: b, strategy }));
   if (kind === 'a') return finalStep(state.poolId, state.params, a === 'c' ? null : Number(a));
   return menu();
