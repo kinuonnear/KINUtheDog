@@ -28,6 +28,12 @@ const POOL_ACCOUNTS = new Set([
 ]);
 const isPoolAccount = (id) => POOL_ACCOUNTS.has(id) || /(^|\.)ref-finance\.near$|(^|\.)ref-labs\.near$|(^|\.)intear\.near$/.test(id);
 
+// Contracts that hold tokens for others or under rules, not a wallet that can sell at will: vesting
+// lockups, staking contracts (xTOKEN), DAO treasuries (spending needs a vote) and bridges. Same rule
+// for every token; the check names what it left out.
+const isCustodyAccount = (id) =>
+  /^lockup[-.]|\.lockup\.near$|^vesting[-.]|^xtoken\.|\.sputnik-dao\.near$|\.bridge\.near$|^contract\.portalbridge\.near$/.test(id);
+
 const pct = (v) => `${v.toFixed(v < 10 ? 1 : 0)}%`;
 
 /** How many full-access keys the token's account has: 0 means its code can't be changed by a key holder. */
@@ -38,11 +44,35 @@ async function fullAccessKeys(tokenId) {
 
 const settle = (p) => p.then((v) => v).catch(() => undefined);
 
+const NO_CODE = '11111111111111111111111111111111';
+
+/**
+ * A custody-looking account counts as custody only if it really is a contract nobody holds a full
+ * key to: a wallet named "lockup-…" is still a wallet. Unreadable = not custody (counted as a holder).
+ */
+async function isLockedContract(id) {
+  const [account, fullKeys] = await Promise.all([rpc('query', { request_type: 'view_account', finality: 'final', account_id: id }), fullAccessKeys(id)]);
+  return Boolean(account?.code_hash) && account.code_hash !== NO_CODE && fullKeys === 0;
+}
+
 /**
  * Scans a token: { score, verdict: 'ok' | 'caution' | 'risky', checks: [{ key, label, status, detail }], facts }.
  * Checks whose data could not be loaded are left out (and said so in `missing`).
  */
-export async function scanToken(tokenId) {
+export function scanToken(tokenId) {
+  // One scan per token every few minutes, shared by the header badge, the Swap page and the token page.
+  const hit = scanCache.get(tokenId);
+  if (hit && Date.now() - hit.at < SCAN_TTL_MS) return hit.promise;
+  const promise = runScan(tokenId);
+  scanCache.set(tokenId, { at: Date.now(), promise });
+  promise.catch(() => scanCache.delete(tokenId));
+  return promise;
+}
+
+const SCAN_TTL_MS = 4 * 60_000;
+const scanCache = new Map();
+
+async function runScan(tokenId) {
   const [meta, info, holders, sells, keys, whitelist, profile] = await Promise.all([
     settle(getToken(tokenId)),
     settle(fetchTokenInfo(tokenId)),
@@ -83,16 +113,23 @@ export async function scanToken(tokenId) {
   const dec = info?.decimals ?? meta?.decimals;
   if (!holders?.length || !total || dec === undefined) missing.push('holders');
   else {
-    const people = holders.filter((h) => !isPoolAccount(h.account) && h.account !== tokenId);
     const share = (h) => (Number(h.balance) / 10 ** dec / total) * 100;
+    const candidates = holders.slice(0, 20).filter((h) => !isPoolAccount(h.account) && isCustodyAccount(h.account));
+    const locked = await Promise.all(candidates.map((h) => settle(isLockedContract(h.account))));
+    const custodyIds = new Set(candidates.filter((_, i) => locked[i] === true).map((h) => h.account));
+    const custody = holders.filter((h) => custodyIds.has(h.account));
+    const people = holders.filter((h) => !isPoolAccount(h.account) && !custodyIds.has(h.account) && h.account !== tokenId);
     const top10 = people.slice(0, 10).reduce((s, h) => s + share(h), 0);
     const largest = people[0] ? share(people[0]) : 0;
+    const held = custody.reduce((s, h) => s + share(h), 0);
     const status = top10 > 60 || largest > 40 ? 'fail' : top10 > 35 || largest > 15 ? 'warn' : 'pass';
     add(
       'holders',
       'Top holders',
       status,
-      `Top 10 wallets hold ${pct(top10)} of the supply; the largest ${pct(largest)}${people[0] ? ` (${people[0].account.length > 24 ? `${people[0].account.slice(0, 8)}…` : people[0].account})` : ''}. Pools and protocols not counted.`
+      `Top 10 wallets: ${pct(top10)} · largest ${pct(largest)}${people[0] ? ` (${people[0].account.length > 24 ? `${people[0].account.slice(0, 8)}…` : people[0].account})` : ''}. Not counted: pools${
+        held >= 1 ? `, and ${pct(held)} in lockup, staking, DAO or bridge contracts` : ' and protocols'
+      }.`
     );
   }
   if (info?.holders) add('holdercount', 'Holders', info.holders < 50 ? 'warn' : 'pass', `${info.holders.toLocaleString()} holders.`);

@@ -146,6 +146,9 @@ export function Link({ to, children, className, onClick, ...rest }) {
 
 export const poolPath = (poolId) => `/pools/${encodeURIComponent(poolId)}`;
 
+// A token row in Discover opens the Swap page on that token (chart, trades, KINU Scan under the form).
+export const swapToPath = (id, from = 'near') => `/swap?from=${encodeURIComponent(from)}&to=${encodeURIComponent(id)}`;
+
 // The pools list a pool page's ← returns to (e.g. /pools?view=mine), kept for this tab.
 const POOLS_RETURN_KEY = 'kinu.poolsReturn';
 

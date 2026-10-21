@@ -3,7 +3,7 @@
 
 import { useMemo, useState } from 'react';
 import { useAsync } from '../hooks.js';
-import { Link, navigate } from '../router.jsx';
+import { Link, navigate, swapToPath } from '../router.jsx';
 import { ErrorNotice, Skeleton, TokenIcon } from '../components/ui.jsx';
 import { getRecentLaunches, launchFlags } from '../lib/launches.js';
 import { getTokens } from '../lib/tokens.js';
@@ -12,6 +12,7 @@ import { formatPrice, formatUsd } from '../lib/format.js';
 import { NATIVE_NEAR, PINNED_TOKENS } from '../config.js';
 import { FlagList } from './Token.jsx';
 import WatchStar from '../components/WatchStar.jsx';
+import { QuickTradeRowButton } from '../components/QuickTrade.jsx';
 
 const QUOTES = [
   ['all', 'All'],
@@ -101,7 +102,7 @@ export function NewLaunches() {
                 </div>
               ))
             : rows.map((l) => (
-                <div className="new-row" key={l.id} onClick={() => navigate(`/token/${encodeURIComponent(l.id)}`)} role="link" tabIndex={0}>
+                <div className="new-row" key={l.id} onClick={() => navigate(swapToPath(l.id, l.quote === 'wrap.near' ? NATIVE_NEAR.id : l.quote))} role="link" tabIndex={0}>
                   <span className="new-row__token">
                     <WatchStar id={l.id} />
                     <TokenIcon token={{ symbol: l.symbol, icon: l.icon }} size={32} />
@@ -121,6 +122,9 @@ export function NewLaunches() {
                   <span data-label="Volume 24h">{formatUsd(l.volume24hUsd)}</span>
                   <span data-label="Holders">{l.holders.toLocaleString()}</span>
                   <span className="new-row__buy">
+                    {l.quote === 'wrap.near' ? (
+                      <QuickTradeRowButton token={{ id: l.id, symbol: l.symbol }} />
+                    ) : (
                     <Link
                       className="button button--outline button--sm"
                       to={`/swap?from=${l.quote === 'wrap.near' ? NATIVE_NEAR.id : encodeURIComponent(l.quote)}&to=${encodeURIComponent(l.id)}`}
@@ -128,6 +132,7 @@ export function NewLaunches() {
                     >
                       Buy
                     </Link>
+                    )}
                   </span>
                 </div>
               ))}

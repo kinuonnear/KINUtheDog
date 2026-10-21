@@ -15695,3 +15695,492 @@ a.amm-table__row:hover {
     grid-column: 1 / -1;
   }
 }
+
+/* Quick trade (components/QuickTrade.jsx): floating Buy / Sell panel on the token page. */
+.qt-open.is-active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Opens at the top right, under the navigation, where the eye already is. */
+.qt {
+  position: fixed;
+  top: 84px;
+  right: 20px;
+  z-index: 60;
+  width: 336px;
+  padding: 10px 12px 8px;
+  overflow: hidden;
+  border: 1px solid rgba(184, 255, 61, 0.35);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, var(--surface-2), var(--surface) 60%);
+  /* Stands apart from the page: an accent edge, a soft glow and a deep shadow. */
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), 0 0 24px rgba(184, 255, 61, 0.12), var(--shadow);
+}
+
+.qt__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -10px -12px 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(184, 255, 61, 0.18);
+  background: rgba(184, 255, 61, 0.06);
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+.qt__head strong {
+  font-size: 13px;
+  max-width: 130px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.qt__tabs {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+}
+
+.qt__tab {
+  padding: 4px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--muted);
+  font: 600 12px var(--font);
+  cursor: pointer;
+}
+
+.qt__tab--buy.is-active {
+  background: rgba(61, 220, 151, 0.16);
+  color: var(--mint);
+}
+
+.qt__tab--sell.is-active {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.qt__slip {
+  padding: 3px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: none;
+  color: var(--muted);
+  font: 600 11px var(--font);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.qt__slip:hover,
+.qt__slip.is-active {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.qt__slippage {
+  margin: -2px 0 10px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+}
+
+.qt__slippage > span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.qt__slippage p {
+  margin: 6px 0 0;
+  font-size: 10.5px;
+}
+
+.qt__close {
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.qt__meta {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.qt__meta span:first-child {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.qt__meta .link-button {
+  margin-left: auto;
+  font-size: 11px;
+}
+
+.qt__grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.qt__btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px 4px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font: 600 12px var(--font);
+  cursor: pointer;
+}
+
+.qt__btn small {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.qt__btn--buy:hover:not(:disabled) {
+  border-color: var(--mint);
+}
+
+.qt__btn--sell:hover:not(:disabled) {
+  border-color: var(--danger);
+}
+
+.qt__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.qt__edit {
+  min-width: 0;
+  padding: 8px 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font: 600 12px var(--font);
+  text-align: center;
+}
+
+.qt__edit-actions {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: 1fr 2fr;
+  gap: 6px;
+}
+
+.qt__edit-actions .button {
+  padding: 6px;
+  font-size: 12px;
+}
+
+.qt__foot {
+  margin: 8px 0 0;
+  color: var(--faint);
+  font-size: 10.5px;
+  line-height: 1.4;
+}
+
+/* Phones: docked above the tab bar, full width, no dragging. */
+@media (max-width: 760px) {
+  .qt {
+    top: auto;
+    right: 10px;
+    bottom: calc(80px + env(safe-area-inset-bottom));
+    left: 10px;
+    width: auto;
+  }
+
+  .qt__head {
+    cursor: default;
+  }
+}
+
+/* Quick trade on Discover lists: the row button that opens the floating panel. */
+.qb-btn {
+  white-space: nowrap;
+}
+
+.qb-btn:hover:not(:disabled) {
+  border-color: var(--mint);
+  color: var(--mint);
+}
+
+/* KINU Scan under the Swap form: a closed row (as Jupiter's "Token Info ›") that opens the checks. */
+.scan-fold {
+  margin-top: 12px;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.scan-fold__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 2px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: 600 14px var(--font);
+  text-align: left;
+  cursor: pointer;
+}
+
+.scan-fold__row .scan__verdict {
+  margin-left: 4px;
+}
+
+.scan-fold__row > i {
+  margin-left: auto;
+  color: var(--muted);
+  font-style: normal;
+  font-size: 18px;
+  transition: transform 0.15s;
+}
+
+.scan-fold.is-open .scan-fold__row > i {
+  transform: rotate(90deg);
+}
+
+.scan-fold__row:hover > strong {
+  text-decoration: underline;
+}
+
+/* Opened: the checks without a second card frame or a repeated title. */
+.scan-fold .scan {
+  margin: 0 0 12px;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.scan-fold .scan__head {
+  display: none;
+}
+
+/* KINU Scan inside the Swap fold: compact rows, thin dividers instead of a box per check. */
+.scan-fold__row {
+  font-size: 13px;
+}
+
+.scan-fold .scan__bar {
+  height: 3px;
+  margin: 0 0 6px;
+}
+
+.scan-fold .scan__list,
+.token-side .scan__list {
+  gap: 0;
+}
+
+.scan-fold .scan__check,
+.token-side .scan__check {
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 8px;
+  padding: 7px 2px;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border);
+  background: none;
+}
+
+.scan-fold .scan__check:last-child,
+.token-side .scan__check:last-child {
+  border-bottom: 0;
+}
+
+.scan-fold .scan__check i,
+.token-side .scan__check i {
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  font-size: 9px;
+}
+
+.scan-fold .scan__check div,
+.token-side .scan__check div {
+  gap: 1px;
+}
+
+.scan-fold .scan__check strong,
+.token-side .scan__check strong {
+  font-size: 12px;
+}
+
+.scan-fold .scan__check span,
+.token-side .scan__check span {
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.scan-fold .scan__note,
+.token-side .scan__note {
+  margin-top: 8px;
+  color: var(--faint);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+/* Swap side column: the scan row and the closing note line up with the form's padding. */
+.shell--swap .swap-pro__side .scan-fold {
+  margin: 4px 16px 0;
+}
+
+.shell--swap .swap-pro__side .fine-print {
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.shell--swap .swap-pro__side .fine-print {
+  margin-top: 8px;
+  padding: 0;
+  text-align: left;
+}
+
+/* Count chip (Rhea pools on the token page). */
+.scan-fold__count {
+  min-width: 22px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+}
+
+
+.scan__more {
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+.token-pools h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Rhea pools on the token page: a thin divider between rows and a header line, like a table. */
+.token-pools .token-pools__list {
+  gap: 0;
+  border-top: 1px solid var(--border);
+}
+
+.token-pools .token-pool {
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+}
+
+.token-pools .token-pool:last-of-type {
+  border-bottom: 0;
+}
+
+.token-pools .token-pools__more {
+  margin: 8px 10px 0;
+}
+
+/* Token page header: one compact band (name, then contract · links · flags · scan on one line). */
+.token-page .token-head {
+  gap: 10px 16px;
+  padding: 12px 16px;
+}
+
+.token-page .token-head__id {
+  gap: 12px;
+}
+
+.token-page .token-head h1 {
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.token-page .token-head__ca {
+  gap: 4px 10px;
+  margin-top: 2px;
+  font-size: 12px;
+}
+
+.token-page .token-head__ca .flags,
+.token-page .token-head__ca .scan-badge {
+  margin: 0;
+}
+
+.token-page .token-head__actions {
+  gap: 6px;
+}
+
+.token-page .token-head__actions .button {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+/* Token page chart: one card (no frame around the chart's own card), a shorter plot and a slim
+   header, so the chart, scan and trades fit a laptop screen. */
+.token-page .token-chart {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.token-page .token-chart .chart-card {
+  padding: 12px 14px;
+}
+
+.token-page .token-chart .chart-top {
+  margin-bottom: 8px;
+  gap: 10px;
+}
+
+.token-page .token-chart .chart-top__price strong {
+  font-size: 18px;
+}
+
+.token-page .token-chart .chart-top__stats {
+  gap: 6px;
+}
+
+.token-page .token-chart .chart-top__stats > div {
+  gap: 2px;
+  padding: 5px 10px;
+  border-radius: 10px;
+}
+
+.token-page .token-chart .chart-top__stats strong {
+  font-size: 13px;
+}
+
+.token-page .token-chart .chart-card__canvas {
+  height: 320px;
+}

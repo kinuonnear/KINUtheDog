@@ -4,14 +4,13 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAsync, useLocalStorage } from '../hooks.js';
-import { Link, navigate, poolPath, useLocation } from '../router.jsx';
+import { Link, navigate, poolPath, swapToPath, useLocation } from '../router.jsx';
 import { EmptyState, ErrorNotice, PairIcons, Skeleton, Tabs, TokenIcon } from '../components/ui.jsx';
 import WatchStar from '../components/WatchStar.jsx';
 import { enrichTokens, getTrending } from '../lib/trending.js';
 import { useWatchlist } from '../lib/watchlist.js';
 import { formatAge, formatPercent, formatPrice, formatUsd } from '../lib/format.js';
 import { bestToLp, filterRadar, getPoolRadar, hotPairs, LP_MIN_TVL, RADAR_TYPES, RADAR_WINDOWS } from '../lib/poolRadar.js';
-import { NATIVE_NEAR } from '../config.js';
 import { NewLaunches } from './NewOnRhea.jsx';
 import { useBaseTokenInfo, usePoolTokens } from './Pools.jsx';
 import { isQuoteToken } from '../lib/intear.js';
@@ -21,6 +20,7 @@ import SmartLpBoard from '../components/SmartLp.jsx';
 import SmartMoneyIn from '../components/SmartMoney.jsx';
 import { FlowLines } from '../components/FlowLines.jsx';
 import TokenizedStocks from '../components/TokenizedStocks.jsx';
+import { QuickTradeHost, QuickTradeRowButton } from '../components/QuickTrade.jsx';
 import WalletTracker from '../components/WalletTracker.jsx';
 import '../discover.css';
 import PageIcon from '../components/PageIcon.jsx';
@@ -126,7 +126,7 @@ function TokenTable({ rows, loading, error, onRetry, volumeLabel = 'Volume 24h',
             </div>
           ))
         : rows?.map((r, i) => (
-            <div className="new-row disc-row" key={r.id} onClick={() => navigate(`/token/${encodeURIComponent(r.id)}`)} role="link" tabIndex={0}>
+            <div className="new-row disc-row" key={r.id} onClick={() => navigate(swapToPath(r.id))} role="link" tabIndex={0}>
               <span className="disc-row__rank">{i + 1}</span>
               <span className="new-row__token">
                 <WatchStar id={r.id} />
@@ -148,9 +148,7 @@ function TokenTable({ rows, loading, error, onRetry, volumeLabel = 'Volume 24h',
                 <Link className="button button--outline button--sm" to={`/pools?q=${encodeURIComponent(r.id)}`} onClick={(e) => e.stopPropagation()} title={`Rhea pools with ${r.token.symbol}: provide liquidity`}>
                   Add LP
                 </Link>
-                <Link className="button button--ghost button--sm" to={`/swap?from=${NATIVE_NEAR.id}&to=${encodeURIComponent(r.id)}`} onClick={(e) => e.stopPropagation()}>
-                  Buy
-                </Link>
+                <QuickTradeRowButton token={r.token?.id ? r.token : { ...r.token, id: r.id }} />
               </span>
             </div>
           ))}
@@ -585,6 +583,7 @@ export default function Discover({ defaultTab = 'lp' }) {
           <Trending gainers={tab === 'gainers'} />
         )}
       </div>
+      <QuickTradeHost />
     </div>
   );
 }

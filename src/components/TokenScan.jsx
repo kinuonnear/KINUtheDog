@@ -1,6 +1,7 @@
 // KINU Scan card: the verdict, score and each check of lib/tokenScan.js, with a plain disclaimer.
 // `compact` shows the verdict only (a badge that links to the token page's full scan).
 
+import { useEffect, useState } from 'react';
 import { useAsync } from '../hooks.js';
 import { Link } from '../router.jsx';
 import { scanToken, VERDICT_LABEL } from '../lib/tokenScan.js';
@@ -26,9 +27,48 @@ export function ScanBadge({ tokenId, compact = false }) {
   );
 }
 
-export default function TokenScan({ tokenId }) {
+/**
+ * A closed "KINU Scan · 65/100 Caution ›" row (as Jupiter's Token Info): the checks open only when
+ * the user clicks it. Used under the Swap form.
+ */
+export function ScanDisclosure({ tokenId, defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen);
   const scan = useTokenScan(tokenId);
   const d = scan.data;
+  useEffect(() => setOpen(defaultOpen), [tokenId, defaultOpen]);
+  return (
+    <div className={`scan-fold ${open ? 'is-open' : ''}`}>
+      <button type="button" className="scan-fold__row" onClick={() => setOpen(!open)} aria-expanded={open}>
+        <strong>KINU Scan</strong>
+        {d ? (
+          <span className={`scan__verdict scan__verdict--${d.verdict}`}>
+            <b>{d.score}</b>
+            <small>/100</small> {VERDICT_LABEL[d.verdict]}
+          </span>
+        ) : (
+          <span className="muted small">{scan.error ? 'unavailable' : 'checking…'}</span>
+        )}
+        <i aria-hidden="true">›</i>
+      </button>
+      {open && <TokenScan tokenId={tokenId} />}
+    </div>
+  );
+}
+
+const SEVERITY = { fail: 0, warn: 1, info: 2, pass: 3 };
+
+/**
+ * The full scan card. With `preview` (a number) it lists that many checks, problems first, and a
+ * "Show all" button for the rest.
+ */
+export default function TokenScan({ tokenId, preview = 0 }) {
+  const scan = useTokenScan(tokenId);
+  const d = scan.data;
+  const [all, setAll] = useState(false);
+  useEffect(() => setAll(false), [tokenId]);
+  const ordered = d ? (preview ? [...d.checks].sort((a, b) => SEVERITY[a.status] - SEVERITY[b.status]) : d.checks) : [];
+  const shown = preview && !all ? ordered.slice(0, preview) : ordered;
+  const hidden = ordered.length - shown.length;
   return (
     <section className="card scan" id="scan" aria-label="KINU Scan">
       <header className="scan__head">
@@ -58,7 +98,7 @@ export default function TokenScan({ tokenId }) {
             <span className={`scan__fill scan__fill--${d.verdict}`} style={{ width: `${d.score}%` }} />
           </div>
           <ul className="scan__list">
-            {d.checks.map((c) => (
+            {shown.map((c) => (
               <li key={c.key} className={`scan__check scan__check--${c.status}`}>
                 <i aria-hidden="true">{ICON[c.status]}</i>
                 <div>
@@ -68,9 +108,13 @@ export default function TokenScan({ tokenId }) {
               </li>
             ))}
           </ul>
+          {preview > 0 && (hidden > 0 || all) && (
+            <button type="button" className="link-button scan__more" onClick={() => setAll(!all)}>
+              {all ? 'Show less' : `Show all ${ordered.length} checks`}
+            </button>
+          )}
           <p className="scan__note">
-            Automated checks from on-chain and market data{d.missing.length ? ` (${d.missing.join(', ')} unavailable)` : ''}. Signals, not a guarantee and not financial advice:
-            a token can pass every check and still lose value.
+            Automated on-chain and market checks{d.missing.length ? ` (${d.missing.join(', ')} unavailable)` : ''}: signals, not a guarantee or financial advice.
           </p>
         </>
       )}

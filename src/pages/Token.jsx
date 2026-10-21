@@ -1,12 +1,13 @@
 // Token page (/token/:id): price chart, key facts, risk flags, the token's Rhea pools and
-// recent trades — a shareable page for any NEAR token, with Buy / Sell in the terminal.
+// recent trades — a shareable page for any NEAR token, with Swap and Quick trade.
 
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { useAsync } from '../hooks.js';
-import { Link, poolPath } from '../router.jsx';
+import { Link, poolPath, swapToPath } from '../router.jsx';
 import RecentTrades from '../components/RecentTrades.jsx';
 import WatchStar from '../components/WatchStar.jsx';
 import TokenScan, { ScanBadge } from '../components/TokenScan.jsx';
+import QuickTrade, { QuickTradeButton, useQuickTradeOpen } from '../components/QuickTrade.jsx';
 import { CopyButton, EmptyState, PairIcons, Spinner, TokenIcon } from '../components/ui.jsx';
 import { formatPercent, formatUsd, shortAccount } from '../lib/format.js';
 import { getToken, getWhitelistedTokens } from '../lib/tokens.js';
@@ -15,6 +16,8 @@ import { getLaunch, launchFlags } from '../lib/launches.js';
 import { formatAge } from '../lib/lpHistory.js';
 import { ENDPOINTS, KINU_TOKEN, NATIVE_NEAR } from '../config.js';
 import { usePoolTokens } from './Pools.jsx';
+
+const POOL_PREVIEW = 3;
 
 const PriceChart = lazy(() => import('../components/PriceChart.jsx'));
 
@@ -39,9 +42,12 @@ export default function Token({ id }) {
   const tokensOf = usePoolTokens(pools.data?.list);
   // Pools under $10 (dust, abandoned test pools) fold away so the real ones stand out.
   const [showDust, setShowDust] = useState(false);
+  const [poolsOpen, setPoolsOpen] = useState(false);
   const realPools = (pools.data?.list || []).filter((p) => p.tvl >= 10);
   const dustPools = (pools.data?.list || []).filter((p) => !(p.tvl >= 10));
   const t = token.data;
+  const [quickOpen, setQuickOpen] = useQuickTradeOpen();
+  const quickTradable = t && id !== NATIVE_NEAR.contract && id !== NATIVE_NEAR.id;
 
   useEffect(() => {
     document.title = t?.symbol ? `${t.symbol} price, chart & pools · KINU` : 'Token · KINU';
@@ -71,7 +77,7 @@ export default function Token({ id }) {
     <div className="page token-page">
       <header className="card token-head">
         <div className="token-head__id">
-          {t ? <TokenIcon token={t} size={52} /> : <Spinner />}
+          {t ? <TokenIcon token={t} size={36} /> : <Spinner />}
           <div>
             <h1>
               {t?.name || t?.symbol || '…'} {t?.name && t.name !== t.symbol && <span className="muted">{t.symbol}</span>}
@@ -82,18 +88,17 @@ export default function Token({ id }) {
               <a className="link-button" href={`${ENDPOINTS.explorer}/address/${id}`} target="_blank" rel="noopener noreferrer">
                 Explorer ↗
               </a>
+              <FlagList flags={flags} />
+              <ScanBadge tokenId={id} />
             </div>
-            <FlagList flags={flags} />
-            <ScanBadge tokenId={id} />
           </div>
         </div>
         <div className="token-head__actions">
-          <Link className="button button--primary" to={`/swap?from=${NATIVE_NEAR.id}&to=${encodeURIComponent(id)}`}>
-            Buy {t?.symbol}
+          {/* One Swap button (NEAR → token; ⇅ on the Swap page sells). Quick trade covers fast buy / sell. */}
+          <Link className="button button--primary" to={swapToPath(id)} title={`Swap NEAR ↔ ${t?.symbol || 'this token'}`}>
+            Swap
           </Link>
-          <Link className="button button--outline" to={`/swap?from=${encodeURIComponent(id)}&to=${NATIVE_NEAR.id}`}>
-            Sell
-          </Link>
+          {quickTradable && <QuickTradeButton open={quickOpen} setOpen={setQuickOpen} />}
           <Link className="button button--outline" to={`/pools?q=${encodeURIComponent(id)}`} title={`Rhea pools with ${t?.symbol || 'this token'}: provide liquidity`}>
             Add LP
           </Link>
@@ -117,7 +122,46 @@ export default function Token({ id }) {
         </div>
 
         <aside className="token-side">
-          <TokenScan tokenId={id} />
+          {/* Previews: the 3 most important checks and the 3 largest pools, the rest one click away. */}
+          <TokenScan tokenId={id} preview={3} />
+          <section className="card token-pools">
+            <h2>
+              Rhea pools {pools.data && <span className="scan-fold__count">{realPools.length}</span>}
+            </h2>
+            {pools.loading && !pools.data ? (
+              <Spinner />
+            ) : pools.data?.list.length ? (
+              <div className="token-pools__list">
+                {(poolsOpen ? (showDust ? [...realPools, ...dustPools] : realPools) : realPools.slice(0, POOL_PREVIEW)).map((pool) => (
+                  <Link key={pool.id} to={poolPath(pool.id)} className="token-pool">
+                    <PairIcons tokens={tokensOf(pool)} size={22} />
+                    <span className="token-pool__pair">
+                      <strong>{pool.symbols.join(' / ')}</strong>
+                      <small>
+                        {pool.label} · {formatPercent(pool.feePercent)} fee
+                      </small>
+                    </span>
+                    <span className="token-pool__nums">
+                      <strong>{formatUsd(pool.tvl)}</strong>
+                      <small>{formatUsd(pool.volume24h)} 24h</small>
+                    </span>
+                  </Link>
+                ))}
+                {realPools.length > POOL_PREVIEW && (
+                  <button type="button" className="link-button token-pools__more" onClick={() => setPoolsOpen(!poolsOpen)}>
+                    {poolsOpen ? 'Show less' : `Show ${realPools.length - POOL_PREVIEW} more`}
+                  </button>
+                )}
+                {(poolsOpen || realPools.length <= POOL_PREVIEW) && dustPools.length > 0 && (
+                  <button type="button" className="link-button token-pools__more" onClick={() => setShowDust(!showDust)}>
+                    {showDust ? 'Hide pools under $10' : `Show ${dustPools.length} pool${dustPools.length === 1 ? '' : 's'} under $10`}
+                  </button>
+                )}
+              </div>
+            ) : (
+              <p className="muted small">No Rhea pool found for this token.</p>
+            )}
+          </section>
           {launch.data && (
             <section className="card token-facts">
               <h2>Launch</h2>
@@ -141,42 +185,12 @@ export default function Token({ id }) {
               </dl>
             </section>
           )}
-          <section className="card token-pools">
-            <h2>Rhea pools</h2>
-            {pools.loading && !pools.data ? (
-              <Spinner />
-            ) : pools.data?.list.length ? (
-              <div className="token-pools__list">
-                {(showDust ? [...realPools, ...dustPools] : realPools).map((pool) => (
-                  <Link key={pool.id} to={poolPath(pool.id)} className="token-pool">
-                    <PairIcons tokens={tokensOf(pool)} size={22} />
-                    <span className="token-pool__pair">
-                      <strong>{pool.symbols.join(' / ')}</strong>
-                      <small>
-                        {pool.label} · {formatPercent(pool.feePercent)} fee
-                      </small>
-                    </span>
-                    <span className="token-pool__nums">
-                      <strong>{formatUsd(pool.tvl)}</strong>
-                      <small>{formatUsd(pool.volume24h)} 24h</small>
-                    </span>
-                  </Link>
-                ))}
-                {dustPools.length > 0 && (
-                  <button type="button" className="link-button token-pools__more" onClick={() => setShowDust(!showDust)}>
-                    {showDust ? 'Hide pools under $10' : `Show ${dustPools.length} pool${dustPools.length === 1 ? '' : 's'} under $10`}
-                  </button>
-                )}
-              </div>
-            ) : (
-              <p className="muted small">No Rhea pool found for this token.</p>
-            )}
-          </section>
           <p className="muted small">
             Flags describe on-chain facts, not a rating. New tokens are high risk — always check the contract.
           </p>
         </aside>
       </div>
+      {quickTradable && <QuickTrade token={t} open={quickOpen} setOpen={setQuickOpen} />}
     </div>
   );
 }

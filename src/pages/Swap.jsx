@@ -31,6 +31,7 @@ import {
 } from '../lib/format.js';
 import { bpsText, CONTRACTS, DEPOSIT, HOLDER, INTEAR_FEE, KINU_TOKEN, INTEAR_REFERRER, KINU_VERIFIED_TOKENS, NATIVE_NEAR, NEAR_GAS_RESERVE, PINNED_TOKENS } from '../config.js';
 import { SlippagePicker } from '../components/Slippage.jsx';
+import { ScanDisclosure } from '../components/TokenScan.jsx';
 import { autoSlippageFor } from '../lib/autoSlippage.js';
 import { watchQuote } from '../lib/liveQuotes.js';
 
@@ -39,6 +40,16 @@ const SwapChart = lazy(() => import('../components/swap/SwapChart.jsx'));
 const USDC = '17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1';
 const QUOTE_REFRESH_MS = 20_000;
 const QUOTE_MAX_AGE_MS = 15_000;
+
+// No KINU Scan under the form for NEAR and the main stablecoins: the scan is about the other token.
+const SCAN_SKIP = new Set([
+  NATIVE_NEAR.id,
+  CONTRACTS.wrapNear,
+  '17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1',
+  'usdt.tether-token.near',
+  'a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.factory.bridge.near',
+  'dac17f958d2ee523a2206206994597c13d831ec7.factory.bridge.near'
+]);
 // Live quotes re-quote at most this often, however fast the pools move.
 const LIVE_MIN_GAP_MS = 5_000;
 // Chart height on the swap page, set with the divider under it (px): from a thin strip (the
@@ -406,6 +417,8 @@ export default function Swap() {
   }, [balanceInRaw, tokenIn.native]);
 
   const wrapMode = isWrapPair(tokenIn, tokenOut);
+  // The token the user is buying, or else the one they are selling.
+  const scanTokenId = !SCAN_SKIP.has(tokenOut.id) ? tokenOut.id : !SCAN_SKIP.has(tokenIn.id) ? tokenIn.id : null;
 
   /* ------------------------------ quoting ------------------------------ */
   const quoteRun = useRef(0);
@@ -983,9 +996,11 @@ export default function Swap() {
             )}
           </div>
 
+          {/* KINU Scan of the token being traded, under the swap form: a closed row until clicked (as Jupiter). */}
+          {scanTokenId && !wrapMode && <ScanDisclosure tokenId={scanTokenId} />}
+
           <p className="fine-print">
-            Every swap is quoted on Rhea&apos;s SmartRouter, direct Rhea CLMM pools and the Intear DEX Aggregator; the largest output wins.
-            Every transaction is reviewed and signed in your own wallet — KINU never holds your keys or funds.
+            Best output across Rhea SmartRouter, Rhea CLMM and the Intear Aggregator. You sign every transaction; KINU never holds your keys or funds.
           </p>
 
         </div>

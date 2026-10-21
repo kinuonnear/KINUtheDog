@@ -1207,3 +1207,21 @@ i.lbl-short {
     display: none;
   }
 }
+
+/* Phones: the flags and the scan badge now sit in the contract row; let it wrap so they drop to a
+   second line instead of being cut off, and keep the contract visible (shortened). */
+@media (max-width: 760px) {
+  .shell .token-page .token-head__ca {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+
+  .shell .token-page .token-head__ca code {
+    flex: 1 1 110px;
+  }
+
+  .shell .token-page .token-head__ca .flags,
+  .shell .token-page .token-head__ca .scan-badge {
+    margin-top: 0;
+  }
+}
