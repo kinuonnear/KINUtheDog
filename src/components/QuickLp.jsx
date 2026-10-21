@@ -18,6 +18,7 @@ import { wrapNeededFor } from '../lib/tx.js';
 import { alignPoint, buildBins, buildDclBinsTransactions, fullRange, planBins, pointToPrice, priceToPoint } from '../lib/dclLiquidity.js';
 import { refreshDclGraphFor } from '../lib/dclRouter.js';
 import TaxNote from './TaxNote.jsx';
+import { buildZapTransactions, quoteZap, valueShareX } from '../lib/zap.js';
 
 const WNEAR = CONTRACTS.wrapNear;
 const SIDE_WIDTHS = ['10', '20', '30', '50', '70', '90'];
@@ -108,6 +109,9 @@ function QuickLpPanel({ pool, onClose }) {
   const drag = useRef(null);
   const step = done ? 5 : !side ? 1 : !strategy ? 2 : !width ? 3 : 4;
   const both = side === 'z';
+  const zap = side === 'zap'; // one token in, swapped into both sides (lib/zap.js, as the form's Zap in)
+  const around = both || zap;
+  const [zapId, setZapId] = useState(null);
 
   useEffect(() => {
     let live = true;
@@ -157,13 +161,30 @@ function QuickLpPanel({ pool, onClose }) {
     return (near > 0n ? near : 0n) + toBigInt(balances[WNEAR] || '0');
   };
 
-  // Single token.
-  const token = side === 'x' ? meta?.[0] : side === 'y' ? meta?.[1] : null;
+  // Zap: the token paid in — the wallet's NEAR when the pool holds wNEAR, or either pool token.
+  const zapChoices = meta ? [...(x === WNEAR || y === WNEAR ? [NATIVE_NEAR] : []), ...meta.filter((t) => t.id !== WNEAR)] : [];
+  const zapToken = zapChoices.find((t) => t.id === zapId) || zapChoices[0] || null;
+
+  // Single token (or the zap's input).
+  const token = zap ? zapToken : side === 'x' ? meta?.[0] : side === 'y' ? meta?.[1] : null;
   const tokenId = side === 'x' ? x : y;
-  const isNear = !both && tokenId === WNEAR;
-  const symbol = side === 'x' ? label(x, sx) : label(y, sy);
-  const spendable = side && !both ? spendOf(tokenId) : 0n;
-  const usdPrice = side && !both ? priceOf(prices, tokenId) : 0;
+  const isNear = !around && tokenId === WNEAR;
+  const symbol = zap ? zapToken?.symbol || '' : side === 'x' ? label(x, sx) : label(y, sy);
+  const zapSpend = () => {
+    if (!accountId || !zapToken) return 0n;
+    if (!zapToken.native) return toBigInt(balances[zapToken.id] || '0');
+    const near = toBigInt(balances[NATIVE_NEAR.id] || '0') - toBigInt(NEAR_GAS_RESERVE);
+    return near > 0n ? near : 0n;
+  };
+  const spendable = zap ? zapSpend() : side && !both ? spendOf(tokenId) : 0n;
+  const usdPrice = zap ? priceOf(prices, zapToken?.native ? WNEAR : zapToken?.id) : side && !both ? priceOf(prices, tokenId) : 0;
+  // How the zap splits, from the shape on the pool as read at open (the signed split is quoted live).
+  const zapShareX = (() => {
+    if (!zap || !meta || info?.current_point === undefined || !width || !strategy) return null;
+    const range = aroundRange({ current: info.current_point, delta: info.point_delta, dx: meta[0].decimals, dy: meta[1].decimals, widthPct: width });
+    const bins = buildBins({ left: range.left, right: range.right, current: info.current_point, pointDelta: info.point_delta, strategy });
+    return valueShareX(planBins({ bins, current: info.current_point, from: 'x', amount: 0 }), info.current_point);
+  })();
   const raw = token ? tryParseUnits(text, token.decimals) || '0' : '0';
   const tooMuch = accountId && toBigInt(raw) > spendable;
 
@@ -214,6 +235,15 @@ function QuickLpPanel({ pool, onClose }) {
         }
         const [mx, my] = meta;
         const current = fresh.current_point;
+        if (zap) {
+          // The shape on the live pool decides the split; each leg is quoted now and deposits use the
+          // swaps' minimum outputs (lib/zap.js), as the Create position form's Zap in does.
+          const range = aroundRange({ current, delta: fresh.point_delta, dx: mx.decimals, dy: my.decimals, widthPct: width });
+          const bins = buildBins({ left: range.left, right: range.right, current, pointDelta: fresh.point_delta, strategy });
+          const unitPlan = planBins({ bins, current, from: 'x', amount: 0 });
+          const quote = await quoteZap({ inputToken: zapToken, amountIn: raw, x: mx, y: my, pool: fresh, unitPlan, slippage, user: accountId });
+          return buildZapTransactions({ zap: quote, inputToken: zapToken, x: mx, y: my, pool: fresh, slippage, accountId });
+        }
         if (both) {
           // Two amounts were shown for the price at open: beyond the slippage they no longer hold.
           const moved = (Math.pow(1.0001, current - info.current_point) - 1) * 100;
@@ -245,7 +275,10 @@ function QuickLpPanel({ pool, onClose }) {
           maxY: side === 'y' ? raw : '0'
         });
       },
-      { pending: both ? `Adding ${label(x, sx)} + ${label(y, sy)} to ${sx} / ${sy}` : `Adding ${symbol} to ${sx} / ${sy}`, success: 'Liquidity added' }
+      {
+        pending: zap ? `Zapping ${symbol} into ${sx} / ${sy}` : both ? `Adding ${label(x, sx)} + ${label(y, sy)} to ${sx} / ${sy}` : `Adding ${symbol} to ${sx} / ${sy}`,
+        success: zap ? 'Zap complete — position created' : 'Liquidity added'
+      }
     );
     setBusy(false);
     if (ok) {
@@ -281,8 +314,8 @@ function QuickLpPanel({ pool, onClose }) {
   const onPointerUp = () => {
     drag.current = null;
   };
-  const sideText = both ? 'Both tokens' : `${symbol} only`;
-  const widthText = !width ? '' : both ? (width === 'full' ? 'Full range' : `±${width}%`) : `${side === 'y' ? '−' : '+'}${width}%`;
+  const sideText = zap ? `Zap ${symbol}` : both ? 'Both tokens' : `${symbol} only`;
+  const widthText = !width ? '' : around ? (width === 'full' ? 'Full range' : `±${width}%`) : `${side === 'y' ? '−' : '+'}${width}%`;
   const bothShort = shortX ? label(x, sx) : shortY ? label(y, sy) : null;
 
   return (
@@ -338,10 +371,11 @@ function QuickLpPanel({ pool, onClose }) {
               </strong>
               <small>Around the price: earns on moves both ways</small>
             </button>
+            <button type="button" className="qlp__opt" onClick={() => setSide('zap')}>
+              <strong>⚡ Zap in · one token, both sides</strong>
+              <small>Pay {x === WNEAR || y === WNEAR ? 'NEAR' : `${sx} or ${sy}`}: KINU swaps the right share and opens the range</small>
+            </button>
           </div>
-          <button type="button" className="link-button qlp__both" onClick={() => (onClose(), navigate(`${poolPath(pool.id)}?tab=add`))}>
-            Zap one token into both sides → pool page
-          </button>
         </>
       )}
 
@@ -362,13 +396,13 @@ function QuickLpPanel({ pool, onClose }) {
       {!restricted && step === 3 && (
         <>
           <p className="qlp__ask">
-            {both ? 'How wide around the price?' : side === 'y' ? 'How far below the price?' : 'How far above the price?'}{' '}
+            {around ? 'How wide around the price?' : side === 'y' ? 'How far below the price?' : 'How far above the price?'}{' '}
             <small>Tighter earns more fees but leaves the range sooner.</small>
           </p>
           <div className="qt__grid qlp__grid">
-            {(both ? AROUND_WIDTHS : SIDE_WIDTHS).map((v) => (
+            {(around ? AROUND_WIDTHS : SIDE_WIDTHS).map((v) => (
               <button key={v} type="button" className="qt__btn" onClick={() => setWidth(v)}>
-                <strong>{both ? (v === 'full' ? 'Full' : `±${v}%`) : `${side === 'y' ? '−' : '+'}${v}%`}</strong>
+                <strong>{around ? (v === 'full' ? 'Full' : `±${v}%`) : `${side === 'y' ? '−' : '+'}${v}%`}</strong>
               </button>
             ))}
           </div>
@@ -380,7 +414,7 @@ function QuickLpPanel({ pool, onClose }) {
           {shownRange ? (
             <p className="qlp__range">
               Range ≈ {formatChartPrice(shownRange[0])} – {formatChartPrice(shownRange[1])} {sy} per {sx}
-              {both ? ' · around the price now' : ' · from the price now'}
+              {around ? ' · around the price now' : ' · from the price now'}
             </p>
           ) : width === 'full' ? (
             <p className="qlp__range">Full range: every price</p>
@@ -421,6 +455,16 @@ function QuickLpPanel({ pool, onClose }) {
             </div>
           ) : (
             <div className="qlp__amount">
+              {zap && zapChoices.length > 1 && (
+                <div className="qlp__chips qlp__pay">
+                  <span>Pay with</span>
+                  {zapChoices.map((t) => (
+                    <button key={t.id} type="button" className={t.id === zapToken?.id ? 'is-active' : ''} onClick={() => (setZapId(t.id), setText(''))}>
+                      {t.symbol}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="qlp__amount-head">
                 <span>Amount</span>
                 {accountId && token && (
@@ -457,6 +501,11 @@ function QuickLpPanel({ pool, onClose }) {
                   ))}
               </div>
               {usdPrice > 0 && Number(text) > 0 && <small className="muted">≈ ${formatAmount(Number(text) * usdPrice)}</small>}
+              {zapShareX !== null && (
+                <small className="muted">
+                  Split ≈ {Math.round(zapShareX * 100)}% {label(x, sx)} / {100 - Math.round(zapShareX * 100)}% {label(y, sy)} · swap quoted at signing
+                </small>
+              )}
             </div>
           )}
 
@@ -477,7 +526,9 @@ function QuickLpPanel({ pool, onClose }) {
                     : 'Add liquidity'
                   : tooMuch
                     ? `Not enough ${symbol}`
-                    : `Add ${symbol} liquidity`}
+                    : zap
+                      ? `Zap ${symbol} in`
+                      : `Add ${symbol} liquidity`}
           </button>
           <p className="qt__foot">Slippage {slippage}% · signed in your wallet. The range is set on the live pool price at signing.</p>
         </>

@@ -16510,3 +16510,18 @@ a.amm-table__row:hover {
     max-height: calc(100vh - 96px - env(safe-area-inset-bottom));
   }
 }
+
+.qlp__pay {
+  align-items: center;
+}
+
+.qlp__pay > span {
+  margin-right: 2px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.qlp__pay button.is-active {
+  border-color: var(--accent);
+  color: var(--text);
+}
