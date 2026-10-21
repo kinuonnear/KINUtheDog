@@ -15,11 +15,56 @@ function subscribe(callback) {
 
 const getPath = () => window.location.pathname + window.location.search;
 
+// How many in-app pages lie behind this history entry (0 = the visit started here), so a ← button can
+// tell whether the browser's back stays inside KINU.
+const depth = () => Number(window.history.state?.kinuDepth) || 0;
+
 export function navigate(to, { replace = false } = {}) {
   if (to === getPath()) return;
-  window.history[replace ? 'replaceState' : 'pushState']({}, '', to);
+  if (replace) window.history.replaceState({ ...window.history.state, kinuDepth: depth() }, '', to);
+  else {
+    // Remember where the page was scrolled, so back returns to the same spot (see below).
+    window.history.replaceState({ ...window.history.state, kinuScroll: window.scrollY }, '');
+    window.history.pushState({ kinuDepth: depth() + 1 }, '', to);
+  }
   window.dispatchEvent(new Event(NAVIGATE_EVENT));
   if (!replace) window.scrollTo({ top: 0 });
+}
+
+// Back / forward: scroll to where that page was left. The page re-renders and its lists load after
+// the popstate, so keep putting it back while the content settles (up to 3 s), and stop as soon as
+// the user scrolls, taps or types.
+if (typeof window !== 'undefined') {
+  window.history.scrollRestoration = 'manual';
+  window.addEventListener('popstate', () => {
+    const target = Number(window.history.state?.kinuScroll) || 0;
+    if (!target) return;
+    const started = Date.now();
+    let held = 0;
+    let stopped = false;
+    const stop = () => {
+      stopped = true;
+    };
+    const inputs = ['wheel', 'touchstart', 'keydown', 'mousedown'];
+    inputs.forEach((type) => window.addEventListener(type, stop, { once: true, passive: true }));
+    const settle = () => {
+      const room = document.documentElement.scrollHeight - window.innerHeight;
+      if (Math.abs(window.scrollY - target) <= 2) held += 1;
+      else {
+        held = 0;
+        if (room >= target) window.scrollTo({ top: target });
+      }
+      if (!stopped && held < 10 && Date.now() - started < 3000) setTimeout(settle, 50);
+      else inputs.forEach((type) => window.removeEventListener(type, stop));
+    };
+    setTimeout(settle, 0);
+  });
+}
+
+/** Back to the page the user came from inside KINU (with its filters); `fallback` when there is none. */
+export function goBack(fallback) {
+  if (depth() > 0) window.history.back();
+  else navigate(fallback);
 }
 
 export function useLocation() {

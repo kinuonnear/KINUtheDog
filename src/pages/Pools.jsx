@@ -519,11 +519,24 @@ export default function Pools() {
   const mineIds = mineData?.ids || [];
   const mineRange = mineData?.range || {};
   const mineKey = mineIds.join(',');
-  const [category, setCategory] = useState('all');
+  // Pool type and sort live in the URL too (?type=almm&sort=apy&order=asc), so back from a pool page
+  // comes back to the same tab and order.
+  const [category, setCategory] = useState(() => (POOL_TYPES.some((t) => t.key === search.get('type')) ? search.get('type') : 'all'));
   const tab = POOL_TYPES.find((t) => t.key === category) || POOL_TYPES[0];
   const [windowKey, setWindowKey] = useLocalStorage('kinu.pools.window', 'h24');
-  const [sort, setSort] = useState('tvl');
-  const [order, setOrder] = useState('desc');
+  const [sort, setSort] = useState(() => search.get('sort') || 'tvl');
+  const [order, setOrder] = useState(() => (search.get('order') === 'asc' ? 'asc' : 'desc'));
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const put = (key, value, fallback) => (value === fallback ? params.delete(key) : params.set(key, value));
+    put('type', category, 'all');
+    // 'rank' is the ranked views' own order, set by the view itself.
+    put('sort', sort === 'rank' ? 'tvl' : sort, 'tvl');
+    put('order', order, 'desc');
+    const path = `/pools${params.toString() ? `?${params}` : ''}`;
+    if (path !== window.location.pathname + window.location.search) navigate(path, { replace: true });
+    rememberPoolsPath(path);
+  }, [category, sort, order]);
   const [hideLow, setHideLow] = useState(true);
   // Pools with liquidity but no trades in 24h earn their LPs nothing.
   const [hideInactive, setHideInactive] = useLocalStorage('kinu.pools.hideInactive', true);

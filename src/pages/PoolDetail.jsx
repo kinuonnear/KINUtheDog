@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../state.jsx';
 import { useAsync, useChainUpdates, useElementHeight, useLocalStorage, useMediaQuery } from '../hooks.js';
-import { Link, poolsReturnPath, useLocation } from '../router.jsx';
+import { goBack, Link, poolsReturnPath, useLocation } from '../router.jsx';
 import { parseLpLink } from '../lib/lpLink.js';
 import { getDclPositions, getFarmStakes, getPool, getPoolShares, getPoolStats, dclPointToPrice, parseDclPoolId } from '../lib/rhea.js';
 import { asPoolToken, getToken, getTokens, priceOf } from '../lib/tokens.js';
@@ -801,7 +801,18 @@ function PoolBar({ tokens, label, feePercent, rheaUrl, swapLink, stats, price, i
   const setFlipped = (update) => (onFlip ? onFlip(typeof update === 'function' ? update(flipped) : update) : setLocalFlipped(update));
   return (
     <header className="pool-bar card">
-      <Link to={poolsReturnPath()} className="pool-bar__back" aria-label="Back to pools" title="Back to pools">
+      <Link
+        to={poolsReturnPath()}
+        className="pool-bar__back"
+        aria-label="Back"
+        title="Back to the previous page"
+        onClick={(event) => {
+          // Back to wherever the user came from (pools list with its tab, Portfolio, Discover…);
+          // a pool page opened directly goes to the pools list.
+          event.preventDefault();
+          goBack(poolsReturnPath());
+        }}
+      >
         {'\u2190'}
       </Link>
       <div className="pool-bar__pair">
