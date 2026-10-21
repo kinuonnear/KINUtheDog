@@ -12,7 +12,7 @@ import { formatPrice, formatUsd } from '../lib/format.js';
 import { NATIVE_NEAR, PINNED_TOKENS } from '../config.js';
 import { FlagList } from './Token.jsx';
 import WatchStar from '../components/WatchStar.jsx';
-import { QuickTradeRowButton } from '../components/QuickTrade.jsx';
+import DetailsLink from '../components/DetailsLink.jsx';
 
 const QUOTES = [
   ['all', 'All'],
@@ -122,17 +122,10 @@ export function NewLaunches() {
                   <span data-label="Volume 24h">{formatUsd(l.volume24hUsd)}</span>
                   <span data-label="Holders">{l.holders.toLocaleString()}</span>
                   <span className="new-row__buy">
-                    {l.quote === 'wrap.near' ? (
-                      <QuickTradeRowButton token={{ id: l.id, symbol: l.symbol }} />
-                    ) : (
-                    <Link
-                      className="button button--outline button--sm"
-                      to={`/swap?from=${l.quote === 'wrap.near' ? NATIVE_NEAR.id : encodeURIComponent(l.quote)}&to=${encodeURIComponent(l.id)}`}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      Buy
+                    <Link className="button button--outline button--sm" to={`/pools?q=${encodeURIComponent(l.id)}`} onClick={(e) => e.stopPropagation()} title={`Rhea pools with ${l.symbol}: provide liquidity`}>
+                      Add LP
                     </Link>
-                    )}
+                    <DetailsLink tokenId={l.id} symbol={l.symbol} />
                   </span>
                 </div>
               ))}

@@ -13,20 +13,12 @@ import { CONTRACTS, KINU_TOKEN, NATIVE_NEAR } from '../config.js';
 import { loadBoard, lpPath } from './SmartLp.jsx';
 import { usePoolTokens } from '../pages/Pools.jsx';
 import { EmptyState, ErrorNotice, PairIcons, Skeleton, TokenIcon } from './ui.jsx';
+import DetailsLink from './DetailsLink.jsx';
 
 const K = { compactAbove: 1e4 };
 const usd = (v) => (Number.isFinite(v) && v > 0 ? formatUsd(v, K) : '—');
 const TIER_TITLES = [...FEATURED.map(([label]) => label), 'More by 24h volume'];
 const NO_LPS = { lps: [], profitable: [], valueUsd: 0, pools: [] };
-
-// Swap page ids: native NEAR instead of wNEAR.
-const swapId = (id) => (id === CONTRACTS.wrapNear ? NATIVE_NEAR.id : id);
-
-/** Swap from the pool's other token into the one being viewed. */
-const swapLink = (pool, tokenId) => {
-  const other = pool.tokenIds.find((id) => id !== tokenId) || CONTRACTS.wrapNear;
-  return `/swap?from=${encodeURIComponent(swapId(other))}&to=${encodeURIComponent(swapId(tokenId))}`;
-};
 
 /** A steady colour per wallet, for its avatar. */
 function hue(account) {
@@ -139,9 +131,7 @@ function TokenPools({ token, smart }) {
             </span>
             <span data-label="Smart LPs">{s ? <LpAvatars lps={s.lps} /> : <span className="muted">—</span>}</span>
             <span className="smi-prow__actions">
-              <Link to={swapLink(p, token.id)} className="button button--outline button--sm" title={`Swap into ${token.symbol}`}>
-                Swap
-              </Link>
+              <DetailsLink tokenId={token.id} symbol={token.symbol} />
               <Link to={poolPath(p.id)} className="button button--ghost button--sm">
                 Open pool
               </Link>

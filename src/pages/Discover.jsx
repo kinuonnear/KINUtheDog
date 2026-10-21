@@ -20,7 +20,7 @@ import SmartLpBoard from '../components/SmartLp.jsx';
 import SmartMoneyIn from '../components/SmartMoney.jsx';
 import { FlowLines } from '../components/FlowLines.jsx';
 import TokenizedStocks from '../components/TokenizedStocks.jsx';
-import { QuickTradeHost, QuickTradeRowButton } from '../components/QuickTrade.jsx';
+import DetailsLink from '../components/DetailsLink.jsx';
 import WalletTracker from '../components/WalletTracker.jsx';
 import '../discover.css';
 import PageIcon from '../components/PageIcon.jsx';
@@ -148,7 +148,7 @@ function TokenTable({ rows, loading, error, onRetry, volumeLabel = 'Volume 24h',
                 <Link className="button button--outline button--sm" to={`/pools?q=${encodeURIComponent(r.id)}`} onClick={(e) => e.stopPropagation()} title={`Rhea pools with ${r.token.symbol}: provide liquidity`}>
                   Add LP
                 </Link>
-                <QuickTradeRowButton token={r.token?.id ? r.token : { ...r.token, id: r.id }} />
+                <DetailsLink tokenId={r.id} symbol={r.token?.symbol} />
               </span>
             </div>
           ))}
@@ -417,9 +417,7 @@ function HotPairs({ filters, onFilters }) {
             <Link className="button button--outline button--sm" to={`${poolPath(r.id)}?tab=add`}>
               Add LP
             </Link>
-            <Link className="button button--ghost button--sm" to={`/swap?from=${encodeURIComponent(r.tokenIds[0])}&to=${encodeURIComponent(r.tokenIds[1])}`}>
-              Swap
-            </Link>
+            <DetailsLink tokenId={baseIdOf(r)} symbol={r.symbols?.[r.tokenIds.indexOf(baseIdOf(r))]} />
           </>
         )}
         empty={<p className="muted small new-table__empty">No pairs match. Try another filter or window.</p>}
@@ -583,7 +581,6 @@ export default function Discover({ defaultTab = 'lp' }) {
           <Trending gainers={tab === 'gainers'} />
         )}
       </div>
-      <QuickTradeHost />
     </div>
   );
 }

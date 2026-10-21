@@ -13,6 +13,7 @@ import { ErrorNotice, PairIcons, Skeleton, TokenIcon } from '../components/ui.js
 import { FlowLines } from '../components/FlowLines.jsx';
 import PageIcon from '../components/PageIcon.jsx';
 import PoolSourceTabs from '../components/PoolSourceTabs.jsx';
+import { openQuickLp, QuickLpHost } from '../components/QuickLp.jsx';
 import '../pools.css';
 
 const PAGE_SIZE = 25;
@@ -350,6 +351,21 @@ function DiscoverRow({ rank, pool, tokens, prices, info, stat, estimated, favori
       </span>
       {/* The row is a link, so the quick action is a button (no link inside a link). */}
       <span className="dt-action">
+        {/* CLMM pools: the Telegram bot's step-by-step flow in a floating panel (components/QuickLp.jsx). */}
+        {pool.isDcl && (
+          <button
+            type="button"
+            className="dt-add dt-add--quick"
+            title="Quick LP: one token, from the price now; pick strategy, width and amount and sign here"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              openQuickLp({ id: pool.id, tokenIds: pool.tokenIds, symbols: tokens.map((t) => t.symbol), feePercent: pool.feePercent });
+            }}
+          >
+            ⚡ Quick LP
+          </button>
+        )}
         <button
           type="button"
           className="dt-add"
@@ -1028,6 +1044,7 @@ export default function Pools() {
       <p className="muted small center">Data: Rhea Finance classic and CLMM pools, live.</p>
         </div>
       </div>
+      <QuickLpHost />
     </div>
   );
 }

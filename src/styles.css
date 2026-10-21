@@ -15924,15 +15924,6 @@ a.amm-table__row:hover {
   }
 }
 
-/* Quick trade on Discover lists: the row button that opens the floating panel. */
-.qb-btn {
-  white-space: nowrap;
-}
-
-.qb-btn:hover:not(:disabled) {
-  border-color: var(--mint);
-  color: var(--mint);
-}
 
 /* KINU Scan under the Swap form: a closed row (as Jupiter's "Token Info ›") that opens the checks. */
 .scan-fold {
@@ -16183,4 +16174,207 @@ a.amm-table__row:hover {
 
 .token-page .token-chart .chart-card__canvas {
   height: 320px;
+}
+
+/* New launches: Add LP + Details like the other Discover lists (wider last column on desktop). */
+.new-row__buy {
+  display: inline-flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@media (min-width: 1101px) {
+  .new-row:not(.disc-row) {
+    grid-template-columns: minmax(220px, 2.2fr) repeat(7, minmax(70px, 1fr)) 160px;
+  }
+}
+
+/* Pools: room for "⚡ Quick LP" next to "+ Add LP" on CLMM rows (desktop). */
+@media (min-width: 761px) {
+  .page--pools .dt-row {
+    grid-template-columns: 34px minmax(200px, 2.4fr) 52px repeat(6, minmax(70px, 1fr)) 150px;
+  }
+
+  .page--pools .dt-action {
+    gap: 6px;
+  }
+}
+
+@media (min-width: 761px) and (max-width: 1500px) {
+  .page--pools .dt-row {
+    grid-template-columns: 34px minmax(200px, 2.4fr) 52px minmax(84px, 1fr) repeat(5, minmax(70px, 1fr)) 150px;
+  }
+}
+
+.dt-add--quick {
+  border-color: rgba(184, 255, 61, 0.35);
+  color: var(--accent);
+}
+
+/* Quick LP panel (components/QuickLp.jsx): the Quick trade frame with option lists. */
+.qlp__step {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.qlp .qt__slip {
+  margin-left: 0;
+}
+
+.qlp__picked {
+  margin: -2px 0 8px;
+  color: var(--accent);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.qlp__ask {
+  margin: 0 0 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.qlp__ask small {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.qlp__opts {
+  display: grid;
+  gap: 6px;
+}
+
+.qlp__opt {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  font: 600 12.5px var(--font);
+  text-align: left;
+  cursor: pointer;
+}
+
+.qlp__opt small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.qlp__opt:hover {
+  border-color: var(--accent);
+}
+
+.qlp__grid {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.qlp__range {
+  margin: 0 0 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--surface-3);
+  font-size: 11.5px;
+}
+
+.qlp__go {
+  padding: 7px 12px;
+  font-size: 12px;
+}
+
+.qlp__go {
+  width: 100%;
+}
+
+.qlp__amount {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.qlp__amount-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.qlp__field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.qlp__field input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: 600 16px var(--font);
+  outline: none;
+}
+
+.qlp__field b {
+  font-size: 12px;
+}
+
+.qlp__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.qlp__chips button {
+  padding: 3px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: none;
+  color: var(--muted);
+  font: 600 11px var(--font);
+  cursor: pointer;
+}
+
+.qlp__chips button:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.qlp__both {
+  display: block;
+  margin: 8px auto 0;
+  font-size: 11.5px;
+}
+
+.qlp .note,
+.qlp .tax-note {
+  margin: 0 0 8px;
+  font-size: 11px;
+}
+
+/* Pools table, tidier: tighter rank and age columns, the room goes to the numbers; smaller row buttons. */
+@media (min-width: 761px) {
+  .page--pools .dt-action {
+    padding-left: 12px;
+  }
+
+  .page--pools .dt-add {
+    padding: 5px 9px;
+    font-size: 11px;
+  }
+
+  .page--pools .dt-action {
+    gap: 5px;
+  }
 }

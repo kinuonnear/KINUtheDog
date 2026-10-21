@@ -63,51 +63,6 @@ export function useQuickSwap() {
   return { run, busy };
 }
 
-/** Opens the floating panel for a token from anywhere on the page (a list row's ⚡). */
-export function openQuickTrade(token) {
-  window.dispatchEvent(new CustomEvent(OPEN_EVENT, { detail: token }));
-}
-const OPEN_EVENT = 'kinu:quick-trade';
-
-/** A list row's ⚡: opens the floating panel for that row's token. */
-export function QuickTradeRowButton({ token }) {
-  if (!token?.id || token.id === CONTRACTS.wrapNear || token.id === NATIVE_NEAR.id) return null;
-  return (
-    <button
-      type="button"
-      className="button button--outline button--sm qb-btn"
-      title={`Quick trade ${token.symbol || ''}`}
-      aria-label={`Quick trade ${token.symbol || ''}`}
-      onClick={(event) => {
-        event.stopPropagation();
-        openQuickTrade(token);
-      }}
-    >
-      <span aria-hidden>⚡</span> Trade
-    </button>
-  );
-}
-
-/** The panel for list pages: shows whichever token a row's ⚡ picked (full metadata loaded first). */
-export function QuickTradeHost() {
-  const [token, setToken] = useState(null);
-  useEffect(() => {
-    let live = true;
-    const onOpen = async (event) => {
-      const picked = event.detail;
-      const full = picked.decimals ? picked : await getToken(picked.id).catch(() => null);
-      if (live && full) setToken(full);
-    };
-    window.addEventListener(OPEN_EVENT, onOpen);
-    return () => {
-      live = false;
-      window.removeEventListener(OPEN_EVENT, onOpen);
-    };
-  }, []);
-  if (!token) return null;
-  return <QuickTrade key={token.id} token={token} open setOpen={(next) => !next && setToken(null)} />;
-}
-
 /** Open / closed, shared by the token page's "Quick trade" button and the panel. */
 export const useQuickTradeOpen = () => useLocalStorage('kinu.quick.open', false);
 
