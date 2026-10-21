@@ -16,7 +16,9 @@ import { buildReport, parseBrief } from './_lpreport.js';
 
 const MARKET = 'https://market.near.ai';
 const MAX_SKEW_S = 300;
-const WORK_EVENTS = new Set(['hire.created', 'hire.changes_requested', 'hire.dispute_resolved']);
+// Events that send the agent through its queue. "Send test event" on the agent's page (webhook.ping)
+// does too: a hire whose webhook never arrived is picked up with one click.
+const WORK_EVENTS = new Set(['hire.created', 'hire.changes_requested', 'hire.dispute_resolved', 'webhook.ping']);
 
 async function readRaw(req) {
   const chunks = [];

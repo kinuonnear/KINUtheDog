@@ -247,7 +247,7 @@ async function dclPoolSection(poolId, list, plist) {
   if (depth) {
     const d = depthOf(depth, cp, mx.decimals, my.decimals, px, py);
     lines.push('', `Liquidity around the price (whole pool): ±2% ${usd(d.w2.below)} / ${usd(d.w2.above)} · ±5% ${usd(d.w5.below)} / ${usd(d.w5.above)} · ±10% ${usd(d.w10.below)} / ${usd(d.w10.above)} (below / above).`);
-    lines.push(wallLine(d));
+    lines.push('', wallLine(d));
   }
   if (notes.length) lines.push('', '**Things to check**', ...notes.map((n) => `- ${n}`));
   return { value, fees, earning, total: rows.length, idle: idle.length, text: lines.join('\n') };
