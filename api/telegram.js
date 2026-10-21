@@ -728,9 +728,57 @@ const UNKNOWN = {
 };
 
 /** A pasted contract: its CLMM pool card, or a swap offer when it has no CLMM pool. */
+const CLASSIC_MIN_TVL = 1000; // classic pools shown as links from this TVL
+const PICK_SIZE = 8;
+
+/**
+ * A token's pools. Concentrated (CLMM): Rhea's API and DexScreener together (either can miss one),
+ * NEAR pairs first, then by TVL. Classic (AMM, "refv1-<id>" on DexScreener) from CLASSIC_MIN_TVL.
+ */
+async function tokenPools(token) {
+  const [rhea, dex] = await Promise.all([
+    rheaPools(token).catch(() => []),
+    getJson(`${DEXSCREENER_API}/latest/dex/tokens/${encodeURIComponent(token)}`).catch(() => ({ pairs: [] }))
+  ]);
+  const pairs = (dex.pairs || []).filter((p) => p.chainId === 'near');
+  const clmm = new Map();
+  pairs
+    .filter((p) => /^refv2-[^:]+:[^:]+:\d+$/.test(p.pairAddress || ''))
+    .map(fromDexScreener)
+    .filter((p) => p.tokens.includes(token))
+    .forEach((p) => clmm.set(p.id, p));
+  rhea.forEach((p) => clmm.has(p.id) || clmm.set(p.id, p));
+  const nearFirst = (a, b) => Number(b.tokens.includes(WNEAR)) - Number(a.tokens.includes(WNEAR)) || b.tvl - a.tvl;
+  const classic = pairs
+    .filter((p) => /^refv1-\d+$/.test(p.pairAddress || '') && (Number(p.liquidity?.usd) || 0) >= CLASSIC_MIN_TVL)
+    .map((p) => ({ id: p.pairAddress.slice('refv1-'.length), name: `${nearSymbol(p.baseToken.symbol)} / ${nearSymbol(p.quoteToken.symbol)}`, tvl: Number(p.liquidity.usd) }))
+    .sort((a, b) => b.tvl - a.tvl)
+    .slice(0, 3);
+  return { clmm: [...clmm.values()].sort(nearFirst), classic };
+}
+
 async function tokenReply(token) {
-  const pool = await findPool(token);
-  if (pool) return poolCard(pool.id, pool);
+  const { clmm, classic } = await tokenPools(token);
+  if (clmm.length === 1 && !classic.length) return poolCard(clmm[0].id, clmm[0]);
+  if (clmm.length || classic.length) {
+    const own = clmm[0] ? clmm[0].symbols[clmm[0].tokens.indexOf(token)] : classic[0].name.split(' / ')[0];
+    const shown = clmm.slice(0, PICK_SIZE);
+    const lines = [
+      `💧 <b>${esc(own)}</b> · <code>${esc(short(token))}</code>${VERIFIED.has(token) ? ' ✓ verified' : ''}`,
+      shown.length ? '<b>Concentrated pools</b> · pick one to LP step by step' : null,
+      ...shown.map((p, i) => `${i + 1}. <a href="${stateUrl(p.id)}">${esc(`${p.symbols[0]} / ${p.symbols[1]}`)}</a> · ${p.feePct}% · TVL ${usd(p.tvl)}${p.tvl < 1000 ? ' · low liquidity' : ''}`),
+      clmm.length > PICK_SIZE ? `… and ${clmm.length - PICK_SIZE} more` : null,
+      classic.length ? '' : null,
+      classic.length ? '<b>Classic pools</b> · add liquidity in KINU' : null,
+      ...classic.map((p) => `• ${esc(p.name)} · TVL ${usd(p.tvl)}`)
+    ].filter((l) => l !== null);
+    const picks = shown.map((p, i) => cb(`${i + 1}. ${p.symbols[0]}/${p.symbols[1]} ${p.feePct}%`.slice(0, 40), `l:${i}`));
+    const rows = [];
+    for (let i = 0; i < picks.length; i += 2) rows.push(picks.slice(i, i + 2));
+    classic.forEach((p) => rows.push([open(`🏊 ${p.name} · classic`.slice(0, 40), `${appUrl()}/pools/${p.id}`)]));
+    rows.push([open(`⇄ Swap ${own}`.slice(0, 40), swapUrl(token)), ...MENU_ROW]);
+    return { text: lines.join('\n'), reply_markup: { inline_keyboard: rows } };
+  }
   const info = await tokenInfo(token);
   return {
     text: `No concentrated liquidity pool for <code>${esc(token)}</code> on Rhea yet.${info ? ` You can still swap NEAR for ${esc(info.symbol)}.` : ''}`,
