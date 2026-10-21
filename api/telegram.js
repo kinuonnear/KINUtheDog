@@ -781,15 +781,18 @@ function accountIn(message) {
 
 const accountButtons = (account, other) => [
   [other === 'pos' ? cb('📊 LP positions', 'v:pos') : cb('👛 Balance', 'v:bal'), open('🐕 Open in KINU', `${appUrl()}/lp/${encodeURIComponent(account)}`)],
-  MENU_ROW
+  [cb('🔄 Refresh', other === 'pos' ? 'rf:bal' : 'rf:pos'), ...MENU_ROW]
 ];
 
+/** "Updated 14:05:09 UTC": when a balance / positions reply was read (a refresh always changes it). */
+const updatedLine = () => `<i>Updated ${new Date().toISOString().slice(11, 19)} UTC</i>`;
+
 const ASK_BALANCE = {
-  text: '👛 <b>Balance</b>\nSend a NEAR account, e.g. <code>yourname.near</code> or <code>yourname.tg</code>.\nRead-only: the bot never connects to your wallet.',
+  text: '👛 <b>Balance</b>\nSend a NEAR account, e.g. <code>yourname.near</code> or <code>yourname.tg</code>.\nRead-only: the bot never connects to your wallet. Tip: 🔗 My wallet links it once, then this opens straight away.',
   reply_markup: { force_reply: true, input_field_placeholder: 'NEAR account' }
 };
 const ASK_POSITIONS = {
-  text: '📊 <b>LP positions</b>\nSend a NEAR account, e.g. <code>yourname.near</code> or <code>yourname.tg</code>.\nRead-only: the bot never connects to your wallet.',
+  text: '📊 <b>LP positions</b>\nSend a NEAR account, e.g. <code>yourname.near</code> or <code>yourname.tg</code>.\nRead-only: the bot never connects to your wallet. Tip: 🔗 My wallet links it once, then this opens straight away.',
   reply_markup: { force_reply: true, input_field_placeholder: 'NEAR account' }
 };
 
@@ -917,13 +920,17 @@ async function balanceReply(account) {
     hidden > 0 ? `… and ${hidden} more` : null,
     unpriced ? `${unpriced} token${unpriced === 1 ? '' : 's'} without a price not counted.` : null,
     '',
-    'Read-only, from public data. LP positions are not included: tap 📊.'
+    'Read-only, from public data. LP positions are not included: tap 📊.',
+    updatedLine()
   ].filter((l) => l !== null);
   return { text: lines.join('\n'), reply_markup: { inline_keyboard: accountButtons(account, 'pos') } };
 }
 
 /** "In range · 32% to edge" / "Out of range · 16% above", like the pool page. */
 function rangeStatus(lo, hi, now, inBins, bins) {
+  // A one-sided position starts right at the price: on its edge, it fills as soon as the price moves in.
+  const off = now < lo ? (lo - now) / lo : now >= hi ? (now - hi) / hi : null;
+  if (off !== null && off < 0.0005) return '🟡 On the range edge · starts earning once the price moves in';
   if (now < lo) return `🔴 Out of range · ${pct(((lo - now) / lo) * 100)}% below`;
   if (now >= hi) return `🔴 Out of range · ${pct(((now - hi) / hi) * 100)}% above`;
   const edge = (Math.min(now - lo, hi - now) / now) * 100;
@@ -936,7 +943,7 @@ async function positionsReply(account) {
   if (view.missing) return { text: `No NEAR account named <code>${esc(account)}</code>.`, reply_markup: { inline_keyboard: [MENU_ROW] } };
   const [liquidities, prices] = await Promise.all([viewCall(DCL, 'list_liquidities', { account_id: account }), tokenPrices().catch(() => ({}))]);
   if (!liquidities?.length) {
-    return { text: `📊 ${accountLink(account)}\nNo CLMM positions on Rhea.`, reply_markup: { inline_keyboard: accountButtons(account, 'bal') } };
+    return { text: `📊 ${accountLink(account)}\nNo CLMM positions on Rhea.\n${updatedLine()}`, reply_markup: { inline_keyboard: accountButtons(account, 'bal') } };
   }
   const groups = new Map();
   liquidities.forEach((l) => groups.set(l.pool_id, [...(groups.get(l.pool_id) || []), l]));
@@ -978,6 +985,8 @@ async function positionsReply(account) {
     const [sx, sy] = [symbolOf(prices, x), symbolOf(prices, y)];
     blocks.push({
       value,
+      poolId,
+      name: `${sx}/${sy}`,
       text: [
         `<b>${esc(sx)} / ${esc(sy)}</b> · ${Number(fee) / 1e4}% · ${list.length} bin${list.length === 1 ? '' : 's'}`,
         `   ${rangeStatus(lo, hi, now, inBins, list.length)}`,
@@ -993,9 +1002,16 @@ async function positionsReply(account) {
     ...blocks.slice(0, MAX_ROWS).map((b, i) => `${i + 1}. ${b.text}`),
     blocks.length > MAX_ROWS ? `… and ${blocks.length - MAX_ROWS} more pools` : null,
     '',
-    'Read-only, from public data. Manage them in KINU: claim, add, rebalance, remove.'
+    '✖ <b>Close</b> opens KINU\'s remove form for that pool: take out 25–100%, get both tokens back or one, and sign in your wallet (the one holding the position).',
+    updatedLine()
   ].filter((l) => l !== null);
-  return { text: lines.join('\n'), reply_markup: { inline_keyboard: accountButtons(account, 'bal') } };
+  // One ✖ Close per pool shown, two to a row.
+  const closeButtons = blocks
+    .slice(0, MAX_ROWS)
+    .map((b, i) => open(`✖ Close ${i + 1}. ${b.name}`.slice(0, 40), `${appUrl()}/pools?${new URLSearchParams({ type: 'clmm', close: b.poolId })}`));
+  const closeRows = [];
+  for (let i = 0; i < closeButtons.length; i += 2) closeRows.push(closeButtons.slice(i, i + 2));
+  return { text: lines.join('\n'), reply_markup: { inline_keyboard: [...closeRows, ...accountButtons(account, 'bal')] } };
 }
 
 /** /terminal: the full KINU app, inside Telegram or in a browser. */
@@ -1044,11 +1060,14 @@ export async function replyFor(text, replyTo = '', chatId = null, replyMessage =
   const replied = !name ? String(replyTo) : '';
   if (['balance', 'mybalance', 'bal'].includes(name) || replied.startsWith(BAL_PROMPT)) {
     const account = accountFrom(rest);
-    return account ? balanceReply(account) : ASK_BALANCE;
+    // No account named: the chat's linked wallet, else ask for one.
+    const target = account || (await linkedAccount(chatId))?.account;
+    return target ? balanceReply(target) : ASK_BALANCE;
   }
   if (['positions', 'position', 'pos', 'mypositions'].includes(name) || replied.startsWith(POS_PROMPT)) {
     const account = accountFrom(rest);
-    return account ? positionsReply(account) : ASK_POSITIONS;
+    const target = account || (await linkedAccount(chatId))?.account;
+    return target ? positionsReply(target) : ASK_POSITIONS;
   }
   const req = parseRequest(rest);
   const swap = name === 'swap' || (!name && String(replyTo).startsWith(SWAP_PROMPT));
@@ -1070,8 +1089,12 @@ export async function replyForButton(data, message) {
     if (!a) return menu();
     if (a === 'new') return ASK_CONTRACT;
     if (a === 'swap') return ASK_SWAP;
-    if (a === 'bal') return ASK_BALANCE;
-    if (a === 'pos') return ASK_POSITIONS;
+    // The menu's Balance / LP positions: the linked wallet when there is one.
+    if (a === 'bal' || a === 'pos') {
+      const linked = await linkedAccount(chat);
+      if (!linked) return a === 'bal' ? ASK_BALANCE : ASK_POSITIONS;
+      return a === 'bal' ? balanceReply(linked.account) : positionsReply(linked.account);
+    }
     if (a === 'term') return terminal();
     if (a === 'wal') return walletReply(message?.chat?.id, null);
     if (a === 'kinu') return poolCard(KINU_POOL);
@@ -1079,6 +1102,7 @@ export async function replyForButton(data, message) {
   }
   if (kind === 'l') return links[Number(a)] ? poolCard(links[Number(a)].poolId) : menu();
   // Balance <-> positions of the account linked in the message.
+  if (kind === 'rf') return replyForButton(`v:${a}`, message);
   if (kind === 'v') {
     const account = accountIn(message);
     if (!account) return a === 'pos' ? ASK_POSITIONS : ASK_BALANCE;
@@ -1234,6 +1258,13 @@ export default async function handler(req, res) {
   if (!message?.chat || message.chat.type !== 'private') return res.status(200).end();
   try {
     if (callback) {
+      if (String(callback.data).startsWith('rf:')) {
+        // 🔄 Refresh: the same message, read again.
+        const reply = await replyForButton(callback.data, message);
+        await telegram('editMessageText', { chat_id: message.chat.id, message_id: message.message_id, parse_mode: 'HTML', disable_web_page_preview: true, ...reply });
+        await telegram('answerCallbackQuery', { callback_query_id: callback.id, text: 'Updated' }).catch(() => {});
+        return res.status(200).end();
+      }
       await telegram('answerCallbackQuery', { callback_query_id: callback.id }).catch(() => {});
       await send(message.chat.id, await replyForButton(callback.data, message));
     } else if (typeof message.text === 'string') {

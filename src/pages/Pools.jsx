@@ -14,6 +14,7 @@ import { FlowLines } from '../components/FlowLines.jsx';
 import PageIcon from '../components/PageIcon.jsx';
 import PoolSourceTabs from '../components/PoolSourceTabs.jsx';
 import { openQuickLp, QuickLpHost } from '../components/QuickLp.jsx';
+import { QuickCloseHost } from '../components/QuickClose.jsx';
 import '../pools.css';
 
 const PAGE_SIZE = 25;
@@ -1045,6 +1046,8 @@ export default function Pools() {
         </div>
       </div>
       <QuickLpHost />
+      {/* /pools?close=<pool>: the LP bot's ✖ Close (components/QuickClose.jsx). */}
+      <QuickCloseHost />
     </div>
   );
 }
