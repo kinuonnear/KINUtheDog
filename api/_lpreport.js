@@ -521,7 +521,7 @@ async function classicPoolReport(poolId) {
     '## Costs to know',
     `- ${kind === 'AMM' ? 'An AMM pool covers every price: it never goes out of range, and needs no rebalancing.' : 'This pool prices along a curve and accepts deposits in any ratio.'}`,
     parts.some((p) => p.tax) ? `- ${parts.filter((p) => p.tax).map((p) => md(p.symbol)).join(', ')} ha${parts.filter((p) => p.tax).length === 1 ? 's' : 've'} a transfer tax on the Rhea CLMM only; deposits into this classic pool are not taxed by it.` : '- No token in this pool has a transfer tax.',
-    tvl < 1000 ? `- Small pool (${usd(tvl)}): a trade of a few dollars already moves its price.` : `- Depth: a $100 trade moves the price about ${((100 / (tvl / 2)) * 100).toFixed(2)}% (constant-product estimate).`
+    tvl < 1000 ? `- Small pool (${usd(tvl)}): a trade of a few dollars already moves its price.` : `- Depth: a $1,000 buy moves the price about ${((Math.pow(1 + 1000 / (tvl / 2), 2) - 1) * 100).toFixed(2)}% (x·y=k: the price moves with the square of the reserve change).`
   );
   lines.push(...FOOTER);
   return { ok: true, markdown: lines.join('\n') };
