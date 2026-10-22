@@ -534,10 +534,17 @@ function DclWorkspace({ bar, links, poolId, pool, x, y, reserves, positions, fli
     if (desktop) mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     else setTimeout(() => document.getElementById('pool-chart')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
   };
-  // "+ New position": back to the Create position form first (a selected position shows its own panel).
+  // "+ New position": back to the Create position form (a selected position shows its own panel) and
+  // to the chart, where the new range is set: desktop scrolls the chart column to its top and flashes
+  // the form beside it; phones scroll the page to the chart (the form follows below it).
   const newPosition = () => {
     setChartKey(null);
-    setTimeout(onAdd, 0);
+    if (desktop) {
+      mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      setTimeout(onAdd, 0);
+    } else {
+      setTimeout(() => document.getElementById('pool-chart')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+    }
   };
 
   // Resizable split between the chart and the bottom panel (desktop).
