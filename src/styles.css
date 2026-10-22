@@ -8044,7 +8044,7 @@ a.dt-row:hover {
 /* Every other position a shade lighter, so neighbours read apart; the selected one in sky, stronger. */
 .lp-board__row--alt { background: rgba(255, 255, 255, 0.03); }
 .lp-board__row--clickable:hover { background: rgba(94, 200, 255, 0.04); }
-.lp-board__row--on-chart { background: rgba(94, 200, 255, 0.13); box-shadow: inset 3px 0 0 var(--sky), inset 0 -1px 0 var(--sky); }
+.lp-board__row--on-chart { background: rgba(94, 200, 255, 0.13); box-shadow: inset 3px 0 0 var(--sky), inset 0 0 0 1px var(--sky); }
 /* The side panel of the selected position: the same sky edge and tint as its row. */
 .card.card--position {
   border-color: rgba(94, 200, 255, 0.4);
