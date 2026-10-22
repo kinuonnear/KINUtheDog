@@ -734,7 +734,8 @@ function DclWorkspace({ bar, links, poolId, pool, x, y, reserves, positions, fli
         </div>
       )}
       <aside className="pool-grid__side">
-        <section className="card" id="new-position">
+        {/* A selected position's panel wears the same sky accent as its row in the table. */}
+        <section className={`card${chartGroup ? ' card--position' : ''}`} id="new-position">
           {chartGroup ? (
             <PositionPanel key={chartGroup.key} request={panelView} group={chartGroup} x={x} y={y} loading={deposits.loading} onBack={() => setChartKey(null)} onDone={onDone} />
           ) : (

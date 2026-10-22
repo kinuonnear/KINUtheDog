@@ -8041,8 +8041,17 @@ a.dt-row:hover {
 
 /* Your range on the pool chart */
 .lp-board__row--clickable { cursor: pointer; transition: background 0.15s ease, box-shadow 0.15s ease; }
+/* Every other position a shade lighter, so neighbours read apart; the selected one in sky, stronger. */
+.lp-board__row--alt { background: rgba(255, 255, 255, 0.03); }
 .lp-board__row--clickable:hover { background: rgba(94, 200, 255, 0.04); }
-.lp-board__row--on-chart { background: rgba(94, 200, 255, 0.06); box-shadow: inset 3px 0 0 var(--sky); }
+.lp-board__row--on-chart { background: rgba(94, 200, 255, 0.13); box-shadow: inset 3px 0 0 var(--sky), inset 0 -1px 0 var(--sky); }
+/* The side panel of the selected position: the same sky edge and tint as its row. */
+.card.card--position {
+  border-color: rgba(94, 200, 255, 0.4);
+  background: linear-gradient(180deg, rgba(94, 200, 255, 0.07), rgba(94, 200, 255, 0.02) 55%), var(--surface);
+  box-shadow: inset 3px 0 0 var(--sky), var(--shadow);
+}
+.card--position .pos-panel__head .card-title { color: var(--sky); }
 .chart-toggle { box-sizing: border-box; align-self: flex-start; justify-self: start; width: min(100%, 220px); margin-top: 6px; padding: 3px 9px; text-align: center; white-space: nowrap; border-radius: 999px; border: 1px solid rgba(94, 200, 255, 0.35); background: transparent; color: var(--sky); font-size: 11px; font-weight: 700; cursor: pointer; }
 .chart-toggle:hover { border-color: var(--sky); }
 .chart-toggle--on { background: rgba(94, 200, 255, 0.16); }

@@ -601,7 +601,7 @@ export function depositTitle(group, loading) {
 }
 
 /** One deposit (Meteora-style position): range, liquidity, fees, earning state and actions. */
-function PositionRow({ poolId, group, x, y, pool, loading, pnl, onDone, onChart, onToggleChart, onSelect }) {
+function PositionRow({ poolId, group, x, y, pool, loading, pnl, onDone, onChart, onToggleChart, onSelect, alt = false }) {
   const { prices } = useApp();
   const [open, setOpen] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -620,7 +620,7 @@ function PositionRow({ poolId, group, x, y, pool, loading, pnl, onDone, onChart,
   return (
     <>
       <div
-        className={`lp-board__row ${toggleChart ? 'lp-board__row--clickable' : ''} ${onChart ? 'lp-board__row--on-chart' : ''}`}
+        className={`lp-board__row ${alt ? 'lp-board__row--alt' : ''} ${toggleChart ? 'lp-board__row--clickable' : ''} ${onChart ? 'lp-board__row--on-chart' : ''}`}
         onClick={(e) => {
           // Buttons and links in the row keep their own actions.
           if (toggleChart && !e.target.closest('button, a, input')) toggleChart();
@@ -837,9 +837,10 @@ export function DclGroupCard({ poolId, positions, deposits, x, y, pool, onDone, 
           <span>PnL</span>
           <span>Actions</span>
         </div>
-        {groups.map((g) => (
+        {groups.map((g, i) => (
           <PositionRow
             key={g.key}
+            alt={i % 2 === 1}
             poolId={poolId}
             group={g}
             x={x}
