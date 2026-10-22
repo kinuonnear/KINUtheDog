@@ -47,6 +47,8 @@ const RANGES = ['5', '10', '25', '50', '75'];
 const SIDE_WIDTHS = ['10', '20', '30', '50', '70'];
 const WIDTH_MAX = { below: 99, above: 1000, b: 99, a: 500 };
 const CUSTOM_PROMPT = '✏️ Custom range';
+// Sign & create opens KINU's Quick LP, which takes its convenience fee (src/config.js QUICK_LP_FEE).
+const QUICK_LP_FEE_NOTE = '💸 Quick LP fee 0.2% of the amount, max $1 per position (up to 75% off for $KINU holders); shown again before you sign. Closing is free.';
 const AMOUNT_PROMPT = '✏️ Custom amount';
 const LIST_SIZE = 10;
 const TOP_YIELD_MIN_TVL = 1000;
@@ -614,6 +616,7 @@ async function amountStep(poolId, params, chatId) {
         linked && balances.every(Boolean) ? `👛 ${esc(linked.account)}: ${balances.join(' · ')}` : null,
         '',
         '⚡ <b>Sign & create</b>: KINU opens on the amount step with all of this set, then you confirm in your wallet and the result comes back here.',
+        QUICK_LP_FEE_NOTE,
         '📝 <b>Full form</b>: the pool page with the form filled in, to fine-tune first.'
       ]
         .filter((l) => l !== null)
@@ -696,6 +699,7 @@ async function finalStep(poolId, params, choice, chatId) {
       amountText,
       '',
       '⚡ <b>Sign & create</b>: KINU opens with all of this set. Tap once, confirm in your wallet, and the result comes back here. The range is set on the live price when you sign.',
+      QUICK_LP_FEE_NOTE,
       '📝 <b>Full form</b>: the pool page with the form filled in, to fine-tune first.'
     ].join('\n'),
     reply_markup: { inline_keyboard: [[open('⚡ Sign & create', quickUrl(pool.id, params, query.amount))], [open('📝 Full form', link)], backRow('bk:a')] }

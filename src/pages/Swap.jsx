@@ -936,7 +936,7 @@ export default function Swap() {
                       <dt>Holder discount</dt>
                       <dd>
                         <small className="muted">
-                          Hold ${HOLDER.minUsd}+ of $KINU to pay half ·{' '}
+                          Hold ${HOLDER.minUsd}+ of $KINU for {HOLDER.tiers[0][1] * 100}–{HOLDER.tiers[HOLDER.tiers.length - 1][1] * 100}% off ·{' '}
                           <button type="button" className="link-button" onClick={() => getToken(KINU_TOKEN).then((t) => t && selectToken('out', t))}>
                             Get KINU
                           </button>

@@ -20,7 +20,7 @@
 //     withdrawal with (allowIntentsKey), so the Verifier accepts that signature, and withdrawing a
 //     token from the signer's own Intents balance to the signer's own wallet
 
-import { CONTRACTS, INTEAR_FEE, PLATFORM_FEE } from '../config.js';
+import { CONTRACTS, INTEAR_FEE, PLATFORM_FEE, QUICK_LP_FEE } from '../config.js';
 import { checkPlach, INTEAR_FEE_RECIPIENTS } from './intearRouter.js';
 import { checkRheaTransferMsg } from './routeMsg.js';
 
@@ -201,7 +201,15 @@ export function assertSafeTransactions(transactions, signerId) {
 // The highest fee rate any one swap may carry (platform fee, or an Intear route's fee).
 const MAX_FEE_BPS = Math.max(PLATFORM_FEE.enabled ? PLATFORM_FEE.bps : 0, INTEAR_FEE.live ? INTEAR_FEE.bps : 0);
 
+// A request that opens a CLMM position may also carry Quick LP's fee (QUICK_LP_FEE), on top of the
+// swap fee a Zap pays on its swapped part.
+const LP_METHODS = new Set(['add_liquidity', 'batch_add_liquidity', 'append_liquidity']);
+
 function assertFeeWithinRate(transactions) {
+  const opensPosition = transactions.some(
+    (tx) => tx.receiverId === CONTRACTS.dcl && tx.actions.some(({ params: { methodName } = {} }) => LP_METHODS.has(methodName))
+  );
+  const maxBps = MAX_FEE_BPS + (opensPosition && QUICK_LP_FEE.enabled ? QUICK_LP_FEE.bps : 0);
   const fee = new Map();
   const spent = new Map();
   const add = (map, token, amount) => map.set(token, (map.get(token) || 0n) + BigInt(amount || '0'));
@@ -213,7 +221,7 @@ function assertFeeWithinRate(transactions) {
   );
   fee.forEach((amount, token) => {
     const gross = amount + (spent.get(token) || 0n);
-    if (!spent.get(token) || amount * 100_000n > gross * BigInt(Math.round(MAX_FEE_BPS * 10)) + 100_000n) {
+    if (!spent.get(token) || amount * 100_000n > gross * BigInt(Math.round(maxBps * 10)) + 100_000n) {
       refuse({ receiverId: token }, 'the platform fee is larger than the published rate');
     }
   });

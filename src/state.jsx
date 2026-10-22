@@ -171,11 +171,11 @@ export function AppProvider({ children }) {
   useEffect(() => {
     // Only on a loaded balance (nearBalance is set by a successful read): a failed read is not "sold".
     if (!accountId || !holder?.price || balancesLoading || !nearBalance) return;
-    if (holder.full) writeQualified(accountId, holder.amount);
-    else if (!holder.grace && readQualified(accountId)) writeQualified(accountId, 0);
+    if (holder.full) writeQualified(accountId, holder.amount, holder.tier);
+    else if (!holder.grace && readQualified(accountId).amount) writeQualified(accountId, 0);
   }, [accountId, holder, balancesLoading, nearBalance]);
   // Set during render, so quotes made right after see the same status as the page.
-  setHolderNow(holder?.isHolder);
+  setHolderNow(holder?.off);
 
   /* ---------------- transactions ---------------- */
   /**

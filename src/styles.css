@@ -15674,6 +15674,21 @@ a.amm-table__row:hover {
   left: auto;
   right: 0;
 }
+/* Tiers under the bar: the reached one bright, those below it muted. */
+.holder-pass__tiers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  color: var(--faint);
+  font-size: 11px;
+}
+.holder-pass__tiers .is-past {
+  color: var(--muted);
+}
+.holder-pass__tiers .is-on {
+  color: var(--accent);
+  font-weight: 700;
+}
 .holder-pass__rule {
   display: grid;
   justify-items: start;

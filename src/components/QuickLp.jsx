@@ -6,6 +6,8 @@
 // come from the same builders the form uses (buildBins → planBins → buildDclBinsTransactions:
 // storage, wrap NEAR, token tax and min amounts included), read on the live pool at signing.
 // After the position is created: "View pool".
+// KINU's Quick LP fee (config QUICK_LP_FEE, 0.2%, at most $1 a position, half for KINU holders) is
+// taken from the amounts entered and sent to the treasury after the position's own transactions.
 //
 // The Telegram bot's "⚡ Sign & create" opens /pools?quick=<pool>&side=&strategy=&width=&amount= :
 // the panel opens on its last step with the choices made in the chat, the user taps once and signs
@@ -15,7 +17,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../state.jsx';
 import { navigate, poolPath } from '../router.jsx';
-import { CONTRACTS, NATIVE_NEAR, NEAR_GAS_RESERVE } from '../config.js';
+import { bpsText, CONTRACTS, NATIVE_NEAR, NEAR_GAS_RESERVE, QUICK_LP_FEE } from '../config.js';
 import { formatAmount, formatChartPrice, formatRawAmount, formatUnits, toBigInt, tryParseUnits } from '../lib/format.js';
 import { getToken, priceOf } from '../lib/tokens.js';
 import { view } from '../lib/rpc.js';
@@ -25,6 +27,8 @@ import { refreshDclGraphFor } from '../lib/dclRouter.js';
 import TaxNote from './TaxNote.jsx';
 import { buildZapTransactions, quoteZap, valueShareX } from '../lib/zap.js';
 import { notifyBot } from '../lib/telegram.js';
+import { quickLpFees, quickLpFeesFor, withQuickLpFees } from '../lib/platformFee.js';
+import { feeAfterDiscount } from '../lib/holder.js';
 
 const WNEAR = CONTRACTS.wrapNear;
 // Width presets, then Custom: any % up to WIDTH_MAX (below the price a range stops short of zero).
@@ -101,10 +105,10 @@ function strategyOptions(side, sx) {
  * Both tokens: from the amount typed in one field, the other token's amount that the range and
  * strategy need at `current` (planBins, as the Create position form does). Raw strings.
  */
-function planBoth({ meta, current, delta, width, strategy, last, texts }) {
+function planBoth({ meta, current, delta, width, strategy, last, texts, srcRaw: given = null }) {
   const range = aroundRange({ current, delta, dx: meta[0].decimals, dy: meta[1].decimals, widthPct: width });
   const bins = buildBins({ left: range.left, right: range.right, current, pointDelta: delta, strategy });
-  const srcRaw = tryParseUnits(texts[last], meta[last === 'x' ? 0 : 1].decimals) || '0';
+  const srcRaw = given ?? (tryParseUnits(texts[last], meta[last === 'x' ? 0 : 1].decimals) || '0');
   const plan = planBins({ bins, current, from: last, amount: Number(srcRaw) });
   const floor = (v) => BigInt(Math.max(0, Math.floor(v))).toString();
   return {
@@ -293,8 +297,11 @@ function QuickLpPanel({ pool, onClose }) {
           const range = aroundRange({ current, delta: fresh.point_delta, dx: mx.decimals, dy: my.decimals, widthPct: width });
           const bins = buildBins({ left: range.left, right: range.right, current, pointDelta: fresh.point_delta, strategy });
           const unitPlan = planBins({ bins, current, from: 'x', amount: 0 });
-          const quote = await quoteZap({ inputToken: zapToken, amountIn: raw, x: mx, y: my, pool: fresh, unitPlan, slippage, user: accountId });
-          return buildZapTransactions({ zap: quote, inputToken: zapToken, x: mx, y: my, pool: fresh, slippage, accountId });
+          const feeToken = zapToken.native ? WNEAR : zapToken.id;
+          const fees = await quickLpFeesFor([{ token: feeToken, gross: raw, decimals: zapToken.decimals, usd: priceOf(prices, feeToken) }]);
+          const quote = await quoteZap({ inputToken: zapToken, amountIn: fees[0].net, x: mx, y: my, pool: fresh, unitPlan, slippage, user: accountId });
+          const txs = await buildZapTransactions({ zap: quote, inputToken: zapToken, x: mx, y: my, pool: fresh, slippage, accountId });
+          return withQuickLpFees(txs, fees, { native: Boolean(zapToken.native) });
         }
         if (both) {
           // Two amounts were shown for the price at open: beyond the slippage they no longer hold.
@@ -305,27 +312,46 @@ function QuickLpPanel({ pool, onClose }) {
               `The pool price moved ${moved > 0 ? '+' : ''}${moved.toFixed(2)}% since the amounts were shown — more than your ${slippage}% slippage. Amounts are updated; review and confirm again.`
             );
           }
-          const { plan, rawX, rawY } = planBoth({ meta, current, delta: fresh.point_delta, width, strategy, last: texts.last, texts });
-          const wrapX = x === WNEAR ? await wrapNeededFor(accountId, rawX, balances[WNEAR]) : '0';
-          const wrapY = y === WNEAR ? await wrapNeededFor(accountId, rawY, balances[WNEAR]) : '0';
-          return buildDclBinsTransactions({ pool: fresh, plan, slippage, accountId, wrapX, wrapY, maxX: rawX, maxY: rawY });
+          const gross = planBoth({ meta, current, delta: fresh.point_delta, width, strategy, last: texts.last, texts });
+          const fees = await quickLpFeesFor([
+            { token: x, gross: gross.rawX, decimals: mx.decimals, usd: priceOf(prices, x) },
+            { token: y, gross: gross.rawY, decimals: my.decimals, usd: priceOf(prices, y) }
+          ]);
+          // Both sides go in at the same share (the highest fee rate of the two), so the position keeps
+          // its shape; a side paying no fee just keeps that bit in the wallet.
+          const ppm = fees.reduce((m, fee, i) => {
+            const g = toBigInt(i ? gross.rawY : gross.rawX);
+            if (g === 0n) return m;
+            const share = (toBigInt(fee.amount) * 1_000_000n + g - 1n) / g; // parts per million, rounded up
+            return share > m ? share : m;
+          }, 0n);
+          const src = toBigInt(texts.last === 'x' ? gross.rawX : gross.rawY);
+          const { plan, rawX, rawY } = planBoth({ meta, current, delta: fresh.point_delta, width, strategy, last: texts.last, texts, srcRaw: (src - (src * ppm) / 1_000_000n).toString() });
+          const wrapX = x === WNEAR ? await wrapNeededFor(accountId, gross.rawX, balances[WNEAR]) : '0';
+          const wrapY = y === WNEAR ? await wrapNeededFor(accountId, gross.rawY, balances[WNEAR]) : '0';
+          const txs = await buildDclBinsTransactions({ pool: fresh, plan, slippage, accountId, wrapX, wrapY, maxX: rawX, maxY: rawY });
+          return withQuickLpFees(txs, fees);
         }
         // Single token: the range starts at the live price.
         const range = oneSidedRange({ current, delta: fresh.point_delta, dx: mx.decimals, dy: my.decimals, side, widthPct: width });
         const bins = buildBins({ left: range.left, right: range.right, current, pointDelta: fresh.point_delta, strategy });
-        const plan = planBins({ bins, current, from: side, amount: Number(raw) });
+        const fees = await quickLpFeesFor([{ token: tokenId, gross: raw, decimals: token.decimals, usd: priceOf(prices, tokenId) }]);
+        const net = fees[0].net;
+        const plan = planBins({ bins, current, from: side, amount: Number(net) });
+        // The fee is wrapped with the deposit and sent from wNEAR after it.
         const wrap = isNear ? await wrapNeededFor(accountId, raw, balances[WNEAR]) : '0';
-        return buildDclBinsTransactions({
+        const txs = await buildDclBinsTransactions({
           pool: fresh,
           plan,
           slippage,
           accountId,
           wrapX: side === 'x' && isNear ? wrap : '0',
           wrapY: side === 'y' && isNear ? wrap : '0',
-          // Only the entered token, never more than entered (the plan is floating point).
-          maxX: side === 'x' ? raw : '0',
-          maxY: side === 'y' ? raw : '0'
+          // Only the entered token, never more than entered less the fee (the plan is floating point).
+          maxX: side === 'x' ? net : '0',
+          maxY: side === 'y' ? net : '0'
         });
+        return withQuickLpFees(txs, fees);
       },
       {
         pending: zap ? `Zapping ${symbol} into ${sx} / ${sy}` : both ? `Adding ${label(x, sx)} + ${label(y, sy)} to ${sx} / ${sy}` : `Adding ${symbol} to ${sx} / ${sy}`,
@@ -376,6 +402,25 @@ function QuickLpPanel({ pool, onClose }) {
   const customPick = custom === null ? null : around ? customAround(custom, customHi) : customWidth(widthMode, custom);
   const widthText = !width ? '' : around ? (width === 'full' ? 'Full range' : aroundText(width)) : `${side === 'y' ? '−' : '+'}${width}%`;
   const bothShort = shortX ? label(x, sx) : shortY ? label(y, sy) : null;
+
+  // What the Quick LP fee comes to for the amounts shown (the signed one is worked out the same way).
+  const feeRate = feeAfterDiscount(QUICK_LP_FEE.bps);
+  const feeLegs = !QUICK_LP_FEE.enabled || !meta
+    ? []
+    : both
+      ? bothPlan
+        ? [
+            { token: x, gross: bothPlan.rawX, decimals: meta[0].decimals, usd: priceOf(prices, x) },
+            { token: y, gross: bothPlan.rawY, decimals: meta[1].decimals, usd: priceOf(prices, y) }
+          ]
+        : []
+      : token && toBigInt(raw) > 0n
+        ? [{ token: zap && zapToken?.native ? WNEAR : zap ? zapToken.id : tokenId, gross: raw, decimals: token.decimals, usd: usdPrice }]
+        : [];
+  const feeUsd = quickLpFees(feeLegs).reduce((sum, f, i) => sum + (Number(f.amount) / 10 ** feeLegs[i].decimals) * feeLegs[i].usd, 0);
+  const feeNote = !QUICK_LP_FEE.enabled
+    ? null
+    : `Quick LP fee ${bpsText(feeRate)} (max $${QUICK_LP_FEE.maxUsd})${feeUsd > 0 ? ` ≈ $${formatAmount(feeUsd)}` : ''}, included in the amount${feeRate < QUICK_LP_FEE.bps ? ' · KINU holder rate' : ' · up to 75% off for $KINU holders'}`;
 
   return (
     <section ref={panelRef} className="qt qlp" style={placed} aria-label={`Quick LP ${sx} / ${sy}`}>
@@ -611,6 +656,7 @@ function QuickLpPanel({ pool, onClose }) {
             </div>
           )}
 
+          {feeNote && <small className="muted qlp__fee">{feeNote}</small>}
           {meta && <TaxNote tokens={meta} />}
           <button
             type="button"

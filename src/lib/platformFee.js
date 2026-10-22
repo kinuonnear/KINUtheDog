@@ -4,7 +4,7 @@
 // includes the fee. Swaps that buy or sell $KINU pay nothing, and tokens the treasury is not
 // registered for are skipped (users never pay the treasury's storage).
 
-import { CONTRACTS, KINU_TOKEN, PLATFORM_FEE } from '../config.js';
+import { CONTRACTS, KINU_TOKEN, PLATFORM_FEE, QUICK_LP_FEE } from '../config.js';
 import { toBigInt } from './format.js';
 import { feeAfterDiscount } from './holder.js';
 import { functionCall, isStorageRegistered, transaction } from './tx.js';
@@ -75,3 +75,51 @@ export function withPlatformFee(txs, fee) {
 
 /** Short disclosure for route details, or null. */
 export const feeLabel = (fee) => (fee ? `Includes ${(fee.bps / 100).toFixed(fee.bps % 10 ? 2 : 1)}% KINU fee` : null);
+
+/* ---------------------------------------------------------------- Quick LP fee */
+
+/**
+ * Quick LP's fee on a new position (QUICK_LP_FEE), without the treasury check: `legs` are
+ * { token, gross, decimals, usd } (token: the contract, wrap.near for NEAR; gross: raw amount going
+ * in; usd: its price). Each leg pays bps (less for KINU holders); when they add up to more than maxUsd, all are scaled
+ * down by the same share, so the deposit keeps its proportions. Legs without a price, in $KINU,
+ * or rounding to nothing pay nothing. Returns [{ token, amount, net }] in the legs' order.
+ */
+export function quickLpFees(legs) {
+  const zero = (l) => ({ token: l.token, amount: '0', net: toBigInt(l.gross).toString() });
+  if (!QUICK_LP_FEE.enabled || !(QUICK_LP_FEE.bps > 0)) return legs.map(zero);
+  const paying = legs.map((l) => l.token !== KINU_TOKEN && l.usd > 0 && toBigInt(l.gross) > 0n);
+  // KINU holders pay the discounted rate (lib/holder.js), as on swaps; the $ cap stays the same.
+  const bps = feeAfterDiscount(QUICK_LP_FEE.bps);
+  const raw = legs.map((l, i) => (paying[i] ? feeOf(l.gross, bps) : 0n));
+  const usd = legs.reduce((s, l, i) => s + (Number(raw[i]) / 10 ** l.decimals) * l.usd, 0);
+  // Scale by a whole-number share (parts per million) so the amounts stay exact integers.
+  const keep = usd > QUICK_LP_FEE.maxUsd ? BigInt(Math.floor((QUICK_LP_FEE.maxUsd / usd) * 1_000_000)) : 1_000_000n;
+  return legs.map((l, i) => {
+    const amount = (raw[i] * keep) / 1_000_000n;
+    return { token: l.token, amount: amount.toString(), net: (toBigInt(l.gross) - amount).toString() };
+  });
+}
+
+/** quickLpFees, with fees in tokens the treasury can't receive dropped (users never pay its storage). */
+export async function quickLpFeesFor(legs) {
+  const fees = quickLpFees(legs);
+  const ok = await Promise.all(fees.map((f) => (toBigInt(f.amount) > 0n ? treasuryRegistered(f.token) : false)));
+  return fees.map((f, i) => (ok[i] ? f : { ...f, amount: '0', net: toBigInt(legs[i].gross).toString() }));
+}
+
+/**
+ * The fee transfers, added after the position's own transactions (paid once those went through).
+ * `native`: the fee is paid from wallet NEAR, wrapped in the same transaction first.
+ */
+export function withQuickLpFees(txs, fees, { native = false } = {}) {
+  const out = [...txs];
+  fees
+    .filter((f) => toBigInt(f.amount) > 0n)
+    .forEach((f) => {
+      const transfer = functionCall('ft_transfer', { receiver_id: PLATFORM_FEE.treasury, amount: f.amount, memo: 'KINU Quick LP fee' }, FT_TRANSFER_GAS, '1');
+      const wrap = native && f.token === CONTRACTS.wrapNear ? [functionCall('near_deposit', {}, FT_TRANSFER_GAS, f.amount)] : [];
+      out.push(transaction(f.token, [...wrap, transfer]));
+    });
+  return out;
+}

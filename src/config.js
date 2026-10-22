@@ -101,6 +101,12 @@ export const KINU_TOKEN = 'kinu-3.nearlytrade.near';
 // Security, Docs/Terms and whitepaper copy follow this switch (SWAP_FEE_LIVE / FEE_SUMMARY).
 export const PLATFORM_FEE = { enabled: true, bps: 10, treasury: 'kinu-treasury.near' };
 
+// Quick LP's convenience fee (the one-tap panel, also opened by the Telegram bot), decided by the
+// user 2026-10-22: bps of what goes into a new position, at most maxUsd per position, paid to the
+// same treasury after the position is opened. Closing, claiming and the pool page's form are free;
+// $KINU and tokens the treasury isn't registered on pay nothing (as the swap fee).
+export const QUICK_LP_FEE = { enabled: true, bps: 20, maxUsd: 1 };
+
 // Tokens the treasury is registered on so it can receive the platform fee (a fee in any other
 // token is skipped). Registered from the Treasury page by KINU's own accounts. $KINU swaps pay no
 // fee, so it is not listed.
@@ -135,13 +141,25 @@ export const INTEAR_REFERRER = 'kinu-treasury.near';
 // brings Intear routes back to Swap and turns on its disclosure across the app.
 export const INTEAR_FEE = { live: true, bps: 12.5, stableBps: 12.5 };
 
-// KINU Holder (lib/holder.js): wallets holding at least minUsd of $KINU at the live price pay
-// feeShare of KINU's swap fees (0.1% -> 0.05%, Intear routes 0.125% -> 0.0625%) and see the full
-// Pool Analysis. The Wallet Tracker stays free and public for everyone. Once a
-// wallet qualifies, a price drop of up to `grace` keeps it a holder as long as it hasn't sold.
-// `enabled` turns the whole KINU Holder feature on (badge, Portfolio card); off until the user
-// settles the design. `perks` switch the benefits on; with them off, a holder only gets the badge.
-export const HOLDER = { enabled: false, minUsd: 20, grace: 0.35, feeShare: 0.5, perks: { feeDiscount: false, poolAnalysis: false } };
+// KINU Holder (lib/holder.js): wallets holding $KINU at the live price get a tier's share off KINU's
+// own fees (swap platform fee, Intear route fee, Quick LP fee); Rhea's pool fees are not KINU's.
+// The Wallet Tracker stays free and public for everyone. Once a wallet reaches a tier, a price drop
+// of up to `grace` keeps it as long as it hasn't sold. `enabled` turns the feature on (badge,
+// Portfolio card); `perks` switch the benefits on.
+// Discount tiers (user, 2026-10-22, after Intear's TEAR tiers): [$ of KINU held, share off KINU's fees].
+// minUsd is the lowest bar (the badge). Pool Analysis stays open to everyone (poolAnalysis off).
+export const HOLDER = {
+  enabled: true,
+  minUsd: 10,
+  tiers: [
+    [10, 0.1],
+    [20, 0.25],
+    [100, 0.5],
+    [500, 0.75]
+  ],
+  grace: 0.35,
+  perks: { feeDiscount: true, poolAnalysis: false }
+};
 
 /** "0.2%" for basis points. */
 export const bpsText = (bps) => `${Number((bps / 100).toFixed(3))}%`;
@@ -149,14 +167,15 @@ export const bpsText = (bps) => `${Number((bps / 100).toFixed(3))}%`;
 /** Whether KINU charges any fee of its own on swaps (the platform fee or the Intear referral fee). */
 export const SWAP_FEE_LIVE = PLATFORM_FEE.enabled || INTEAR_FEE.live;
 
-const PLATFORM_FEE_LINE = `Swaps include a ${bpsText(PLATFORM_FEE.bps)} KINU platform fee (on Zap In and Rebalance, only on the part that is swapped; none on $KINU swaps or on adding or removing liquidity), shown before you sign and paid to ${PLATFORM_FEE.treasury}.`;
+const PLATFORM_FEE_LINE = `Swaps include a ${bpsText(PLATFORM_FEE.bps)} KINU platform fee (on Zap In and Rebalance, only on the part that is swapped; none on $KINU swaps or on adding or removing liquidity in a pool's own form), shown before you sign and paid to ${PLATFORM_FEE.treasury}.`;
+const QUICK_LP_FEE_LINE = `Quick LP (the one-tap panel, also opened by the KINU LP bot) adds a ${bpsText(QUICK_LP_FEE.bps)} convenience fee on what goes into a new position, at most $${QUICK_LP_FEE.maxUsd} per position; closing, claiming and a pool's own form are free.`;
 const INTEAR_FEE_LINE = `Swaps routed through the Intear aggregator include a ${bpsText(INTEAR_FEE.bps)} fee instead${INTEAR_FEE.stableBps !== INTEAR_FEE.bps ? ` (${bpsText(INTEAR_FEE.stableBps)} on stable pairs)` : ''}: 80% to ${INTEAR_REFERRER}, 20% to Intear; shown before you sign.`;
 
-const HOLDER_FEE_LINE = !HOLDER.perks.feeDiscount ? '' : `Wallets holding at least $${HOLDER.minUsd} of $KINU pay ${HOLDER.feeShare * 100}% less: ${bpsText(PLATFORM_FEE.bps * HOLDER.feeShare)}${INTEAR_FEE.live ? ` (${bpsText(INTEAR_FEE.bps * HOLDER.feeShare)} on Intear routes)` : ''}.`;
+const HOLDER_FEE_LINE = !HOLDER.enabled || !HOLDER.perks.feeDiscount ? '' : `$KINU holders pay less on KINU's own fees: ${HOLDER.tiers.map(([usd, off]) => `${off * 100}% off from $${usd}`).join(', ')} of KINU in the wallet.`;
 
 /** One line describing KINU's fees, for the landing, Security and Docs. */
 export const FEE_SUMMARY = SWAP_FEE_LIVE
-  ? [PLATFORM_FEE.enabled ? PLATFORM_FEE_LINE : 'No fee on Rhea routes.', INTEAR_FEE.live ? INTEAR_FEE_LINE : '', HOLDER_FEE_LINE].filter(Boolean).join(' ')
+  ? [PLATFORM_FEE.enabled ? PLATFORM_FEE_LINE : 'No fee on Rhea routes.', INTEAR_FEE.live ? INTEAR_FEE_LINE : '', QUICK_LP_FEE.enabled ? QUICK_LP_FEE_LINE : '', HOLDER_FEE_LINE].filter(Boolean).join(' ')
   : 'No platform fee today. Any future fee will be shown before you sign.';
 
 // Tokens KINU has checked by hand (official project tokens) and treats as verified, next to
