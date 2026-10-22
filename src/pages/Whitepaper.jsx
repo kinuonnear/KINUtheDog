@@ -2,7 +2,7 @@
 // anything not built is marked Proposed, and it must stay in step with the security page.
 
 import { Link } from '../router.jsx';
-import { bpsText, PLATFORM_FEE } from '../config.js';
+import { bpsText, HOLDER, PLATFORM_FEE } from '../config.js';
 import { KINU_FEE_BPS, KINU_FEE_STABLE_BPS, feePercent } from '../lib/intentsFees.js';
 
 const KINU = 'kinu-3.nearlytrade.near';
@@ -138,8 +138,15 @@ export const WHITEPAPER = (
     />
     <p>
       $KINU is the community token and the app’s flagship pair. It does <strong>not</strong> grant any claim on revenue,
-      governance rights or yield. Ideas under discussion <Proposed />: no platform fee on $KINU swaps, holder perks in the
-      app, and a KINU/RHEA LP leaderboard.
+      governance rights or yield. What it does in the app today: swaps that buy or sell $KINU carry no KINU platform fee
+      {HOLDER.enabled && HOLDER.perks.feeDiscount && (
+        <>
+          , and wallets holding $KINU pay less on KINU’s own fees (swaps and Quick LP), applied automatically with no staking
+          or lock: {HOLDER.tiers.map(([usd, off]) => `$${usd.toLocaleString('en-US')}+ → ${off * 100}% off`).join(' · ')} of KINU in the wallet,
+          at the live price
+        </>
+      )}
+      .
     </p>
 
     <h3>6. Revenue &amp; treasury</h3>

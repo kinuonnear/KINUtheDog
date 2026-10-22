@@ -3,7 +3,7 @@
 
 import { useEffect } from 'react';
 import { Link, poolPath } from '../router.jsx';
-import { FEE_SUMMARY } from '../config.js';
+import { FEE_SUMMARY, HOLDER } from '../config.js';
 import { WHITEPAPER } from './Whitepaper.jsx';
 import { EARN_FEE_BPS, KINU_FEE_BPS, KINU_FEE_STABLE_BPS, feePercent, totalFeeBps } from '../lib/intentsFees.js';
 
@@ -406,7 +406,18 @@ const DOCS = [
             ['Contract', <code key="ca">{KINU}</code>],
             ['Supply', '1,000,000,000 KINU · fair launch on Nearly'],
             ['Main pool', 'KINU / RHEA on Rhea Finance CLMM, 1% fee'],
-            ['Network', 'NEAR Protocol']
+            ['Network', 'NEAR Protocol'],
+            ['No KINU fee', 'Swaps that buy or sell $KINU carry no KINU platform fee.'],
+            ...(HOLDER.enabled && HOLDER.perks.feeDiscount
+              ? [
+                  [
+                    'Holder discounts',
+                    `Hold $KINU in your wallet and KINU's own fees (swaps and Quick LP) cost less, automatically, with no staking or lock: ${HOLDER.tiers
+                      .map(([usd, off]) => `$${usd.toLocaleString('en-US')}+ → ${off * 100}% off`)
+                      .join(' · ')}. Your tier is on the Portfolio page and holds through a ${HOLDER.grace * 100}% price drop if you don't sell.`
+                  ]
+                ]
+              : [])
           ]}
         />
         <div className="docs-actions">
