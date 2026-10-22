@@ -7,7 +7,7 @@ import { createChart, HistogramSeries, LineSeries } from 'lightweight-charts';
 import { useAsync } from '../hooks.js';
 import { Link, poolPath } from '../router.jsx';
 import { priceOf } from '../lib/tokens.js';
-import { buildHistory, formatAge, loadPriceHistory } from '../lib/lpHistory.js';
+import { buildHistory, formatAge, historyMatches, loadPriceHistory } from '../lib/lpHistory.js';
 import { buildLpModel, loadLpHistory } from '../lib/lpStats.js';
 import { pointToPrice } from '../lib/dclLiquidity.js';
 import { formatAmount, formatPercent, formatUsd, toNumber } from '../lib/format.js';
@@ -24,7 +24,10 @@ const DOWN = '#ff5d6c';
  * amounts / unclaimed fees) so open positions can be marked to market.
  */
 export function useLpHistory(account, dclRows, prices) {
-  const raw = useAsync(() => loadLpHistory(account), [account], {
+  // Read again when a position's liquidity changes (adding to or taking from it keeps its id); the
+  // event history itself is cached and only fetches what is new.
+  const liquidityKey = (dclRows || []).map((r) => `${r.id}:${r.liquidity}`).join(',');
+  const raw = useAsync(() => loadLpHistory(account), [account, liquidityKey], {
     enabled: Boolean(account)
   });
 
@@ -405,6 +408,9 @@ export function usePoolPnl(events, poolId, x, y, prices, failed = false) {
     let gross = 0;
     let fees = 0;
     let known = 0;
+    // The history is behind the chain for a position (a deposit or removal not indexed yet): no PnL
+    // until it catches up, rather than counting the new tokens as profit.
+    if (positions.some((p) => !historyMatches(p, poolEvents))) return { known: false, syncing: true };
     positions.forEach((p) => {
       const value = (p.amountX / 10 ** x.decimals) * px + (p.amountY / 10 ** y.decimals) * py;
       const unclaimed = toNumber(p.unclaimedFeeX, x.decimals) * px + toNumber(p.unclaimedFeeY, y.decimals) * py;

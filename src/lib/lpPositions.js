@@ -9,7 +9,7 @@
 // position stays the same.
 
 import { useEffect, useMemo, useState } from 'react';
-import { loadDclEvents } from './lpHistory.js';
+import { historyMatches, loadDclEvents } from './lpHistory.js';
 
 const SAME_DEPOSIT_MS = 60_000;
 const RETRY_MS = 15_000; // a fresh deposit can take a moment to reach the indexer
@@ -77,7 +77,9 @@ export function groupDeposits(positions, events) {
 export function useDepositGroups(accountId, positions) {
   const [history, setHistory] = useState({ events: null, error: null });
   const [retry, setRetry] = useState({ ids: '', count: 0 });
-  const ids = (positions || []).map((p) => p.id).join(',');
+  // Liquidity is part of the key: adding to or taking from a position keeps its id, and the history
+  // must be read again for its new deposit or removal.
+  const ids = (positions || []).map((p) => `${p.id}:${p.liquidity}`).join(',');
   const tries = retry.ids === ids ? retry.count : 0;
 
   useEffect(() => {
@@ -94,8 +96,10 @@ export function useDepositGroups(accountId, positions) {
 
   const groups = useMemo(() => (positions?.length ? groupDeposits(positions, history.events) : []), [positions, history.events]);
 
-  // Bins opened moments ago may not be indexed yet: look again a few times.
-  const missing = Boolean(history.events) && groups.some((g) => g.openedAt === null);
+  // Bins opened moments ago, or a deposit / removal on a known bin, may not be indexed yet: look
+  // again a few times.
+  const missing =
+    Boolean(history.events) && (groups.some((g) => g.openedAt === null) || (positions || []).some((p) => !historyMatches(p, history.events)));
   useEffect(() => {
     if (!missing || tries >= MAX_RETRIES) return undefined;
     const timer = setTimeout(() => setRetry({ ids, count: tries + 1 }), RETRY_MS);

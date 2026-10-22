@@ -4,7 +4,7 @@
 // Pure: runs in the browser and in the Smart LP snapshot script alike.
 
 import { asPoolToken, getTokens } from './tokens.js';
-import { buildHistory, loadDclEvents, loadPriceHistory } from './lpHistory.js';
+import { buildHistory, historyMatches, loadDclEvents, loadPriceHistory } from './lpHistory.js';
 
 const DAY = 86_400_000;
 const MONTH = 30 * DAY;
@@ -41,7 +41,8 @@ export function buildLpModel(raw, dclRows, prices, now = Date.now()) {
     const l = ledgers.get(r.id);
     const value = r.usd;
     const unclaimed = r.feeUsd || 0;
-    if (!l || !l.complete) {
+    // Unknown too while the history is behind the chain for this position (lpHistory.historyMatches).
+    if (!l || !l.complete || !historyMatches({ id: r.id, liquidity: r.liquidity }, events)) {
       open.set(r.id, { position: r, ledger: l || null, value, unclaimed, known: false });
       return;
     }

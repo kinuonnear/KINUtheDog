@@ -467,6 +467,23 @@ export function buildHistory(events, meta, history, prices) {
   return { ledgers, days: [...days.values()].sort((a, b) => a.time - b.time) };
 }
 
+/**
+ * Whether a live position's liquidity matches what its history says (the last event's amount):
+ * a deposit or removal the index hasn't delivered yet (e.g. "+" Add liquidity on an existing
+ * position) would otherwise price the new tokens as profit. Positions without events count as
+ * matching here (they are "not indexed yet" instead).
+ */
+export function historyMatches(position, events) {
+  let last = null;
+  (events || []).forEach((e) => {
+    if (e.lpt === position.id) last = e;
+  });
+  if (!last) return true;
+  const live = Number(position.liquidity || 0);
+  const known = Number(last.cur || 0);
+  return Math.abs(live - known) <= Math.max(1, Math.abs(live) * 1e-9);
+}
+
 export function formatAge(ms) {
   if (!Number.isFinite(ms) || ms < 0) return '—';
   const m = Math.floor(ms / 60_000);

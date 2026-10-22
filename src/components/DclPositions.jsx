@@ -682,6 +682,10 @@ function PositionRow({ poolId, group, x, y, pool, loading, pnl, onDone, onChart,
             <span className="muted">
               <Spinner size={12} />
             </span>
+          ) : pnl.syncing ? (
+            <span className="muted" title="A new deposit or removal is still being indexed">
+              <Spinner size={12} /> updating…
+            </span>
           ) : !pnl.known ? (
             <strong className="muted" title="Not enough history for this position yet">
               —
