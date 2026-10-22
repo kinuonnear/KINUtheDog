@@ -1,5 +1,5 @@
 // KINU Holder: tiers by the $ value of $KINU in the wallet at the live price (HOLDER.tiers: $10 → 10%
-// off KINU's fees, $20 → 25%, $100 → 50%, $500 → 75%; KINU in LP positions doesn't count). Holders
+// off KINU's fees, $20 → 25%, $500 → 50%, $1,000 → 75%; KINU in LP positions doesn't count). Holders
 // get the ★ badge and, with HOLDER.perks.feeDiscount, their tier's share off KINU's swap and Quick LP
 // fees. Nothing is locked or staked: the tier follows the balance and the price. A wallet keeps the
 // tier it reached through a price drop of up to HOLDER.grace (35%) while it still holds that KINU.

@@ -146,7 +146,7 @@ export const INTEAR_FEE = { live: true, bps: 12.5, stableBps: 12.5 };
 // The Wallet Tracker stays free and public for everyone. Once a wallet reaches a tier, a price drop
 // of up to `grace` keeps it as long as it hasn't sold. `enabled` turns the feature on (badge,
 // Portfolio card); `perks` switch the benefits on.
-// Discount tiers (user, 2026-10-22, after Intear's TEAR tiers): [$ of KINU held, share off KINU's fees].
+// Discount tiers (user, 2026-10-22, after Intear's TEAR tiers; 50% at $500, 75% at $1,000): [$ of KINU held, share off KINU's fees].
 // minUsd is the lowest bar (the badge). Pool Analysis stays open to everyone (poolAnalysis off).
 export const HOLDER = {
   enabled: true,
@@ -154,8 +154,8 @@ export const HOLDER = {
   tiers: [
     [10, 0.1],
     [20, 0.25],
-    [100, 0.5],
-    [500, 0.75]
+    [500, 0.5],
+    [1000, 0.75]
   ],
   grace: 0.35,
   perks: { feeDiscount: true, poolAnalysis: false }
